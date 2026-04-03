@@ -30,6 +30,7 @@ class Item(Base):
     label_line_3 = Column(String)
     donate_unsold = Column(Boolean, default=False)
     status = Column(String, nullable=False, default="available")  # available/sold/donated/returned
+    label_printed = Column(Boolean, nullable=False, default=False)
     vendor_item_id = Column(String)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(

@@ -7,9 +7,11 @@ from app.database import get_db
 from app.dependencies import require_roles
 from app.models.event import Event
 from app.models.intake import Intake
+from app.models.item import Item
 from app.models.seller import Seller
 from app.models.user import User
 from app.schemas.intake import IntakeCreate, IntakeResponse, IntakeUpdate
+from app.schemas.item import IntakeWithItemsResponse, ItemCreate, ItemResponse
 
 router = APIRouter(prefix="/intakes", tags=["intakes"])
 
@@ -63,7 +65,7 @@ def create_intake(
     return intake
 
 
-@router.get("/{intake_id}", response_model=IntakeResponse)
+@router.get("/{intake_id}", response_model=IntakeWithItemsResponse)
 def get_intake(
     intake_id: int,
     db: Session = Depends(get_db),
@@ -71,6 +73,31 @@ def get_intake(
 ):
     event = _active_event(db)
     return _get_intake_for_event(intake_id, event.id, db)
+
+
+@router.post("/{intake_id}/items", response_model=ItemResponse, status_code=201)
+def add_item_to_intake(
+    intake_id: int,
+    body: ItemCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(_INTAKE_ADMIN),
+):
+    event = _active_event(db)
+    intake = _get_intake_for_event(intake_id, event.id, db)
+    existing = db.query(Item).filter(Item.code == body.code).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="Item code already exists")
+    item = Item(
+        intake_id=intake.id,
+        seller_id=intake.seller_id,
+        barcode_39=body.barcode_39 or body.code,
+        created_by=current_user.username,
+        **body.model_dump(exclude={"barcode_39"}),
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
 
 
 @router.patch("/{intake_id}", response_model=IntakeResponse)
