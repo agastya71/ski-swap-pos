@@ -64,7 +64,11 @@ def deactivate_user(
     db: Session = Depends(get_db),
     _admin: User = Depends(require_roles("admin")),
 ):
-    user = db.query(User).filter(User.id == user_id).first()
+    event = db.query(Event).filter(Event.is_active == True).first()
+    if not event:
+        raise HTTPException(status_code=503, detail="No active event configured")
+
+    user = db.query(User).filter(User.id == user_id, User.event_id == event.id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     user.is_active = False
