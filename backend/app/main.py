@@ -1,12 +1,13 @@
 from fastapi import FastAPI
 
-from app.routers import auth, events, users
+from app.routers import auth, events, users, sellers
 
 app = FastAPI(title="Ski Swap POS", version="1.0.0")
 
 app.include_router(auth.router)
 app.include_router(events.router)
 app.include_router(users.router)
+app.include_router(sellers.router)
 
 
 @app.get("/health")
