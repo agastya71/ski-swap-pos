@@ -1,0 +1,39 @@
+import pytest
+from jose import JWTError
+
+from app.services.auth import (
+    create_access_token,
+    decode_access_token,
+    hash_password,
+    verify_password,
+)
+
+
+def test_hash_password_is_not_plaintext():
+    hashed = hash_password("mysecret")
+    assert hashed != "mysecret"
+    assert len(hashed) > 20
+
+
+def test_verify_correct_password():
+    hashed = hash_password("correct")
+    assert verify_password("correct", hashed) is True
+
+
+def test_verify_wrong_password():
+    hashed = hash_password("correct")
+    assert verify_password("wrong", hashed) is False
+
+
+def test_create_and_decode_token():
+    token = create_access_token(user_id=1, username="admin", role="admin", event_id=42)
+    payload = decode_access_token(token)
+    assert payload["sub"] == "1"
+    assert payload["username"] == "admin"
+    assert payload["role"] == "admin"
+    assert payload["event_id"] == 42
+
+
+def test_decode_invalid_token_raises():
+    with pytest.raises(JWTError):
+        decode_access_token("not.a.valid.token")
