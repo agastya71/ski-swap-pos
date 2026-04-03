@@ -12,6 +12,7 @@ from app.models.seller import Seller
 from app.models.user import User
 from app.schemas.intake import IntakeCreate, IntakeResponse, IntakeUpdate
 from app.schemas.item import IntakeWithItemsResponse, ItemCreate, ItemResponse
+from app.services.zpl import generate_zpl, send_to_printer
 
 router = APIRouter(prefix="/intakes", tags=["intakes"])
 
@@ -98,6 +99,27 @@ def add_item_to_intake(
     db.commit()
     db.refresh(item)
     return item
+
+
+@router.post("/{intake_id}/labels")
+def print_intake_labels(
+    intake_id: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(_INTAKE_ADMIN),
+):
+    event = _active_event(db)
+    intake = _get_intake_for_event(intake_id, event.id, db)
+    printed = 0
+    for item in intake.items:
+        zpl = generate_zpl(item)
+        try:
+            send_to_printer(zpl)
+        except OSError as e:
+            raise HTTPException(status_code=503, detail=f"Printer unavailable: {e}")
+        item.label_printed = True
+        printed += 1
+    db.commit()
+    return {"intake_id": intake_id, "printed": printed}
 
 
 @router.patch("/{intake_id}", response_model=IntakeResponse)

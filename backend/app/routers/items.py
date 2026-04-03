@@ -9,6 +9,7 @@ from app.models.item import Item
 from app.models.seller import Seller
 from app.models.user import User
 from app.schemas.item import ItemResponse, ItemUpdate
+from app.services.zpl import generate_zpl, send_to_printer
 
 router = APIRouter(prefix="/items", tags=["items"])
 
@@ -50,6 +51,24 @@ def update_item(
     item = _item_for_active_event(item_id, db)
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(item, field, value)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+@router.post("/{item_id}/label", response_model=ItemResponse)
+def print_item_label(
+    item_id: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(_INTAKE_ADMIN),
+):
+    item = _item_for_active_event(item_id, db)
+    zpl = generate_zpl(item)
+    try:
+        send_to_printer(zpl)
+    except OSError as e:
+        raise HTTPException(status_code=503, detail=f"Printer unavailable: {e}")
+    item.label_printed = True
     db.commit()
     db.refresh(item)
     return item
