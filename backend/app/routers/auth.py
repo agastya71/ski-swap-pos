@@ -6,7 +6,11 @@ from app.dependencies import get_current_user
 from app.models.event import Event
 from app.models.user import User
 from app.schemas.auth import LoginRequest, TokenResponse
-from app.services.auth import create_access_token, verify_password
+from app.services.auth import create_access_token, hash_password, verify_password
+
+# Precomputed dummy hash — ensures bcrypt runs even for unknown usernames
+# (prevents timing oracle that would reveal valid usernames)
+_DUMMY_HASH = hash_password("dummy-constant-time-placeholder")
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -26,7 +30,8 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
         )
         .first()
     )
-    if not user or not verify_password(body.password, user.password_hash):
+    password_ok = verify_password(body.password, user.password_hash if user else _DUMMY_HASH)
+    if not user or not password_ok:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     token = create_access_token(user.id, user.username, user.role, user.event_id)
