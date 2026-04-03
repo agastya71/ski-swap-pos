@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -29,6 +29,8 @@ class Seller(Base):
         onupdate=lambda: datetime.now(timezone.utc),
     )
     created_by = Column(String)
+
+    __table_args__ = (UniqueConstraint("event_id", "code", name="uq_seller_event_code"),)
 
     event = relationship("Event", back_populates="sellers")
     intakes = relationship("Intake", back_populates="seller")
