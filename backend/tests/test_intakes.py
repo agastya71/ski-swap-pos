@@ -97,3 +97,35 @@ def test_intake_user_can_create_intake(client, intake_token, seller):
         headers={"Authorization": f"Bearer {intake_token}"},
     )
     assert resp.status_code == 201
+
+
+def test_create_intake_no_active_event_returns_503(client, db):
+    from app.models.event import Event
+    from app.models.user import User
+    from app.services.auth import create_access_token, hash_password
+
+    # Create inactive event
+    event = Event(name="Old Event", year=2025, commission_rate=0.30, is_active=False)
+    db.add(event)
+    db.commit()
+    db.refresh(event)
+
+    # Create user for this event
+    user = User(
+        event_id=event.id,
+        username="adminx",
+        password_hash=hash_password("pw"),
+        role="admin",
+        is_active=True,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    token = create_access_token(user.id, user.username, user.role, event.id)
+    resp = client.post(
+        "/intakes",
+        json={"seller_id": 1, "donate_unsold": False, "donate_proceeds": False},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 503

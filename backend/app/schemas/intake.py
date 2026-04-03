@@ -22,7 +22,7 @@ class IntakeResponse(BaseModel):
 
     id: int
     seller_id: int
-    date_entered: Optional[datetime.date] = None
+    date_entered: datetime.date
     date_received: Optional[datetime.date] = None
     donate_unsold: bool
     donate_proceeds: bool
