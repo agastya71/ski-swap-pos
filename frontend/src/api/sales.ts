@@ -1,8 +1,8 @@
 import { apiFetch } from './client'
-import type { Sale, SaleCreate } from '../types'
+import type { SaleWithItemsResponse, SaleCreate } from '../types'
 
 export const createSale = (data: SaleCreate) =>
-  apiFetch<Sale>('/sales', { method: 'POST', body: JSON.stringify(data) })
-export const getSale = (id: number) => apiFetch<Sale>(`/sales/${id}`)
+  apiFetch<SaleWithItemsResponse>('/sales', { method: 'POST', body: JSON.stringify(data) })
+export const getSale = (id: number) => apiFetch<SaleWithItemsResponse>(`/sales/${id}`)
 export const voidSale = (id: number) =>
-  apiFetch<Sale>(`/sales/${id}/void`, { method: 'POST' })
+  apiFetch<SaleWithItemsResponse>(`/sales/${id}/void`, { method: 'POST' })

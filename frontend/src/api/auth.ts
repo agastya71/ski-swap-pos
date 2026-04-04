@@ -1,11 +1,10 @@
 import type { TokenResponse } from '../types'
 
 export async function login(username: string, password: string): Promise<TokenResponse> {
-  const body = new URLSearchParams({ username, password, grant_type: 'password' })
-  const res = await fetch('/auth/token', {
+  const res = await fetch('/auth/login', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
   })
   if (!res.ok) {
     const data = await res.json().catch(() => ({ detail: 'Login failed' }))

@@ -1,19 +1,22 @@
 import { apiFetch, getToken } from './client'
-import type { SellerPayoutReport, EventRevenueReport, DonationsReport, UnsoldItemsReport, EndOfDayResult } from '../types'
+import type {
+  SellerPayoutReport,
+  EventRevenueReport,
+  DonationsReport,
+  UnsoldItemsReport,
+  EndOfDayReport,
+} from '../types'
 
-export const getSellerPayouts = () =>
-  apiFetch<SellerPayoutReport>('/reports/seller-payouts')
-export const getEventRevenue = () =>
-  apiFetch<EventRevenueReport>('/reports/event-revenue')
-export const getDonations = () =>
-  apiFetch<DonationsReport>('/reports/donations')
-export const getUnsoldItems = () =>
-  apiFetch<UnsoldItemsReport>('/reports/unsold-items')
-export const markUnsold = (action: 'donate' | 'return') =>
-  apiFetch<EndOfDayResult>('/end-of-day/mark-unsold', {
-    method: 'POST',
-    body: JSON.stringify({ action }),
-  })
+export const getSellerPayout = (eventId: number, sellerId: number) =>
+  apiFetch<SellerPayoutReport>(`/reports/${eventId}/seller/${sellerId}`)
+export const getEventRevenue = (eventId: number) =>
+  apiFetch<EventRevenueReport>(`/reports/${eventId}/revenue`)
+export const getDonations = (eventId: number) =>
+  apiFetch<DonationsReport>(`/reports/${eventId}/donations`)
+export const getUnsoldItems = (eventId: number) =>
+  apiFetch<UnsoldItemsReport>(`/reports/${eventId}/unsold`)
+export const getEndOfDay = (eventId: number) =>
+  apiFetch<EndOfDayReport>(`/reports/${eventId}/end-of-day`)
 
 export async function downloadFile(
   path: string,

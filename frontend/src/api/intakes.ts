@@ -10,4 +10,4 @@ export const updateIntake = (id: number, data: IntakeUpdate) =>
 export const addItem = (intakeId: number, data: ItemCreate) =>
   apiFetch<Item>(`/intakes/${intakeId}/items`, { method: 'POST', body: JSON.stringify(data) })
 export const printIntakeLabels = (intakeId: number) =>
-  apiFetch<void>(`/intakes/${intakeId}/labels`, { method: 'POST' })
+  apiFetch<{ intake_id: number; printed: number }>(`/intakes/${intakeId}/labels`, { method: 'POST' })

@@ -7,6 +7,6 @@ export const updateItem = (id: number, data: ItemUpdate) =>
 export const deleteItem = (id: number) =>
   apiFetch<void>(`/items/${id}`, { method: 'DELETE' })
 export const printLabel = (id: number) =>
-  apiFetch<void>(`/items/${id}/label`, { method: 'POST' })
+  apiFetch<Item>(`/items/${id}/label`, { method: 'POST' })
 export const lookupItem = (code: string) =>
   apiFetch<ItemLookupResponse>(`/items/lookup?code=${encodeURIComponent(code)}`)
