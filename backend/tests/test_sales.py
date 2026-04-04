@@ -376,3 +376,94 @@ def test_void_sale_not_found(client, admin_token, active_event):
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 404
+
+
+# ── Cross-event isolation tests ───────────────────────────────────────────────
+
+def test_create_sale_item_from_wrong_event(client, db, cashier_token, active_event):
+    """Item exists in DB but belongs to a different (inactive) event → 404."""
+    from app.models.event import Event
+    from app.models.intake import Intake
+    from app.models.item import Item
+    from app.models.seller import Seller
+
+    other_event = Event(name="Other Swap", year=2025, commission_rate=0.30, is_active=False)
+    db.add(other_event)
+    db.commit()
+    db.refresh(other_event)
+
+    other_seller = Seller(
+        event_id=other_event.id,
+        code="OTH",
+        first_name="Other",
+        last_name="Seller",
+        is_vendor=False,
+        created_by="admin",
+    )
+    db.add(other_seller)
+    db.commit()
+    db.refresh(other_seller)
+
+    other_intake = Intake(
+        seller_id=other_seller.id,
+        donate_proceeds=False,
+        donate_unsold=False,
+        created_by="admin",
+    )
+    db.add(other_intake)
+    db.commit()
+    db.refresh(other_intake)
+
+    other_item = Item(
+        intake_id=other_intake.id,
+        seller_id=other_seller.id,
+        code="OTH-001",
+        price=25.00,
+        quantity=1.0,
+        status="available",
+        label_printed=True,
+        created_by="admin",
+    )
+    db.add(other_item)
+    db.commit()
+    db.refresh(other_item)
+
+    resp = client.post(
+        "/sales",
+        json={"items": [{"item_id": other_item.id}], "cash_amount": 25.00},
+        headers={"Authorization": f"Bearer {cashier_token}"},
+    )
+    assert resp.status_code == 404
+
+
+def test_get_sale_from_wrong_event(client, db, cashier_token, active_event):
+    """Sale exists in DB but belongs to a different (inactive) event → 404."""
+    from app.models.event import Event
+    from app.models.sale import Sale
+
+    other_event = Event(name="Other Swap", year=2025, commission_rate=0.30, is_active=False)
+    db.add(other_event)
+    db.commit()
+    db.refresh(other_event)
+
+    other_sale = Sale(
+        event_id=other_event.id,
+        sale_total=0.0,
+        mysl_total=0.0,
+        seller_total=0.0,
+        cash_amount=0.0,
+        check_amount=0.0,
+        cc_amount=0.0,
+        total_paid=0.0,
+        balance_due=0.0,
+        created_by="admin",
+    )
+    db.add(other_sale)
+    db.commit()
+    db.refresh(other_sale)
+
+    resp = client.get(
+        f"/sales/{other_sale.id}",
+        headers={"Authorization": f"Bearer {cashier_token}"},
+    )
+    assert resp.status_code == 404
