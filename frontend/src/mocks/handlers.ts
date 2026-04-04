@@ -31,11 +31,11 @@ export const handlers = [
   http.post('/intakes/:id/labels', () => new HttpResponse(null, { status: 204 })),
 
   // Items — stubs (expanded in Phase 6b/6c)
+  http.get('/items/lookup', () => HttpResponse.json({ id: 1, item_code: 'A001-001', seller_code: 'A001', description: null, price: 50, status: 'available' })),
   http.get('/items/:id', () => HttpResponse.json({ id: 1, item_code: 'A001-001', category: 'Skis', brand: null, item_type: null, description: null, color: null, size: null, gender_age: null, year: null, condition: null, price: 50, quantity: 1, status: 'available', label_printed: false, donate_item: false, intake_id: 1 })),
   http.patch('/items/:id', () => HttpResponse.json({ id: 1, item_code: 'A001-001', category: 'Skis', brand: null, item_type: null, description: null, color: null, size: null, gender_age: null, year: null, condition: null, price: 50, quantity: 1, status: 'available', label_printed: false, donate_item: false, intake_id: 1 })),
   http.delete('/items/:id', () => new HttpResponse(null, { status: 204 })),
   http.post('/items/:id/label', () => new HttpResponse(null, { status: 204 })),
-  http.get('/items/lookup', () => HttpResponse.json({ id: 1, item_code: 'A001-001', seller_code: 'A001', description: null, price: 50, status: 'available' })),
 
   // Sales — stubs (expanded in Phase 6c)
   http.post('/sales', () => HttpResponse.json({ id: 1, event_id: 1, sale_total: 50, mysl_total: 15, seller_total: 35, cash_tendered: 50, check_tendered: 0, square_tendered: 0, square_payment_id: null, is_voided: false, created_at: '2026-04-04T10:00:00', items: [] })),
