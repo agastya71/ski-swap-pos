@@ -10,8 +10,8 @@ from app.models.intake import Intake
 from app.models.item import Item
 from app.models.seller import Seller
 from app.models.user import User
-from app.schemas.intake import IntakeCreate, IntakeResponse, IntakeUpdate
-from app.schemas.item import IntakeWithItemsResponse, ItemCreate, ItemResponse
+from app.schemas.intake import IntakeCreate, IntakeResponse, IntakeUpdate, IntakeWithItemsResponse
+from app.schemas.item import ItemCreate, ItemResponse
 from app.services.zpl import generate_zpl, send_to_printer
 
 router = APIRouter(prefix="/intakes", tags=["intakes"])

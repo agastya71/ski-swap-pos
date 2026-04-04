@@ -8,12 +8,13 @@ from app.models.intake import Intake
 from app.models.item import Item
 from app.models.seller import Seller
 from app.models.user import User
-from app.schemas.item import ItemResponse, ItemUpdate
+from app.schemas.item import ItemLookupResponse, ItemResponse, ItemUpdate
 from app.services.zpl import generate_zpl, send_to_printer
 
 router = APIRouter(prefix="/items", tags=["items"])
 
 _INTAKE_ADMIN = require_roles("admin", "intake")
+_CASHIER_ADMIN = require_roles("admin", "cashier")
 
 
 def _item_for_active_event(item_id: int, db: Session) -> Item:
@@ -30,6 +31,27 @@ def _item_for_active_event(item_id: int, db: Session) -> Item:
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
     return item
+
+
+@router.get("/lookup", response_model=ItemLookupResponse)
+def lookup_item(
+    code: str,
+    db: Session = Depends(get_db),
+    _user: User = Depends(_CASHIER_ADMIN),
+):
+    event = db.query(Event).filter(Event.is_active == True).first()
+    if not event:
+        raise HTTPException(status_code=503, detail="No active event configured")
+    item = (
+        db.query(Item)
+        .join(Intake)
+        .join(Seller)
+        .filter(Item.code == code, Seller.event_id == event.id)
+        .first()
+    )
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return ItemLookupResponse.model_validate({**item.__dict__, "seller_code": item.seller.code})
 
 
 @router.get("/{item_id}", response_model=ItemResponse)
@@ -83,6 +105,8 @@ def delete_item(
     item = _item_for_active_event(item_id, db)
     if item.label_printed:
         raise HTTPException(status_code=409, detail="Cannot delete item after label has been printed")
+    if item.status != "available":
+        raise HTTPException(status_code=409, detail="Cannot delete a sold item")
     db.delete(item)
     db.commit()
     return Response(status_code=204)
