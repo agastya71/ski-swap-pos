@@ -41,9 +41,16 @@ export const handlers = [
   ),
 
   // Events
-  http.get('/events', () => HttpResponse.json([])),
-  http.post('/events', () => HttpResponse.json({ id: 1, name: 'Test Event', year: 2026, commission_rate: 0.3, is_active: true })),
-  http.post('/events/:id/activate', () => HttpResponse.json({ id: 1, name: 'Test Event', year: 2026, commission_rate: 0.3, is_active: true })),
+  http.get('/events', () => HttpResponse.json([
+    { id: 1, name: 'Swap 2025', year: 2025, commission_rate: 0.3, is_active: false },
+    { id: 2, name: 'Swap 2026', year: 2026, commission_rate: 0.3, is_active: true },
+  ])),
+  http.post('/events', () =>
+    HttpResponse.json({ id: 3, name: 'Swap 2027', year: 2027, commission_rate: 0.3, is_active: false })
+  ),
+  http.post('/events/:id/activate', ({ params }) =>
+    HttpResponse.json({ id: Number(params['id']), name: 'Swap 2026', year: 2026, commission_rate: 0.3, is_active: true })
+  ),
 
   // Users
   http.get('/users', () => HttpResponse.json([])),
