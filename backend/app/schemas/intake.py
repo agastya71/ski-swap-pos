@@ -30,3 +30,10 @@ class IntakeResponse(BaseModel):
     mysl_total: float
     seller_total: float
     created_at: datetime.datetime
+
+
+from app.schemas.item import ItemResponse
+
+
+class IntakeWithItemsResponse(IntakeResponse):
+    items: list[ItemResponse] = []

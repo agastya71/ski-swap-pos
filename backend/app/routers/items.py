@@ -83,6 +83,8 @@ def delete_item(
     item = _item_for_active_event(item_id, db)
     if item.label_printed:
         raise HTTPException(status_code=409, detail="Cannot delete item after label has been printed")
+    if item.status != "available":
+        raise HTTPException(status_code=409, detail="Cannot delete a sold item")
     db.delete(item)
     db.commit()
     return Response(status_code=204)

@@ -2,9 +2,6 @@ import datetime
 from typing import Optional
 from pydantic import BaseModel, ConfigDict
 
-from app.schemas.intake import IntakeResponse
-
-
 class ItemCreate(BaseModel):
     code: str
     category: Optional[str] = None
@@ -75,5 +72,3 @@ class ItemResponse(BaseModel):
     created_at: datetime.datetime
 
 
-class IntakeWithItemsResponse(IntakeResponse):
-    items: list[ItemResponse] = []
