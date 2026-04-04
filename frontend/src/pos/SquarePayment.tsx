@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { Component, useEffect, useRef, useState, type ReactNode } from 'react'
 
 declare global {
   interface Window {
@@ -13,10 +13,22 @@ declare global {
   }
 }
 
-const SQUARE_APP_ID = import.meta.env.VITE_SQUARE_APP_ID ?? 'sandbox-sq0idb-placeholder'
-const SQUARE_LOCATION_ID = import.meta.env.VITE_SQUARE_LOCATION_ID ?? 'placeholder'
+const SQUARE_APP_ID = import.meta.env.VITE_SQUARE_APP_ID ?? ''
+const SQUARE_LOCATION_ID = import.meta.env.VITE_SQUARE_LOCATION_ID ?? ''
+const INIT_TIMEOUT_MS = 8000
 
-export function SquarePayment({ onToken, onError }: {
+class SquareErrorBoundary extends Component<{ children: ReactNode }, { crashed: boolean }> {
+  state = { crashed: false }
+  static getDerivedStateFromError() { return { crashed: true } }
+  render() {
+    if (this.state.crashed) {
+      return <p style={{ color: 'orange', margin: 0 }}>Card payment unavailable. Use cash or check below.</p>
+    }
+    return this.props.children
+  }
+}
+
+function SquarePaymentInner({ onToken, onError }: {
   onToken: (token: string) => void
   onError: (msg: string) => void
 }) {
@@ -28,22 +40,45 @@ export function SquarePayment({ onToken, onError }: {
 
   useEffect(() => {
     if (!window.Square) {
-      setSdkError('Square SDK unavailable — check internet connection.')
+      setSdkError('Square SDK not loaded. Use cash or check below.')
       return
     }
+    if (!SQUARE_APP_ID || !SQUARE_LOCATION_ID) {
+      setSdkError('Square credentials not configured. Use cash or check below.')
+      return
+    }
+
     let mounted = true
-    window.Square.payments(SQUARE_APP_ID, SQUARE_LOCATION_ID)
-      .then(payments => payments.card())
-      .then(async card => {
-        if (!mounted || !containerRef.current) return
-        await card.attach('#square-card-container')
-        cardRef.current = card
-        setReady(true)
-      })
-      .catch(err => {
-        if (mounted) setSdkError(`Square init failed: ${err instanceof Error ? err.message : String(err)}`)
-      })
-    return () => { mounted = false }
+    const timeoutId = setTimeout(() => {
+      if (mounted && !cardRef.current) {
+        setSdkError('Square connection timed out. Use cash or check below.')
+      }
+    }, INIT_TIMEOUT_MS)
+
+    try {
+      window.Square.payments(SQUARE_APP_ID, SQUARE_LOCATION_ID)
+        .then(payments => payments.card())
+        .then(async card => {
+          if (!mounted || !containerRef.current) return
+          await card.attach('#square-card-container')
+          cardRef.current = card
+          clearTimeout(timeoutId)
+          setReady(true)
+        })
+        .catch(err => {
+          clearTimeout(timeoutId)
+          if (mounted) setSdkError('Card payment unavailable. Use cash or check below.')
+          onError(err instanceof Error ? err.message : String(err))
+        })
+    } catch (err) {
+      clearTimeout(timeoutId)
+      if (mounted) setSdkError('Card payment unavailable. Use cash or check below.')
+    }
+
+    return () => {
+      mounted = false
+      clearTimeout(timeoutId)
+    }
   }, [])
 
   async function handleCapture() {
@@ -65,7 +100,7 @@ export function SquarePayment({ onToken, onError }: {
   }
 
   if (sdkError) {
-    return <p style={{ color: 'orange' }}>⚠ {sdkError}</p>
+    return <p style={{ color: 'orange', margin: 0 }}>{sdkError}</p>
   }
 
   return (
@@ -75,10 +110,18 @@ export function SquarePayment({ onToken, onError }: {
         type="button"
         onClick={handleCapture}
         disabled={!ready || loading}
-        style={{ padding: '8px 20px', background: '#2e7d32', color: 'white', border: 'none', cursor: 'pointer' }}
+        style={{ padding: '8px 20px', background: '#2e7d32', color: 'white', border: 'none', cursor: ready ? 'pointer' : 'not-allowed' }}
       >
-        {loading ? 'Processing…' : 'Capture Card'}
+        {loading ? 'Processing…' : ready ? 'Capture Card' : 'Connecting to Square…'}
       </button>
     </div>
+  )
+}
+
+export function SquarePayment(props: { onToken: (token: string) => void; onError: (msg: string) => void }) {
+  return (
+    <SquareErrorBoundary>
+      <SquarePaymentInner {...props} />
+    </SquareErrorBoundary>
   )
 }
