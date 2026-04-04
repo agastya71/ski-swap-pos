@@ -21,3 +21,11 @@ app.include_router(admin_router)
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+import os
+
+from fastapi.staticfiles import StaticFiles
+
+_STATIC = os.path.join(os.path.dirname(__file__), "..", "static")
+if os.path.isdir(_STATIC):
+    app.mount("/", StaticFiles(directory=_STATIC, html=True), name="frontend")
