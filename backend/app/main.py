@@ -1,4 +1,7 @@
+import os
+
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from app.routers import auth, events, users, sellers, intakes, items
 from app.routers.sales import router as sales_router
@@ -22,9 +25,6 @@ app.include_router(admin_router)
 def health():
     return {"status": "ok"}
 
-import os
-
-from fastapi.staticfiles import StaticFiles
 
 _STATIC = os.path.join(os.path.dirname(__file__), "..", "static")
 if os.path.isdir(_STATIC):
