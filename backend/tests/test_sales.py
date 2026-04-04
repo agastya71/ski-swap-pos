@@ -284,3 +284,92 @@ def test_create_sale_intake_role_forbidden(client, intake_token, active_event, i
         headers={"Authorization": f"Bearer {intake_token}"},
     )
     assert resp.status_code == 403
+
+
+# ── Shared fixture for GET and void tests ─────────────────────────────────────
+
+@pytest.fixture
+def created_sale(client, admin_token, active_event, item):
+    resp = client.post(
+        "/sales",
+        json={"items": [{"item_id": item.id}], "cash_amount": 20.00},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 201
+    return resp.json()
+
+
+# ── GET /sales/{id} tests ─────────────────────────────────────────────────────
+
+def test_get_sale(client, cashier_token, active_event, created_sale):
+    resp = client.get(
+        f"/sales/{created_sale['id']}",
+        headers={"Authorization": f"Bearer {cashier_token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["id"] == created_sale["id"]
+    assert data["sale_total"] == 20.00
+    assert len(data["sale_items"]) == 1
+
+
+def test_get_sale_not_found(client, cashier_token, active_event):
+    resp = client.get(
+        "/sales/99999",
+        headers={"Authorization": f"Bearer {cashier_token}"},
+    )
+    assert resp.status_code == 404
+
+
+def test_get_sale_intake_role_forbidden(client, intake_token, active_event, created_sale):
+    resp = client.get(
+        f"/sales/{created_sale['id']}",
+        headers={"Authorization": f"Bearer {intake_token}"},
+    )
+    assert resp.status_code == 403
+
+
+# ── POST /sales/{id}/void tests ───────────────────────────────────────────────
+
+def test_void_sale_restores_item_status(client, db, admin_token, active_event, created_sale, item):
+    resp = client.post(
+        f"/sales/{created_sale['id']}/void",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    db.refresh(item)
+    assert item.status == "available"
+
+
+def test_void_sale_marks_as_voided(client, db, admin_token, active_event, created_sale):
+    resp = client.post(
+        f"/sales/{created_sale['id']}/void",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["is_voided"] is True
+
+
+def test_void_sale_preserves_sale_record(client, db, admin_token, active_event, created_sale):
+    from app.models.sale import Sale
+    client.post(
+        f"/sales/{created_sale['id']}/void",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert db.query(Sale).filter(Sale.id == created_sale["id"]).first() is not None
+
+
+def test_void_sale_cashier_forbidden(client, cashier_token, active_event, created_sale):
+    resp = client.post(
+        f"/sales/{created_sale['id']}/void",
+        headers={"Authorization": f"Bearer {cashier_token}"},
+    )
+    assert resp.status_code == 403
+
+
+def test_void_sale_not_found(client, admin_token, active_event):
+    resp = client.post(
+        "/sales/99999/void",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 404
