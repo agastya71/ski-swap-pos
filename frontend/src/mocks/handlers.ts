@@ -86,37 +86,47 @@ export const handlers = [
   http.get('/reports/:eventId/seller/:sellerId', () =>
     HttpResponse.json({
       event_id: 1, event_name: 'Test Event', seller_id: 1, seller_code: 'A001',
-      seller_name: 'Jane Doe', seller_email: null,
-      items_consigned: 0, items_sold: 0, items_unsold: 0, items_donated: 0,
-      gross_sales: 0, mysl_total: 0, seller_total: 0,
-      line_items: [], generated_at: '2026-04-04T10:00:00',
+      seller_name: 'Jane Doe', seller_email: 'jane@example.com',
+      items_consigned: 4, items_sold: 3, items_unsold: 1, items_donated: 0,
+      gross_sales: 150, mysl_total: 45, seller_total: 105,
+      line_items: [
+        { item_code: 'A001-001', description: 'Ski boots', price: 50, sell_price: 50, status: 'sold' },
+      ],
+      generated_at: '2026-04-04T10:00:00',
     })
   ),
   http.get('/reports/:eventId/revenue', () =>
     HttpResponse.json({
       event_id: 1, event_name: 'Test Event', event_year: 2026,
-      total_sales: 0, voided_sales: 0, gross_revenue: 0,
-      mysl_total: 0, seller_total: 0, cash_total: 0, check_total: 0, cc_total: 0,
+      total_sales: 2, voided_sales: 0, gross_revenue: 190,
+      mysl_total: 57, seller_total: 133,
+      cash_total: 150, check_total: 40, cc_total: 0,
       donate_proceeds_total: 0, generated_at: '2026-04-04T10:00:00',
     })
   ),
   http.get('/reports/:eventId/donations', () =>
     HttpResponse.json({
       event_id: 1, event_name: 'Test Event',
-      items: [], total_items: 0, total_value: 0, generated_at: '2026-04-04T10:00:00',
+      items: [
+        { seller_code: 'A001', item_code: 'A001-004', description: 'Blue helmet', price: 30, donation_type: 'donate_unsold' },
+      ],
+      total_items: 1, total_value: 30, generated_at: '2026-04-04T10:00:00',
     })
   ),
   http.get('/reports/:eventId/unsold', () =>
     HttpResponse.json({
       event_id: 1, event_name: 'Test Event',
-      items: [], total_items: 0, total_value: 0, generated_at: '2026-04-04T10:00:00',
+      items: [
+        { seller_code: 'A001', item_code: 'A001-005', description: 'Red jacket', category: 'Jackets', price: 45 },
+      ],
+      total_items: 1, total_value: 45, generated_at: '2026-04-04T10:00:00',
     })
   ),
   http.get('/reports/:eventId/end-of-day', () =>
     HttpResponse.json({
       event_id: 1, event_name: 'Test Event', date_generated: '2026-04-04',
-      sales_count: 0, voided_count: 0, gross_revenue: 0,
-      mysl_total: 0, seller_total: 0, cash_total: 0, check_total: 0, cc_total: 0,
+      sales_count: 5, voided_count: 0, gross_revenue: 250,
+      mysl_total: 75, seller_total: 175, cash_total: 200, check_total: 50, cc_total: 0,
       generated_at: '2026-04-04T10:00:00',
     })
   ),
