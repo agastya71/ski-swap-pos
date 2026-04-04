@@ -72,3 +72,7 @@ class ItemResponse(BaseModel):
     created_at: datetime.datetime
 
 
+class ItemLookupResponse(ItemResponse):
+    seller_code: str
+
+

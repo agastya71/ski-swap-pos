@@ -130,3 +130,44 @@ def test_cashier_cannot_add_item(client, cashier_token, intake):
         headers={"Authorization": f"Bearer {cashier_token}"},
     )
     assert resp.status_code == 403
+
+
+# ── Lookup tests ──────────────────────────────────────────────────────────────
+
+def test_lookup_item_by_code(client, cashier_token, active_event, item, seller):
+    resp = client.get(
+        f"/items/lookup?code={item.code}",
+        headers={"Authorization": f"Bearer {cashier_token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["code"] == item.code
+    assert data["seller_code"] == seller.code
+    assert data["status"] == "available"
+
+
+def test_lookup_item_not_found(client, cashier_token, active_event):
+    resp = client.get(
+        "/items/lookup?code=DOESNOTEXIST",
+        headers={"Authorization": f"Bearer {cashier_token}"},
+    )
+    assert resp.status_code == 404
+
+
+def test_lookup_sold_item_returns_200_with_status(client, db, cashier_token, active_event, item):
+    item.status = "sold"
+    db.commit()
+    resp = client.get(
+        f"/items/lookup?code={item.code}",
+        headers={"Authorization": f"Bearer {cashier_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "sold"
+
+
+def test_lookup_intake_role_forbidden(client, intake_token, active_event, item):
+    resp = client.get(
+        f"/items/lookup?code={item.code}",
+        headers={"Authorization": f"Bearer {intake_token}"},
+    )
+    assert resp.status_code == 403
