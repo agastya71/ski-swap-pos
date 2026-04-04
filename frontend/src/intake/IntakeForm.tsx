@@ -1,0 +1,51 @@
+import { useState, type FormEvent } from 'react'
+import { createIntake } from '../api/intakes'
+import type { Seller, Intake } from '../types'
+
+export function IntakeForm({ seller, onCreated }: {
+  seller: Seller
+  onCreated: (intake: Intake) => void
+}) {
+  const [donateProceeds, setDonateProceeds] = useState(false)
+  const [donateUnsold, setDonateUnsold] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+    try {
+      const intake = await createIntake({
+        seller_id: seller.id,
+        donate_proceeds: donateProceeds,
+        donate_unsold: donateUnsold,
+      })
+      onCreated(intake)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create intake')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <h3>New Intake — {seller.first_name} {seller.last_name} ({seller.code})</h3>
+      <div style={{ marginBottom: 10 }}>
+        <label>
+          <input type="checkbox" id="donateProceeds" checked={donateProceeds} onChange={e => setDonateProceeds(e.target.checked)} />
+          {' '}Donate proceeds (MYSL keeps 100% of sale price)
+        </label>
+      </div>
+      <div style={{ marginBottom: 10 }}>
+        <label>
+          <input type="checkbox" id="donateUnsold" checked={donateUnsold} onChange={e => setDonateUnsold(e.target.checked)} />
+          {' '}Donate unsold items
+        </label>
+      </div>
+      {error && <div role="alert" style={{ color: 'red', marginBottom: 10 }}>{error}</div>}
+      <button type="submit" disabled={loading}>Start Intake</button>
+    </form>
+  )
+}
