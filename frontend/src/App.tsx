@@ -6,7 +6,7 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 
 import { IntakePage } from './intake/IntakePage'
 import { POSPage } from './pos/POSPage'
-const AdminPage = () => <p>Admin module — coming in Phase 6d</p>
+import { AdminPage } from './admin/AdminPage'
 
 type Page = 'intake' | 'pos' | 'admin'
 
