@@ -5,7 +5,7 @@ import { Layout } from './components/Layout'
 import { ProtectedRoute } from './components/ProtectedRoute'
 
 import { IntakePage } from './intake/IntakePage'
-const POSPage = () => <p>POS module — coming in Phase 6c</p>
+import { POSPage } from './pos/POSPage'
 const AdminPage = () => <p>Admin module — coming in Phase 6d</p>
 
 type Page = 'intake' | 'pos' | 'admin'
