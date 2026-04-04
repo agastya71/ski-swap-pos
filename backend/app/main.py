@@ -1,4 +1,7 @@
+import os
+
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from app.routers import auth, events, users, sellers, intakes, items
 from app.routers.sales import router as sales_router
@@ -21,3 +24,8 @@ app.include_router(admin_router)
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+_STATIC = os.path.join(os.path.dirname(__file__), "..", "static")
+if os.path.isdir(_STATIC):
+    app.mount("/", StaticFiles(directory=_STATIC, html=True), name="frontend")
