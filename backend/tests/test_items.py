@@ -171,3 +171,14 @@ def test_lookup_intake_role_forbidden(client, intake_token, active_event, item):
         headers={"Authorization": f"Bearer {intake_token}"},
     )
     assert resp.status_code == 403
+
+
+def test_lookup_no_active_event(client, db, cashier_token):
+    from app.models.event import Event
+    db.query(Event).update({"is_active": False})
+    db.commit()
+    resp = client.get(
+        "/items/lookup?code=ABC-001",
+        headers={"Authorization": f"Bearer {cashier_token}"},
+    )
+    assert resp.status_code == 503

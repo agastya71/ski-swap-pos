@@ -51,8 +51,7 @@ def lookup_item(
     )
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
-    item_data = {**ItemResponse.model_validate(item).model_dump(), "seller_code": item.seller.code}
-    return ItemLookupResponse(**item_data)
+    return ItemLookupResponse.model_validate({**item.__dict__, "seller_code": item.seller.code})
 
 
 @router.get("/{item_id}", response_model=ItemResponse)
