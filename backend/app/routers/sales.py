@@ -57,6 +57,7 @@ def void_sale(
         raise HTTPException(status_code=404, detail="Sale not found")
     for sale_item in sale.sale_items:
         sale_item.item.status = "available"
+    sale.is_voided = True
     db.commit()
     db.refresh(sale)
     return sale

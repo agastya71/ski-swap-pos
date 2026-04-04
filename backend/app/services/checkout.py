@@ -47,8 +47,7 @@ def create_sale_atomic(
             raise HTTPException(
                 status_code=422, detail=f"Item {item.code} is not available"
             )
-        intake = db.query(Intake).filter(Intake.id == item.intake_id).first()
-        items_and_intakes.append((line, item, intake))
+        items_and_intakes.append((line, item, item.intake))
 
     # Create sale row
     sale = Sale(

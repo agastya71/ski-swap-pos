@@ -60,6 +60,7 @@ class SaleResponse(BaseModel):
     total_paid: float
     balance_due: float
     notes: Optional[str] = None
+    is_voided: bool = False
     created_at: datetime.datetime
     created_by: Optional[str] = None
 
