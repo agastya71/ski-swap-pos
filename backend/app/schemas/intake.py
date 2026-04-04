@@ -1,6 +1,9 @@
 import datetime
 from typing import Optional
+
 from pydantic import BaseModel, ConfigDict
+
+from app.schemas.item import ItemResponse
 
 
 class IntakeCreate(BaseModel):
@@ -30,9 +33,6 @@ class IntakeResponse(BaseModel):
     mysl_total: float
     seller_total: float
     created_at: datetime.datetime
-
-
-from app.schemas.item import ItemResponse
 
 
 class IntakeWithItemsResponse(IntakeResponse):
