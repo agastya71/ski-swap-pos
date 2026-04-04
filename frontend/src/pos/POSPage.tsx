@@ -3,6 +3,7 @@ import { createSale } from '../api/sales'
 import { LookupField } from './LookupField'
 import { Cart } from './Cart'
 import { PaymentForm } from './PaymentForm'
+import { SquarePayment } from './SquarePayment'
 import { ConfirmationScreen } from './ConfirmationScreen'
 import type { ItemLookupResponse, SaleWithItemsResponse } from '../types'
 
@@ -59,11 +60,20 @@ export function POSPage() {
     return (
       <div style={{ maxWidth: 480 }}>
         {error && <div role="alert" style={{ color: 'red', marginBottom: 12 }}>{error}</div>}
+        {!squareToken && (
+          <div style={{ marginBottom: 20, padding: 16, border: '1px solid #ccc', borderRadius: 4 }}>
+            <h4 style={{ margin: '0 0 10px' }}>Pay by Card (Square)</h4>
+            <SquarePayment
+              onToken={token => setSquareToken(token)}
+              onError={msg => setError(msg)}
+            />
+          </div>
+        )}
         <PaymentForm
           total={total}
           squareToken={squareToken}
           onSubmit={handlePayment}
-          onCancel={() => { setStep('cart'); setError(null) }}
+          onCancel={() => { setStep('cart'); setSquareToken(null); setError(null) }}
         />
       </div>
     )
