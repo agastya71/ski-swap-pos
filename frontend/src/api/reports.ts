@@ -15,10 +15,14 @@ export const markUnsold = (action: 'donate' | 'return') =>
     body: JSON.stringify({ action }),
   })
 
-export async function downloadFile(path: string, filename: string): Promise<void> {
+export async function downloadFile(
+  path: string,
+  filename: string,
+  method: 'GET' | 'POST' = 'GET'
+): Promise<void> {
   const token = getToken()
   const res = await fetch(path, {
-    method: path.includes('backup') ? 'POST' : 'GET',
+    method,
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   })
   if (!res.ok) throw new Error(`Download failed: ${res.statusText}`)
@@ -27,6 +31,8 @@ export async function downloadFile(path: string, filename: string): Promise<void
   const a = document.createElement('a')
   a.href = url
   a.download = filename
+  document.body.appendChild(a)
   a.click()
+  document.body.removeChild(a)
   URL.revokeObjectURL(url)
 }
