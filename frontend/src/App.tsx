@@ -4,8 +4,7 @@ import { LoginPage } from './auth/LoginPage'
 import { Layout } from './components/Layout'
 import { ProtectedRoute } from './components/ProtectedRoute'
 
-// Placeholders — replaced by Phase 6b, 6c, 6d imports
-const IntakePage = () => <p>Intake module — coming in Phase 6b</p>
+import { IntakePage } from './intake/IntakePage'
 const POSPage = () => <p>POS module — coming in Phase 6c</p>
 const AdminPage = () => <p>Admin module — coming in Phase 6d</p>
 
