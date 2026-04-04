@@ -1,4 +1,3 @@
-import pytest
 from app.services.checkout import compute_commission
 
 
