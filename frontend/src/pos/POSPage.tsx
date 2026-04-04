@@ -7,14 +7,34 @@ import { SquarePayment } from './SquarePayment'
 import { ConfirmationScreen } from './ConfirmationScreen'
 import type { ItemLookupResponse, SaleWithItemsResponse } from '../types'
 
+const CART_KEY = 'pos_cart'
+
 type POSStep = 'cart' | 'payment' | 'confirmed'
 
 export function POSPage() {
-  const [items, setItems] = useState<ItemLookupResponse[]>([])
+  const [items, setItemsState] = useState<ItemLookupResponse[]>(() => {
+    try {
+      const stored = localStorage.getItem(CART_KEY)
+      return stored ? (JSON.parse(stored) as ItemLookupResponse[]) : []
+    } catch {
+      return []
+    }
+  })
   const [step, setStep] = useState<POSStep>('cart')
   const [sale, setSale] = useState<SaleWithItemsResponse | null>(null)
   const [squareToken, setSquareToken] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  function setItems(updater: ItemLookupResponse[] | ((prev: ItemLookupResponse[]) => ItemLookupResponse[])) {
+    setItemsState(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater
+      try {
+        if (next.length === 0) localStorage.removeItem(CART_KEY)
+        else localStorage.setItem(CART_KEY, JSON.stringify(next))
+      } catch { /* non-browser environment */ }
+      return next
+    })
+  }
 
   function handleFound(item: ItemLookupResponse) {
     setItems(prev => [...prev, item])
@@ -35,6 +55,7 @@ export function POSPage() {
         check_amount: check,
         cc_amount: square,
       })
+      setItems([])
       setSale(created)
       setStep('confirmed')
     } catch (err) {

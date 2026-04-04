@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
 import { jwtDecode } from 'jwt-decode'
-import { setToken } from '../api/client'
+import { setToken, getToken } from '../api/client'
 import type { DecodedToken } from '../types'
 
 interface AuthContextValue {
@@ -12,9 +12,23 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+function tryRestoreToken(): string | null {
+  const t = getToken()
+  if (!t) return null
+  try {
+    const d = jwtDecode<DecodedToken>(t)
+    if (d.exp * 1000 > Date.now()) return t
+  } catch { /* malformed token */ }
+  setToken(null) // clear expired/invalid token
+  return null
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setTokenState] = useState<string | null>(null)
-  const [decoded, setDecoded] = useState<DecodedToken | null>(null)
+  const [token, setTokenState] = useState<string | null>(() => tryRestoreToken())
+  const [decoded, setDecoded] = useState<DecodedToken | null>(() => {
+    const t = tryRestoreToken()
+    return t ? jwtDecode<DecodedToken>(t) : null
+  })
 
   function signIn(t: string) {
     setToken(t)

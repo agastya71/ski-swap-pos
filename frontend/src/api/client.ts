@@ -1,7 +1,21 @@
-let _token: string | null = null
+const TOKEN_KEY = 'auth_token'
+let _token: string | null | undefined = undefined // undefined = not yet read from storage
 
-export function setToken(t: string | null) { _token = t }
-export function getToken() { return _token }
+export function setToken(t: string | null) {
+  _token = t
+  try {
+    if (t) localStorage.setItem(TOKEN_KEY, t)
+    else localStorage.removeItem(TOKEN_KEY)
+  } catch { /* non-browser environment */ }
+}
+
+export function getToken(): string | null {
+  if (_token === undefined) {
+    try { _token = localStorage.getItem(TOKEN_KEY) }
+    catch { _token = null }
+  }
+  return _token
+}
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
