@@ -15,7 +15,6 @@ export default defineConfig({
       '/items': 'http://localhost:8000',
       '/sales': 'http://localhost:8000',
       '/reports': 'http://localhost:8000',
-      '/end-of-day': 'http://localhost:8000',
       '/admin': 'http://localhost:8000',
     },
   },
