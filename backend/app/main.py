@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from app.routers import auth, events, users, sellers, intakes, items
 from app.routers.sales import router as sales_router
 from app.routers.reports import router as reports_router
+from app.routers.admin import router as admin_router
 
 app = FastAPI(title="Ski Swap POS", version="1.0.0")
 
@@ -14,6 +15,7 @@ app.include_router(intakes.router)
 app.include_router(items.router)
 app.include_router(sales_router)
 app.include_router(reports_router)
+app.include_router(admin_router)
 
 
 @app.get("/health")
