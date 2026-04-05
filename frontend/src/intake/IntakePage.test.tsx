@@ -22,51 +22,69 @@ function renderPage() {
   render(<AuthProvider><IntakePage /></AuthProvider>)
 }
 
+async function selectSeller() {
+  fireEvent.change(screen.getByPlaceholderText(/search by name or code/i), { target: { value: 'Jane' } })
+  await waitFor(() => screen.getByText('Jane Doe — A001'))
+  fireEvent.click(screen.getByText('Jane Doe — A001'))
+}
+
 describe('IntakePage workflow', () => {
   it('starts at seller search step', () => {
     renderPage()
     expect(screen.getByPlaceholderText(/search by name or code/i)).toBeInTheDocument()
   })
 
-  it('advances to intake form after selecting a seller', async () => {
-    server.use(http.get('/sellers', () => HttpResponse.json([SELLER])))
-    renderPage()
-    fireEvent.change(screen.getByPlaceholderText(/search by name or code/i), { target: { value: 'Jane' } })
-    await waitFor(() => screen.getByText('Jane Doe — A001'))
-    fireEvent.click(screen.getByText('Jane Doe — A001'))
-    await waitFor(() => expect(screen.getByText(/start intake/i)).toBeInTheDocument())
-  })
-
-  it('advances to item entry after creating intake', async () => {
+  it('shows select-intake step after selecting a seller with no prior intakes', async () => {
     server.use(
       http.get('/sellers', () => HttpResponse.json([SELLER])),
+      http.get('/sellers/:id/intakes', () => HttpResponse.json([])),
+    )
+    renderPage()
+    await selectSeller()
+    await waitFor(() => expect(screen.getByRole('button', { name: /\+ new intake/i })).toBeInTheDocument())
+    expect(screen.getByText(/no previous intakes/i)).toBeInTheDocument()
+  })
+
+  it('lists existing intakes and allows continuing one', async () => {
+    server.use(
+      http.get('/sellers', () => HttpResponse.json([SELLER])),
+      http.get('/sellers/:id/intakes', () => HttpResponse.json([INTAKE])),
+      http.get('/intakes/:id', () => HttpResponse.json(INTAKE_WITH_ITEMS)),
+    )
+    renderPage()
+    await selectSeller()
+    await waitFor(() => expect(screen.getByRole('button', { name: /continue/i })).toBeInTheDocument())
+    expect(screen.getByText('#5')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /continue/i }))
+    await waitFor(() => expect(screen.getByRole('button', { name: /add item/i })).toBeInTheDocument())
+  })
+
+  it('advances to item entry after creating a new intake', async () => {
+    server.use(
+      http.get('/sellers', () => HttpResponse.json([SELLER])),
+      http.get('/sellers/:id/intakes', () => HttpResponse.json([])),
       http.post('/intakes', () => HttpResponse.json(INTAKE)),
       http.get('/intakes/:id', () => HttpResponse.json(INTAKE_WITH_ITEMS)),
     )
     renderPage()
-    fireEvent.change(screen.getByPlaceholderText(/search by name or code/i), { target: { value: 'Jane' } })
-    await waitFor(() => screen.getByText('Jane Doe — A001'))
-    fireEvent.click(screen.getByText('Jane Doe — A001'))
+    await selectSeller()
+    await waitFor(() => screen.getByRole('button', { name: /\+ new intake/i }))
+    fireEvent.click(screen.getByRole('button', { name: /\+ new intake/i }))
     await waitFor(() => screen.getByRole('button', { name: /start intake/i }))
     fireEvent.click(screen.getByRole('button', { name: /start intake/i }))
     await waitFor(() => expect(screen.getByRole('button', { name: /add item/i })).toBeInTheDocument())
     expect(screen.getByText(/no items yet/i)).toBeInTheDocument()
   })
 
-  it('shows New Intake button to start over', async () => {
+  it('returns to search when Intake breadcrumb link is clicked', async () => {
     server.use(
       http.get('/sellers', () => HttpResponse.json([SELLER])),
-      http.post('/intakes', () => HttpResponse.json(INTAKE)),
-      http.get('/intakes/:id', () => HttpResponse.json(INTAKE_WITH_ITEMS)),
+      http.get('/sellers/:id/intakes', () => HttpResponse.json([])),
     )
     renderPage()
-    fireEvent.change(screen.getByPlaceholderText(/search by name or code/i), { target: { value: 'Jane' } })
-    await waitFor(() => screen.getByText('Jane Doe — A001'))
-    fireEvent.click(screen.getByText('Jane Doe — A001'))
-    await waitFor(() => screen.getByRole('button', { name: /start intake/i }))
-    fireEvent.click(screen.getByRole('button', { name: /start intake/i }))
-    await waitFor(() => screen.getByRole('button', { name: /new intake/i }))
-    fireEvent.click(screen.getByRole('button', { name: /new intake/i }))
+    await selectSeller()
+    await waitFor(() => screen.getByRole('button', { name: /^intake$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^intake$/i }))
     expect(screen.getByPlaceholderText(/search by name or code/i)).toBeInTheDocument()
   })
 })

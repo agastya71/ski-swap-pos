@@ -57,9 +57,10 @@ export const handlers = [
   http.post('/users', () => HttpResponse.json({ id: 1, username: 'user1', role: 'intake', is_active: true, event_id: 1 })),
   http.patch('/users/:id/deactivate', () => HttpResponse.json({ id: 1, username: 'user1', role: 'intake', is_active: false, event_id: 1 })),
 
-  // Sellers
+  // Sellers — specific routes before /:id to avoid shadowing
   http.get('/sellers', () => HttpResponse.json([])),
   http.post('/sellers', () => HttpResponse.json(SELLER)),
+  http.get('/sellers/:id/intakes', () => HttpResponse.json([INTAKE])),
   http.get('/sellers/:id', () => HttpResponse.json(SELLER)),
   http.patch('/sellers/:id', () => HttpResponse.json(SELLER)),
 

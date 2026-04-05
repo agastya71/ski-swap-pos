@@ -1,6 +1,8 @@
 import { apiFetch } from './client'
 import type { Intake, IntakeWithItems, IntakeCreate, IntakeUpdate, Item, ItemCreate } from '../types'
 
+export const getSellerIntakes = (sellerId: number) =>
+  apiFetch<Intake[]>(`/sellers/${sellerId}/intakes`)
 export const createIntake = (data: IntakeCreate) =>
   apiFetch<Intake>('/intakes', { method: 'POST', body: JSON.stringify(data) })
 export const getIntake = (id: number) =>

@@ -6,8 +6,10 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import require_roles
 from app.models.event import Event
+from app.models.intake import Intake
 from app.models.seller import Seller
 from app.models.user import User
+from app.schemas.intake import IntakeResponse
 from app.schemas.seller import SellerCreate, SellerResponse, SellerUpdate
 
 router = APIRouter(prefix="/sellers", tags=["sellers"])
@@ -81,6 +83,28 @@ def get_seller(
     if not seller:
         raise HTTPException(status_code=404, detail="Seller not found")
     return seller
+
+
+@router.get("/{seller_id}/intakes", response_model=list[IntakeResponse])
+def list_seller_intakes(
+    seller_id: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(_INTAKE_ADMIN),
+):
+    event = _active_event(db)
+    seller = (
+        db.query(Seller)
+        .filter(Seller.id == seller_id, Seller.event_id == event.id)
+        .first()
+    )
+    if not seller:
+        raise HTTPException(status_code=404, detail="Seller not found")
+    return (
+        db.query(Intake)
+        .filter(Intake.seller_id == seller_id)
+        .order_by(Intake.id.desc())
+        .all()
+    )
 
 
 @router.patch("/{seller_id}", response_model=SellerResponse)
