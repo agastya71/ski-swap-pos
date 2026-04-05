@@ -15,52 +15,108 @@ const FOUND: ItemLookupResponse = {
   seller_code: 'A001',
 }
 
+const FOUND2: ItemLookupResponse = { ...FOUND, id: 2, code: 'A001-002', price: 40 }
+
+function enter(value: string) {
+  fireEvent.change(screen.getByRole('textbox'), { target: { value } })
+  fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter', code: 'Enter' })
+}
+
 describe('LookupField', () => {
   it('renders an input that is focused on mount', () => {
     render(<LookupField onFound={vi.fn()} />)
     expect(document.activeElement).toBe(screen.getByRole('textbox'))
   })
 
-  it('calls onFound with the item when lookup succeeds', async () => {
+  it('calls onFound with the item when exact lookup succeeds', async () => {
     server.use(http.get('/items/lookup', () => HttpResponse.json(FOUND)))
     const onFound = vi.fn()
     render(<LookupField onFound={onFound} />)
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'A001-001' } })
-    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter', code: 'Enter' })
+    enter('A001-001')
     await waitFor(() => expect(onFound).toHaveBeenCalledWith(FOUND))
   })
 
-  it('clears the input after a successful lookup', async () => {
+  it('clears the input after a successful exact lookup', async () => {
     server.use(http.get('/items/lookup', () => HttpResponse.json(FOUND)))
     render(<LookupField onFound={vi.fn()} />)
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'A001-001' } })
-    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter', code: 'Enter' })
+    enter('A001-001')
     await waitFor(() => expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe(''))
   })
 
-  it('shows error when item is not found (404)', async () => {
-    server.use(http.get('/items/lookup', () => HttpResponse.json({ detail: 'Item not found' }, { status: 404 })))
+  it('shows error when item is not found and partial search also empty', async () => {
+    server.use(
+      http.get('/items/lookup', () => HttpResponse.json({ detail: 'Item not found' }, { status: 404 })),
+      http.get('/items/search', () => HttpResponse.json([])),
+    )
     render(<LookupField onFound={vi.fn()} />)
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'ZZZZ' } })
-    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter', code: 'Enter' })
+    enter('ZZZZ')
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/item not found/i))
   })
 
   it('shows error when item is already sold', async () => {
     server.use(http.get('/items/lookup', () => HttpResponse.json({ ...FOUND, status: 'sold' })))
     render(<LookupField onFound={vi.fn()} />)
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'A001-001' } })
-    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter', code: 'Enter' })
+    enter('A001-001')
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/already sold/i))
   })
 
   it('error clears when user starts typing again', async () => {
-    server.use(http.get('/items/lookup', () => HttpResponse.json({ detail: 'Item not found' }, { status: 404 })))
+    server.use(
+      http.get('/items/lookup', () => HttpResponse.json({ detail: 'Item not found' }, { status: 404 })),
+      http.get('/items/search', () => HttpResponse.json([])),
+    )
     render(<LookupField onFound={vi.fn()} />)
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'ZZZZ' } })
-    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter', code: 'Enter' })
+    enter('ZZZZ')
     await waitFor(() => screen.getByRole('alert'))
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'A' } })
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('shows results list when partial search returns multiple items', async () => {
+    server.use(
+      http.get('/items/lookup', () => HttpResponse.json({ detail: 'Not found' }, { status: 404 })),
+      http.get('/items/search', () => HttpResponse.json([FOUND, FOUND2])),
+    )
+    render(<LookupField onFound={vi.fn()} />)
+    enter('A001')
+    await waitFor(() => expect(screen.getByText('A001-001')).toBeInTheDocument())
+    expect(screen.getByText('A001-002')).toBeInTheDocument()
+    expect(screen.getByText(/2 items found/i)).toBeInTheDocument()
+  })
+
+  it('auto-adds item when partial search returns exactly one available match', async () => {
+    server.use(
+      http.get('/items/lookup', () => HttpResponse.json({ detail: 'Not found' }, { status: 404 })),
+      http.get('/items/search', () => HttpResponse.json([FOUND])),
+    )
+    const onFound = vi.fn()
+    render(<LookupField onFound={onFound} />)
+    enter('A001-001')
+    await waitFor(() => expect(onFound).toHaveBeenCalledWith(FOUND))
+  })
+
+  it('calls onFound when user clicks an item in the results list', async () => {
+    server.use(
+      http.get('/items/lookup', () => HttpResponse.json({ detail: 'Not found' }, { status: 404 })),
+      http.get('/items/search', () => HttpResponse.json([FOUND, FOUND2])),
+    )
+    const onFound = vi.fn()
+    render(<LookupField onFound={onFound} />)
+    enter('A001')
+    await waitFor(() => screen.getByText('A001-001'))
+    fireEvent.click(screen.getByText('A001-001').closest('button')!)
+    expect(onFound).toHaveBeenCalledWith(FOUND)
+  })
+
+  it('closes results list when Escape is pressed', async () => {
+    server.use(
+      http.get('/items/lookup', () => HttpResponse.json({ detail: 'Not found' }, { status: 404 })),
+      http.get('/items/search', () => HttpResponse.json([FOUND, FOUND2])),
+    )
+    render(<LookupField onFound={vi.fn()} />)
+    enter('A001')
+    await waitFor(() => screen.getByText('A001-001'))
+    fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Escape' })
+    expect(screen.queryByText('A001-001')).not.toBeInTheDocument()
   })
 })
