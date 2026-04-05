@@ -49,7 +49,7 @@ export function ItemForm({ intakeId, onAdded, sellerCode = '', itemCount = 0 }: 
         donate_unsold: f.donate_unsold,
       })
       onAdded(item)
-      setF(emptyForm(''))
+      setF(emptyForm(suggestCode(sellerCode, itemCount + 1)))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add item')
     } finally {
