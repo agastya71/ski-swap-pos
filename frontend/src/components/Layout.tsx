@@ -3,6 +3,34 @@ import { useAuth } from '../auth/AuthContext'
 
 type Page = 'intake' | 'pos' | 'admin'
 
+const NAVY  = '#1e3a8a'
+const BLUE  = '#2563eb'
+const WHITE = '#ffffff'
+
+function NavLink({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-current={active ? 'page' : undefined}
+      style={{
+        background: 'none',
+        border: 'none',
+        borderBottom: active ? `3px solid ${BLUE}` : '3px solid transparent',
+        padding: '0 18px',
+        height: 56,
+        cursor: 'pointer',
+        fontSize: 14,
+        fontWeight: active ? 600 : 400,
+        color: active ? BLUE : '#374151',
+        borderRadius: 0,
+        letterSpacing: 0,
+      }}
+    >
+      {label}
+    </button>
+  )
+}
+
 export function Layout({ children, page, onNavigate }: {
   children: ReactNode
   page: Page
@@ -12,44 +40,98 @@ export function Layout({ children, page, onNavigate }: {
   const role = decoded?.role
 
   return (
-    <div style={{ fontFamily: 'sans-serif' }}>
-      <header style={{ background: '#1a237e', color: 'white', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 16 }}>
-        <strong>Ski Swap POS</strong>
-        <nav style={{ display: 'flex', gap: 8, flex: 1 }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#f8fafc' }}>
+      {/* Brand stripe */}
+      <div style={{ height: 4, background: NAVY }} />
+
+      {/* Navigation bar */}
+      <header style={{
+        background: WHITE,
+        borderBottom: '1px solid #e2e8f0',
+        display: 'flex',
+        alignItems: 'center',
+        padding: '0 24px',
+        gap: 0,
+      }}>
+        {/* Logo */}
+        <div style={{
+          fontWeight: 800,
+          fontSize: 17,
+          color: NAVY,
+          letterSpacing: '-0.03em',
+          marginRight: 24,
+          whiteSpace: 'nowrap',
+          userSelect: 'none',
+        }}>
+          ⛷&ensp;Ski Swap POS
+        </div>
+
+        {/* Nav links */}
+        <nav style={{ display: 'flex', flex: 1 }}>
           {(role === 'admin' || role === 'intake') && (
-            <button
-              onClick={() => onNavigate('intake')}
-              aria-current={page === 'intake' ? 'page' : undefined}
-              style={{ background: page === 'intake' ? 'white' : 'transparent', color: page === 'intake' ? '#1a237e' : 'white', border: '1px solid white', padding: '4px 12px', cursor: 'pointer' }}
-            >
-              Intake
-            </button>
+            <NavLink label="Intake" active={page === 'intake'} onClick={() => onNavigate('intake')} />
           )}
           {(role === 'admin' || role === 'cashier') && (
-            <button
-              onClick={() => onNavigate('pos')}
-              aria-current={page === 'pos' ? 'page' : undefined}
-              style={{ background: page === 'pos' ? 'white' : 'transparent', color: page === 'pos' ? '#1a237e' : 'white', border: '1px solid white', padding: '4px 12px', cursor: 'pointer' }}
-            >
-              POS
-            </button>
+            <NavLink label="Checkout" active={page === 'pos'} onClick={() => onNavigate('pos')} />
           )}
           {role === 'admin' && (
-            <button
-              onClick={() => onNavigate('admin')}
-              aria-current={page === 'admin' ? 'page' : undefined}
-              style={{ background: page === 'admin' ? 'white' : 'transparent', color: page === 'admin' ? '#1a237e' : 'white', border: '1px solid white', padding: '4px 12px', cursor: 'pointer' }}
-            >
-              Admin
-            </button>
+            <NavLink label="Admin" active={page === 'admin'} onClick={() => onNavigate('admin')} />
           )}
         </nav>
-        <span style={{ fontSize: 14 }}>{decoded?.sub} ({role})</span>
-        <button onClick={signOut} style={{ background: 'transparent', color: 'white', border: '1px solid white', padding: '4px 12px', cursor: 'pointer' }}>
-          Sign Out
-        </button>
+
+        {/* User info + Sign Out */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 13, color: '#64748b' }}>
+            {decoded?.sub}
+          </span>
+          <span style={{
+            fontSize: 11,
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+            background: '#dbeafe',
+            color: '#1e40af',
+            padding: '3px 7px',
+            borderRadius: 3,
+          }}>
+            {role}
+          </span>
+          <button
+            onClick={signOut}
+            style={{
+              background: WHITE,
+              color: NAVY,
+              border: `1px solid ${NAVY}`,
+              padding: '5px 14px',
+              fontSize: 13,
+              fontWeight: 500,
+              borderRadius: 4,
+            }}
+          >
+            Sign Out
+          </button>
+        </div>
       </header>
-      <main style={{ padding: 16 }}>{children}</main>
+
+      {/* Page content */}
+      <main style={{ flex: 1, padding: '28px 32px' }}>
+        {children}
+      </main>
+
+      {/* Footer */}
+      <footer style={{
+        background: WHITE,
+        borderTop: '1px solid #e2e8f0',
+        padding: '12px 32px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        fontSize: 12,
+        color: '#94a3b8',
+      }}>
+        <span>Minnesota Youth Ski League — Ski Swap POS</span>
+        <span>myxc.org</span>
+      </footer>
     </div>
   )
 }
