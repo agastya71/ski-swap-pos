@@ -71,8 +71,9 @@ export const handlers = [
   http.post('/intakes/:id/items', () => HttpResponse.json(ITEM)),
   http.post('/intakes/:id/labels', () => HttpResponse.json({ intake_id: 1, printed: 5 })),
 
-  // Items — lookup MUST be before :id to prevent route shadowing
+  // Items — specific routes MUST be before /:id to prevent route shadowing
   http.get('/items/lookup', () => HttpResponse.json({ ...ITEM, seller_code: 'A001' })),
+  http.get('/items/search', () => HttpResponse.json([])),
   http.get('/items/:id', () => HttpResponse.json(ITEM)),
   http.patch('/items/:id', () => HttpResponse.json(ITEM)),
   http.delete('/items/:id', () => new HttpResponse(null, { status: 204 })),
