@@ -1,3 +1,5 @@
+"""Item router — manages individual consignment items for lookup, editing, and printing; requires admin, intake, or cashier role."""
+
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 
@@ -18,6 +20,7 @@ _CASHIER_ADMIN = require_roles("admin", "cashier")
 
 
 def _item_for_active_event(item_id: int, db: Session) -> Item:
+    """Fetch an item belonging to the active event, or raise 503/404 as appropriate."""
     event = db.query(Event).filter(Event.is_active == True).first()
     if not event:
         raise HTTPException(status_code=503, detail="No active event configured")
@@ -39,6 +42,7 @@ def lookup_item(
     db: Session = Depends(get_db),
     _user: User = Depends(_CASHIER_ADMIN),
 ):
+    """Look up a single item by its exact item code for point-of-sale scanning."""
     event = db.query(Event).filter(Event.is_active == True).first()
     if not event:
         raise HTTPException(status_code=503, detail="No active event configured")
@@ -60,6 +64,7 @@ def search_items(
     db: Session = Depends(get_db),
     _user: User = Depends(_CASHIER_ADMIN),
 ):
+    """Search items by partial code match and return up to 20 results."""
     event = db.query(Event).filter(Event.is_active == True).first()
     if not event:
         raise HTTPException(status_code=503, detail="No active event configured")
@@ -84,6 +89,7 @@ def get_item(
     db: Session = Depends(get_db),
     _user: User = Depends(_INTAKE_ADMIN),
 ):
+    """Return full details for a single item."""
     return _item_for_active_event(item_id, db)
 
 
@@ -94,6 +100,7 @@ def update_item(
     db: Session = Depends(get_db),
     _user: User = Depends(_INTAKE_ADMIN),
 ):
+    """Update editable fields on an item such as price or description."""
     item = _item_for_active_event(item_id, db)
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(item, field, value)
@@ -108,6 +115,7 @@ def print_item_label(
     db: Session = Depends(get_db),
     _user: User = Depends(_INTAKE_ADMIN),
 ):
+    """Send a ZPL label for the item to the configured label printer."""
     item = _item_for_active_event(item_id, db)
     zpl = generate_zpl(item)
     try:
@@ -126,6 +134,7 @@ def delete_item(
     db: Session = Depends(get_db),
     _user: User = Depends(_INTAKE_ADMIN),
 ):
+    """Delete an item that has not yet had its label printed or been sold."""
     item = _item_for_active_event(item_id, db)
     if item.label_printed:
         raise HTTPException(status_code=409, detail="Cannot delete item after label has been printed")

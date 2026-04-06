@@ -1,3 +1,5 @@
+"""SQLAlchemy model for the `sale_item` table."""
+
 from datetime import datetime, timezone
 
 from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String
@@ -7,6 +9,14 @@ from app.database import Base
 
 
 class SaleItem(Base):
+    """Represents a single line item within a sale transaction.
+
+    Each SaleItem links one inventory Item to one Sale and records the price and
+    quantity at the moment of purchase. extended_price is the line total
+    (sell_price * quantity) and is stored explicitly to guard against future
+    price changes on the item record.
+    """
+
     __tablename__ = "sale_item"
 
     id = Column(Integer, primary_key=True, index=True)

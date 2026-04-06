@@ -1,3 +1,11 @@
+"""Report generation service for end-of-event financial and inventory reports.
+
+Provides query functions that aggregate Sale, SaleItem, Item, and Seller data
+into structured Pydantic report schemas.  Each public function fetches the
+requested event (raising 404 if absent) and returns a fully populated report
+object ready to be serialised by the report formatter.
+"""
+
 from datetime import date, datetime, timezone
 
 from fastapi import HTTPException
@@ -22,10 +30,12 @@ from app.schemas.reports import (
 
 
 def _now() -> datetime:
+    """Return the current UTC datetime."""
     return datetime.now(timezone.utc)
 
 
 def _get_event_or_404(db: Session, event_id: int) -> Event:
+    """Fetch an Event by primary key or raise a 404 HTTPException."""
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -33,6 +43,24 @@ def _get_event_or_404(db: Session, event_id: int) -> Event:
 
 
 def get_seller_payout(db: Session, event_id: int, seller_id: int) -> SellerPayoutReport:
+    """Build a payout report for a single seller within an event.
+
+    Queries all items consigned by the seller and all non-voided sale items
+    to compute gross sales, MYSL commission, and the net amount owed to the
+    seller.  Items with ``donate_proceeds`` set contribute their full extended
+    price to the MYSL total and zero to the seller total.
+
+    Args:
+        db: Active SQLAlchemy database session.
+        event_id: Primary key of the event to report on.
+        seller_id: Primary key of the seller to report on.
+
+    Returns:
+        A populated ``SellerPayoutReport`` schema instance.
+
+    Raises:
+        HTTPException: 404 if the event or seller is not found.
+    """
     event = _get_event_or_404(db, event_id)
     seller = db.query(Seller).filter(
         Seller.id == seller_id, Seller.event_id == event_id
@@ -105,6 +133,22 @@ def get_seller_payout(db: Session, event_id: int, seller_id: int) -> SellerPayou
 
 
 def get_event_revenue(db: Session, event_id: int) -> EventRevenueReport:
+    """Build an aggregate revenue report for an entire event.
+
+    Separates voided from non-voided sales and totals gross revenue, MYSL
+    commission, seller payouts, payment-method breakdowns, and the
+    donate-proceeds subtotal.
+
+    Args:
+        db: Active SQLAlchemy database session.
+        event_id: Primary key of the event to report on.
+
+    Returns:
+        A populated ``EventRevenueReport`` schema instance.
+
+    Raises:
+        HTTPException: 404 if the event is not found.
+    """
     event = _get_event_or_404(db, event_id)
     all_sales = (
         db.query(Sale)
@@ -143,6 +187,25 @@ def get_event_revenue(db: Session, event_id: int) -> EventRevenueReport:
 
 
 def get_donations(db: Session, event_id: int) -> DonationsReport:
+    """Build a report of all donated items for an event.
+
+    Collects two categories of donations:
+
+    * **Proceeds donations** — items sold where the intake had
+      ``donate_proceeds=True``.
+    * **Unsold donations** — items still in ``"available"`` status whose
+      intake had ``donate_unsold=True``.
+
+    Args:
+        db: Active SQLAlchemy database session.
+        event_id: Primary key of the event to report on.
+
+    Returns:
+        A populated ``DonationsReport`` schema instance.
+
+    Raises:
+        HTTPException: 404 if the event is not found.
+    """
     event = _get_event_or_404(db, event_id)
 
     proceeds_sale_items = (
@@ -205,6 +268,18 @@ def get_donations(db: Session, event_id: int) -> DonationsReport:
 
 
 def get_unsold_items(db: Session, event_id: int) -> UnsoldItemsReport:
+    """Build a report of all items still in ``"available"`` status for an event.
+
+    Args:
+        db: Active SQLAlchemy database session.
+        event_id: Primary key of the event to report on.
+
+    Returns:
+        A populated ``UnsoldItemsReport`` schema instance.
+
+    Raises:
+        HTTPException: 404 if the event is not found.
+    """
     event = _get_event_or_404(db, event_id)
     items = (
         db.query(Item)
@@ -233,6 +308,21 @@ def get_unsold_items(db: Session, event_id: int) -> UnsoldItemsReport:
 
 
 def get_end_of_day(db: Session, event_id: int) -> EndOfDayReport:
+    """Build an end-of-day summary report for an event.
+
+    Delegates to ``get_event_revenue`` and re-packages the result into an
+    ``EndOfDayReport`` that includes today's date alongside the revenue totals.
+
+    Args:
+        db: Active SQLAlchemy database session.
+        event_id: Primary key of the event to report on.
+
+    Returns:
+        A populated ``EndOfDayReport`` schema instance.
+
+    Raises:
+        HTTPException: 404 if the event is not found.
+    """
     rev = get_event_revenue(db, event_id)
     return EndOfDayReport(
         event_id=rev.event_id,

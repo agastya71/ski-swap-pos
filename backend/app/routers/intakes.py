@@ -1,3 +1,5 @@
+"""Intake router — manages seller intake sessions and item ingestion; requires admin or intake role."""
+
 import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -20,6 +22,7 @@ _INTAKE_ADMIN = require_roles("admin", "intake")
 
 
 def _active_event(db: Session) -> Event:
+    """Return the currently active event or raise 503 if none is configured."""
     event = db.query(Event).filter(Event.is_active == True).first()
     if not event:
         raise HTTPException(status_code=503, detail="No active event configured")
@@ -27,6 +30,7 @@ def _active_event(db: Session) -> Event:
 
 
 def _get_intake_for_event(intake_id: int, event_id: int, db: Session) -> Intake:
+    """Fetch an intake that belongs to the given event, or raise 404."""
     intake = (
         db.query(Intake)
         .join(Seller)
@@ -44,6 +48,7 @@ def create_intake(
     db: Session = Depends(get_db),
     current_user: User = Depends(_INTAKE_ADMIN),
 ):
+    """Open a new intake session for a seller."""
     event = _active_event(db)
     seller = (
         db.query(Seller)
@@ -72,6 +77,7 @@ def get_intake(
     db: Session = Depends(get_db),
     _user: User = Depends(_INTAKE_ADMIN),
 ):
+    """Return an intake session along with all its items."""
     event = _active_event(db)
     return _get_intake_for_event(intake_id, event.id, db)
 
@@ -83,6 +89,7 @@ def add_item_to_intake(
     db: Session = Depends(get_db),
     current_user: User = Depends(_INTAKE_ADMIN),
 ):
+    """Add a single item to an existing intake session."""
     event = _active_event(db)
     intake = _get_intake_for_event(intake_id, event.id, db)
     existing = db.query(Item).filter(Item.code == body.code).first()
@@ -107,6 +114,7 @@ def print_intake_labels(
     db: Session = Depends(get_db),
     _user: User = Depends(_INTAKE_ADMIN),
 ):
+    """Print ZPL labels for all items in an intake session."""
     event = _active_event(db)
     intake = _get_intake_for_event(intake_id, event.id, db)
     printed = 0
@@ -129,6 +137,7 @@ def update_intake(
     db: Session = Depends(get_db),
     _user: User = Depends(_INTAKE_ADMIN),
 ):
+    """Update metadata fields on an existing intake session."""
     event = _active_event(db)
     intake = _get_intake_for_event(intake_id, event.id, db)
     for field, value in body.model_dump(exclude_unset=True).items():

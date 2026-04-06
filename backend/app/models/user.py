@@ -1,3 +1,5 @@
+"""SQLAlchemy model for the `user` table."""
+
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 
@@ -5,6 +7,13 @@ from app.database import Base
 
 
 class User(Base):
+    """Represents an operator account scoped to a single event.
+
+    Users belong to exactly one event and carry a role that gates which parts
+    of the POS they can access (admin, intake, or cashier). Usernames are only
+    unique within an event, so the same username can exist across different events.
+    """
+
     __tablename__ = "user"
 
     id = Column(Integer, primary_key=True, index=True)

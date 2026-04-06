@@ -1,3 +1,10 @@
+"""Report serialisation service supporting JSON, CSV, Markdown, and PDF output.
+
+Converts a typed Pydantic report model into an HTTP ``Response`` in the
+caller's requested format.  Each private helper handles one output format and
+is dispatched by the public ``format_report`` entry point.
+"""
+
 import csv
 import io
 
@@ -18,6 +25,22 @@ _VALID_FORMATS = {"json", "csv", "md", "pdf"}
 
 
 def format_report(report: BaseModel, fmt: str, filename_base: str) -> Response:
+    """Serialise a report model into the requested output format.
+
+    Args:
+        report: A Pydantic report model instance (e.g. ``SellerPayoutReport``).
+        fmt: Desired output format — one of ``"json"``, ``"csv"``, ``"md"``,
+            or ``"pdf"``.
+        filename_base: Base filename (without extension) used in the
+            ``Content-Disposition`` header for downloadable formats.
+
+    Returns:
+        A FastAPI ``Response`` (or ``JSONResponse``) with the appropriate
+        ``media_type`` and ``Content-Disposition`` header set.
+
+    Raises:
+        HTTPException: 422 if ``fmt`` is not one of the valid format strings.
+    """
     if fmt not in _VALID_FORMATS:
         raise HTTPException(
             status_code=422,
@@ -33,6 +56,7 @@ def format_report(report: BaseModel, fmt: str, filename_base: str) -> Response:
 
 
 def _to_csv(report: BaseModel, filename_base: str) -> Response:
+    """Render a report as a downloadable CSV response."""
     out = io.StringIO()
     w = csv.writer(out)
 
@@ -69,6 +93,7 @@ def _to_csv(report: BaseModel, filename_base: str) -> Response:
 
 
 def _to_md(report: BaseModel, filename_base: str) -> Response:
+    """Render a report as a downloadable Markdown response."""
     lines: list[str] = []
 
     if isinstance(report, SellerPayoutReport):
@@ -150,11 +175,12 @@ def _to_md(report: BaseModel, filename_base: str) -> Response:
 
 
 def _safe(text: str) -> str:
-    """Sanitise text for Latin-1 encoded PDF core fonts."""
+    """Encode ``text`` as Latin-1, replacing unencodable characters."""
     return text.encode("latin-1", errors="replace").decode("latin-1")
 
 
 def _to_pdf(report: BaseModel, filename_base: str) -> Response:
+    """Render a report as a downloadable PDF response using fpdf2."""
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Helvetica", "B", 16)

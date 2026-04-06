@@ -1,3 +1,10 @@
+"""Checkout service for sale creation and commission calculation.
+
+Handles the core transactional logic for the POS checkout flow: validating
+item availability, computing per-item commission splits between MYSL and the
+seller, and persisting the Sale and SaleItem rows atomically.
+"""
+
 from datetime import date
 
 from fastapi import HTTPException
@@ -15,7 +22,23 @@ from app.schemas.sale import SaleCreate
 def compute_commission(
     item_price: float, donate_proceeds: bool, commission_rate: float
 ) -> tuple[float, float]:
-    """Return (mysl_share, seller_share) rounded to 2 decimal places."""
+    """Compute the MYSL and seller revenue split for a single line item.
+
+    When ``donate_proceeds`` is True the entire extended price goes to MYSL
+    and the seller receives nothing.  Otherwise the split is determined by
+    ``commission_rate``.
+
+    Args:
+        item_price: Extended price of the line item (unit price × quantity),
+            already rounded to 2 decimal places by the caller.
+        donate_proceeds: If True, all revenue is directed to MYSL.
+        commission_rate: Fraction of item price that MYSL retains (e.g.
+            ``0.30`` for 30 %).
+
+    Returns:
+        A two-tuple ``(mysl_share, seller_share)`` where both values are
+        rounded to 2 decimal places and their sum equals ``item_price``.
+    """
     if donate_proceeds:
         return round(item_price, 2), 0.0
     mysl = round(item_price * commission_rate, 2)
@@ -25,7 +48,32 @@ def compute_commission(
 def create_sale_atomic(
     db: Session, payload: SaleCreate, event: Event, username: str
 ) -> Sale:
-    """Create a sale with all line items in a single transaction."""
+    """Create a sale with all line items in a single atomic database transaction.
+
+    Validates every requested item before any row is written.  If any item is
+    missing, belongs to a different event, or is not in ``"available"`` status
+    the entire operation is rejected before the sale is created.  On success
+    the Sale totals (sale_total, mysl_total, seller_total, total_paid,
+    balance_due) are computed and all items are marked ``"sold"``.
+
+    Args:
+        db: Active SQLAlchemy database session.
+        payload: Validated sale request schema including line items and
+            payment breakdown.
+        event: The active Event ORM instance used to scope item lookups and
+            apply the commission rate.
+        username: Login name of the cashier creating the sale, recorded on
+            the Sale and SaleItem rows.
+
+    Returns:
+        The newly created and refreshed Sale ORM instance with all
+        relationships populated.
+
+    Raises:
+        HTTPException: 422 if the request contains duplicate item IDs.
+        HTTPException: 404 if any item ID is not found within the event.
+        HTTPException: 422 if any item is not in ``"available"`` status.
+    """
     # Dedup check
     item_ids = [line.item_id for line in payload.items]
     if len(item_ids) != len(set(item_ids)):

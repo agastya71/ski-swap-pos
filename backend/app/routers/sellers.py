@@ -1,3 +1,5 @@
+"""Seller management router — registers and manages consignment sellers; requires admin or intake role."""
+
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -18,6 +20,7 @@ _INTAKE_ADMIN = require_roles("admin", "intake")
 
 
 def _active_event(db: Session) -> Event:
+    """Return the currently active event or raise 503 if none is configured."""
     event = db.query(Event).filter(Event.is_active == True).first()
     if not event:
         raise HTTPException(status_code=503, detail="No active event configured")
@@ -30,6 +33,7 @@ def list_sellers(
     db: Session = Depends(get_db),
     _user: User = Depends(_INTAKE_ADMIN),
 ):
+    """List sellers for the active event, with optional search by code or name."""
     event = _active_event(db)
     query = db.query(Seller).filter(Seller.event_id == event.id)
     if q:
@@ -49,6 +53,7 @@ def create_seller(
     db: Session = Depends(get_db),
     current_user: User = Depends(_INTAKE_ADMIN),
 ):
+    """Register a new seller for the active event."""
     event = _active_event(db)
     existing = (
         db.query(Seller)
@@ -74,6 +79,7 @@ def get_seller(
     db: Session = Depends(get_db),
     _user: User = Depends(_INTAKE_ADMIN),
 ):
+    """Return a single seller by ID within the active event."""
     event = _active_event(db)
     seller = (
         db.query(Seller)
@@ -91,6 +97,7 @@ def list_seller_intakes(
     db: Session = Depends(get_db),
     _user: User = Depends(_INTAKE_ADMIN),
 ):
+    """List all intake sessions associated with a given seller."""
     event = _active_event(db)
     seller = (
         db.query(Seller)
@@ -114,6 +121,7 @@ def update_seller(
     db: Session = Depends(get_db),
     _user: User = Depends(_INTAKE_ADMIN),
 ):
+    """Update editable fields on an existing seller record."""
     event = _active_event(db)
     seller = (
         db.query(Seller)

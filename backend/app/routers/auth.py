@@ -1,3 +1,5 @@
+"""Authentication router — handles login and current-user introspection; accessible to all roles."""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -17,6 +19,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/login", response_model=TokenResponse)
 def login(body: LoginRequest, db: Session = Depends(get_db)):
+    """Authenticate a user and return a signed JWT access token."""
     event = db.query(Event).filter(Event.is_active == True).first()
     if not event:
         raise HTTPException(status_code=503, detail="No active event configured")
@@ -40,4 +43,5 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
 
 @router.get("/me")
 def me(user: User = Depends(get_current_user)):
+    """Return the identity and role of the currently authenticated user."""
     return {"id": user.id, "username": user.username, "role": user.role, "event_id": user.event_id}
