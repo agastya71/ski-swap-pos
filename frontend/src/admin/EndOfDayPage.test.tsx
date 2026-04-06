@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { vi } from 'vitest'
+import { downloadFile } from '../api/reports'
 import { EndOfDayPage } from './EndOfDayPage'
 
 vi.mock('../api/reports', async (importOriginal) => {
@@ -38,14 +39,17 @@ describe('EndOfDayPage', () => {
     })
   })
 
-  it('calls downloadFile with correct PDF url and filename when PDF button is clicked', async () => {
-    const { downloadFile } = await import('../api/reports')
+  it('calls downloadFile with correct url and filename for each format', async () => {
     render(<EndOfDayPage eventId={1} />)
     await waitFor(() => screen.getByRole('button', { name: /pdf/i }))
+
     fireEvent.click(screen.getByRole('button', { name: /pdf/i }))
-    expect(downloadFile).toHaveBeenCalledWith(
-      '/reports/1/end-of-day?format=pdf',
-      'end_of_day_1.pdf'
-    )
+    expect(downloadFile).toHaveBeenCalledWith('/reports/1/end-of-day?format=pdf', 'end_of_day_1.pdf')
+
+    fireEvent.click(screen.getByRole('button', { name: /csv/i }))
+    expect(downloadFile).toHaveBeenCalledWith('/reports/1/end-of-day?format=csv', 'end_of_day_1.csv')
+
+    fireEvent.click(screen.getByRole('button', { name: /markdown/i }))
+    expect(downloadFile).toHaveBeenCalledWith('/reports/1/end-of-day?format=md', 'end_of_day_1.md')
   })
 })

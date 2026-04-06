@@ -40,11 +40,10 @@ export function EndOfDayPage({ eventId }: { eventId: number }) {
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
               {(['pdf', 'csv', 'md'] as const).map((fmt) => {
                 const label = fmt === 'md' ? 'Markdown' : fmt.toUpperCase()
-                const ext = fmt
                 return (
                   <button
                     key={fmt}
-                    onClick={() => downloadFile(`/reports/${eventId}/end-of-day?format=${fmt}`, `end_of_day_${eventId}.${ext}`)}
+                    onClick={() => downloadFile(`/reports/${eventId}/end-of-day?format=${fmt}`, `end_of_day_${eventId}.${fmt}`)}
                     style={{ padding: '8px 16px', background: '#1a237e', color: 'white', border: 'none', cursor: 'pointer' }}
                   >
                     {label}
