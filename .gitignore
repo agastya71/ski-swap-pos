@@ -4,3 +4,4 @@ backend/static/
 __pycache__/
 *.pyc
 *.pyo
+*.db
