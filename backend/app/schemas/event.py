@@ -1,20 +1,31 @@
+"""Pydantic schemas for event creation and response."""
+
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class EventCreate(BaseModel):
-    name: str
-    year: int
-    commission_rate: float = 0.30
+    """Payload for creating a new swap event."""
+
+    name: str = Field(description="Human-readable name for the event (e.g., 'MYSL 2026 Ski Swap').")
+    year: int = Field(description="Calendar year in which the event takes place.")
+    commission_rate: float = Field(
+        default=0.30,
+        description="Fraction of each sale retained by MYSL as commission (e.g., 0.30 for 30%).",
+    )
 
 
 class EventResponse(BaseModel):
+    """Read-only representation of an event record returned by the API."""
+
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
-    name: str
-    year: int
-    commission_rate: float
-    is_active: bool
-    created_at: datetime
+    id: int = Field(description="Auto-generated primary key for the event.")
+    name: str = Field(description="Human-readable name for the event.")
+    year: int = Field(description="Calendar year in which the event takes place.")
+    commission_rate: float = Field(
+        description="Fraction of each sale retained by MYSL as commission."
+    )
+    is_active: bool = Field(description="Whether this event is the currently active swap event.")
+    created_at: datetime = Field(description="UTC timestamp when the event record was created.")

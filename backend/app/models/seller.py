@@ -1,3 +1,5 @@
+"""SQLAlchemy model for the `seller` table."""
+
 from datetime import datetime, timezone
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, UniqueConstraint
@@ -7,6 +9,14 @@ from app.database import Base
 
 
 class Seller(Base):
+    """Represents a consignment seller (or vendor) registered for an event.
+
+    Each seller belongs to one event and is identified within that event by a
+    short alphanumeric code. Sellers submit items through one or more intakes.
+    Vendors (is_vendor=True) are commercial dealers whose items are handled
+    separately from individual consignors.
+    """
+
     __tablename__ = "seller"
 
     id = Column(Integer, primary_key=True, index=True)

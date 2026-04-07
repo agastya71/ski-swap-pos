@@ -1,3 +1,5 @@
+"""Event management router — creates, lists, and activates swap events; requires admin role."""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -16,6 +18,7 @@ def create_event(
     db: Session = Depends(get_db),
     _admin: User = Depends(require_roles("admin")),
 ):
+    """Create a new swap event."""
     event = Event(**body.model_dump())
     db.add(event)
     db.commit()
@@ -28,6 +31,7 @@ def list_events(
     db: Session = Depends(get_db),
     _admin: User = Depends(require_roles("admin")),
 ):
+    """List all events in reverse chronological order."""
     return db.query(Event).order_by(Event.year.desc()).all()
 
 
@@ -37,6 +41,7 @@ def activate_event(
     db: Session = Depends(get_db),
     _admin: User = Depends(require_roles("admin")),
 ):
+    """Set an event as the active event, deactivating all others."""
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")

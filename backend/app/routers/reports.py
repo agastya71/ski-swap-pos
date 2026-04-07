@@ -1,3 +1,5 @@
+"""Reports router — generates end-of-event financial and inventory reports; requires admin role."""
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -20,6 +22,7 @@ def get_seller_payout(
     db: Session = Depends(get_db),
     _user: User = Depends(_ADMIN_ONLY),
 ):
+    """Return the payout report for a single seller, showing sold items and proceeds."""
     report = report_svc.get_seller_payout(db, event_id, seller_id)
     return format_report(report, fmt, f"seller_payout_{event_id}_{seller_id}")
 
@@ -31,6 +34,7 @@ def get_revenue(
     db: Session = Depends(get_db),
     _user: User = Depends(_ADMIN_ONLY),
 ):
+    """Return the total revenue summary for an event."""
     report = report_svc.get_event_revenue(db, event_id)
     return format_report(report, fmt, f"revenue_{event_id}")
 
@@ -42,6 +46,7 @@ def get_donations(
     db: Session = Depends(get_db),
     _user: User = Depends(_ADMIN_ONLY),
 ):
+    """Return a report of proceeds donated by sellers who opted in."""
     report = report_svc.get_donations(db, event_id)
     return format_report(report, fmt, f"donations_{event_id}")
 
@@ -53,6 +58,7 @@ def get_unsold(
     db: Session = Depends(get_db),
     _user: User = Depends(_ADMIN_ONLY),
 ):
+    """Return a list of all unsold items remaining at the end of the event."""
     report = report_svc.get_unsold_items(db, event_id)
     return format_report(report, fmt, f"unsold_{event_id}")
 
@@ -64,5 +70,6 @@ def get_end_of_day(
     db: Session = Depends(get_db),
     _user: User = Depends(_ADMIN_ONLY),
 ):
+    """Return the end-of-day summary report for an event."""
     report = report_svc.get_end_of_day(db, event_id)
     return format_report(report, fmt, f"end_of_day_{event_id}")

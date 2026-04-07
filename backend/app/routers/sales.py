@@ -1,3 +1,5 @@
+"""Sales router — processes point-of-sale transactions and void operations; requires cashier or admin role."""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -16,6 +18,7 @@ _ADMIN_ONLY = require_roles("admin")
 
 
 def _active_event(db: Session) -> Event:
+    """Return the currently active event or raise 503 if none is configured."""
     event = db.query(Event).filter(Event.is_active == True).first()
     if not event:
         raise HTTPException(status_code=503, detail="No active event configured")
@@ -28,6 +31,7 @@ def create_sale(
     db: Session = Depends(get_db),
     current_user: User = Depends(_CASHIER_ADMIN),
 ):
+    """Record a new sale transaction and mark the purchased items as sold."""
     event = _active_event(db)
     return create_sale_atomic(db, body, event, current_user.username)
 
@@ -38,6 +42,7 @@ def get_sale(
     db: Session = Depends(get_db),
     _user: User = Depends(_CASHIER_ADMIN),
 ):
+    """Return details and line items for a single sale."""
     event = _active_event(db)
     sale = db.query(Sale).filter(Sale.id == sale_id, Sale.event_id == event.id).first()
     if not sale:
@@ -51,6 +56,7 @@ def void_sale(
     db: Session = Depends(get_db),
     _user: User = Depends(_ADMIN_ONLY),
 ):
+    """Void a sale and restore all its items to available status."""
     event = _active_event(db)
     sale = db.query(Sale).filter(Sale.id == sale_id, Sale.event_id == event.id).first()
     if not sale:

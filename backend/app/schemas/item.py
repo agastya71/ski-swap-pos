@@ -1,78 +1,88 @@
+"""Pydantic schemas for inventory item creation, update, response, and POS lookup."""
+
 import datetime
 from typing import Optional
-from pydantic import BaseModel, ConfigDict
+
+from pydantic import BaseModel, ConfigDict, Field
+
 
 class ItemCreate(BaseModel):
-    code: str
-    category: Optional[str] = None
-    brand: Optional[str] = None
-    type: Optional[str] = None
-    description: Optional[str] = None
-    color: Optional[str] = None
-    size: Optional[str] = None
-    uom: Optional[str] = None
-    gender_age: Optional[str] = None
-    year: Optional[int] = None
-    used: bool = True
-    price: float
-    quantity: float = 1.0
-    barcode_39: Optional[str] = None
-    label_line_2: Optional[str] = None
-    label_line_3: Optional[str] = None
-    donate_unsold: bool = False
-    vendor_item_id: Optional[str] = None
+    """Payload for adding a new consigned item to an intake session."""
+
+    code: str = Field(description="Unique item code (e.g., seller code + sequence number) printed on the price tag.")
+    category: Optional[str] = Field(default=None, description="High-level merchandise category (e.g., 'Skis', 'Boots', 'Apparel').")
+    brand: Optional[str] = Field(default=None, description="Manufacturer or brand name of the item.")
+    type: Optional[str] = Field(default=None, description="Sub-type within the category (e.g., 'Alpine', 'Nordic').")
+    description: Optional[str] = Field(default=None, description="Free-text description of the item as it will appear on the label.")
+    color: Optional[str] = Field(default=None, description="Color or color combination of the item.")
+    size: Optional[str] = Field(default=None, description="Size of the item (length, boot size, clothing size, etc.).")
+    uom: Optional[str] = Field(default=None, description="Unit of measure (e.g., 'pair', 'each').")
+    gender_age: Optional[str] = Field(default=None, description="Target gender/age group (e.g., 'Men', 'Women', 'Youth').")
+    year: Optional[int] = Field(default=None, description="Model year of the item, if known.")
+    used: bool = Field(default=True, description="True if the item is used/pre-owned; False if new.")
+    price: float = Field(description="Asking price set by the seller in dollars.")
+    quantity: float = Field(default=1.0, description="Number of units represented by this item record (usually 1).")
+    barcode_39: Optional[str] = Field(default=None, description="Code 39 barcode string to print on the item label.")
+    label_line_2: Optional[str] = Field(default=None, description="Second custom text line printed on the item label.")
+    label_line_3: Optional[str] = Field(default=None, description="Third custom text line printed on the item label.")
+    donate_unsold: bool = Field(default=False, description="If True, this specific item will be donated if it does not sell.")
+    vendor_item_id: Optional[str] = Field(default=None, description="External item identifier supplied by a commercial vendor.")
 
 
 class ItemUpdate(BaseModel):
-    category: Optional[str] = None
-    brand: Optional[str] = None
-    type: Optional[str] = None
-    description: Optional[str] = None
-    color: Optional[str] = None
-    size: Optional[str] = None
-    uom: Optional[str] = None
-    gender_age: Optional[str] = None
-    year: Optional[int] = None
-    used: Optional[bool] = None
-    price: Optional[float] = None
-    quantity: Optional[float] = None
-    barcode_39: Optional[str] = None
-    label_line_2: Optional[str] = None
-    label_line_3: Optional[str] = None
-    donate_unsold: Optional[bool] = None
-    vendor_item_id: Optional[str] = None
+    """Partial-update payload for modifying an existing inventory item."""
+
+    category: Optional[str] = Field(default=None, description="Updated merchandise category, if changing.")
+    brand: Optional[str] = Field(default=None, description="Updated brand name, if changing.")
+    type: Optional[str] = Field(default=None, description="Updated sub-type, if changing.")
+    description: Optional[str] = Field(default=None, description="Updated item description, if changing.")
+    color: Optional[str] = Field(default=None, description="Updated color, if changing.")
+    size: Optional[str] = Field(default=None, description="Updated size, if changing.")
+    uom: Optional[str] = Field(default=None, description="Updated unit of measure, if changing.")
+    gender_age: Optional[str] = Field(default=None, description="Updated gender/age group, if changing.")
+    year: Optional[int] = Field(default=None, description="Updated model year, if changing.")
+    used: Optional[bool] = Field(default=None, description="Updated condition flag, if changing.")
+    price: Optional[float] = Field(default=None, description="Updated asking price in dollars, if changing.")
+    quantity: Optional[float] = Field(default=None, description="Updated quantity, if changing.")
+    barcode_39: Optional[str] = Field(default=None, description="Updated barcode string, if changing.")
+    label_line_2: Optional[str] = Field(default=None, description="Updated second label line, if changing.")
+    label_line_3: Optional[str] = Field(default=None, description="Updated third label line, if changing.")
+    donate_unsold: Optional[bool] = Field(default=None, description="Updated donation preference for this item, if changing.")
+    vendor_item_id: Optional[str] = Field(default=None, description="Updated vendor item identifier, if changing.")
 
 
 class ItemResponse(BaseModel):
+    """Read-only representation of an inventory item returned by the API."""
+
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
-    intake_id: int
-    seller_id: int
-    code: str
-    category: Optional[str] = None
-    brand: Optional[str] = None
-    type: Optional[str] = None
-    description: Optional[str] = None
-    color: Optional[str] = None
-    size: Optional[str] = None
-    uom: Optional[str] = None
-    gender_age: Optional[str] = None
-    year: Optional[int] = None
-    used: bool
-    price: float
-    quantity: float
-    barcode_39: Optional[str] = None
-    label_line_2: Optional[str] = None
-    label_line_3: Optional[str] = None
-    donate_unsold: bool
-    status: str
-    label_printed: bool
-    vendor_item_id: Optional[str] = None
-    created_at: datetime.datetime
+    id: int = Field(description="Auto-generated primary key for the item.")
+    intake_id: int = Field(description="ID of the intake session this item belongs to.")
+    seller_id: int = Field(description="ID of the seller who consigned this item.")
+    code: str = Field(description="Unique item code printed on the price tag.")
+    category: Optional[str] = Field(default=None, description="High-level merchandise category.")
+    brand: Optional[str] = Field(default=None, description="Manufacturer or brand name.")
+    type: Optional[str] = Field(default=None, description="Sub-type within the category.")
+    description: Optional[str] = Field(default=None, description="Free-text description of the item.")
+    color: Optional[str] = Field(default=None, description="Color or color combination of the item.")
+    size: Optional[str] = Field(default=None, description="Size of the item.")
+    uom: Optional[str] = Field(default=None, description="Unit of measure.")
+    gender_age: Optional[str] = Field(default=None, description="Target gender/age group.")
+    year: Optional[int] = Field(default=None, description="Model year of the item.")
+    used: bool = Field(description="True if the item is used/pre-owned.")
+    price: float = Field(description="Asking price set by the seller in dollars.")
+    quantity: float = Field(description="Number of units represented by this item record.")
+    barcode_39: Optional[str] = Field(default=None, description="Code 39 barcode string printed on the label.")
+    label_line_2: Optional[str] = Field(default=None, description="Second custom text line on the item label.")
+    label_line_3: Optional[str] = Field(default=None, description="Third custom text line on the item label.")
+    donate_unsold: bool = Field(description="Whether this item will be donated if unsold.")
+    status: str = Field(description="Current lifecycle status of the item (e.g., 'available', 'sold', 'donated', 'returned').")
+    label_printed: bool = Field(description="Whether a price label has been printed for this item.")
+    vendor_item_id: Optional[str] = Field(default=None, description="External item identifier supplied by a commercial vendor.")
+    created_at: datetime.datetime = Field(description="UTC timestamp when the item record was created.")
 
 
 class ItemLookupResponse(ItemResponse):
-    seller_code: str
+    """Extended item response used by the POS cashier lookup, adding the seller code for display."""
 
-
+    seller_code: str = Field(description="Seller code associated with this item, included for quick cashier reference.")

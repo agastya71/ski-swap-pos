@@ -1,3 +1,5 @@
+"""SQLAlchemy model for the `sale` table."""
+
 from datetime import datetime, timezone
 
 from sqlalchemy import Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String
@@ -7,6 +9,15 @@ from app.database import Base
 
 
 class Sale(Base):
+    """Represents a completed (or voided) customer purchase transaction.
+
+    A sale belongs to one event and contains one or more sale items. Financial
+    totals are pre-computed and stored for reporting: sale_total is the full
+    purchase amount, mysl_total is MYSL's commission portion, and seller_total
+    is the remainder owed to sellers. Payment may be split across cash, check,
+    and credit card. Voided sales are retained for audit purposes.
+    """
+
     __tablename__ = "sale"
 
     id = Column(Integer, primary_key=True, index=True)

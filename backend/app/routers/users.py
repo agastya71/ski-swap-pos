@@ -1,3 +1,5 @@
+"""User management router — creates, lists, and deactivates event users; requires admin role."""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -17,6 +19,7 @@ def create_user(
     db: Session = Depends(get_db),
     _admin: User = Depends(require_roles("admin")),
 ):
+    """Create a new user account for the active event."""
     event = db.query(Event).filter(Event.is_active == True).first()
     if not event:
         raise HTTPException(status_code=503, detail="No active event configured")
@@ -47,6 +50,7 @@ def list_users(
     db: Session = Depends(get_db),
     _admin: User = Depends(require_roles("admin")),
 ):
+    """List all users belonging to the active event."""
     event = db.query(Event).filter(Event.is_active == True).first()
     if not event:
         return []
@@ -64,6 +68,7 @@ def deactivate_user(
     db: Session = Depends(get_db),
     _admin: User = Depends(require_roles("admin")),
 ):
+    """Deactivate a user account so they can no longer log in."""
     event = db.query(Event).filter(Event.is_active == True).first()
     if not event:
         raise HTTPException(status_code=503, detail="No active event configured")

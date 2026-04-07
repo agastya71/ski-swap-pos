@@ -1,3 +1,5 @@
+"""Admin router — provides database backup and other administrative utilities; requires admin role."""
+
 import io
 import json
 import logging
@@ -24,6 +26,7 @@ _ADMIN_ONLY = require_roles("admin")
 
 
 def _json_default(obj):
+    """Serialize datetime and date objects to ISO 8601 strings for JSON export."""
     from datetime import date
     if isinstance(obj, (datetime, date)):
         return obj.isoformat()
@@ -35,6 +38,7 @@ def backup_database(
     db: Session = Depends(get_db),
     _user: User = Depends(_ADMIN_ONLY),
 ):
+    """Export all database tables to a ZIP archive containing JSON and the raw SQLite file."""
     backup_dir = Path(config.BACKUP_DIR)
     try:
         backup_dir.mkdir(parents=True, exist_ok=True)
