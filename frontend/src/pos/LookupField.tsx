@@ -18,21 +18,22 @@ export function LookupField({ onFound }: { onFound: (item: ItemLookupResponse) =
   useEffect(() => { inputRef.current?.focus() }, [])
 
   useEffect(() => {
-    if (value.trim().length < 3) {
+    const trimmed = value.trim()
+    if (trimmed.length < 3) {
+      if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null }
       setResults(null)
       setHighlightedIndex(null)
-      if (debounceRef.current) clearTimeout(debounceRef.current)
       return
     }
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(async () => {
       try {
-        const matches = await searchItems(value.trim())
+        const matches = await searchItems(trimmed)
         setResults(matches.length > 0 ? matches : null)
+        setHighlightedIndex(null)
       } catch {
         // silently ignore search errors — Enter path shows explicit errors
       }
-      setHighlightedIndex(null)
     }, 300)
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
