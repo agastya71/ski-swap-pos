@@ -175,7 +175,7 @@ def _to_md(report: BaseModel, filename_base: str) -> Response:
 
 
 def _safe(text: str) -> str:
-    """Encode ``text`` as Latin-1, replacing unencodable characters."""
+    """Sanitise ``text`` to Latin-1 for fpdf2 core font compatibility, replacing unencodable characters."""
     return text.encode("latin-1", errors="replace").decode("latin-1")
 
 
