@@ -129,8 +129,8 @@ describe('LookupField', () => {
       render(<LookupField onFound={vi.fn()} />)
       fireEvent.change(screen.getByRole('textbox'), { target: { value: 'A00' } })
       expect(screen.queryByText('A001-001')).not.toBeInTheDocument()
-      act(() => { vi.advanceTimersByTime(300) })
-      await waitFor(() => expect(screen.getByText('A001-001')).toBeInTheDocument())
+      await act(async () => { vi.advanceTimersByTime(300) })
+      expect(screen.getByText('A001-001')).toBeInTheDocument()
     })
 
     it('does not show dropdown after typing only 2 chars', () => {
@@ -154,8 +154,8 @@ describe('LookupField', () => {
       server.use(http.get('/items/search', () => HttpResponse.json([FOUND, FOUND2])))
       render(<LookupField onFound={vi.fn()} />)
       fireEvent.change(screen.getByRole('textbox'), { target: { value: 'A00' } })
-      act(() => { vi.advanceTimersByTime(300) })
-      await waitFor(() => screen.getByText('A001-001'))
+      await act(async () => { vi.advanceTimersByTime(300) })
+      expect(screen.getByText('A001-001')).toBeInTheDocument()
       fireEvent.change(screen.getByRole('textbox'), { target: { value: 'A0' } })
       expect(screen.queryByText('A001-001')).not.toBeInTheDocument()
     })
@@ -171,8 +171,7 @@ describe('LookupField', () => {
       server.use(http.get('/items/search', () => HttpResponse.json(results)))
       render(<LookupField onFound={onFound} />)
       fireEvent.change(screen.getByRole('textbox'), { target: { value: 'A00' } })
-      act(() => { vi.advanceTimersByTime(300) })
-      await waitFor(() => screen.getByText(results[0].code))
+      await act(async () => { vi.advanceTimersByTime(300) })
     }
 
     it('ArrowDown highlights the first available item', async () => {
@@ -202,8 +201,8 @@ describe('LookupField', () => {
       server.use(http.get('/items/search', () => HttpResponse.json([SOLD])))
       render(<LookupField onFound={onFound} />)
       fireEvent.change(screen.getByRole('textbox'), { target: { value: 'A00' } })
-      act(() => { vi.advanceTimersByTime(300) })
-      await waitFor(() => screen.getByText('A001-003'))
+      await act(async () => { vi.advanceTimersByTime(300) })
+      screen.getByText('A001-003')
       fireEvent.click(screen.getByText('A001-003').closest('button')!)
       expect(onFound).not.toHaveBeenCalled()
     })
