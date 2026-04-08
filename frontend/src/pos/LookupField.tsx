@@ -4,23 +4,89 @@ import { ApiError } from '../api/client'
 import type { ItemLookupResponse } from '../types'
 
 const NAVY = '#1e3a8a'
+const HIGHLIGHT_BG = '#e8eef9'
 
 export function LookupField({ onFound }: { onFound: (item: ItemLookupResponse) => void }) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [value, setValue] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState<ItemLookupResponse[] | null>(null)
+  const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null)
 
   useEffect(() => { inputRef.current?.focus() }, [])
 
+  useEffect(() => {
+    const trimmed = value.trim()
+    if (trimmed.length < 3) {
+      if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null }
+      setResults(null)
+      setHighlightedIndex(null)
+      return
+    }
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const matches = await searchItems(trimmed)
+        setResults(matches.length > 0 ? matches : null)
+        setHighlightedIndex(null)
+      } catch {
+        // silently ignore search errors — Enter path shows explicit errors
+      }
+    }, 300)
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [value])
+
   async function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Escape') { setResults(null); setError(null); return }
+    if (e.key === 'Escape') {
+      setResults(null)
+      setHighlightedIndex(null)
+      setError(null)
+      return
+    }
+
+    // Arrow navigation — only when dropdown is open
+    if (results && results.length > 0 && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      e.preventDefault()
+      const availableIndices = results
+        .map((r, i) => ({ r, i }))
+        .filter(({ r }) => r.status === 'available')
+        .map(({ i }) => i)
+
+      if (availableIndices.length === 0) return
+
+      if (e.key === 'ArrowDown') {
+        const next = availableIndices.find(i => i > (highlightedIndex ?? -1))
+        setHighlightedIndex(next !== undefined ? next : availableIndices[0])
+      } else {
+        const prev = [...availableIndices].reverse().find(i => i < (highlightedIndex ?? results.length))
+        setHighlightedIndex(prev !== undefined ? prev : availableIndices[availableIndices.length - 1])
+      }
+      return
+    }
+
     if (e.key !== 'Enter' || !value.trim()) return
 
+    // Cancel any pending debounced search
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+
+    // If a result is highlighted, select it without firing a lookup
+    if (highlightedIndex !== null && results) {
+      const item = results[highlightedIndex]
+      if (item) {
+        handleSelectResult(item)
+        return
+      }
+    }
+
+    // Barcode scanner / manual Enter — exact lookup fast path (unchanged)
     setLoading(true)
     setError(null)
     setResults(null)
+    setHighlightedIndex(null)
     const code = value.trim()
 
     try {
@@ -65,6 +131,7 @@ export function LookupField({ onFound }: { onFound: (item: ItemLookupResponse) =
 
   function handleSelectResult(item: ItemLookupResponse) {
     setResults(null)
+    setHighlightedIndex(null)
     setValue('')
     if (item.status !== 'available') {
       setError(`Item ${item.code} is already ${item.status}.`)
@@ -83,7 +150,7 @@ export function LookupField({ onFound }: { onFound: (item: ItemLookupResponse) =
         id="lookup"
         ref={inputRef}
         value={value}
-        onChange={e => { setValue(e.target.value); setError(null); setResults(null) }}
+        onChange={e => { setValue(e.target.value); setError(null) }}
         onKeyDown={handleKeyDown}
         disabled={loading}
         placeholder="Scan barcode, or type partial code + Enter"
@@ -112,40 +179,46 @@ export function LookupField({ onFound }: { onFound: (item: ItemLookupResponse) =
           <div style={{ padding: '7px 12px', fontSize: 12, color: '#64748b', borderBottom: '1px solid #e2e8f0', fontWeight: 600 }}>
             {results.length} item{results.length !== 1 ? 's' : ''} found — click to add to cart
           </div>
-          {results.map(item => (
-            <button
-              key={item.id}
-              onClick={() => handleSelectResult(item)}
-              style={{
-                display: 'flex',
-                width: '100%',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '9px 12px',
-                background: 'none',
-                border: 'none',
-                borderBottom: '1px solid #f1f5f9',
-                cursor: item.status === 'available' ? 'pointer' : 'default',
-                fontSize: 14,
-                textAlign: 'left',
-                opacity: item.status !== 'available' ? 0.5 : 1,
-              }}
-            >
-              <span>
-                <strong style={{ color: NAVY, marginRight: 8 }}>{item.code}</strong>
-                {item.description && <span style={{ color: '#374151' }}>{item.description}</span>}
-                {item.category && <span style={{ marginLeft: 6, fontSize: 12, color: '#94a3b8' }}>({item.category})</span>}
-              </span>
-              <span style={{ whiteSpace: 'nowrap', marginLeft: 16 }}>
-                <strong>${item.price.toFixed(2)}</strong>
-                {item.status !== 'available' && (
-                  <span style={{ marginLeft: 6, fontSize: 11, color: '#ef4444', fontWeight: 700, textTransform: 'uppercase' }}>
-                    {item.status}
-                  </span>
-                )}
-              </span>
-            </button>
-          ))}
+          {results.map((item, index) => {
+            const isAvailable = item.status === 'available'
+            const isHighlighted = index === highlightedIndex
+            return (
+              <button
+                key={item.id}
+                onClick={isAvailable ? () => handleSelectResult(item) : undefined}
+                aria-disabled={!isAvailable}
+                style={{
+                  display: 'flex',
+                  width: '100%',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '9px 12px',
+                  background: isHighlighted ? HIGHLIGHT_BG : 'none',
+                  border: 'none',
+                  borderBottom: '1px solid #f1f5f9',
+                  cursor: isAvailable ? 'pointer' : 'default',
+                  fontSize: 14,
+                  textAlign: 'left',
+                  opacity: isAvailable ? 1 : 0.45,
+                  pointerEvents: isAvailable ? 'auto' : 'none',
+                }}
+              >
+                <span>
+                  <strong style={{ color: NAVY, marginRight: 8 }}>{item.code}</strong>
+                  {item.description && <span style={{ color: '#374151' }}>{item.description}</span>}
+                  {item.category && <span style={{ marginLeft: 6, fontSize: 12, color: '#94a3b8' }}>({item.category})</span>}
+                </span>
+                <span style={{ whiteSpace: 'nowrap', marginLeft: 16 }}>
+                  <strong>${item.price.toFixed(2)}</strong>
+                  {!isAvailable && (
+                    <span style={{ marginLeft: 6, fontSize: 11, color: '#ef4444', fontWeight: 700, textTransform: 'uppercase' }}>
+                      {item.status}
+                    </span>
+                  )}
+                </span>
+              </button>
+            )
+          })}
         </div>
       )}
     </div>

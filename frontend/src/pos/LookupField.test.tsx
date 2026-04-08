@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { server } from '../mocks/server'
 import { http, HttpResponse } from 'msw'
 import { LookupField } from './LookupField'
@@ -118,5 +118,100 @@ describe('LookupField', () => {
     await waitFor(() => screen.getByText('A001-001'))
     fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Escape' })
     expect(screen.queryByText('A001-001')).not.toBeInTheDocument()
+  })
+
+  describe('live autocomplete', () => {
+    beforeEach(() => { vi.useFakeTimers() })
+    afterEach(() => { vi.runOnlyPendingTimers(); vi.useRealTimers() })
+
+    it('shows dropdown after typing 3 chars and waiting 300ms', async () => {
+      server.use(http.get('/items/search', () => HttpResponse.json([FOUND, FOUND2])))
+      render(<LookupField onFound={vi.fn()} />)
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'A00' } })
+      expect(screen.queryByText('A001-001')).not.toBeInTheDocument()
+      await act(async () => { vi.advanceTimersByTime(300) })
+      expect(screen.getByText('A001-001')).toBeInTheDocument()
+    })
+
+    it('does not show dropdown after typing only 2 chars', () => {
+      server.use(http.get('/items/search', () => HttpResponse.json([FOUND])))
+      render(<LookupField onFound={vi.fn()} />)
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'A0' } })
+      act(() => { vi.advanceTimersByTime(300) })
+      expect(screen.queryByText('A001-001')).not.toBeInTheDocument()
+    })
+
+    it('does not fire search before 300ms', () => {
+      const handler = vi.fn(() => HttpResponse.json([FOUND]))
+      server.use(http.get('/items/search', handler))
+      render(<LookupField onFound={vi.fn()} />)
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'A00' } })
+      act(() => { vi.advanceTimersByTime(200) })
+      expect(handler).not.toHaveBeenCalled()
+    })
+
+    it('closes dropdown when input drops below 3 chars', async () => {
+      server.use(http.get('/items/search', () => HttpResponse.json([FOUND, FOUND2])))
+      render(<LookupField onFound={vi.fn()} />)
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'A00' } })
+      await act(async () => { vi.advanceTimersByTime(300) })
+      expect(screen.getByText('A001-001')).toBeInTheDocument()
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'A0' } })
+      expect(screen.queryByText('A001-001')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('arrow key navigation', () => {
+    const SOLD = { ...FOUND, id: 3, code: 'A001-003', status: 'sold' }
+
+    beforeEach(() => { vi.useFakeTimers() })
+    afterEach(() => { vi.runOnlyPendingTimers(); vi.useRealTimers() })
+
+    async function openDropdown(results = [FOUND, FOUND2], onFound = vi.fn()) {
+      server.use(http.get('/items/search', () => HttpResponse.json(results)))
+      render(<LookupField onFound={onFound} />)
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'A00' } })
+      await act(async () => { vi.advanceTimersByTime(300) })
+    }
+
+    it('ArrowDown highlights the first available item', async () => {
+      await openDropdown()
+      fireEvent.keyDown(screen.getByRole('textbox'), { key: 'ArrowDown' })
+      const btn = screen.getByText('A001-001').closest('button')!
+      expect(btn).toHaveStyle({ background: 'rgb(232, 238, 249)' })
+    })
+
+    it('ArrowDown skips non-available items', async () => {
+      await openDropdown([SOLD, FOUND])
+      fireEvent.keyDown(screen.getByRole('textbox'), { key: 'ArrowDown' })
+      const btn = screen.getByText('A001-001').closest('button')!
+      expect(btn).toHaveStyle({ background: 'rgb(232, 238, 249)' })
+    })
+
+    it('Enter selects the highlighted item', async () => {
+      const onFound = vi.fn()
+      await openDropdown([FOUND, FOUND2], onFound)
+      fireEvent.keyDown(screen.getByRole('textbox'), { key: 'ArrowDown' })
+      fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter' })
+      expect(onFound).toHaveBeenCalledWith(FOUND)
+    })
+
+    it('non-available item row is not clickable', async () => {
+      const onFound = vi.fn()
+      server.use(http.get('/items/search', () => HttpResponse.json([SOLD])))
+      render(<LookupField onFound={onFound} />)
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'A00' } })
+      await act(async () => { vi.advanceTimersByTime(300) })
+      screen.getByText('A001-003')
+      fireEvent.click(screen.getByText('A001-003').closest('button')!)
+      expect(onFound).not.toHaveBeenCalled()
+    })
+
+    it('Escape closes dropdown and clears highlight', async () => {
+      await openDropdown()
+      fireEvent.keyDown(screen.getByRole('textbox'), { key: 'ArrowDown' })
+      fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Escape' })
+      expect(screen.queryByText('A001-001')).not.toBeInTheDocument()
+    })
   })
 })
