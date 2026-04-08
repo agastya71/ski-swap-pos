@@ -194,7 +194,7 @@ def get_donations(db: Session, event_id: int) -> DonationsReport:
     * **Proceeds donations** — items sold where the intake had
       ``donate_proceeds=True``.
     * **Unsold donations** — items still in ``"available"`` status whose
-      intake had ``donate_unsold=True``.
+      item-level ``donate_unsold`` flag is ``True``.
 
     Args:
         db: Active SQLAlchemy database session.

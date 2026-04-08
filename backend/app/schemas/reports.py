@@ -42,7 +42,7 @@ class EventRevenueReport(BaseModel):
     event_id: int = Field(description="ID of the event this revenue report covers.")
     event_name: str = Field(description="Human-readable name of the event.")
     event_year: int = Field(description="Calendar year of the event.")
-    total_sales: int = Field(description="Total number of sale transactions processed (including voided).")
+    total_sales: int = Field(description="Total number of completed (non-voided) sale transactions.")
     voided_sales: int = Field(description="Number of sale transactions that were voided.")
     gross_revenue: float = Field(description="Total revenue from all non-voided sales.")
     mysl_total: float = Field(description="Total commission amount retained by MYSL across all sales.")
@@ -97,17 +97,17 @@ class UnsoldItemsReport(BaseModel):
 
 
 class EndOfDayReport(BaseModel):
-    """Daily sales summary generated at the close of each event day."""
+    """Cumulative event sales summary stamped with the date the report was generated."""
 
     event_id: int = Field(description="ID of the event this end-of-day report covers.")
     event_name: str = Field(description="Human-readable name of the event.")
-    date_generated: date = Field(description="Calendar date this end-of-day report represents.")
-    sales_count: int = Field(description="Number of non-voided sale transactions completed on this day.")
-    voided_count: int = Field(description="Number of sale transactions voided on this day.")
-    gross_revenue: float = Field(description="Total revenue from all non-voided sales on this day.")
-    mysl_total: float = Field(description="MYSL commission from all non-voided sales on this day.")
-    seller_total: float = Field(description="Seller payout amounts from all non-voided sales on this day.")
-    cash_total: float = Field(description="Total cash collected on this day.")
-    check_total: float = Field(description="Total check payments collected on this day.")
-    cc_total: float = Field(description="Total credit/debit card payments collected on this day.")
+    date_generated: date = Field(description="Calendar date this end-of-day report was generated.")
+    sales_count: int = Field(description="Total number of non-voided sale transactions across all event days.")
+    voided_count: int = Field(description="Total number of voided sale transactions across all event days.")
+    gross_revenue: float = Field(description="Total revenue from all non-voided sales across all event days.")
+    mysl_total: float = Field(description="MYSL commission from all non-voided sales across all event days.")
+    seller_total: float = Field(description="Seller payout amounts from all non-voided sales across all event days.")
+    cash_total: float = Field(description="Total cash collected across all event days.")
+    check_total: float = Field(description="Total check payments collected across all event days.")
+    cc_total: float = Field(description="Total credit/debit card payments collected across all event days.")
     generated_at: datetime = Field(description="UTC timestamp when this end-of-day report was generated.")

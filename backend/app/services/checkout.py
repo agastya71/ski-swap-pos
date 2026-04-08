@@ -29,7 +29,7 @@ def compute_commission(
     ``commission_rate``.
 
     Args:
-        item_price: Extended price of the line item (unit price × quantity),
+        item_price: Extended price of the line item (sell_price × quantity),
             already rounded to 2 decimal places by the caller.
         donate_proceeds: If True, all revenue is directed to MYSL.
         commission_rate: Fraction of item price that MYSL retains (e.g.
