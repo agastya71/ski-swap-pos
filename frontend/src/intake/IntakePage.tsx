@@ -1,3 +1,10 @@
+/**
+ * Intake module root — manages the multi-step seller intake workflow:
+ * seller search → seller registration → intake selection → intake creation → item entry.
+ * All step state is lifted here; child components are pure presentational forms.
+ *
+ * @module IntakePage
+ */
 import { useState, useCallback } from 'react'
 import { getIntake, getSellerIntakes } from '../api/intakes'
 import { SellerSearch } from './SellerSearch'
@@ -9,6 +16,16 @@ import type { Seller, Intake, Item } from '../types'
 
 type Step = 'search' | 'register' | 'select-intake' | 'intake' | 'items'
 
+/**
+ * Navigation breadcrumb displayed at the top of the intake workflow.
+ * Renders the current position as plain text and earlier steps as clickable links.
+ *
+ * @param props.step - The currently active workflow step.
+ * @param props.seller - The selected seller, or null if none has been chosen yet.
+ * @param props.intake - The active intake session, or null before one is created or resumed.
+ * @param props.onGoToSearch - Callback invoked when the user clicks the root "Intake" link.
+ * @param props.onGoToSelectIntake - Callback invoked when the user clicks the seller name link.
+ */
 function Breadcrumb({ step, seller, intake, onGoToSearch, onGoToSelectIntake }: {
   step: Step
   seller: Seller | null
@@ -47,6 +64,11 @@ function Breadcrumb({ step, seller, intake, onGoToSearch, onGoToSelectIntake }: 
   )
 }
 
+/**
+ * Root page component for the intake module.
+ * Manages a five-step state machine (search → register → select-intake → intake → items)
+ * and renders the appropriate child component for each step.
+ */
 export function IntakePage() {
   const [step, setStep] = useState<Step>('search')
   const [seller, setSeller] = useState<Seller | null>(null)
@@ -56,12 +78,14 @@ export function IntakePage() {
   const [loadingIntakes, setLoadingIntakes] = useState(false)
   const [pickError, setPickError] = useState<string | null>(null)
 
+  /** Re-fetches the item list for the current intake from the API and updates local state. */
   const refreshItems = useCallback(async () => {
     if (!intake) return
     const fresh = await getIntake(intake.id)
     setItems(fresh.items)
   }, [intake])
 
+  /** Loads all existing intakes for the given seller and advances to the select-intake step. */
   async function goToSelectIntake(s: Seller) {
     setSeller(s)
     setStep('select-intake')
@@ -77,9 +101,13 @@ export function IntakePage() {
     }
   }
 
+  /** Handles a seller chosen from the search results by advancing to intake selection. */
   function handleSellerSelected(s: Seller) { goToSelectIntake(s) }
+
+  /** Handles a newly registered seller by advancing to intake selection. */
   function handleSellerCreated(s: Seller) { goToSelectIntake(s) }
 
+  /** Loads the chosen existing intake and advances to the item-entry step. */
   async function handlePickExistingIntake(intakeId: number) {
     setPickError(null)
     try {
@@ -92,6 +120,7 @@ export function IntakePage() {
     }
   }
 
+  /** Handles a newly created intake by storing it and advancing to the item-entry step. */
   function handleIntakeCreated(i: Intake) {
     setIntake(i)
     setItems([])
@@ -99,6 +128,7 @@ export function IntakePage() {
     getIntake(i.id).then(full => setItems(full.items)).catch(() => {})
   }
 
+  /** Resets all state and returns to the initial seller-search step. */
   function handleGoToSearch() {
     setSeller(null)
     setIntake(null)
@@ -108,6 +138,7 @@ export function IntakePage() {
     setStep('search')
   }
 
+  /** Returns to the select-intake step for the current seller, or to search if no seller is set. */
   function handleGoToSelectIntake() {
     if (!seller) { handleGoToSearch(); return }
     setIntake(null)
@@ -115,6 +146,7 @@ export function IntakePage() {
     goToSelectIntake(seller)
   }
 
+  /** Appends a newly added item to the local item list without a full re-fetch. */
   function handleItemAdded(item: Item) {
     setItems(prev => [...prev, item])
   }

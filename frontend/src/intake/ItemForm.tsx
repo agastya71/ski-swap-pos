@@ -1,3 +1,9 @@
+/**
+ * Item entry form — captures all fields for a single consignment item and adds it to the
+ * current intake session. Auto-generates the item code from the seller code and current item count.
+ *
+ * @module ItemForm
+ */
 import { useState, type FormEvent } from 'react'
 import { addItem } from '../api/intakes'
 import type { Item } from '../types'
@@ -14,6 +20,16 @@ const emptyForm = (code = '') => ({
   size: '', uom: '', gender_age: '', year: '', used: false, price: '', donate_unsold: false,
 })
 
+/**
+ * Form component for adding a single item to an intake session.
+ * Validates required fields (code, category, price), submits via the intakes API,
+ * and resets with an auto-suggested code after each successful submission.
+ *
+ * @param props.intakeId - ID of the intake session to which the item will be added.
+ * @param props.onAdded - Callback invoked with the newly created {@link Item} on success.
+ * @param props.sellerCode - Seller code prefix used to auto-generate the suggested item code.
+ * @param props.itemCount - Current number of items in the intake, used to compute the next code suffix.
+ */
 export function ItemForm({ intakeId, onAdded, sellerCode = '', itemCount = 0 }: {
   intakeId: number
   onAdded: (item: Item) => void

@@ -1,3 +1,10 @@
+/**
+ * Tests for {@link IntakePage} — covers the full multi-step intake workflow:
+ * initial render at seller search, advancing to intake selection after choosing a seller,
+ * listing and resuming existing intakes, creating a new intake, and breadcrumb navigation.
+ *
+ * @module IntakePage.test
+ */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { server } from '../mocks/server'
 import { http, HttpResponse } from 'msw'
@@ -28,12 +35,15 @@ async function selectSeller() {
   fireEvent.click(screen.getByText('Jane Doe — A001'))
 }
 
+/** Tests covering the complete multi-step intake workflow driven by IntakePage. */
 describe('IntakePage workflow', () => {
+  /** Verifies that the page opens at the seller search step showing the search input. */
   it('starts at seller search step', () => {
     renderPage()
     expect(screen.getByPlaceholderText(/search by name or code/i)).toBeInTheDocument()
   })
 
+  /** Verifies the select-intake step is shown after choosing a seller who has no prior intakes. */
   it('shows select-intake step after selecting a seller with no prior intakes', async () => {
     server.use(
       http.get('/sellers', () => HttpResponse.json([SELLER])),
@@ -45,6 +55,7 @@ describe('IntakePage workflow', () => {
     expect(screen.getByText(/no previous intakes/i)).toBeInTheDocument()
   })
 
+  /** Verifies that prior intakes are listed and that clicking Continue advances to item entry. */
   it('lists existing intakes and allows continuing one', async () => {
     server.use(
       http.get('/sellers', () => HttpResponse.json([SELLER])),
@@ -59,6 +70,7 @@ describe('IntakePage workflow', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: /add item/i })).toBeInTheDocument())
   })
 
+  /** Verifies that creating a new intake via the form advances to the item-entry step. */
   it('advances to item entry after creating a new intake', async () => {
     server.use(
       http.get('/sellers', () => HttpResponse.json([SELLER])),
@@ -76,6 +88,7 @@ describe('IntakePage workflow', () => {
     expect(screen.getByText(/no items yet/i)).toBeInTheDocument()
   })
 
+  /** Verifies that clicking the breadcrumb "Intake" link resets the workflow to seller search. */
   it('returns to search when Intake breadcrumb link is clicked', async () => {
     server.use(
       http.get('/sellers', () => HttpResponse.json([SELLER])),
