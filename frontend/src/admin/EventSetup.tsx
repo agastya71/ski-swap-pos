@@ -1,7 +1,16 @@
+/**
+ * Event setup admin panel — lists all swap events, allows admins to create new events
+ * and activate an existing one as the current active event.
+ */
+
 import { useState, useEffect, type FormEvent } from 'react'
 import { getEvents, createEvent, activateEvent } from '../api/events'
 import type { Event } from '../types'
 
+/**
+ * Admin panel for managing swap events: displays the event list with activation
+ * controls and provides a form to create a new event.
+ */
 export function EventSetup() {
   const [events, setEvents] = useState<Event[]>([])
   const [name, setName] = useState('')
@@ -10,6 +19,7 @@ export function EventSetup() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
+  /** Fetches the full event list from the API and updates local state. */
   async function load() {
     const data = await getEvents()
     setEvents(data)
@@ -17,6 +27,7 @@ export function EventSetup() {
 
   useEffect(() => { load().catch(() => {}) }, [])
 
+  /** Submits the create-event form, appends the new event to the list on success. */
   async function handleCreate(e: FormEvent) {
     e.preventDefault()
     setError(null)
@@ -32,6 +43,7 @@ export function EventSetup() {
     }
   }
 
+  /** Activates the event with the given ID and refreshes the list to reflect the new status. */
   async function handleActivate(id: number) {
     await activateEvent(id)
     await load()

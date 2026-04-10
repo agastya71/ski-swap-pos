@@ -1,3 +1,10 @@
+/**
+ * MSW (Mock Service Worker) request handlers for all backend API routes.
+ * Used in Vitest tests to intercept HTTP calls and return deterministic
+ * fixture data without a running backend. Covers auth, events, users,
+ * sellers, intakes, items, sales, reports, and admin endpoints.
+ */
+
 import { http, HttpResponse } from 'msw'
 import { ADMIN_TOKEN } from './tokens'
 
@@ -35,56 +42,75 @@ const SALE = {
 }
 
 export const handlers = [
-  // Auth
+  /** POST /auth/login — returns a fixed admin JWT token for all login attempts. */
   http.post('/auth/login', () =>
     HttpResponse.json({ access_token: ADMIN_TOKEN, role: 'admin', event_id: 1 })
   ),
 
-  // Events
+  /** GET /events — returns a two-event list (one inactive, one active). */
   http.get('/events', () => HttpResponse.json([
     { id: 1, name: 'Swap 2025', year: 2025, commission_rate: 0.3, is_active: false },
     { id: 2, name: 'Swap 2026', year: 2026, commission_rate: 0.3, is_active: true },
   ])),
+  /** POST /events — returns a new stub event with id 3 (Swap 2027). */
   http.post('/events', () =>
     HttpResponse.json({ id: 3, name: 'Swap 2027', year: 2027, commission_rate: 0.3, is_active: false })
   ),
+  /** POST /events/:id/activate — marks the addressed event as active. */
   http.post('/events/:id/activate', ({ params }) =>
     HttpResponse.json({ id: Number(params['id']), name: 'Swap 2026', year: 2026, commission_rate: 0.3, is_active: true })
   ),
 
-  // Users
+  /** GET /users — returns an empty user list (tests override as needed). */
   http.get('/users', () => HttpResponse.json([])),
+  /** POST /users — returns a stub intake user with id 1. */
   http.post('/users', () => HttpResponse.json({ id: 1, username: 'user1', role: 'intake', is_active: true, event_id: 1 })),
+  /** PATCH /users/:id/deactivate — returns the same user with is_active set to false. */
   http.patch('/users/:id/deactivate', () => HttpResponse.json({ id: 1, username: 'user1', role: 'intake', is_active: false, event_id: 1 })),
 
-  // Sellers — specific routes before /:id to avoid shadowing
+  /** GET /sellers — returns an empty seller list (tests override as needed). */
   http.get('/sellers', () => HttpResponse.json([])),
+  /** POST /sellers — returns the shared SELLER fixture. */
   http.post('/sellers', () => HttpResponse.json(SELLER)),
+  /** GET /sellers/:id/intakes — returns a single-element intake array for the seller. */
   http.get('/sellers/:id/intakes', () => HttpResponse.json([INTAKE])),
+  /** GET /sellers/:id — returns the shared SELLER fixture. */
   http.get('/sellers/:id', () => HttpResponse.json(SELLER)),
+  /** PATCH /sellers/:id — returns the shared SELLER fixture unchanged. */
   http.patch('/sellers/:id', () => HttpResponse.json(SELLER)),
 
-  // Intakes
+  /** POST /intakes — creates a new intake session, returns the INTAKE fixture. */
   http.post('/intakes', () => HttpResponse.json(INTAKE)),
+  /** GET /intakes/:id — returns the INTAKE fixture with an empty items array. */
   http.get('/intakes/:id', () => HttpResponse.json({ ...INTAKE, items: [] })),
+  /** PATCH /intakes/:id — updates intake options, returns the INTAKE fixture. */
   http.patch('/intakes/:id', () => HttpResponse.json(INTAKE)),
+  /** POST /intakes/:id/items — adds an item to the intake, returns the ITEM fixture. */
   http.post('/intakes/:id/items', () => HttpResponse.json(ITEM)),
+  /** POST /intakes/:id/labels — triggers label printing, returns a count of printed labels. */
   http.post('/intakes/:id/labels', () => HttpResponse.json({ intake_id: 1, printed: 5 })),
 
-  // Items — specific routes MUST be before /:id to prevent route shadowing
+  /** GET /items/lookup — exact item lookup by code or barcode; returns ITEM with seller_code. */
   http.get('/items/lookup', () => HttpResponse.json({ ...ITEM, seller_code: 'A001' })),
+  /** GET /items/search — partial-code search; returns an empty array (tests override as needed). */
   http.get('/items/search', () => HttpResponse.json([])),
+  /** GET /items/:id — fetches a single item by numeric ID, returns the ITEM fixture. */
   http.get('/items/:id', () => HttpResponse.json(ITEM)),
+  /** PATCH /items/:id — updates item fields, returns the ITEM fixture unchanged. */
   http.patch('/items/:id', () => HttpResponse.json(ITEM)),
+  /** DELETE /items/:id — deletes an item, returns 204 No Content. */
   http.delete('/items/:id', () => new HttpResponse(null, { status: 204 })),
+  /** POST /items/:id/label — marks an item label as printed, returns the updated ITEM fixture. */
   http.post('/items/:id/label', () => HttpResponse.json(ITEM)),
 
-  // Sales
+  /** POST /sales — creates a new sale transaction, returns the SALE fixture. */
   http.post('/sales', () => HttpResponse.json(SALE)),
+  /** GET /sales/:id — fetches a sale by ID, returns the SALE fixture. */
   http.get('/sales/:id', () => HttpResponse.json(SALE)),
+  /** POST /sales/:id/void — voids a sale, returns the SALE fixture with is_voided true. */
   http.post('/sales/:id/void', () => HttpResponse.json({ ...SALE, is_voided: true })),
 
-  // Reports
+  /** GET /reports/:eventId/seller/:sellerId — returns seller payout report for seller A001 (Jane Doe). */
   http.get('/reports/:eventId/seller/:sellerId', () =>
     HttpResponse.json({
       event_id: 1, event_name: 'Test Event', seller_id: 1, seller_code: 'A001',
@@ -97,6 +123,7 @@ export const handlers = [
       generated_at: '2026-04-04T10:00:00',
     })
   ),
+  /** GET /reports/:eventId/revenue — returns event-level revenue totals and payment breakdown. */
   http.get('/reports/:eventId/revenue', () =>
     HttpResponse.json({
       event_id: 1, event_name: 'Test Event', event_year: 2026,
@@ -106,6 +133,7 @@ export const handlers = [
       donate_proceeds_total: 0, generated_at: '2026-04-04T10:00:00',
     })
   ),
+  /** GET /reports/:eventId/donations — returns a donations report with one stub donated item. */
   http.get('/reports/:eventId/donations', () =>
     HttpResponse.json({
       event_id: 1, event_name: 'Test Event',
@@ -115,6 +143,7 @@ export const handlers = [
       total_items: 1, total_value: 30, generated_at: '2026-04-04T10:00:00',
     })
   ),
+  /** GET /reports/:eventId/unsold — returns an unsold-items report with one stub unsold item. */
   http.get('/reports/:eventId/unsold', () =>
     HttpResponse.json({
       event_id: 1, event_name: 'Test Event',
@@ -124,6 +153,7 @@ export const handlers = [
       total_items: 1, total_value: 45, generated_at: '2026-04-04T10:00:00',
     })
   ),
+  /** GET /reports/:eventId/end-of-day — returns an end-of-day summary with sales counts and payment totals. */
   http.get('/reports/:eventId/end-of-day', () =>
     HttpResponse.json({
       event_id: 1, event_name: 'Test Event', date_generated: '2026-04-04',
@@ -133,6 +163,6 @@ export const handlers = [
     })
   ),
 
-  // Admin backup
+  /** POST /admin/backup — returns a stub ZIP blob response for the database backup download. */
   http.post('/admin/backup', () => new HttpResponse(new Blob(['zip'], { type: 'application/zip' }), { status: 200 })),
 ]
