@@ -1,3 +1,9 @@
+/**
+ * Payment entry form — splits tender across cash, check, and Square card, validates
+ * that the total tendered meets the sale total, and submits.
+ *
+ * @module PaymentForm
+ */
 import { useState, type FormEvent } from 'react'
 
 interface PaymentSubmit {
@@ -7,6 +13,17 @@ interface PaymentSubmit {
   squareToken: string | null
 }
 
+/**
+ * Form that collects cash and check tender amounts; the Square card amount is derived
+ * automatically from any captured Square token. Validates that the sum of all tender
+ * meets the sale total before invoking onSubmit.
+ *
+ * @param props.total - Sale total in dollars; tendered amounts must sum to at least this value.
+ * @param props.squareToken - Nonce returned by the Square SDK after card capture, or null if
+ *   no card has been captured.
+ * @param props.onSubmit - Callback with the full payment breakdown once validation passes.
+ * @param props.onCancel - Callback invoked when the cashier clicks Cancel to return to the cart.
+ */
 export function PaymentForm({ total, onSubmit, onCancel, squareToken }: {
   total: number
   onSubmit: (payment: PaymentSubmit) => void

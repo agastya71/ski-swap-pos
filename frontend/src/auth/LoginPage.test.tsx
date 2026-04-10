@@ -1,3 +1,7 @@
+/**
+ * Tests for {@link LoginPage} — covers initial render, successful login flow,
+ * error display on failed credentials, and button disabled state while loading.
+ */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { server } from '../mocks/server'
 import { http, HttpResponse } from 'msw'
@@ -15,7 +19,9 @@ function renderLogin() {
   return { onLogin }
 }
 
+/** LoginPage component integration tests. */
 describe('LoginPage', () => {
+  /** Verifies that the form fields and submit button are present on initial render. */
   it('renders username, password and sign-in button', () => {
     renderLogin()
     expect(screen.getByLabelText(/username/i)).toBeInTheDocument()
@@ -23,6 +29,7 @@ describe('LoginPage', () => {
     expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument()
   })
 
+  /** Verifies that onLogin is called after the API returns a valid token. */
   it('calls onLogin after successful login', async () => {
     server.use(
       http.post('/auth/login', () =>
@@ -36,6 +43,7 @@ describe('LoginPage', () => {
     await waitFor(() => expect(onLogin).toHaveBeenCalledTimes(1))
   })
 
+  /** Verifies that an error alert is rendered when the API returns 401. */
   it('shows error alert on failed login', async () => {
     server.use(
       http.post('/auth/login', () =>
@@ -51,6 +59,7 @@ describe('LoginPage', () => {
     )
   })
 
+  /** Verifies that the sign-in button is disabled while a login request is in-flight. */
   it('disables sign-in button while loading', async () => {
     let resolve!: (v: Response) => void
     const pending = new Promise<Response>(r => { resolve = r })

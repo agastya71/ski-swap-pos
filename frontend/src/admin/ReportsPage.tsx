@@ -1,7 +1,21 @@
+/**
+ * Admin reports page — aggregates and displays four end-of-event reports:
+ * Event Revenue, Donations, Unsold Items, and per-Seller Payout. Event Revenue,
+ * Donations, and Unsold Items each provide a CSV download button; the Seller
+ * Payout section includes an ID-based lookup form and shows a CSV button only
+ * after a payout is loaded.
+ */
+
 import { useState, useEffect, type FormEvent } from 'react'
 import { getEventRevenue, getDonations, getUnsoldItems, getSellerPayout, downloadFile } from '../api/reports'
 import type { EventRevenueReport, DonationsReport, UnsoldItemsReport, SellerPayoutReport } from '../types'
 
+/**
+ * Renders all event-level financial and inventory reports with inline data tables
+ * and CSV export controls.
+ *
+ * @param props.eventId - The ID of the active swap event whose reports should be loaded.
+ */
 export function ReportsPage({ eventId }: { eventId: number }) {
   const [revenue, setRevenue] = useState<EventRevenueReport | null>(null)
   const [donations, setDonations] = useState<DonationsReport | null>(null)
@@ -18,6 +32,7 @@ export function ReportsPage({ eventId }: { eventId: number }) {
     ]).catch(() => {})
   }, [eventId])
 
+  /** Looks up the payout report for the seller ID entered in the form field. */
   async function handlePayoutLookup(e: FormEvent) {
     e.preventDefault()
     setPayoutError(null)

@@ -1,3 +1,8 @@
+/**
+ * Admin dashboard page — top-level container for all administrative sub-sections
+ * (Event Setup, Users, Reports, End of Day), rendered for admin-role users only.
+ */
+
 import { useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { EventSetup } from './EventSetup'
@@ -5,8 +10,10 @@ import { UserManagement } from './UserManagement'
 import { ReportsPage } from './ReportsPage'
 import { EndOfDayPage } from './EndOfDayPage'
 
+/** Union type of the available admin sub-section keys. */
 type AdminSection = 'events' | 'users' | 'reports' | 'eod'
 
+/** Ordered list of admin navigation tabs with their display labels. */
 const SECTIONS: { key: AdminSection; label: string }[] = [
   { key: 'events', label: 'Event Setup' },
   { key: 'users', label: 'Users' },
@@ -14,6 +21,10 @@ const SECTIONS: { key: AdminSection; label: string }[] = [
   { key: 'eod', label: 'End of Day' },
 ]
 
+/**
+ * Top-level admin dashboard that renders a tab bar and conditionally mounts
+ * one of four admin sub-section components based on the active tab.
+ */
 export function AdminPage() {
   const { decoded } = useAuth()
   const eventId = decoded?.event_id ?? 1

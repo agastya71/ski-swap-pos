@@ -1,3 +1,8 @@
+/**
+ * Tests for {@link Cart} — covers empty-state rendering, item display (code,
+ * description, price, seller code), running total calculation, and the Remove
+ * button callback.
+ */
 import { render, screen, fireEvent } from '@testing-library/react'
 import { Cart } from './Cart'
 import type { ItemLookupResponse } from '../types'
@@ -23,12 +28,15 @@ const ITEM_B: ItemLookupResponse = {
   seller_code: 'B001',
 }
 
+/** Tests for the Cart component covering display and interaction. */
 describe('Cart', () => {
+  /** Verifies an empty-state message is shown when no items are in the cart. */
   it('shows empty message when cart is empty', () => {
     render(<Cart items={[]} onRemove={vi.fn()} />)
     expect(screen.getByText(/cart is empty/i)).toBeInTheDocument()
   })
 
+  /** Verifies each cart item's code, description, and price are rendered in the table. */
   it('shows each item with code, description and price', () => {
     render(<Cart items={[ITEM_A, ITEM_B]} onRemove={vi.fn()} />)
     expect(screen.getByText('A001-001')).toBeInTheDocument()
@@ -38,11 +46,13 @@ describe('Cart', () => {
     expect(screen.getByText('$40.00')).toBeInTheDocument()
   })
 
+  /** Verifies the running total row displays the sum of all item prices. */
   it('shows running total', () => {
     render(<Cart items={[ITEM_A, ITEM_B]} onRemove={vi.fn()} />)
     expect(screen.getByText('$115.00')).toBeInTheDocument()
   })
 
+  /** Verifies onRemove is called with the correct item ID when the Remove button is clicked. */
   it('calls onRemove with item id when Remove is clicked', () => {
     const onRemove = vi.fn()
     render(<Cart items={[ITEM_A]} onRemove={onRemove} />)
@@ -50,6 +60,7 @@ describe('Cart', () => {
     expect(onRemove).toHaveBeenCalledWith(ITEM_A.id)
   })
 
+  /** Verifies the seller code column is displayed for each item in the cart. */
   it('shows seller code for each item', () => {
     render(<Cart items={[ITEM_A]} onRemove={vi.fn()} />)
     expect(screen.getByText('A001')).toBeInTheDocument()

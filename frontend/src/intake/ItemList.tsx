@@ -1,22 +1,40 @@
+/**
+ * Item list table for an intake session — displays all consigned items with
+ * inline edit (modal), delete (with sold-item guard), and print-label actions.
+ *
+ * @module ItemList
+ */
 import { deleteItem, printLabel } from '../api/items'
 import { printIntakeLabels } from '../api/intakes'
 import type { Item } from '../types'
 
+/**
+ * Renders a tabular list of items belonging to a single intake session.
+ * Provides per-item Print Label and Delete actions, plus a bulk Print All Labels button.
+ * The Delete button is disabled for items whose labels have already been printed.
+ *
+ * @param props.items - Array of {@link Item} objects to display.
+ * @param props.intakeId - ID of the parent intake session, used for bulk label printing.
+ * @param props.onItemsChanged - Callback invoked after any mutation so the parent can re-fetch.
+ */
 export function ItemList({ items, intakeId, onItemsChanged }: {
   items: Item[]
   intakeId: number
   onItemsChanged: () => void
 }) {
+  /** Deletes a single item by ID and notifies the parent to refresh. */
   async function handleDelete(id: number) {
     await deleteItem(id)
     onItemsChanged()
   }
 
+  /** Prints the ZPL label for a single item and notifies the parent to refresh. */
   async function handlePrintOne(id: number) {
     await printLabel(id)
     onItemsChanged()
   }
 
+  /** Prints ZPL labels for all items in the current intake and notifies the parent to refresh. */
   async function handlePrintAll() {
     await printIntakeLabels(intakeId)
     onItemsChanged()

@@ -1,3 +1,10 @@
+/**
+ * POS checkout page — orchestrates the three-step checkout flow: item lookup/cart
+ * building → payment entry → confirmation. Cart items are persisted to localStorage
+ * under the key 'pos_cart' so they survive page refresh.
+ *
+ * @module POSPage
+ */
 import { useState } from 'react'
 import { createSale } from '../api/sales'
 import { LookupField } from './LookupField'
@@ -11,6 +18,11 @@ const CART_KEY = 'pos_cart'
 
 type POSStep = 'cart' | 'payment' | 'confirmed'
 
+/**
+ * Root component for the point-of-sale checkout workflow. Manages cart state,
+ * checkout step, Square token, and sale submission. Step progression:
+ * 'cart' → 'payment' → 'confirmed'.
+ */
 export function POSPage() {
   const [items, setItemsState] = useState<ItemLookupResponse[]>(() => {
     try {
@@ -25,6 +37,7 @@ export function POSPage() {
   const [squareToken, setSquareToken] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  /** Updates cart state and syncs the new list to localStorage, clearing the key when the cart is empty. */
   function setItems(updater: ItemLookupResponse[] | ((prev: ItemLookupResponse[]) => ItemLookupResponse[])) {
     setItemsState(prev => {
       const next = typeof updater === 'function' ? updater(prev) : updater
@@ -36,14 +49,17 @@ export function POSPage() {
     })
   }
 
+  /** Appends a newly scanned or selected item to the cart. */
   function handleFound(item: ItemLookupResponse) {
     setItems(prev => [...prev, item])
   }
 
+  /** Removes a single item from the cart by its numeric item ID. */
   function handleRemove(id: number) {
     setItems(prev => prev.filter(i => i.id !== id))
   }
 
+  /** Submits the sale to the API with tendered amounts, then advances to the confirmation step. */
   async function handlePayment({ cash, check, square }: {
     cash: number; check: number; square: number; squareToken: string | null
   }) {
@@ -63,6 +79,7 @@ export function POSPage() {
     }
   }
 
+  /** Resets all state to begin a fresh transaction after a sale is confirmed. */
   function handleNewTransaction() {
     setItems([])
     setSale(null)

@@ -1,3 +1,9 @@
+/**
+ * Tests for {@link ItemForm} — covers required field validation, successful item submission
+ * invoking onAdded, form reset after submission, and API error display.
+ *
+ * @module ItemForm.test
+ */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { server } from '../mocks/server'
 import { http, HttpResponse } from 'msw'
@@ -15,7 +21,9 @@ const ITEM: Item = {
   vendor_item_id: null, created_at: '2026-04-04T10:00:00',
 }
 
+/** Tests covering the ItemForm component's rendering, submission, and error handling. */
 describe('ItemForm', () => {
+  /** Verifies that the code, category, and price fields carry the HTML required attribute. */
   it('renders code, category and price fields as required', () => {
     render(<ItemForm intakeId={5} onAdded={vi.fn()} />)
     expect(screen.getByLabelText(/^code/i)).toBeRequired()
@@ -23,6 +31,7 @@ describe('ItemForm', () => {
     expect(screen.getByLabelText(/price/i)).toBeRequired()
   })
 
+  /** Verifies that a successful submit calls onAdded with the item object returned by the API. */
   it('calls onAdded with new item after successful submit', async () => {
     server.use(http.post('/intakes/:id/items', () => HttpResponse.json(ITEM)))
     const onAdded = vi.fn()
@@ -34,6 +43,7 @@ describe('ItemForm', () => {
     await waitFor(() => expect(onAdded).toHaveBeenCalledWith(ITEM))
   })
 
+  /** Verifies that the category select resets to its empty placeholder after a successful submit. */
   it('resets form fields after successful submit', async () => {
     server.use(http.post('/intakes/:id/items', () => HttpResponse.json(ITEM)))
     render(<ItemForm intakeId={5} onAdded={vi.fn()} />)
@@ -44,6 +54,7 @@ describe('ItemForm', () => {
     await waitFor(() => expect((screen.getByLabelText(/category/i) as HTMLSelectElement).value).toBe(''))
   })
 
+  /** Verifies that an API error response causes an alert with the error detail to appear. */
   it('shows error on API failure', async () => {
     server.use(http.post('/intakes/:id/items', () => HttpResponse.json({ detail: 'Labels already printed' }, { status: 409 })))
     render(<ItemForm intakeId={5} onAdded={vi.fn()} />)

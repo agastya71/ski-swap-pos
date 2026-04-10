@@ -1,3 +1,9 @@
+/**
+ * Tests for {@link LookupField} — covers exact barcode lookup, partial-code search
+ * fallback (single auto-add, multi-item picker), error states (not found, already sold),
+ * error dismissal on retype, Escape dismissal, click-to-select from results list,
+ * live autocomplete debounce timing, and ArrowUp/Down keyboard navigation.
+ */
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { server } from '../mocks/server'
 import { http, HttpResponse } from 'msw'
@@ -22,12 +28,15 @@ function enter(value: string) {
   fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Enter', code: 'Enter' })
 }
 
+/** Tests for the main LookupField component — exact lookup, partial search, and UX behaviours. */
 describe('LookupField', () => {
+  /** Verifies the input receives focus automatically when the component mounts. */
   it('renders an input that is focused on mount', () => {
     render(<LookupField onFound={vi.fn()} />)
     expect(document.activeElement).toBe(screen.getByRole('textbox'))
   })
 
+  /** Verifies onFound is called with the matching item when the exact lookup API returns a result. */
   it('calls onFound with the item when exact lookup succeeds', async () => {
     server.use(http.get('/items/lookup', () => HttpResponse.json(FOUND)))
     const onFound = vi.fn()
@@ -36,6 +45,7 @@ describe('LookupField', () => {
     await waitFor(() => expect(onFound).toHaveBeenCalledWith(FOUND))
   })
 
+  /** Verifies the input field is cleared after a successful exact-match lookup. */
   it('clears the input after a successful exact lookup', async () => {
     server.use(http.get('/items/lookup', () => HttpResponse.json(FOUND)))
     render(<LookupField onFound={vi.fn()} />)
@@ -43,6 +53,7 @@ describe('LookupField', () => {
     await waitFor(() => expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe(''))
   })
 
+  /** Verifies an alert is shown when neither exact lookup nor partial search finds any item. */
   it('shows error when item is not found and partial search also empty', async () => {
     server.use(
       http.get('/items/lookup', () => HttpResponse.json({ detail: 'Item not found' }, { status: 404 })),
@@ -53,6 +64,7 @@ describe('LookupField', () => {
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/item not found/i))
   })
 
+  /** Verifies an alert is shown when the looked-up item has a non-available status (e.g. 'sold'). */
   it('shows error when item is already sold', async () => {
     server.use(http.get('/items/lookup', () => HttpResponse.json({ ...FOUND, status: 'sold' })))
     render(<LookupField onFound={vi.fn()} />)
@@ -60,6 +72,7 @@ describe('LookupField', () => {
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/already sold/i))
   })
 
+  /** Verifies the error alert disappears as soon as the user begins typing a new code. */
   it('error clears when user starts typing again', async () => {
     server.use(
       http.get('/items/lookup', () => HttpResponse.json({ detail: 'Item not found' }, { status: 404 })),
@@ -72,6 +85,7 @@ describe('LookupField', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
+  /** Verifies the autocomplete dropdown displays all matches when a partial search returns multiple items. */
   it('shows results list when partial search returns multiple items', async () => {
     server.use(
       http.get('/items/lookup', () => HttpResponse.json({ detail: 'Not found' }, { status: 404 })),
@@ -84,6 +98,7 @@ describe('LookupField', () => {
     expect(screen.getByText(/2 items found/i)).toBeInTheDocument()
   })
 
+  /** Verifies onFound is called immediately when partial search returns exactly one available item. */
   it('auto-adds item when partial search returns exactly one available match', async () => {
     server.use(
       http.get('/items/lookup', () => HttpResponse.json({ detail: 'Not found' }, { status: 404 })),
@@ -95,6 +110,7 @@ describe('LookupField', () => {
     await waitFor(() => expect(onFound).toHaveBeenCalledWith(FOUND))
   })
 
+  /** Verifies clicking an item row in the dropdown calls onFound with that item. */
   it('calls onFound when user clicks an item in the results list', async () => {
     server.use(
       http.get('/items/lookup', () => HttpResponse.json({ detail: 'Not found' }, { status: 404 })),
@@ -108,6 +124,7 @@ describe('LookupField', () => {
     expect(onFound).toHaveBeenCalledWith(FOUND)
   })
 
+  /** Verifies pressing Escape dismisses the dropdown without selecting any item. */
   it('closes results list when Escape is pressed', async () => {
     server.use(
       http.get('/items/lookup', () => HttpResponse.json({ detail: 'Not found' }, { status: 404 })),
@@ -120,10 +137,12 @@ describe('LookupField', () => {
     expect(screen.queryByText('A001-001')).not.toBeInTheDocument()
   })
 
+  /** Tests for the 300 ms debounced autocomplete search behaviour. */
   describe('live autocomplete', () => {
     beforeEach(() => { vi.useFakeTimers() })
     afterEach(() => { vi.runOnlyPendingTimers(); vi.useRealTimers() })
 
+    /** Verifies the dropdown appears after the 300 ms debounce fires when at least 3 characters are typed. */
     it('shows dropdown after typing 3 chars and waiting 300ms', async () => {
       server.use(http.get('/items/search', () => HttpResponse.json([FOUND, FOUND2])))
       render(<LookupField onFound={vi.fn()} />)
@@ -133,6 +152,7 @@ describe('LookupField', () => {
       expect(screen.getByText('A001-001')).toBeInTheDocument()
     })
 
+    /** Verifies no search is triggered and no dropdown appears when fewer than 3 characters are typed. */
     it('does not show dropdown after typing only 2 chars', () => {
       server.use(http.get('/items/search', () => HttpResponse.json([FOUND])))
       render(<LookupField onFound={vi.fn()} />)
@@ -141,6 +161,7 @@ describe('LookupField', () => {
       expect(screen.queryByText('A001-001')).not.toBeInTheDocument()
     })
 
+    /** Verifies the search API is not called before the 300 ms debounce window elapses. */
     it('does not fire search before 300ms', () => {
       const handler = vi.fn(() => HttpResponse.json([FOUND]))
       server.use(http.get('/items/search', handler))
@@ -150,6 +171,7 @@ describe('LookupField', () => {
       expect(handler).not.toHaveBeenCalled()
     })
 
+    /** Verifies the dropdown is dismissed immediately when the input is trimmed back below 3 characters. */
     it('closes dropdown when input drops below 3 chars', async () => {
       server.use(http.get('/items/search', () => HttpResponse.json([FOUND, FOUND2])))
       render(<LookupField onFound={vi.fn()} />)
@@ -161,6 +183,7 @@ describe('LookupField', () => {
     })
   })
 
+  /** Tests for ArrowUp/Down keyboard navigation within the autocomplete dropdown. */
   describe('arrow key navigation', () => {
     const SOLD = { ...FOUND, id: 3, code: 'A001-003', status: 'sold' }
 
@@ -174,6 +197,7 @@ describe('LookupField', () => {
       await act(async () => { vi.advanceTimersByTime(300) })
     }
 
+    /** Verifies ArrowDown applies a highlight background to the first available item in the dropdown. */
     it('ArrowDown highlights the first available item', async () => {
       await openDropdown()
       fireEvent.keyDown(screen.getByRole('textbox'), { key: 'ArrowDown' })
@@ -181,6 +205,7 @@ describe('LookupField', () => {
       expect(btn).toHaveStyle({ background: 'rgb(232, 238, 249)' })
     })
 
+    /** Verifies ArrowDown skips over sold/unavailable items and highlights the next available one. */
     it('ArrowDown skips non-available items', async () => {
       await openDropdown([SOLD, FOUND])
       fireEvent.keyDown(screen.getByRole('textbox'), { key: 'ArrowDown' })
@@ -188,6 +213,7 @@ describe('LookupField', () => {
       expect(btn).toHaveStyle({ background: 'rgb(232, 238, 249)' })
     })
 
+    /** Verifies pressing Enter when an item is highlighted calls onFound with that item. */
     it('Enter selects the highlighted item', async () => {
       const onFound = vi.fn()
       await openDropdown([FOUND, FOUND2], onFound)
@@ -196,6 +222,7 @@ describe('LookupField', () => {
       expect(onFound).toHaveBeenCalledWith(FOUND)
     })
 
+    /** Verifies that clicking a sold/unavailable row in the dropdown does not invoke onFound. */
     it('non-available item row is not clickable', async () => {
       const onFound = vi.fn()
       server.use(http.get('/items/search', () => HttpResponse.json([SOLD])))
@@ -207,6 +234,7 @@ describe('LookupField', () => {
       expect(onFound).not.toHaveBeenCalled()
     })
 
+    /** Verifies pressing Escape while a dropdown item is highlighted dismisses the dropdown. */
     it('Escape closes dropdown and clears highlight', async () => {
       await openDropdown()
       fireEvent.keyDown(screen.getByRole('textbox'), { key: 'ArrowDown' })

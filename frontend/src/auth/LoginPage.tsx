@@ -1,16 +1,31 @@
+/**
+ * Login page — credential form for all user roles. Calls the auth API and stores
+ * the returned JWT in AuthContext on success.
+ */
 import { useState, type FormEvent } from 'react'
 import { login } from '../api/auth'
 import { useAuth } from './AuthContext'
 
 const NAVY = '#1e3a8a'
 
+/**
+ * Renders the full-page login form with username/password fields and a submit button.
+ * On successful authentication the JWT is stored in {@link AuthContext} and `onLogin` is called.
+ *
+ * @param props.onLogin - Callback invoked after a successful login response.
+ */
 export function LoginPage({ onLogin }: { onLogin: () => void }) {
   const { signIn } = useAuth()
+  /** Current value of the username input field. */
   const [username, setUsername] = useState('')
+  /** Current value of the password input field. */
   const [password, setPassword] = useState('')
+  /** Error message to display when login fails, or `null` when no error. */
   const [error, setError] = useState<string | null>(null)
+  /** Whether a login request is in-flight; used to disable the submit button. */
   const [loading, setLoading] = useState(false)
 
+  /** Submit the login form, call the auth API, and handle success or failure. */
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)

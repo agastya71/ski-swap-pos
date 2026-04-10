@@ -1,3 +1,8 @@
+/**
+ * Tests for {@link POSPage} — covers the full three-step checkout flow: initial
+ * cart render, item scanning/addition, item removal, step transitions to payment,
+ * successful cash sale submission, and resetting to a new transaction.
+ */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { server } from '../mocks/server'
 import { http, HttpResponse } from 'msw'
@@ -30,13 +35,16 @@ function renderPOS() {
   render(<AuthProvider><POSPage /></AuthProvider>)
 }
 
+/** Integration tests for the POSPage component rendered with AuthProvider. */
 describe('POSPage', () => {
+  /** Verifies the initial cart step renders the lookup input and empty-cart message. */
   it('starts with lookup field and empty cart', () => {
     renderPOS()
     expect(screen.getByPlaceholderText(/scan barcode/i)).toBeInTheDocument()
     expect(screen.getByText(/cart is empty/i)).toBeInTheDocument()
   })
 
+  /** Verifies that scanning an item code and pressing Enter appends the item to the cart. */
   it('adds scanned item to cart', async () => {
     server.use(http.get('/items/lookup', () => HttpResponse.json(ITEM_A)))
     renderPOS()
@@ -46,6 +54,7 @@ describe('POSPage', () => {
     expect(screen.getAllByText('$75.00').length).toBeGreaterThan(0)
   })
 
+  /** Verifies that clicking the Remove button on a cart row deletes that item and shows the empty-cart message. */
   it('removes item from cart when Remove is clicked', async () => {
     server.use(http.get('/items/lookup', () => HttpResponse.json(ITEM_A)))
     renderPOS()
@@ -56,6 +65,7 @@ describe('POSPage', () => {
     expect(screen.getByText(/cart is empty/i)).toBeInTheDocument()
   })
 
+  /** Verifies the Checkout button appears once at least one item is in the cart. */
   it('shows Checkout button when cart has items', async () => {
     server.use(http.get('/items/lookup', () => HttpResponse.json(ITEM_A)))
     renderPOS()
@@ -65,6 +75,7 @@ describe('POSPage', () => {
     expect(screen.getByRole('button', { name: /checkout/i })).toBeInTheDocument()
   })
 
+  /** Verifies clicking Checkout transitions to the payment step and renders the PaymentForm. */
   it('shows PaymentForm when Checkout is clicked', async () => {
     server.use(http.get('/items/lookup', () => HttpResponse.json(ITEM_A)))
     renderPOS()
@@ -75,6 +86,7 @@ describe('POSPage', () => {
     expect(screen.getByRole('button', { name: /complete sale/i })).toBeInTheDocument()
   })
 
+  /** Verifies a complete cash-only sale submission renders the ConfirmationScreen with sale details. */
   it('shows confirmation screen after successful cash sale', async () => {
     server.use(
       http.get('/items/lookup', () => HttpResponse.json(ITEM_A)),
@@ -91,6 +103,7 @@ describe('POSPage', () => {
     expect(screen.getByText(/sale #1/i)).toBeInTheDocument()
   })
 
+  /** Verifies clicking 'New Transaction' on the confirmation screen resets the POS to an empty cart. */
   it('returns to empty cart after New Transaction', async () => {
     server.use(
       http.get('/items/lookup', () => HttpResponse.json(ITEM_A)),

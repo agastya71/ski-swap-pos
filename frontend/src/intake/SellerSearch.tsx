@@ -1,7 +1,21 @@
+/**
+ * Seller search input — debounced live search against the sellers API (300 ms),
+ * with a results dropdown and a 'Register New Seller' fallback action.
+ *
+ * @module SellerSearch
+ */
 import { useState, useEffect } from 'react'
 import { searchSellers } from '../api/sellers'
 import type { Seller } from '../types'
 
+/**
+ * Live-search component for finding an existing seller by name or code.
+ * Debounces the search query by 300 ms, displays a result list below the input,
+ * and provides a fallback button to register a brand-new seller.
+ *
+ * @param props.onSelect - Callback invoked with the chosen {@link Seller} when a result is clicked.
+ * @param props.onCreateNew - Callback invoked when the user clicks "Register New Seller".
+ */
 export function SellerSearch({ onSelect, onCreateNew }: {
   onSelect: (seller: Seller) => void
   onCreateNew: () => void

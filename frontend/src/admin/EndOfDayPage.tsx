@@ -1,7 +1,18 @@
+/**
+ * End-of-day report page — displays a session summary (sales counts, revenue
+ * breakdown, payment totals) and provides PDF/CSV/Markdown download buttons
+ * as well as a database backup download for the active event.
+ */
+
 import { useState, useEffect } from 'react'
 import { getEndOfDay, downloadFile } from '../api/reports'
 import type { EndOfDayReport } from '../types'
 
+/**
+ * Displays the end-of-day financial summary and download controls for the given event.
+ *
+ * @param props.eventId - The ID of the active swap event whose report should be loaded.
+ */
 export function EndOfDayPage({ eventId }: { eventId: number }) {
   const [report, setReport] = useState<EndOfDayReport | null>(null)
 

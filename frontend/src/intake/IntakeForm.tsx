@@ -1,7 +1,20 @@
+/**
+ * Intake session creation form — captures donation preferences
+ * (donate_unsold, donate_proceeds) and submits to the intakes API.
+ *
+ * @module IntakeForm
+ */
 import { useState, type FormEvent } from 'react'
 import { createIntake } from '../api/intakes'
 import type { Seller, Intake } from '../types'
 
+/**
+ * Form component for creating a new intake session for a seller.
+ * Presents two optional donation preference checkboxes and calls the intakes API on submit.
+ *
+ * @param props.seller - The seller for whom the intake is being created.
+ * @param props.onCreated - Callback invoked with the newly created {@link Intake} on success.
+ */
 export function IntakeForm({ seller, onCreated }: {
   seller: Seller
   onCreated: (intake: Intake) => void

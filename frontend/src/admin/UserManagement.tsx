@@ -1,9 +1,19 @@
+/**
+ * User management admin panel — lists all event user accounts, allows admins to
+ * create new users with a chosen role, and deactivate existing accounts.
+ */
+
 import { useState, useEffect, type FormEvent } from 'react'
 import { getUsers, createUser, deactivateUser } from '../api/users'
 import type { User } from '../types'
 
+/** Permitted role values for event user accounts. */
 type Role = 'admin' | 'intake' | 'cashier'
 
+/**
+ * Admin panel for managing event user accounts: displays the user table with
+ * deactivation controls and a form to create new users.
+ */
 export function UserManagement() {
   const [users, setUsers] = useState<User[]>([])
   const [username, setUsername] = useState('')
@@ -12,6 +22,7 @@ export function UserManagement() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
+  /** Fetches all event users from the API and updates local state. */
   async function load() {
     const data = await getUsers()
     setUsers(data)
@@ -19,6 +30,7 @@ export function UserManagement() {
 
   useEffect(() => { load().catch(() => {}) }, [])
 
+  /** Submits the create-user form and appends the new user to the list on success. */
   async function handleCreate(e: FormEvent) {
     e.preventDefault()
     setError(null)
@@ -35,6 +47,7 @@ export function UserManagement() {
     }
   }
 
+  /** Deactivates the user with the given ID and updates that row in the local list. */
   async function handleDeactivate(id: number) {
     const updated = await deactivateUser(id)
     setUsers(prev => prev.map(u => u.id === id ? updated : u))

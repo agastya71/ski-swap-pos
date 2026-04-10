@@ -1,5 +1,19 @@
+/**
+ * Cart table — displays items added to the current POS transaction, with a
+ * per-row Remove button and a running subtotal row.
+ *
+ * @module Cart
+ */
 import type { ItemLookupResponse } from '../types'
 
+/**
+ * Renders the current cart as a table with code, seller, description, price, and
+ * a Remove button per item, plus a running total. Shows an empty-state message
+ * when no items have been added.
+ *
+ * @param props.items - Array of looked-up items currently in the cart.
+ * @param props.onRemove - Callback invoked with the item's numeric ID when Remove is clicked.
+ */
 export function Cart({ items, onRemove }: {
   items: ItemLookupResponse[]
   onRemove: (id: number) => void

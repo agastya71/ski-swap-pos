@@ -1,7 +1,21 @@
+/**
+ * New seller registration form — collects required fields (code, first/last name) and
+ * optional contact details, then submits via the sellers API.
+ *
+ * @module SellerForm
+ */
 import { useState, type FormEvent } from 'react'
 import { createSeller } from '../api/sellers'
 import type { Seller } from '../types'
 
+/**
+ * Form component for registering a new consignment seller.
+ * Collects the seller code, name, and optional contact information, then
+ * POSTs to the sellers API and delegates control to the caller on success.
+ *
+ * @param props.onCreated - Callback invoked with the newly created {@link Seller} on success.
+ * @param props.onCancel - Callback invoked when the user clicks Cancel without submitting.
+ */
 export function SellerForm({ onCreated, onCancel }: {
   onCreated: (seller: Seller) => void
   onCancel: () => void
