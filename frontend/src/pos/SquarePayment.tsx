@@ -1,3 +1,10 @@
+/**
+ * Square Web Payments SDK integration — renders the Square card entry iframe and
+ * tokenizes card details for use in sale submission. Degrades gracefully when the
+ * Square SDK is unavailable (e.g. network blocked in testing).
+ *
+ * @module SquarePayment
+ */
 import { Component, useEffect, useRef, useState, type ReactNode } from 'react'
 
 declare global {
@@ -118,6 +125,13 @@ function SquarePaymentInner({ onToken, onError }: {
   )
 }
 
+/**
+ * Public wrapper that mounts the Square card iframe inside a React error boundary.
+ * Falls back to an inline error message if the SDK is unavailable or throws.
+ *
+ * @param props.onToken - Callback invoked with the Square nonce string after successful card capture.
+ * @param props.onError - Callback invoked with a human-readable error message when card capture fails.
+ */
 export function SquarePayment(props: { onToken: (token: string) => void; onError: (msg: string) => void }) {
   return (
     <SquareErrorBoundary>

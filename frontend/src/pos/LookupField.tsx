@@ -1,3 +1,11 @@
+/**
+ * Item code lookup field for the POS checkout screen. Supports three input modes:
+ * (1) barcode scanner — fires lookupItem (exact match) on Enter,
+ * (2) partial code typing — fires searchItems with 300 ms debounce and shows autocomplete dropdown,
+ * (3) keyboard navigation — ArrowUp/Down to highlight, Enter to select, Escape to dismiss.
+ *
+ * @module LookupField
+ */
 import { useRef, useEffect, useState, type KeyboardEvent } from 'react'
 import { lookupItem, searchItems } from '../api/items'
 import { ApiError } from '../api/client'
@@ -6,6 +14,13 @@ import type { ItemLookupResponse } from '../types'
 const NAVY = '#1e3a8a'
 const HIGHLIGHT_BG = '#e8eef9'
 
+/**
+ * Controlled lookup input that supports barcode scanning, partial-code autocomplete,
+ * and keyboard navigation for adding items to the POS cart.
+ *
+ * @param props.onFound - Callback invoked with a found available item so the parent
+ *   can append it to the cart.
+ */
 export function LookupField({ onFound }: { onFound: (item: ItemLookupResponse) => void }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -40,6 +55,7 @@ export function LookupField({ onFound }: { onFound: (item: ItemLookupResponse) =
     }
   }, [value])
 
+  /** Handles Escape (dismiss), ArrowUp/Down (highlight navigation), and Enter (select or exact lookup). */
   async function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Escape') {
       setResults(null)
@@ -129,6 +145,7 @@ export function LookupField({ onFound }: { onFound: (item: ItemLookupResponse) =
     }
   }
 
+  /** Closes the dropdown and invokes onFound when an available item is selected from the results list. */
   function handleSelectResult(item: ItemLookupResponse) {
     setResults(null)
     setHighlightedIndex(null)

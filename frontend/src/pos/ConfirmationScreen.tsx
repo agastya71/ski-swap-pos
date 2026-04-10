@@ -1,5 +1,18 @@
+/**
+ * Post-sale confirmation screen — displays a receipt summary after a successful
+ * transaction and provides a 'New Transaction' button to reset the POS.
+ *
+ * @module ConfirmationScreen
+ */
 import type { SaleWithItemsResponse } from '../types'
 
+/**
+ * Displays a receipt summary including sale ID, item count, total, and per-tender
+ * breakdown (cash, check, card). The 'New Transaction' button resets the POS flow.
+ *
+ * @param props.sale - The completed sale returned from the API, including all line items and tender amounts.
+ * @param props.onNewTransaction - Callback invoked when the cashier clicks 'New Transaction' to start fresh.
+ */
 export function ConfirmationScreen({ sale, onNewTransaction }: {
   sale: SaleWithItemsResponse
   onNewTransaction: () => void

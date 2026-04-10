@@ -1,3 +1,7 @@
+/**
+ * Tests for {@link ConfirmationScreen} — covers receipt display (sale ID, total,
+ * item count), per-tender payment breakdown, and the 'New Transaction' callback.
+ */
 import { render, screen, fireEvent } from '@testing-library/react'
 import { ConfirmationScreen } from './ConfirmationScreen'
 import type { SaleWithItemsResponse } from '../types'
@@ -16,7 +20,9 @@ const SALE: SaleWithItemsResponse = {
   ],
 }
 
+/** Tests for the ConfirmationScreen component rendered with a completed sale fixture. */
 describe('ConfirmationScreen', () => {
+  /** Verifies the sale ID, total amount, and item count are shown on the confirmation screen. */
   it('shows sale ID, total, and number of items', () => {
     render(<ConfirmationScreen sale={SALE} onNewTransaction={vi.fn()} />)
     expect(screen.getByText(/sale #42/i)).toBeInTheDocument()
@@ -24,11 +30,13 @@ describe('ConfirmationScreen', () => {
     expect(screen.getByText(/2 items/i)).toBeInTheDocument()
   })
 
+  /** Verifies the payment breakdown section shows the cash amount tendered. */
   it('shows payment breakdown', () => {
     render(<ConfirmationScreen sale={SALE} onNewTransaction={vi.fn()} />)
     expect(screen.getByText(/cash.*\$115\.00/i)).toBeInTheDocument()
   })
 
+  /** Verifies the onNewTransaction callback is invoked exactly once when the button is clicked. */
   it('calls onNewTransaction when New Transaction is clicked', () => {
     const onNew = vi.fn()
     render(<ConfirmationScreen sale={SALE} onNewTransaction={onNew} />)
