@@ -1,3 +1,9 @@
+/**
+ * Application shell layout — renders the brand nav bar with the MYSL logo,
+ * role-aware navigation links (Intake, Checkout, Admin), the signed-in username
+ * and role badge, a Sign Out button, and a footer. Wraps each page's content in a
+ * full-height flex container.
+ */
 import type { ReactNode } from 'react'
 import { useAuth } from '../auth/AuthContext'
 
@@ -7,6 +13,13 @@ const NAVY  = '#1e3a8a'
 const BLUE  = '#2563eb'
 const WHITE = '#ffffff'
 
+/**
+ * Single navigation tab button used inside the Layout header.
+ *
+ * @param props.label - Text label for the nav link.
+ * @param props.active - Whether this link represents the currently visible page.
+ * @param props.onClick - Callback invoked when the user clicks the link.
+ */
 function NavLink({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <button
@@ -31,6 +44,14 @@ function NavLink({ label, active, onClick }: { label: string; active: boolean; o
   )
 }
 
+/**
+ * Full-page layout wrapper that renders the top nav bar and footer around page content.
+ * Navigation links are shown or hidden based on the signed-in user's role.
+ *
+ * @param props.children - Page content rendered inside the main content area.
+ * @param props.page - Currently active page identifier used to highlight the correct nav link.
+ * @param props.onNavigate - Callback invoked with the target page when a nav link is clicked.
+ */
 export function Layout({ children, page, onNavigate }: {
   children: ReactNode
   page: Page
