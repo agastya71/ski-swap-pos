@@ -1,6 +1,6 @@
 /**
  * Tests for {@link EventSetup} — covers initial event list rendering (including
- * active badge display), successful event creation flow, event activation via
+ * active status indicator display), successful event creation flow, event activation via
  * the Activate button, and error display when the create API call fails.
  */
 
@@ -18,7 +18,7 @@ const NEW_EVENT: Event = { id: 3, name: 'Swap 2027', year: 2027, commission_rate
 
 /** EventSetup admin panel — event list display, creation, activation, and error handling. */
 describe('EventSetup', () => {
-  /** Verifies that all events are listed and the active event shows an active badge. */
+  /** Verifies that all events are listed and the active event shows an active status indicator. */
   it('lists existing events with active badge', async () => {
     server.use(http.get('/events', () => HttpResponse.json(EVENTS)))
     render(<EventSetup />)

@@ -1,8 +1,9 @@
 /**
  * Admin reports page — aggregates and displays four end-of-event reports:
- * Event Revenue, Donations, Unsold Items, and per-Seller Payout. Each section
- * provides a CSV download button; the seller payout section also includes an
- * ID-based lookup form.
+ * Event Revenue, Donations, Unsold Items, and per-Seller Payout. Event Revenue,
+ * Donations, and Unsold Items each provide a CSV download button; the Seller
+ * Payout section includes an ID-based lookup form and shows a CSV button only
+ * after a payout is loaded.
  */
 
 import { useState, useEffect, type FormEvent } from 'react'
