@@ -228,8 +228,6 @@ export function IntakePage() {
           <ItemForm
             intakeId={intake.id}
             onAdded={handleItemAdded}
-            sellerCode={seller?.code ?? ''}
-            itemCount={items.length}
           />
           <hr style={{ margin: '16px 0' }} />
           <ItemList items={items} intakeId={intake.id} onItemsChanged={refreshItems} />
