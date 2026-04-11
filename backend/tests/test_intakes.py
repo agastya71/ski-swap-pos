@@ -1,4 +1,7 @@
 import datetime
+import io
+
+import openpyxl
 import pytest
 from app.models.intake import Intake
 from app.models.seller import Seller
@@ -130,9 +133,6 @@ def test_add_two_items_increments_code(client, active_event, admin_token):
 
 def test_import_items_from_excel(client, active_event, admin_token):
     """POST /intakes/{id}/items/import creates items from a valid xlsx file."""
-    import io
-    import openpyxl
-
     headers = {"Authorization": f"Bearer {admin_token}"}
     seller_r = client.post("/sellers", json={"first_name": "A", "last_name": "B"}, headers=headers)
     intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
@@ -163,9 +163,6 @@ def test_import_items_from_excel(client, active_event, admin_token):
 
 
 def test_import_skips_rows_missing_price(client, active_event, admin_token):
-    import io
-    import openpyxl
-
     headers = {"Authorization": f"Bearer {admin_token}"}
     seller_r = client.post("/sellers", json={"first_name": "A", "last_name": "B"}, headers=headers)
     intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)

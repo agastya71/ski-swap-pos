@@ -145,7 +145,10 @@ def import_items_from_excel(
     if not seller:
         raise HTTPException(status_code=404, detail="Seller not found")
 
-    wb = openpyxl.load_workbook(BytesIO(file.file.read()))
+    try:
+        wb = openpyxl.load_workbook(BytesIO(file.file.read()))
+    except Exception:
+        raise HTTPException(status_code=422, detail="Invalid or unreadable xlsx file")
     ws = wb.active
     rows = list(ws.iter_rows(min_row=2, values_only=True))
 
@@ -186,6 +189,13 @@ def import_items_from_excel(
         used = str(used_str).strip().lower() != "no" if used_str is not None else True
         donate = str(donate_str).strip().lower() == "yes" if donate_str is not None else False
 
+        year_int = None
+        if year is not None:
+            try:
+                year_int = int(year)
+            except (TypeError, ValueError):
+                year_int = None
+
         item = Item(
             intake_id=intake.id,
             seller_id=intake.seller_id,
@@ -198,7 +208,7 @@ def import_items_from_excel(
             color=str(color) if color else None,
             size=str(size) if size else None,
             gender_age=str(gender_age) if gender_age else None,
-            year=int(year) if year is not None else None,
+            year=year_int,
             price=price_float,
             used=used,
             donate_unsold=donate,
