@@ -173,3 +173,46 @@ def test_lookup_no_active_event(client, db, cashier_token):
         headers={"Authorization": f"Bearer {cashier_token}"},
     )
     assert resp.status_code == 503
+
+
+# ── Search tests ──────────────────────────────────────────────────────────────
+
+def test_search_items_by_description(client, active_event, admin_token):
+    """GET /items/search?q= matches item description."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json={"first_name": "A", "last_name": "B"}, headers=headers)
+    intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
+    client.post(
+        f"/intakes/{intake_r.json()['id']}/items",
+        json={"description": "Atomic skis 160cm", "price": 120.0},
+        headers=headers,
+    )
+    r = client.get("/items/search?q=atomic", headers=headers)
+    assert r.status_code == 200
+    assert len(r.json()) == 1
+    assert "Atomic" in r.json()[0]["description"]
+
+
+def test_search_items_by_brand(client, active_event, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json={"first_name": "A", "last_name": "B"}, headers=headers)
+    intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
+    client.post(
+        f"/intakes/{intake_r.json()['id']}/items",
+        json={"brand": "Rossignol", "price": 80.0},
+        headers=headers,
+    )
+    r = client.get("/items/search?q=rossig", headers=headers)
+    assert r.status_code == 200
+    assert len(r.json()) == 1
+
+
+def test_search_items_by_seller_code(client, active_event, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json={"first_name": "A", "last_name": "B"}, headers=headers)
+    seller_code = seller_r.json()["code"]
+    intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
+    client.post(f"/intakes/{intake_r.json()['id']}/items", json={"price": 30.0}, headers=headers)
+    r = client.get(f"/items/search?q={seller_code}", headers=headers)
+    assert r.status_code == 200
+    assert len(r.json()) >= 1

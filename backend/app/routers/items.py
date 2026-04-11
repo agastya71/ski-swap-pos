@@ -64,15 +64,23 @@ def search_items(
     db: Session = Depends(get_db),
     _user: User = Depends(_CASHIER_ADMIN),
 ):
-    """Search items by partial code match and return up to 20 results."""
+    """Search items by partial match on code, description, category, brand, or seller code."""
     event = db.query(Event).filter(Event.is_active == True).first()
     if not event:
         raise HTTPException(status_code=503, detail="No active event configured")
+    like = f"%{q}%"
     items = (
         db.query(Item)
         .join(Intake)
         .join(Seller)
-        .filter(Item.code.ilike(f"%{q}%"), Seller.event_id == event.id)
+        .filter(
+            (Item.code.ilike(like))
+            | (Item.description.ilike(like))
+            | (Item.category.ilike(like))
+            | (Item.brand.ilike(like))
+            | (Seller.code.ilike(like)),
+            Seller.event_id == event.id,
+        )
         .order_by(Item.code)
         .limit(20)
         .all()
