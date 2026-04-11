@@ -9,17 +9,16 @@ from pydantic import BaseModel, ConfigDict, Field
 class SellerCreate(BaseModel):
     """Payload for registering a new seller (consignor) in the active event."""
 
-    code: str = Field(description="Unique alphanumeric seller code used to look up the seller at intake and POS.")
     first_name: str = Field(description="Seller's given name.")
     last_name: str = Field(description="Seller's family name.")
     company: Optional[str] = Field(default=None, description="Company or organization name, if the seller is a vendor.")
     is_vendor: bool = Field(default=False, description="True if this seller is a commercial vendor rather than an individual consignor.")
-    email: Optional[str] = Field(default=None, description="Seller's email address, used for payout notifications.")
+    email: Optional[str] = Field(default=None, description="Seller's email address.")
     phone: Optional[str] = Field(default=None, description="Seller's contact phone number.")
-    address: Optional[str] = Field(default=None, description="Street address for the seller's mailing address.")
-    city: Optional[str] = Field(default=None, description="City for the seller's mailing address.")
-    state: Optional[str] = Field(default=None, description="Two-letter state abbreviation for the seller's mailing address.")
-    zip: Optional[str] = Field(default=None, description="ZIP or postal code for the seller's mailing address.")
+    address: Optional[str] = Field(default=None, description="Street address.")
+    city: Optional[str] = Field(default=None, description="City.")
+    state: Optional[str] = Field(default=None, description="Two-letter state abbreviation.")
+    zip: Optional[str] = Field(default=None, description="ZIP code.")
 
 
 class SellerUpdate(BaseModel):
