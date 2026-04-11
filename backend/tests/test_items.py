@@ -56,24 +56,15 @@ def item(db, intake, seller):
 def test_add_item_to_intake(client, admin_token, intake):
     resp = client.post(
         f"/intakes/{intake.id}/items",
-        json={"code": "ABC-001", "price": 25.00, "description": "Ski boots size 8", "category": "boots"},
+        json={"price": 25.00, "description": "Ski boots size 8", "category": "boots"},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 201
     data = resp.json()
-    assert data["code"] == "ABC-001"
+    assert data["code"].endswith("-01")
     assert data["price"] == 25.00
     assert data["status"] == "available"
     assert data["label_printed"] is False
-
-
-def test_add_item_duplicate_code_returns_409(client, admin_token, intake, item):
-    resp = client.post(
-        f"/intakes/{intake.id}/items",
-        json={"code": "ABC-001", "price": 10.00},
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
-    assert resp.status_code == 409
 
 
 def test_get_item(client, admin_token, item):
@@ -126,7 +117,7 @@ def test_get_intake_includes_items(client, admin_token, intake, item):
 def test_cashier_cannot_add_item(client, cashier_token, intake):
     resp = client.post(
         f"/intakes/{intake.id}/items",
-        json={"code": "ZZZ-001", "price": 5.00},
+        json={"price": 5.00},
         headers={"Authorization": f"Bearer {cashier_token}"},
     )
     assert resp.status_code == 403

@@ -3,6 +3,7 @@
 import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -82,6 +83,21 @@ def get_intake(
     return _get_intake_for_event(intake_id, event.id, db)
 
 
+def _next_item_code(seller_id: int, seller_code: str, db: Session) -> str:
+    """Return the next sequential item code for a seller (e.g. '001-03')."""
+    prefix = f"{seller_code}-"
+    max_code = (
+        db.query(func.max(Item.code))
+        .join(Intake, Item.intake_id == Intake.id)
+        .filter(Intake.seller_id == seller_id, Item.code.like(f"{prefix}%"))
+        .scalar()
+    )
+    if max_code is None:
+        return f"{prefix}01"
+    next_seq = int(max_code.split("-")[-1]) + 1
+    return f"{prefix}{next_seq:02d}"
+
+
 @router.post("/{intake_id}/items", response_model=ItemResponse, status_code=201)
 def add_item_to_intake(
     intake_id: int,
@@ -89,16 +105,16 @@ def add_item_to_intake(
     db: Session = Depends(get_db),
     current_user: User = Depends(_INTAKE_ADMIN),
 ):
-    """Add a single item to an existing intake session."""
+    """Add a single item to an existing intake session with an auto-generated item code."""
     event = _active_event(db)
     intake = _get_intake_for_event(intake_id, event.id, db)
-    existing = db.query(Item).filter(Item.code == body.code).first()
-    if existing:
-        raise HTTPException(status_code=409, detail="Item code already exists")
+    seller = db.query(Seller).filter(Seller.id == intake.seller_id).first()
+    item_code = _next_item_code(intake.seller_id, seller.code, db)
     item = Item(
         intake_id=intake.id,
         seller_id=intake.seller_id,
-        barcode_39=body.barcode_39 or body.code,
+        code=item_code,
+        barcode_39=body.barcode_39 or item_code,
         created_by=current_user.username,
         **body.model_dump(exclude={"barcode_39"}),
     )
