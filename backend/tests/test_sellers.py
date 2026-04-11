@@ -1,4 +1,6 @@
 import pytest
+from app.models.intake import Intake
+from app.models.item import Item
 from app.models.seller import Seller
 
 
@@ -111,3 +113,34 @@ def test_list_seller_items_empty(client, active_event, admin_token):
     r2 = client.get(f"/sellers/{seller_id}/items", headers=headers)
     assert r2.status_code == 200
     assert r2.json() == []
+
+
+def test_list_seller_items_with_items(client, db, active_event, admin_token, seller):
+    """GET /sellers/{id}/items returns items belonging to the seller in the active event."""
+    intake = Intake(
+        seller_id=seller.id,
+        donate_unsold=False,
+        donate_proceeds=False,
+        created_by="admin",
+    )
+    db.add(intake)
+    db.commit()
+    db.refresh(intake)
+
+    item = Item(
+        intake_id=intake.id,
+        seller_id=seller.id,
+        code="001-001",
+        price=25.00,
+        created_by="admin",
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    r = client.get(f"/sellers/{seller.id}/items", headers=headers)
+    assert r.status_code == 200
+    data = r.json()
+    assert len(data) == 1
+    assert data[0]["code"] == item.code

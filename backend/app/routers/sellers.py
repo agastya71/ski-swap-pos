@@ -4,6 +4,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -39,7 +40,11 @@ def _next_seller_code(event_id: int, db: Session) -> str:
     )
     if max_code is None:
         return "001"
-    return f"{int(max_code) + 1:03d}"
+    try:
+        next_num = int(max_code) + 1
+    except (ValueError, TypeError):
+        next_num = db.query(func.count(Seller.id)).filter(Seller.event_id == event_id).scalar() + 1
+    return f"{next_num:03d}"
 
 
 @router.get("", response_model=list[SellerResponse])
@@ -78,8 +83,12 @@ def create_seller(
         created_by=current_user.username,
     )
     db.add(seller)
-    db.commit()
-    db.refresh(seller)
+    try:
+        db.commit()
+        db.refresh(seller)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Seller code conflict, please retry")
     return seller
 
 
@@ -139,12 +148,18 @@ def list_seller_items(
     )
     if not seller:
         raise HTTPException(status_code=404, detail="Seller not found")
-    return (
+    items = (
         db.query(Item)
-        .filter(Item.seller_id == seller_id)
+        .join(Intake, Item.intake_id == Intake.id)
+        .join(Seller, Intake.seller_id == Seller.id)
+        .filter(
+            Item.seller_id == seller_id,
+            Seller.event_id == event.id,
+        )
         .order_by(Item.code)
         .all()
     )
+    return items
 
 
 @router.patch("/{seller_id}", response_model=SellerResponse)
