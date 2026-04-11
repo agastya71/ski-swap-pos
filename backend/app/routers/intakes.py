@@ -3,7 +3,6 @@
 import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -84,18 +83,22 @@ def get_intake(
 
 
 def _next_item_code(seller_id: int, seller_code: str, db: Session) -> str:
-    """Return the next sequential item code for a seller (e.g. '001-03')."""
+    """Return the next sequential item code for a seller (e.g. '001-03').
+
+    Computes numeric max in Python rather than relying on SQL string ordering,
+    which is lexicographic and would break at sequence 10, 100, etc.
+    """
     prefix = f"{seller_code}-"
-    max_code = (
-        db.query(func.max(Item.code))
+    rows = (
+        db.query(Item.code)
         .join(Intake, Item.intake_id == Intake.id)
         .filter(Intake.seller_id == seller_id, Item.code.like(f"{prefix}%"))
-        .scalar()
+        .all()
     )
-    if max_code is None:
+    if not rows:
         return f"{prefix}01"
-    next_seq = int(max_code.split("-")[-1]) + 1
-    return f"{prefix}{next_seq:02d}"
+    max_seq = max(int(row[0].rsplit("-", 1)[-1]) for row in rows)
+    return f"{prefix}{max_seq + 1:02d}"
 
 
 @router.post("/{intake_id}/items", response_model=ItemResponse, status_code=201)
@@ -109,6 +112,8 @@ def add_item_to_intake(
     event = _active_event(db)
     intake = _get_intake_for_event(intake_id, event.id, db)
     seller = db.query(Seller).filter(Seller.id == intake.seller_id).first()
+    if not seller:
+        raise HTTPException(status_code=404, detail="Seller not found")
     item_code = _next_item_code(intake.seller_id, seller.code, db)
     item = Item(
         intake_id=intake.id,
