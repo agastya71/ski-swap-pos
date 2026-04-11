@@ -28,7 +28,7 @@ export const getSeller = (id: number) => apiFetch<Seller>(`/sellers/${id}`)
 /**
  * Register a new consignment seller for the active event.
  *
- * @param data - Seller details including required code, first name, and last name.
+ * @param data - Seller details including required first name and last name.
  * @returns The newly created Seller record.
  * @throws {ApiError} 409 if a seller with the same code already exists for this event.
  * @throws {ApiError} 401 if the session token is invalid.
