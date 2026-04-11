@@ -85,3 +85,18 @@ class ItemLookupResponse(ItemResponse):
     """Extended item response used by the POS cashier lookup, adding the seller code for display."""
 
     seller_code: str = Field(description="Seller code associated with this item, included for quick cashier reference.")
+
+
+class ImportRowError(BaseModel):
+    """Describes a single skipped row from an Excel import."""
+
+    row: int = Field(description="1-based row number in the uploaded file (header = row 1).")
+    reason: str = Field(description="Human-readable explanation of why the row was skipped.")
+
+
+class ImportResult(BaseModel):
+    """Summary returned after a bulk Excel item import."""
+
+    imported: int = Field(description="Number of items successfully created.")
+    skipped: int = Field(description="Number of rows skipped due to validation errors.")
+    errors: list[ImportRowError] = Field(description="Details of each skipped row.")

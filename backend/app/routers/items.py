@@ -1,6 +1,10 @@
 """Item router — manages individual consignment items for lookup, editing, and printing; requires admin, intake, or cashier role."""
 
+from io import BytesIO
+
+import openpyxl
 from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -89,6 +93,25 @@ def search_items(
         ItemLookupResponse.model_validate({**item.__dict__, "seller_code": item.seller.code})
         for item in items
     ]
+
+
+@router.get("/import-template")
+def download_import_template(_user: User = Depends(_INTAKE_ADMIN)):
+    """Return a blank Excel template for bulk item import."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append([
+        "Description", "Category", "Brand", "Type", "Color",
+        "Size", "Gender/Age", "Year", "Price", "Used", "Donate if Unsold",
+    ])
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=import-template.xlsx"},
+    )
 
 
 @router.get("/{item_id}", response_model=ItemResponse)

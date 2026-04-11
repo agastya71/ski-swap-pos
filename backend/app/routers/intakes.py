@@ -1,8 +1,10 @@
 """Intake router — manages seller intake sessions and item ingestion; requires admin or intake role."""
 
 import datetime
+from io import BytesIO
 
-from fastapi import APIRouter, Depends, HTTPException
+import openpyxl
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -13,7 +15,7 @@ from app.models.item import Item
 from app.models.seller import Seller
 from app.models.user import User
 from app.schemas.intake import IntakeCreate, IntakeResponse, IntakeUpdate, IntakeWithItemsResponse
-from app.schemas.item import ItemCreate, ItemResponse
+from app.schemas.item import ImportResult, ImportRowError, ItemCreate, ItemResponse
 from app.services.zpl import generate_zpl, send_to_printer
 
 router = APIRouter(prefix="/intakes", tags=["intakes"])
@@ -127,6 +129,87 @@ def add_item_to_intake(
     db.commit()
     db.refresh(item)
     return item
+
+
+@router.post("/{intake_id}/items/import", response_model=ImportResult)
+def import_items_from_excel(
+    intake_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(_INTAKE_ADMIN),
+):
+    """Bulk-import items into an intake session from an Excel file using the standard template."""
+    event = _active_event(db)
+    intake = _get_intake_for_event(intake_id, event.id, db)
+    seller = db.query(Seller).filter(Seller.id == intake.seller_id).first()
+    if not seller:
+        raise HTTPException(status_code=404, detail="Seller not found")
+
+    wb = openpyxl.load_workbook(BytesIO(file.file.read()))
+    ws = wb.active
+    rows = list(ws.iter_rows(min_row=2, values_only=True))
+
+    # Compute starting sequence number in Python (not SQL string max)
+    prefix = f"{seller.code}-"
+    existing_codes = (
+        db.query(Item.code)
+        .join(Intake, Item.intake_id == Intake.id)
+        .filter(Intake.seller_id == intake.seller_id, Item.code.like(f"{prefix}%"))
+        .all()
+    )
+    if existing_codes:
+        next_seq = max(int(row[0].rsplit("-", 1)[-1]) for row in existing_codes) + 1
+    else:
+        next_seq = 1
+
+    errors: list[ImportRowError] = []
+    imported = 0
+    skipped = 0
+
+    for i, row in enumerate(rows, start=2):
+        padded = (list(row) + [None] * 11)[:11]
+        description, category, brand, type_, color, size, gender_age, year, price, used_str, donate_str = padded
+
+        if not description or price is None:
+            errors.append(ImportRowError(row=i, reason="Missing required field: Description or Price"))
+            skipped += 1
+            continue
+
+        try:
+            price_float = float(price)
+        except (TypeError, ValueError):
+            errors.append(ImportRowError(row=i, reason=f"Invalid Price value: {price!r}"))
+            skipped += 1
+            continue
+
+        item_code = f"{prefix}{next_seq:02d}"
+        used = str(used_str).strip().lower() != "no" if used_str is not None else True
+        donate = str(donate_str).strip().lower() == "yes" if donate_str is not None else False
+
+        item = Item(
+            intake_id=intake.id,
+            seller_id=intake.seller_id,
+            code=item_code,
+            barcode_39=item_code,
+            description=str(description),
+            category=str(category) if category else None,
+            brand=str(brand) if brand else None,
+            type=str(type_) if type_ else None,
+            color=str(color) if color else None,
+            size=str(size) if size else None,
+            gender_age=str(gender_age) if gender_age else None,
+            year=int(year) if year is not None else None,
+            price=price_float,
+            used=used,
+            donate_unsold=donate,
+            created_by=current_user.username,
+        )
+        db.add(item)
+        next_seq += 1
+        imported += 1
+
+    db.commit()
+    return ImportResult(imported=imported, skipped=skipped, errors=errors)
 
 
 @router.post("/{intake_id}/labels")
