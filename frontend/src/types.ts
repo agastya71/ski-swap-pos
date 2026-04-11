@@ -111,8 +111,6 @@ export interface Seller {
 
 /** Payload for registering a new seller. */
 export interface SellerCreate {
-  /** Short seller code, e.g. "A001". Must be unique within the event. */
-  code: string
   /** Seller's first name. */
   first_name: string
   /** Seller's last name. */
@@ -214,10 +212,8 @@ export interface Item {
   created_at: string
 }
 
-/** Payload for adding a new item to an intake session. */
+/** Payload for adding a new item to an intake session. Item code is auto-generated. */
 export interface ItemCreate {
-  /** Unique item code within the event, e.g. "A001-003". */
-  code: string
   /** Equipment category. */
   category?: string
   /** Equipment brand name. */
@@ -296,6 +292,24 @@ export interface ItemUpdate {
 export interface ItemLookupResponse extends Item {
   /** Short seller code of the seller who consigned this item, e.g. "A001". */
   seller_code: string
+}
+
+/** A single skipped row from an Excel import. */
+export interface ImportRowError {
+  /** 1-based row number in the uploaded file. */
+  row: number
+  /** Why this row was skipped. */
+  reason: string
+}
+
+/** Summary returned after a bulk Excel item import. */
+export interface ImportResult {
+  /** Number of items successfully created. */
+  imported: number
+  /** Number of rows that were skipped. */
+  skipped: number
+  /** Details for each skipped row. */
+  errors: ImportRowError[]
 }
 
 // Intakes

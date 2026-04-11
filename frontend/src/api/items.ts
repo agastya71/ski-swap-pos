@@ -71,3 +71,23 @@ export const lookupItem = (code: string) =>
  */
 export const searchItems = (q: string) =>
   apiFetch<ItemLookupResponse[]>(`/items/search?q=${encodeURIComponent(q)}`)
+
+/**
+ * Trigger a download of the blank Excel import template.
+ * Opens the file in the browser's native download handler.
+ */
+export function downloadImportTemplate(): void {
+  const token = localStorage.getItem('token')
+  fetch('/api/items/import-template', {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+    .then(r => r.blob())
+    .then(blob => {
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = 'import-template.xlsx'
+      link.click()
+      URL.revokeObjectURL(url)
+    })
+}
