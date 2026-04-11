@@ -68,10 +68,40 @@ export const handlers = [
   /** PATCH /users/:id/deactivate — returns the same user with is_active set to false. */
   http.patch('/users/:id/deactivate', () => HttpResponse.json({ id: 1, username: 'user1', role: 'intake', is_active: false, event_id: 1 })),
 
-  /** GET /sellers — returns an empty seller list (tests override as needed). */
-  http.get('/sellers', () => HttpResponse.json([])),
-  /** POST /sellers — returns the shared SELLER fixture. */
-  http.post('/sellers', () => HttpResponse.json(SELLER)),
+  /** GET /sellers — filters by optional `q` query param (code, first/last name). */
+  http.get('/sellers', ({ request }) => {
+    const url = new URL(request.url)
+    const q = url.searchParams.get('q') ?? ''
+    const sellers = [
+      { id: 1, code: '001', first_name: 'Jane', last_name: 'Smith', company: null,
+        is_vendor: false, phone: null, email: null, address: null, city: null,
+        state: null, zip: null, event_id: 1, created_at: '2026-01-01T00:00:00Z' },
+    ].filter(s =>
+      !q ||
+      s.code.includes(q) || s.first_name.toLowerCase().includes(q.toLowerCase()) ||
+      s.last_name.toLowerCase().includes(q.toLowerCase())
+    )
+    return HttpResponse.json(sellers)
+  }),
+  /** POST /sellers — creates a new seller, auto-assigns code '001'. */
+  http.post('/sellers', async ({ request }) => {
+    const body = await request.json() as Record<string, unknown>
+    return HttpResponse.json({
+      id: 1, code: '001',
+      first_name: body.first_name ?? 'Jane',
+      last_name: body.last_name ?? 'Smith',
+      company: body.company ?? null,
+      is_vendor: body.is_vendor ?? false,
+      phone: body.phone ?? null,
+      email: body.email ?? null,
+      address: body.address ?? null,
+      city: body.city ?? null,
+      state: body.state ?? null,
+      zip: body.zip ?? null,
+      event_id: 1,
+      created_at: '2026-01-01T00:00:00Z',
+    }, { status: 201 })
+  }),
   /** GET /sellers/:id/intakes — returns a single-element intake array for the seller. */
   http.get('/sellers/:id/intakes', () => HttpResponse.json([INTAKE])),
   /** GET /sellers/:id — returns the shared SELLER fixture. */
@@ -85,8 +115,33 @@ export const handlers = [
   http.get('/intakes/:id', () => HttpResponse.json({ ...INTAKE, items: [] })),
   /** PATCH /intakes/:id — updates intake options, returns the INTAKE fixture. */
   http.patch('/intakes/:id', () => HttpResponse.json(INTAKE)),
-  /** POST /intakes/:id/items — adds an item to the intake, returns the ITEM fixture. */
-  http.post('/intakes/:id/items', () => HttpResponse.json(ITEM)),
+  /** POST /intakes/:intakeId/items — adds an item to the intake; auto-assigns code '001-01'. */
+  http.post('/intakes/:intakeId/items', async ({ request }) => {
+    const body = await request.json() as Record<string, unknown>
+    return HttpResponse.json({
+      id: 1, intake_id: 1, seller_id: 1,
+      code: '001-01',
+      category: body.category ?? null,
+      brand: body.brand ?? null,
+      type: body.type ?? null,
+      description: body.description ?? null,
+      color: body.color ?? null,
+      size: body.size ?? null,
+      uom: body.uom ?? null,
+      gender_age: body.gender_age ?? null,
+      year: body.year ?? null,
+      used: body.used ?? true,
+      price: body.price ?? 0,
+      quantity: body.quantity ?? 1,
+      barcode_39: '001-01',
+      label_line_2: null, label_line_3: null,
+      donate_unsold: body.donate_unsold ?? false,
+      status: 'available',
+      label_printed: false,
+      vendor_item_id: null,
+      created_at: '2026-01-01T00:00:00Z',
+    }, { status: 201 })
+  }),
   /** POST /intakes/:id/labels — triggers label printing, returns a count of printed labels. */
   http.post('/intakes/:id/labels', () => HttpResponse.json({ intake_id: 1, printed: 5 })),
 
