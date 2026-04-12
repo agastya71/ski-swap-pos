@@ -104,6 +104,18 @@ export const handlers = [
   }),
   /** GET /sellers/:id/intakes — returns a single-element intake array for the seller. */
   http.get('/sellers/:id/intakes', () => HttpResponse.json([INTAKE])),
+  /** GET /sellers/:id/items — returns a single-element item array for the seller. */
+  http.get('/sellers/:id/items', () => HttpResponse.json([
+    {
+      id: 1, intake_id: 1, seller_id: 1, code: '001-01',
+      category: 'Skis', brand: 'Atomic', type: null, description: 'Atomic skis 160cm',
+      color: 'Red', size: '160cm', uom: null, gender_age: 'Men', year: 2020,
+      used: true, price: 120.0, quantity: 1, barcode_39: '001-01',
+      label_line_2: null, label_line_3: null, donate_unsold: false,
+      status: 'available', label_printed: false, vendor_item_id: null,
+      created_at: '2026-01-01T00:00:00Z',
+    },
+  ])),
   /** GET /sellers/:id — returns the shared SELLER fixture. */
   http.get('/sellers/:id', () => HttpResponse.json(SELLER)),
   /** PATCH /sellers/:id — returns the shared SELLER fixture unchanged. */
@@ -144,6 +156,10 @@ export const handlers = [
   }),
   /** POST /intakes/:id/labels — triggers label printing, returns a count of printed labels. */
   http.post('/intakes/:id/labels', () => HttpResponse.json({ intake_id: 1, printed: 5 })),
+  /** POST /api/intakes/:intakeId/items/import — bulk Excel import; returns import summary. */
+  http.post('/api/intakes/:intakeId/items/import', () =>
+    HttpResponse.json({ imported: 2, skipped: 0, errors: [] })
+  ),
 
   /** GET /items/lookup — exact item lookup by code or barcode; returns ITEM with seller_code. */
   http.get('/items/lookup', () => HttpResponse.json({ ...ITEM, seller_code: 'A001' })),
