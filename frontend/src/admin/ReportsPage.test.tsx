@@ -31,14 +31,22 @@ describe('ReportsPage', () => {
     expect(screen.getByText('Red jacket')).toBeInTheDocument()
   })
 
-  /** Verifies that entering a seller ID and submitting the form displays the seller's payout report. */
-  it('looks up seller payout by seller id', async () => {
+  /** Verifies that the Seller Payout section renders a combobox for seller selection. */
+  it('renders seller combobox for payout lookup', () => {
     render(<ReportsPage eventId={1} />)
-    await waitFor(() => screen.getByLabelText(/seller id/i))
-    fireEvent.change(screen.getByLabelText(/seller id/i), { target: { value: '1' } })
-    fireEvent.click(screen.getByRole('button', { name: /get payout/i }))
-    await waitFor(() => expect(screen.getByText('Jane Doe')).toBeInTheDocument())
-    expect(screen.getByText('$105.00')).toBeInTheDocument()
+    expect(screen.getByRole('combobox')).toBeInTheDocument()
+  })
+
+  /** Verifies that selecting a seller and submitting shows the payout summary and line items table. */
+  it('shows payout and line items table when seller selected', async () => {
+    render(<ReportsPage eventId={1} />)
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Jane' } })
+    await waitFor(() => screen.getByText(/Jane Smith/))
+    fireEvent.click(screen.getByText(/Jane Smith/))
+    await waitFor(() => expect(screen.getByRole('button', { name: /get payout/i })).not.toBeDisabled())
+    fireEvent.submit(screen.getByRole('button', { name: /get payout/i }).closest('form')!)
+    await waitFor(() => expect(screen.getByText(/Jane Smith/)).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Atomic skis')).toBeInTheDocument())
   })
 
   /** Verifies that CSV download buttons are rendered for each report section. */

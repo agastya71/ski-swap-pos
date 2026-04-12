@@ -165,17 +165,19 @@ export const handlers = [
   /** POST /sales/:id/void — voids a sale, returns the SALE fixture with is_voided true. */
   http.post('/sales/:id/void', () => HttpResponse.json({ ...SALE, is_voided: true })),
 
-  /** GET /reports/:eventId/seller/:sellerId — returns seller payout report for seller A001 (Jane Doe). */
+  /** GET /reports/:eventId/seller/:sellerId — returns seller payout report for seller 001 (Jane Smith). */
   http.get('/reports/:eventId/seller/:sellerId', () =>
     HttpResponse.json({
-      event_id: 1, event_name: 'Test Event', seller_id: 1, seller_code: 'A001',
-      seller_name: 'Jane Doe', seller_email: 'jane@example.com',
-      items_consigned: 4, items_sold: 3, items_unsold: 1, items_donated: 0,
-      gross_sales: 150, mysl_total: 45, seller_total: 105,
+      event_id: 1, event_name: 'Swap 2026',
+      seller_id: 1, seller_code: '001', seller_name: 'Jane Smith',
+      seller_email: null,
+      items_consigned: 2, items_sold: 1, items_unsold: 1, items_donated: 0,
+      gross_sales: 120.0, mysl_total: 36.0, seller_total: 84.0,
       line_items: [
-        { item_code: 'A001-001', description: 'Ski boots', price: 50, sell_price: 50, status: 'sold' },
+        { item_code: '001-01', description: 'Atomic skis', price: 120.0, sell_price: 120.0, status: 'sold' },
+        { item_code: '001-02', description: 'Boots', price: 40.0, sell_price: 0.0, status: 'unsold' },
       ],
-      generated_at: '2026-04-04T10:00:00',
+      generated_at: '2026-04-11T00:00:00Z',
     })
   ),
   /** GET /reports/:eventId/revenue — returns event-level revenue totals and payment breakdown. */
