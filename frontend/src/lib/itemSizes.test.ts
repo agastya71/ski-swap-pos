@@ -1,11 +1,12 @@
 import { ITEM_TYPES, SIZE_OPTIONS } from './itemSizes'
 
 describe('ITEM_TYPES', () => {
-  it('contains all 14 equipment types', () => {
-    expect(ITEM_TYPES).toHaveLength(14)
+  it('contains all 13 equipment types', () => {
+    expect(ITEM_TYPES).toHaveLength(13)
     expect(ITEM_TYPES).toContain('Alpine Ski')
     expect(ITEM_TYPES).toContain('Ski Boot')
     expect(ITEM_TYPES).toContain('Other')
+    expect(ITEM_TYPES).not.toContain('Snowboard Pole')
   })
 })
 
