@@ -29,12 +29,12 @@ Wrap `IntakePage` in a new top-level `IntakeModulePage` that adds a tab bar with
 
 - **File:** `src/intake/IntakeModulePage.tsx`
 - **Role guard:** `_INTAKE_ADMIN` (covers both admin and intake roles — same guard already on the intake route)
-- **State:** `activeTab: 'intake' | 'sellers'` and `selectedSellerId: number | null`
+- **State:** `activeTab: 'intake' | 'sellers'` and `selectedSeller: Seller | null`
 - **Tab bar styling:** reuse existing `tab` / `tab active` CSS classes from `AdminPage`
 
 **Tab routing:**
 - "Intake" tab → renders `<IntakePage />`
-- "Sellers" tab → when `selectedSellerId === null` renders `<SellerListPage onSelectSeller={id => setSelectedSellerId(id)} />`; when set renders `<SellerDetailPage sellerId={selectedSellerId} onBack={() => setSelectedSellerId(null)} />`
+- "Sellers" tab → when `selectedSeller === null` renders `<SellerListPage onSelectSeller={s => setSelectedSeller(s)} />`; when set renders `<SellerDetailPage seller={selectedSeller} onBack={() => setSelectedSeller(null)} />`
 
 This mirrors the `AdminPage` sub-navigation pattern exactly — no new routes, no new URL segments.
 
@@ -52,7 +52,7 @@ Both admin (`ADMIN`) and intake (`INTAKE`) users can see both tabs. `SellerListP
 - Renders with "Intake" and "Sellers" tabs visible
 - "Intake" tab active by default; `IntakePage` content renders
 - Clicking "Sellers" tab shows `SellerListPage`
-- Clicking a seller's "View" button shows `SellerDetailPage`
+- Clicking a seller's "View" button shows `SellerDetailPage` for that seller
 - Clicking "Back" in detail returns to list
 
 ---
