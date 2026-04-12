@@ -7,7 +7,7 @@
 import { useState, useEffect, useRef, type ChangeEvent } from 'react'
 import { updateSeller, listSellerItems } from '../api/sellers'
 import { getSellerIntakes, createIntake, importItems } from '../api/intakes'
-import { deleteItem, downloadImportTemplate } from '../api/items'
+import { deleteItem } from '../api/items'
 import { ItemForm } from '../intake/ItemForm'
 import type { Seller, Item, Intake, ImportResult } from '../types'
 
@@ -170,12 +170,6 @@ export function SellerDetailPage({ seller: initialSeller, onBack }: {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <h4 style={{ margin: 0 }}>Items ({items.length})</h4>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            onClick={() => downloadImportTemplate()}
-            style={{ border: `1px solid ${NAVY}`, color: NAVY, background: 'none', padding: '4px 10px', cursor: 'pointer', borderRadius: 3, fontSize: 13 }}
-          >
-            Download Template
-          </button>
           <button
             onClick={() => fileInputRef.current?.click()}
             style={{ border: `1px solid ${NAVY}`, color: NAVY, background: 'none', padding: '4px 10px', cursor: 'pointer', borderRadius: 3, fontSize: 13 }}
