@@ -19,12 +19,12 @@ const SECTIONS: { key: AdminSection; label: string }[] = [
 ]
 
 /** SellersSection manages its own list↔detail navigation state. */
-function SellersSection() {
+function SellersSection({ eventId }: { eventId: number }) {
   const [selectedSeller, setSelectedSeller] = useState<Seller | null>(null)
   if (selectedSeller) {
-    return <SellerDetailPage seller={selectedSeller} onBack={() => setSelectedSeller(null)} />
+    return <SellerDetailPage seller={selectedSeller} onBack={() => setSelectedSeller(null)} eventId={eventId} />
   }
-  return <SellerListPage onSelectSeller={setSelectedSeller} />
+  return <SellerListPage onSelectSeller={setSelectedSeller} eventId={eventId} />
 }
 
 /**
@@ -59,7 +59,7 @@ export function AdminPage() {
 
       {section === 'events' && <EventSetup />}
       {section === 'users' && <UserManagement />}
-      {section === 'sellers' && <SellersSection />}
+      {section === 'sellers' && <SellersSection eventId={eventId} />}
       {section === 'reports' && <ReportsPage eventId={eventId} />}
       {section === 'eod' && <EndOfDayPage eventId={eventId} />}
     </div>

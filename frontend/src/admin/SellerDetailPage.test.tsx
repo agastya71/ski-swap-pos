@@ -18,7 +18,7 @@ const seller = {
 
 describe('SellerDetailPage', () => {
   it('renders seller contact info', () => {
-    render(<SellerDetailPage seller={seller} onBack={vi.fn()} />)
+    render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />)
     expect(screen.getByText('Jane Smith')).toBeInTheDocument()
     expect(screen.getByText('612-555-0101')).toBeInTheDocument()
     expect(screen.getByText('jane@example.com')).toBeInTheDocument()
@@ -26,26 +26,45 @@ describe('SellerDetailPage', () => {
   })
 
   it('renders items table with item from API', async () => {
-    render(<SellerDetailPage seller={seller} onBack={vi.fn()} />)
+    render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />)
     await waitFor(() => expect(screen.getByText('001-01')).toBeInTheDocument())
     expect(screen.getByText('Atomic skis 160cm')).toBeInTheDocument()
   })
 
   it('calls onBack when Back button is clicked', () => {
     const onBack = vi.fn()
-    render(<SellerDetailPage seller={seller} onBack={onBack} />)
+    render(<SellerDetailPage seller={seller} onBack={onBack} eventId={1} />)
     fireEvent.click(screen.getByRole('button', { name: /back/i }))
     expect(onBack).toHaveBeenCalled()
   })
 
   it('shows Add Item button', () => {
-    render(<SellerDetailPage seller={seller} onBack={vi.fn()} />)
+    render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />)
     expect(screen.getByRole('button', { name: /add item/i })).toBeInTheDocument()
   })
 
   it('shows Import from Excel button', () => {
-    render(<SellerDetailPage seller={seller} onBack={vi.fn()} />)
+    render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />)
     expect(screen.getByRole('button', { name: /import from excel/i })).toBeInTheDocument()
+  })
+
+  it('shows Payout button in action bar', () => {
+    render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />)
+    expect(screen.getByRole('button', { name: /payout/i })).toBeInTheDocument()
+  })
+
+  it('shows payout panel when Payout button is clicked', async () => {
+    render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />)
+    fireEvent.click(screen.getByRole('button', { name: /payout/i }))
+    await waitFor(() => expect(screen.getByText('$84.00')).toBeInTheDocument())
+  })
+
+  it('hides payout panel when Payout button is clicked a second time', async () => {
+    render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />)
+    fireEvent.click(screen.getByRole('button', { name: /payout/i }))
+    await waitFor(() => expect(screen.getByText('$84.00')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: /payout/i }))
+    await waitFor(() => expect(screen.queryByText('$84.00')).not.toBeInTheDocument())
   })
 })
 
@@ -65,7 +84,7 @@ describe('SellerDetailPage — Import from Excel button (functional)', () => {
       }),
     )
 
-    const { container } = render(<SellerDetailPage seller={seller} onBack={vi.fn()} />)
+    const { container } = render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />)
 
     const mockFile = new File([''], 'items.xlsx', {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -79,4 +98,3 @@ describe('SellerDetailPage — Import from Excel button (functional)', () => {
     expect(capturedRequest!.headers.get('authorization')).toBe(`Bearer ${ADMIN_TOKEN}`)
   })
 })
-
