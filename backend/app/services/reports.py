@@ -97,7 +97,8 @@ def get_seller_payout(db: Session, event_id: int, seller_id: int) -> SellerPayou
         if si.item.intake.donate_proceeds:
             mysl_total += si.extended_price
         else:
-            mysl_share = round(si.extended_price * event.commission_rate, 2)
+            rate = event.vendor_commission_rate if seller.is_vendor else event.commission_rate
+            mysl_share = round(si.extended_price * rate, 2)
             mysl_total += mysl_share
             seller_total_amt += si.extended_price - mysl_share
 

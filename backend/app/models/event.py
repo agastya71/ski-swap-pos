@@ -13,8 +13,8 @@ class Event(Base):
 
     An event is the top-level container for all other records — users, sellers,
     and sales all belong to one event. Only one event may be active at a time.
-    The commission_rate set here is the default applied to new sellers; individual
-    sellers may override it at intake registration.
+    The commission_rate set here is the default applied to individual sellers;
+    vendor sellers (is_vendor=True) use vendor_commission_rate instead.
     """
 
     __tablename__ = "event"
@@ -22,7 +22,8 @@ class Event(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     year = Column(Integer, nullable=False)
-    commission_rate = Column(Float, nullable=False, default=0.30)  # MYSL's default share of each sale
+    commission_rate = Column(Float, nullable=False, default=0.30)  # MYSL's share for individual sellers
+    vendor_commission_rate = Column(Float, nullable=False, default=0.30)  # MYSL's share for vendor sellers
     is_active = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 

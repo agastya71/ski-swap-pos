@@ -11,10 +11,10 @@ import { EventSetup } from './EventSetup'
 import type { Event } from '../types'
 
 const EVENTS: Event[] = [
-  { id: 1, name: 'Swap 2025', year: 2025, commission_rate: 0.3, is_active: false },
-  { id: 2, name: 'Swap 2026', year: 2026, commission_rate: 0.3, is_active: true },
+  { id: 1, name: 'Swap 2025', year: 2025, commission_rate: 0.3, vendor_commission_rate: 0.3, is_active: false },
+  { id: 2, name: 'Swap 2026', year: 2026, commission_rate: 0.3, vendor_commission_rate: 0.25, is_active: true },
 ]
-const NEW_EVENT: Event = { id: 3, name: 'Swap 2027', year: 2027, commission_rate: 0.3, is_active: false }
+const NEW_EVENT: Event = { id: 3, name: 'Swap 2027', year: 2027, commission_rate: 0.3, vendor_commission_rate: 0.3, is_active: false }
 
 /** EventSetup admin panel — event list display, creation, activation, and error handling. */
 describe('EventSetup', () => {
@@ -37,7 +37,8 @@ describe('EventSetup', () => {
     await waitFor(() => screen.getByText('Swap 2026'))
     fireEvent.change(screen.getByLabelText(/event name/i), { target: { value: 'Swap 2027' } })
     fireEvent.change(screen.getByLabelText(/year/i), { target: { value: '2027' } })
-    fireEvent.change(screen.getByLabelText(/commission/i), { target: { value: '0.3' } })
+    fireEvent.change(screen.getByLabelText(/^commission \(0\.00/i), { target: { value: '0.3' } })
+    fireEvent.change(screen.getByLabelText(/vendor rate/i), { target: { value: '0.25' } })
     fireEvent.click(screen.getByRole('button', { name: /create event/i }))
     await waitFor(() => expect(screen.getByText('Swap 2027')).toBeInTheDocument())
   })
@@ -59,6 +60,15 @@ describe('EventSetup', () => {
     await waitFor(() => expect(activated).toBe(true))
   })
 
+  /** Verifies that vendor commission rate is displayed as a percentage in the events table. */
+  it('displays vendor commission rate in the events table', async () => {
+    server.use(http.get('/events', () => HttpResponse.json(EVENTS)))
+    render(<EventSetup />)
+    await waitFor(() => screen.getByText('Swap 2026'))
+    // EVENTS[1] has vendor_commission_rate: 0.25 → should show "25%"
+    expect(screen.getByText('25%')).toBeInTheDocument()
+  })
+
   /** Verifies that a server error response is surfaced as an inline alert message. */
   it('shows error when create fails', async () => {
     server.use(
@@ -69,7 +79,8 @@ describe('EventSetup', () => {
     await waitFor(() => screen.getByText('Swap 2026'))
     fireEvent.change(screen.getByLabelText(/event name/i), { target: { value: 'Swap 2026' } })
     fireEvent.change(screen.getByLabelText(/year/i), { target: { value: '2026' } })
-    fireEvent.change(screen.getByLabelText(/commission/i), { target: { value: '0.3' } })
+    fireEvent.change(screen.getByLabelText(/^commission \(0\.00/i), { target: { value: '0.3' } })
+    fireEvent.change(screen.getByLabelText(/vendor rate/i), { target: { value: '0.25' } })
     fireEvent.click(screen.getByRole('button', { name: /create event/i }))
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/event already exists/i))
   })

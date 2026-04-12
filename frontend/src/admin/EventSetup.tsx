@@ -16,6 +16,7 @@ export function EventSetup() {
   const [name, setName] = useState('')
   const [year, setYear] = useState(new Date().getFullYear().toString())
   const [commission, setCommission] = useState('0.30')
+  const [vendorCommission, setVendorCommission] = useState('0.30')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -33,7 +34,7 @@ export function EventSetup() {
     setError(null)
     setLoading(true)
     try {
-      const created = await createEvent({ name, year: parseInt(year), commission_rate: parseFloat(commission) })
+      const created = await createEvent({ name, year: parseInt(year), commission_rate: parseFloat(commission), vendor_commission_rate: parseFloat(vendorCommission) })
       setEvents(prev => [...prev, created])
       setName('')
     } catch (err) {
@@ -58,6 +59,7 @@ export function EventSetup() {
             <th style={{ textAlign: 'left', padding: '4px 8px' }}>Name</th>
             <th style={{ textAlign: 'left', padding: '4px 8px' }}>Year</th>
             <th style={{ textAlign: 'left', padding: '4px 8px' }}>Commission</th>
+            <th style={{ textAlign: 'left', padding: '4px 8px' }}>Vendor Rate</th>
             <th style={{ textAlign: 'left', padding: '4px 8px' }}>Status</th>
             <th />
           </tr>
@@ -68,6 +70,7 @@ export function EventSetup() {
               <td style={{ padding: '6px 8px' }}>{ev.name}</td>
               <td style={{ padding: '6px 8px' }}>{ev.year}</td>
               <td style={{ padding: '6px 8px' }}>{(ev.commission_rate * 100).toFixed(0)}%</td>
+              <td style={{ padding: '6px 8px' }}>{(ev.vendor_commission_rate * 100).toFixed(0)}%</td>
               <td style={{ padding: '6px 8px' }}>{ev.is_active ? <strong>Active</strong> : '—'}</td>
               <td style={{ padding: '6px 8px' }}>
                 {!ev.is_active && (
@@ -80,7 +83,7 @@ export function EventSetup() {
       </table>
 
       <h4>Create New Event</h4>
-      <form onSubmit={handleCreate} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 8, alignItems: 'end' }}>
+      <form onSubmit={handleCreate} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: 8, alignItems: 'end' }}>
         <div>
           <label htmlFor="eventName" style={{ display: 'block', fontSize: 13, marginBottom: 3 }}>Event Name</label>
           <input id="eventName" value={name} onChange={e => setName(e.target.value)} required style={{ width: '100%', padding: 6, boxSizing: 'border-box' }} />
@@ -92,6 +95,10 @@ export function EventSetup() {
         <div>
           <label htmlFor="eventCommission" style={{ display: 'block', fontSize: 13, marginBottom: 3 }}>Commission (0.00–1.00)</label>
           <input id="eventCommission" type="number" step="0.01" min="0" max="1" value={commission} onChange={e => setCommission(e.target.value)} required style={{ width: '100%', padding: 6, boxSizing: 'border-box' }} />
+        </div>
+        <div>
+          <label htmlFor="eventVendorCommission" style={{ display: 'block', fontSize: 13, marginBottom: 3 }}>Vendor Rate (0.00–1.00)</label>
+          <input id="eventVendorCommission" type="number" step="0.01" min="0" max="1" value={vendorCommission} onChange={e => setVendorCommission(e.target.value)} required style={{ width: '100%', padding: 6, boxSizing: 'border-box' }} />
         </div>
         <button type="submit" disabled={loading}>Create Event</button>
       </form>
