@@ -1,22 +1,16 @@
 /**
  * Admin reports page — aggregates and displays four end-of-event reports:
- * Event Revenue, Donations, Unsold Items, and per-Seller Payout. Event Revenue,
- * Donations, and Unsold Items each provide a CSV download button; the Seller
- * Payout section includes an ID-based lookup form and shows a CSV button only
- * after a payout is loaded.
+ * Event Revenue, Donations, Unsold Items, and per-Seller Payout. The first
+ * three sections are collapsed by default showing only totals; clicking the
+ * section heading expands the full table. Download CSV is always accessible.
+ * Seller Payout section remains always visible with an ID-based lookup form.
  */
 
-import { useState, useEffect, type FormEvent } from 'react'
+import { useState, useEffect, type ReactNode, type FormEvent } from 'react'
 import { getEventRevenue, getDonations, getUnsoldItems, getSellerPayout, downloadFile } from '../api/reports'
 import type { EventRevenueReport, DonationsReport, UnsoldItemsReport, SellerPayoutReport, Seller } from '../types'
 import { SellerCombobox } from '../components/SellerCombobox'
 
-/**
- * Renders all event-level financial and inventory reports with inline data tables
- * and CSV export controls.
- *
- * @param props.eventId - The ID of the active swap event whose reports should be loaded.
- */
 export function ReportsPage({ eventId }: { eventId: number }) {
   const [revenue, setRevenue] = useState<EventRevenueReport | null>(null)
   const [donations, setDonations] = useState<DonationsReport | null>(null)
@@ -24,6 +18,7 @@ export function ReportsPage({ eventId }: { eventId: number }) {
   const [selectedSeller, setSelectedSeller] = useState<Seller | null>(null)
   const [payout, setPayout] = useState<SellerPayoutReport | null>(null)
   const [payoutError, setPayoutError] = useState<string | null>(null)
+  const [open, setOpen] = useState({ revenue: false, donations: false, unsold: false })
 
   useEffect(() => {
     Promise.all([
@@ -33,7 +28,10 @@ export function ReportsPage({ eventId }: { eventId: number }) {
     ]).catch(() => {})
   }, [eventId])
 
-  /** Looks up the payout report for the selected seller. */
+  function toggle(key: 'revenue' | 'donations' | 'unsold') {
+    setOpen(prev => ({ ...prev, [key]: !prev[key] }))
+  }
+
   async function handlePayoutLookup(e: FormEvent) {
     e.preventDefault()
     if (!selectedSeller) return
@@ -47,17 +45,45 @@ export function ReportsPage({ eventId }: { eventId: number }) {
     }
   }
 
+  const sectionHeader = (
+    key: 'revenue' | 'donations' | 'unsold',
+    title: string,
+    summary: ReactNode,
+    csvFile: string,
+    csvName: string,
+  ) => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: open[key] ? 12 : 0 }}>
+      <div
+        style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flex: 1 }}
+        onClick={() => toggle(key)}
+      >
+        <span style={{ color: '#1a237e', fontSize: 11, userSelect: 'none' }}>{open[key] ? '▼' : '▶'}</span>
+        <h3 style={{ margin: 0 }}>{title}</h3>
+        {!open[key] && summary && (
+          <span style={{ color: '#64748b', fontSize: 13 }}>{summary}</span>
+        )}
+      </div>
+      <button
+        onClick={() => downloadFile(csvFile, csvName)}
+        style={{ border: '1px solid #1a237e', color: '#1a237e', background: 'none', padding: '3px 10px', cursor: 'pointer', borderRadius: 3, fontSize: 13 }}
+      >
+        Download CSV
+      </button>
+    </div>
+  )
+
   return (
     <div>
       {/* Event Revenue */}
       <section style={{ marginBottom: 32 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3>Event Revenue</h3>
-          <button onClick={() => downloadFile(`/reports/${eventId}/revenue?format=csv`, 'event-revenue.csv')}>
-            Download CSV
-          </button>
-        </div>
-        {revenue && (
+        {sectionHeader(
+          'revenue',
+          'Event Revenue',
+          revenue && <>Gross Revenue: <strong>${revenue.gross_revenue.toFixed(2)}</strong></>,
+          `/reports/${eventId}/revenue?format=csv`,
+          'event-revenue.csv',
+        )}
+        {open.revenue && revenue && (
           <table style={{ borderCollapse: 'collapse' }}>
             <tbody>
               {[
@@ -81,13 +107,18 @@ export function ReportsPage({ eventId }: { eventId: number }) {
 
       {/* Donations */}
       <section style={{ marginBottom: 32 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3>Donations</h3>
-          <button onClick={() => downloadFile(`/reports/${eventId}/donations?format=csv`, 'donations.csv')}>
-            Download CSV
-          </button>
-        </div>
-        {donations && (
+        {sectionHeader(
+          'donations',
+          'Donations',
+          donations && (
+            donations.total_items > 0
+              ? <>{donations.total_items} items · <strong>${donations.total_value.toFixed(2)}</strong></>
+              : <>No donations</>
+          ),
+          `/reports/${eventId}/donations?format=csv`,
+          'donations.csv',
+        )}
+        {open.donations && donations && (
           <>
             <p>Total donated items: <strong>{donations.total_items}</strong> (value: ${donations.total_value.toFixed(2)})</p>
             {donations.items.length > 0 && (
@@ -120,36 +151,45 @@ export function ReportsPage({ eventId }: { eventId: number }) {
 
       {/* Unsold Items */}
       <section style={{ marginBottom: 32 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3>Unsold Items</h3>
-          <button onClick={() => downloadFile(`/reports/${eventId}/unsold?format=csv`, 'unsold-items.csv')}>
-            Download CSV
-          </button>
-        </div>
-        {unsold && unsold.items.length === 0 && <p>No unsold items.</p>}
-        {unsold && unsold.items.length > 0 && (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: '2px solid #ccc' }}>
-                <th style={{ textAlign: 'left', padding: '4px 8px' }}>Seller</th>
-                <th style={{ textAlign: 'left', padding: '4px 8px' }}>Code</th>
-                <th style={{ textAlign: 'left', padding: '4px 8px' }}>Description</th>
-                <th style={{ textAlign: 'left', padding: '4px 8px' }}>Category</th>
-                <th style={{ textAlign: 'right', padding: '4px 8px' }}>Price</th>
-              </tr>
-            </thead>
-            <tbody>
-              {unsold.items.map(item => (
-                <tr key={`${item.seller_code}-${item.item_code}`} style={{ borderBottom: '1px solid #eee' }}>
-                  <td style={{ padding: '4px 8px' }}>{item.seller_code}</td>
-                  <td style={{ padding: '4px 8px' }}>{item.item_code}</td>
-                  <td style={{ padding: '4px 8px' }}>{item.description ?? '—'}</td>
-                  <td style={{ padding: '4px 8px' }}>{item.category ?? '—'}</td>
-                  <td style={{ padding: '4px 8px', textAlign: 'right' }}>${item.price.toFixed(2)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {sectionHeader(
+          'unsold',
+          'Unsold Items',
+          unsold && (
+            unsold.total_items > 0
+              ? <>{unsold.total_items} items · <strong>${unsold.total_value.toFixed(2)}</strong></>
+              : <>No unsold items</>
+          ),
+          `/reports/${eventId}/unsold?format=csv`,
+          'unsold-items.csv',
+        )}
+        {open.unsold && unsold && (
+          <>
+            {unsold.items.length === 0 && <p>No unsold items.</p>}
+            {unsold.items.length > 0 && (
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid #ccc' }}>
+                    <th style={{ textAlign: 'left', padding: '4px 8px' }}>Seller</th>
+                    <th style={{ textAlign: 'left', padding: '4px 8px' }}>Code</th>
+                    <th style={{ textAlign: 'left', padding: '4px 8px' }}>Description</th>
+                    <th style={{ textAlign: 'left', padding: '4px 8px' }}>Category</th>
+                    <th style={{ textAlign: 'right', padding: '4px 8px' }}>Price</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {unsold.items.map(item => (
+                    <tr key={`${item.seller_code}-${item.item_code}`} style={{ borderBottom: '1px solid #eee' }}>
+                      <td style={{ padding: '4px 8px' }}>{item.seller_code}</td>
+                      <td style={{ padding: '4px 8px' }}>{item.item_code}</td>
+                      <td style={{ padding: '4px 8px' }}>{item.description ?? '—'}</td>
+                      <td style={{ padding: '4px 8px' }}>{item.category ?? '—'}</td>
+                      <td style={{ padding: '4px 8px', textAlign: 'right' }}>${item.price.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </>
         )}
       </section>
 
