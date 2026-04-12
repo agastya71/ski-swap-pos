@@ -37,6 +37,8 @@ export interface Event {
   year: number
   /** MYSL's commission rate as a decimal fraction, e.g. 0.30 for 30%. */
   commission_rate: number
+  /** Vendor commission rate as a decimal fraction, e.g. 0.25 for 25%. Applied to vendor sellers instead of commission_rate. */
+  vendor_commission_rate: number
   /** Whether this event is currently active and accepting transactions. */
   is_active: boolean
 }
@@ -49,6 +51,8 @@ export interface EventCreate {
   year: number
   /** MYSL's commission rate as a decimal fraction, e.g. 0.30 for 30%. */
   commission_rate: number
+  /** Vendor commission rate as a decimal fraction, e.g. 0.25 for 25%. Applied to vendor sellers instead of commission_rate. */
+  vendor_commission_rate: number
 }
 
 // Users
