@@ -49,6 +49,37 @@ describe('SellerDetailPage', () => {
   })
 })
 
+describe('SellerDetailPage — Import from Excel button (functional)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+    setToken(null)
+  })
+
+  it('sends an authenticated POST to /intakes/:id/items/import', async () => {
+    setToken(ADMIN_TOKEN)
+    let capturedRequest: Request | null = null
+    server.use(
+      http.post('/intakes/:intakeId/items/import', ({ request }) => {
+        capturedRequest = request
+        return HttpResponse.json({ imported: 1, skipped: 0, errors: [] })
+      }),
+    )
+
+    const { container } = render(<SellerDetailPage seller={seller} onBack={vi.fn()} />)
+
+    const mockFile = new File([''], 'items.xlsx', {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement
+    fireEvent.change(input, { target: { files: [mockFile] } })
+
+    await waitFor(() => expect(capturedRequest).not.toBeNull())
+    expect(capturedRequest!.url).toMatch(/\/intakes\/\d+\/items\/import$/)
+    expect(capturedRequest!.url).not.toContain('/api/')
+    expect(capturedRequest!.headers.get('authorization')).toBe(`Bearer ${ADMIN_TOKEN}`)
+  })
+})
+
 describe('SellerDetailPage — Download Template button (functional)', () => {
   afterEach(() => {
     vi.restoreAllMocks()
