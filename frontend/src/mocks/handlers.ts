@@ -156,8 +156,8 @@ export const handlers = [
   }),
   /** POST /intakes/:id/labels — triggers label printing, returns a count of printed labels. */
   http.post('/intakes/:id/labels', () => HttpResponse.json({ intake_id: 1, printed: 5 })),
-  /** POST /api/intakes/:intakeId/items/import — bulk Excel import; returns import summary. */
-  http.post('/api/intakes/:intakeId/items/import', () =>
+  /** POST /intakes/:intakeId/items/import — bulk Excel import; returns import summary. */
+  http.post('/intakes/:intakeId/items/import', () =>
     HttpResponse.json({ imported: 2, skipped: 0, errors: [] })
   ),
 
