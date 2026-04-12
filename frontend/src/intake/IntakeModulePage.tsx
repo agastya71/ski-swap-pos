@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { IntakePage } from './IntakePage'
 import { SellerListPage } from '../admin/SellerListPage'
 import { SellerDetailPage } from '../admin/SellerDetailPage'
+import { downloadImportTemplate } from '../api/items'
 import type { Seller } from '../types'
 
 type IntakeTab = 'intake' | 'sellers'
@@ -9,6 +10,7 @@ type IntakeTab = 'intake' | 'sellers'
 /**
  * Top-level intake module page — tab-based navigation between the seller intake
  * workflow and the full sellers list/detail view (accessible to admin and intake roles).
+ * The Download Template button is always visible in the tab bar for quick access.
  */
 export function IntakeModulePage() {
   const [tab, setTab] = useState<IntakeTab>('intake')
@@ -33,9 +35,17 @@ export function IntakeModulePage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '2px solid #1a237e', paddingBottom: 8 }}>
-        {tabBtn('intake', 'Intake')}
-        {tabBtn('sellers', 'Sellers')}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #1a237e', paddingBottom: 8, marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {tabBtn('intake', 'Intake')}
+          {tabBtn('sellers', 'Sellers')}
+        </div>
+        <button
+          onClick={() => downloadImportTemplate()}
+          style={{ border: '1px solid #1a237e', color: '#1a237e', background: 'none', padding: '4px 10px', cursor: 'pointer', borderRadius: 3, fontSize: 13 }}
+        >
+          Download Template
+        </button>
       </div>
       {tab === 'intake' && <IntakePage />}
       {tab === 'sellers' && (

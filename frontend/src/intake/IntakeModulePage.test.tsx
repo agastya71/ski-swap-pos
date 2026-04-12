@@ -4,6 +4,9 @@ import { http, HttpResponse } from 'msw'
 import { AuthProvider } from '../auth/AuthContext'
 import { IntakeModulePage } from './IntakeModulePage'
 import type { Seller } from '../types'
+import { vi, afterEach } from 'vitest'
+import { ADMIN_TOKEN } from '../mocks/tokens'
+import { setToken } from '../api/client'
 
 const SELLER: Seller = {
   id: 1, code: '001', first_name: 'Jane', last_name: 'Doe',
@@ -74,5 +77,46 @@ describe('IntakeModulePage', () => {
     await waitFor(() => screen.getByRole('button', { name: /back/i }))
     fireEvent.click(screen.getByRole('button', { name: /back/i }))
     await waitFor(() => expect(screen.getByText('Jane Doe')).toBeInTheDocument())
+  })
+})
+
+describe('IntakeModulePage — Download Template button (functional)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+    setToken(null)
+  })
+
+  it('is always visible in the tab bar', () => {
+    renderPage()
+    expect(screen.getByRole('button', { name: /download template/i })).toBeInTheDocument()
+  })
+
+  it('sends an authenticated GET to /items/import-template', async () => {
+    setToken(ADMIN_TOKEN)
+    let capturedRequest: Request | null = null
+    server.use(
+      http.get('/items/import-template', ({ request }) => {
+        capturedRequest = request
+        return new HttpResponse(new ArrayBuffer(8), {
+          headers: {
+            'Content-Type':
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          },
+        })
+      }),
+    )
+
+    renderPage()
+
+    // Suppress blob URL side-effects after mount
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:test')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+
+    fireEvent.click(screen.getByRole('button', { name: /download template/i }))
+
+    await waitFor(() => expect(capturedRequest).not.toBeNull())
+    expect(capturedRequest!.url).toContain('/items/import-template')
+    expect(capturedRequest!.url).not.toContain('/api/')
+    expect(capturedRequest!.headers.get('authorization')).toBe(`Bearer ${ADMIN_TOKEN}`)
   })
 })
