@@ -2,7 +2,7 @@
  * Items API — fetch, update, delete, and look up individual consignment items.
  * Lookup and search are available to all roles; write operations require admin or intake.
  */
-import { apiFetch } from './client'
+import { apiFetch, getToken } from './client'
 import type { Item, ItemUpdate, ItemLookupResponse } from '../types'
 
 /**
@@ -78,8 +78,8 @@ export const searchItems = (q: string) =>
  * @throws {Error} if the request fails or the server returns a non-OK status.
  */
 export function downloadImportTemplate(): Promise<void> {
-  const token = localStorage.getItem('token')
-  return fetch('/api/items/import-template', {
+  const token = getToken()
+  return fetch('/items/import-template', {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   })
     .then(async r => {
