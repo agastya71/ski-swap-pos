@@ -2,7 +2,7 @@
  * Intakes API — create and manage seller intake sessions and add items.
  * Requires admin or intake role.
  */
-import { apiFetch } from './client'
+import { apiFetch, getToken } from './client'
 import type { Intake, IntakeWithItems, IntakeCreate, IntakeUpdate, Item, ItemCreate, ImportResult } from '../types'
 
 /**
@@ -84,8 +84,8 @@ export async function importItems(intakeId: number, file: File): Promise<ImportR
   const form = new FormData()
   form.append('file', file)
   // Use raw fetch — apiFetch serialises JSON; multipart requires FormData
-  const token = localStorage.getItem('token')
-  const res = await fetch(`/api/intakes/${intakeId}/items/import`, {
+  const token = getToken()
+  const res = await fetch(`/intakes/${intakeId}/items/import`, {
     method: 'POST',
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: form,
