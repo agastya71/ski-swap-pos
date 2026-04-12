@@ -2,7 +2,11 @@
  * Tests for SellerDetailPage — contact card, items table, and action buttons.
  */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { http, HttpResponse } from 'msw'
+import { server } from '../mocks/server'
+import { ADMIN_TOKEN } from '../mocks/tokens'
+import { setToken } from '../api/client'
 import { SellerDetailPage } from './SellerDetailPage'
 
 const seller = {
@@ -42,5 +46,42 @@ describe('SellerDetailPage', () => {
   it('shows Import from Excel button', () => {
     render(<SellerDetailPage seller={seller} onBack={vi.fn()} />)
     expect(screen.getByRole('button', { name: /import from excel/i })).toBeInTheDocument()
+  })
+})
+
+describe('SellerDetailPage — Download Template button (functional)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+    setToken(null)
+  })
+
+  it('sends an authenticated GET to /items/import-template', async () => {
+    setToken(ADMIN_TOKEN)
+    let capturedRequest: Request | null = null
+    server.use(
+      http.get('/items/import-template', ({ request }) => {
+        capturedRequest = request
+        return new HttpResponse(new ArrayBuffer(8), {
+          headers: {
+            'Content-Type':
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          },
+        })
+      }),
+    )
+
+    // Render first — mocking body.appendChild before render prevents mounting
+    render(<SellerDetailPage seller={seller} onBack={vi.fn()} />)
+
+    // Suppress blob URL and download link side-effects after component is mounted
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:test')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+
+    fireEvent.click(screen.getByRole('button', { name: /download template/i }))
+
+    await waitFor(() => expect(capturedRequest).not.toBeNull())
+    expect(capturedRequest!.url).toContain('/items/import-template')
+    expect(capturedRequest!.url).not.toContain('/api/')
+    expect(capturedRequest!.headers.get('authorization')).toBe(`Bearer ${ADMIN_TOKEN}`)
   })
 })
