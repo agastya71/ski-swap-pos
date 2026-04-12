@@ -30,6 +30,7 @@ export function SellerDetailPage({ seller: initialSeller, onBack }: {
   const [editDraft, setEditDraft] = useState<Seller>(initialSeller)
   const [items, setItems] = useState<Item[]>([])
   const [showAddItem, setShowAddItem] = useState(false)
+  const [addItemIntakeId, setAddItemIntakeId] = useState<number | null>(null)
   const [intakes, setIntakes] = useState<Intake[]>([])
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -40,24 +41,32 @@ export function SellerDetailPage({ seller: initialSeller, onBack }: {
   }, [seller.id])
 
   async function handleSaveEdit() {
-    const updated = await updateSeller(seller.id, {
-      first_name: editDraft.first_name,
-      last_name: editDraft.last_name,
-      company: editDraft.company ?? undefined,
-      phone: editDraft.phone ?? undefined,
-      email: editDraft.email ?? undefined,
-      address: editDraft.address ?? undefined,
-      city: editDraft.city ?? undefined,
-      state: editDraft.state ?? undefined,
-      zip: editDraft.zip ?? undefined,
-    })
-    setSeller(updated)
-    setEditing(false)
+    try {
+      const updated = await updateSeller(seller.id, {
+        first_name: editDraft.first_name,
+        last_name: editDraft.last_name,
+        company: editDraft.company ?? undefined,
+        phone: editDraft.phone ?? undefined,
+        email: editDraft.email ?? undefined,
+        address: editDraft.address ?? undefined,
+        city: editDraft.city ?? undefined,
+        state: editDraft.state ?? undefined,
+        zip: editDraft.zip ?? undefined,
+      })
+      setSeller(updated)
+      setEditing(false)
+    } catch {
+      // keep editing open so the user can retry
+    }
   }
 
   async function handleDeleteItem(itemId: number) {
-    await deleteItem(itemId)
-    setItems(prev => prev.filter(i => i.id !== itemId))
+    try {
+      await deleteItem(itemId)
+      setItems(prev => prev.filter(i => i.id !== itemId))
+    } catch {
+      // deletion failed — leave item in list
+    }
   }
 
   async function getOrCreateIntakeId(): Promise<number> {
@@ -181,7 +190,11 @@ export function SellerDetailPage({ seller: initialSeller, onBack }: {
             onChange={handleImportFile}
           />
           <button
-            onClick={() => setShowAddItem(true)}
+            onClick={async () => {
+              const id = await getOrCreateIntakeId()
+              setAddItemIntakeId(id)
+              setShowAddItem(true)
+            }}
             style={{ background: NAVY, color: '#fff', border: 'none', padding: '4px 10px', cursor: 'pointer', borderRadius: 3, fontSize: 13 }}
           >
             + Add Item
@@ -211,17 +224,17 @@ export function SellerDetailPage({ seller: initialSeller, onBack }: {
       )}
 
       {/* Add Item inline form */}
-      {showAddItem && (
+      {showAddItem && addItemIntakeId !== null && (
         <div style={{ marginBottom: 16, padding: 16, border: '1px solid #e2e8f0', borderRadius: 6 }}>
           <button
-            onClick={() => setShowAddItem(false)}
+            onClick={() => { setShowAddItem(false); setAddItemIntakeId(null) }}
             style={{ float: 'right', border: 'none', background: 'none', cursor: 'pointer', color: '#64748b' }}
           >
             ✕ Cancel
           </button>
           <ItemForm
-            intakeId={intakes[0]?.id ?? 0}
-            onAdded={item => { setItems(prev => [...prev, item]); setShowAddItem(false) }}
+            intakeId={addItemIntakeId}
+            onAdded={item => { setItems(prev => [...prev, item]); setShowAddItem(false); setAddItemIntakeId(null) }}
           />
         </div>
       )}
