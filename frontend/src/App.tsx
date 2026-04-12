@@ -8,7 +8,7 @@ import { LoginPage } from './auth/LoginPage'
 import { Layout } from './components/Layout'
 import { ProtectedRoute } from './components/ProtectedRoute'
 
-import { IntakePage } from './intake/IntakePage'
+import { IntakeModulePage } from './intake/IntakeModulePage'
 import { POSPage } from './pos/POSPage'
 import { AdminPage } from './admin/AdminPage'
 
@@ -37,7 +37,7 @@ function AppInner() {
   return (
     <Layout page={activePage} onNavigate={setPage}>
       {activePage === 'intake' && (
-        <ProtectedRoute roles={['admin', 'intake']}><IntakePage /></ProtectedRoute>
+        <ProtectedRoute roles={['admin', 'intake']}><IntakeModulePage /></ProtectedRoute>
       )}
       {activePage === 'pos' && (
         <ProtectedRoute roles={['admin', 'cashier']}><POSPage /></ProtectedRoute>

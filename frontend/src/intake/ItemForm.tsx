@@ -6,6 +6,7 @@
  */
 import { useState, type FormEvent } from 'react'
 import { addItem } from '../api/intakes'
+import { ITEM_TYPES, SIZE_OPTIONS } from '../lib/itemSizes'
 import type { Item } from '../types'
 
 const CATEGORIES = ['Skis', 'Ski Boots', 'Ski Poles', 'Snowboard', 'Snowboard Boots', 'Bindings', 'Helmet', 'Clothing', 'Other']
@@ -33,6 +34,10 @@ export function ItemForm({ intakeId, onAdded }: {
 
   function set(k: keyof ReturnType<typeof emptyForm>, v: string | boolean) {
     setF(prev => ({ ...prev, [k]: v }))
+  }
+
+  function handleTypeChange(newType: string) {
+    setF(prev => ({ ...prev, type: newType, size: '' }))
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -70,6 +75,8 @@ export function ItemForm({ intakeId, onAdded }: {
     </div>
   )
 
+  const sizeOptions = SIZE_OPTIONS[f.type]
+
   return (
     <form onSubmit={handleSubmit}>
       <h4>Add Item</h4>
@@ -82,10 +89,26 @@ export function ItemForm({ intakeId, onAdded }: {
           </select>
         </div>
         {text('brand', 'Brand')}
-        {text('type', 'Type')}
+        <div style={{ marginBottom: 8 }}>
+          <label htmlFor="type" style={{ display: 'block', fontSize: 13, marginBottom: 2 }}>Type</label>
+          <select id="type" value={f.type} onChange={e => handleTypeChange(e.target.value)} style={{ width: '100%', padding: 5 }}>
+            <option value="">— select type —</option>
+            {ITEM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
         {text('description', 'Description')}
         {text('color', 'Color')}
-        {text('size', 'Size')}
+        <div style={{ marginBottom: 8 }}>
+          <label htmlFor="size" style={{ display: 'block', fontSize: 13, marginBottom: 2 }}>Size</label>
+          {sizeOptions ? (
+            <select id="size" value={f.size} onChange={e => set('size', e.target.value)} style={{ width: '100%', padding: 5 }}>
+              <option value="">— select size —</option>
+              {sizeOptions.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          ) : (
+            <input id="size" value={f.size} onChange={e => set('size', e.target.value)} style={{ width: '100%', padding: 5, boxSizing: 'border-box' }} />
+          )}
+        </div>
         <div style={{ marginBottom: 8 }}>
           <label htmlFor="gender_age" style={{ display: 'block', fontSize: 13, marginBottom: 2 }}>Gender/Age</label>
           <select id="gender_age" value={f.gender_age} onChange={e => set('gender_age', e.target.value)} style={{ width: '100%', padding: 5 }}>
