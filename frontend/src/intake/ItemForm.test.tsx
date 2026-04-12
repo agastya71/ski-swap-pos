@@ -60,4 +60,53 @@ describe('ItemForm', () => {
     fireEvent.click(screen.getByRole('button', { name: /add item/i }))
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/labels already printed/i))
   })
+
+  /** Verifies the type field is a <select> element with ITEM_TYPES options. */
+  it('renders type field as a select with equipment type options', () => {
+    render(<ItemForm intakeId={5} onAdded={vi.fn()} />)
+    const typeSelect = screen.getByLabelText(/^type$/i)
+    expect(typeSelect.tagName).toBe('SELECT')
+    expect(typeSelect).toContainElement(
+      screen.getAllByRole('option', { name: 'Alpine Ski' })[0]
+    )
+    // Check for "Other" by filtering to only the type select's options
+    const typeOptions = (typeSelect as HTMLSelectElement).querySelectorAll('option')
+    expect(Array.from(typeOptions).some(opt => opt.textContent === 'Other')).toBe(true)
+  })
+
+  /** Verifies that selecting a type with known sizes renders size as a <select>. */
+  it('renders size as a select when a type with known sizes is selected', () => {
+    render(<ItemForm intakeId={5} onAdded={vi.fn()} />)
+    fireEvent.change(screen.getByLabelText(/^type$/i), { target: { value: 'Alpine Ski' } })
+    const sizeEl = screen.getByLabelText(/^size$/i)
+    expect(sizeEl.tagName).toBe('SELECT')
+    expect(sizeEl).toContainElement(screen.getByRole('option', { name: '70cm' }))
+    expect(sizeEl).toContainElement(screen.getByRole('option', { name: '210cm' }))
+  })
+
+  /** Verifies that selecting "Other" keeps size as a plain text input. */
+  it('renders size as a text input when type is Other', () => {
+    render(<ItemForm intakeId={5} onAdded={vi.fn()} />)
+    fireEvent.change(screen.getByLabelText(/^type$/i), { target: { value: 'Other' } })
+    const sizeEl = screen.getByLabelText(/^size$/i)
+    expect(sizeEl.tagName).toBe('INPUT')
+  })
+
+  /** Verifies that changing type resets size to empty. */
+  it('resets size to empty when type changes', () => {
+    render(<ItemForm intakeId={5} onAdded={vi.fn()} />)
+    fireEvent.change(screen.getByLabelText(/^type$/i), { target: { value: 'Alpine Ski' } })
+    fireEvent.change(screen.getByLabelText(/^size$/i), { target: { value: '160cm' } })
+    expect((screen.getByLabelText(/^size$/i) as HTMLSelectElement).value).toBe('160cm')
+    fireEvent.change(screen.getByLabelText(/^type$/i), { target: { value: 'Helmet' } })
+    expect((screen.getByLabelText(/^size$/i) as HTMLSelectElement).value).toBe('')
+  })
+
+  /** Verifies Ski Boot size options are Mondo sizing strings. */
+  it('shows Mondo sizes for Ski Boot type', () => {
+    render(<ItemForm intakeId={5} onAdded={vi.fn()} />)
+    fireEvent.change(screen.getByLabelText(/^type$/i), { target: { value: 'Ski Boot' } })
+    expect(screen.getByRole('option', { name: '15.0 (Mondo)' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: '33.0 (Mondo)' })).toBeInTheDocument()
+  })
 })
