@@ -47,14 +47,22 @@ describe('ItemList', () => {
     expect(screen.getByDisplayValue('75')).toBeInTheDocument()
   })
 
-  /** Verifies that clicking Save issues PATCH /items/:id and notifies the parent. */
+  /** Verifies that clicking Save issues PATCH /items/:id with the updated fields and notifies the parent. */
   it('clicking Save calls PATCH /items/:id and triggers onItemsChanged', async () => {
+    let capturedBody: Record<string, unknown> | null = null
+    server.use(
+      http.patch('/items/:id', async ({ request }) => {
+        capturedBody = await request.json() as Record<string, unknown>
+        return HttpResponse.json(ITEM)
+      })
+    )
     const onItemsChanged = vi.fn()
     render(<ItemList items={[ITEM]} intakeId={5} onItemsChanged={onItemsChanged} />)
     fireEvent.click(screen.getByRole('button', { name: /edit/i }))
     fireEvent.change(screen.getByDisplayValue('75'), { target: { value: '80' } })
     fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
     await waitFor(() => expect(onItemsChanged).toHaveBeenCalledTimes(1))
+    expect(capturedBody).toMatchObject({ price: 80 })
   })
 
   /** Verifies that clicking Cancel closes the panel without making an API call. */

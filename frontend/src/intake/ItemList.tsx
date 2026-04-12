@@ -8,7 +8,7 @@
 import { Fragment, useState } from 'react'
 import { deleteItem, printLabel, updateItem } from '../api/items'
 import { printIntakeLabels } from '../api/intakes'
-import type { Item } from '../types'
+import type { Item, ItemUpdate } from '../types'
 
 const NAVY = '#1e3a8a'
 
@@ -56,18 +56,19 @@ export function ItemList({ items, intakeId, onItemsChanged }: {
     onItemsChanged()
   }
 
-  /** PATCHes the item with the current draft values, closes the panel, and notifies the parent. */
+  /** PATCHes the item with only the fields that changed, closes the panel, and notifies the parent. */
   async function handleSave(itemId: number) {
     setSaving(true)
     setSaveError(null)
     try {
-      await updateItem(itemId, {
-        description: draft.description,
-        price: parseFloat(draft.price),
-        brand: draft.brand,
-        size: draft.size,
-        color: draft.color,
-      })
+      const original = items.find(i => i.id === itemId)!
+      const update: Record<string, string | number> = {}
+      if (draft.description !== (original.description ?? '')) update.description = draft.description
+      if (parseFloat(draft.price) !== original.price) update.price = parseFloat(draft.price)
+      if (draft.brand !== (original.brand ?? '')) update.brand = draft.brand
+      if (draft.size !== (original.size ?? '')) update.size = draft.size
+      if (draft.color !== (original.color ?? '')) update.color = draft.color
+      await updateItem(itemId, update as ItemUpdate)
       setExpandedEditId(null)
       onItemsChanged()
     } catch (err) {
