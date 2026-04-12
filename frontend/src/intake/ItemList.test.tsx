@@ -1,7 +1,7 @@
 /**
  * Tests for {@link ItemList} — covers item display, the delete flow (including the
  * sold-item guard that disables the button), per-item and bulk label printing,
- * and the empty-state message when no items are present.
+ * the empty-state message when no items are present, and the inline edit panel.
  *
  * @module ItemList.test
  */
@@ -33,18 +33,66 @@ describe('ItemList', () => {
     expect(screen.getByText('$75.00')).toBeInTheDocument()
   })
 
-  /** Verifies that clicking Delete calls DELETE /items/:id and then triggers onItemsChanged. */
-  it('delete button calls DELETE /items/:id and triggers onItemsChanged', async () => {
+  /** Verifies that an Edit button is rendered for each item row. */
+  it('shows Edit button for each item', () => {
+    render(<ItemList items={[ITEM]} intakeId={5} onItemsChanged={vi.fn()} />)
+    expect(screen.getByRole('button', { name: /edit/i })).toBeInTheDocument()
+  })
+
+  /** Verifies that clicking Edit opens a panel pre-filled with the item's current values. */
+  it('clicking Edit opens a panel with pre-filled description and price', () => {
+    render(<ItemList items={[ITEM]} intakeId={5} onItemsChanged={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: /edit/i }))
+    expect(screen.getByDisplayValue('Red skis')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('75')).toBeInTheDocument()
+  })
+
+  /** Verifies that clicking Save issues PATCH /items/:id and notifies the parent. */
+  it('clicking Save calls PATCH /items/:id and triggers onItemsChanged', async () => {
+    const onItemsChanged = vi.fn()
+    render(<ItemList items={[ITEM]} intakeId={5} onItemsChanged={onItemsChanged} />)
+    fireEvent.click(screen.getByRole('button', { name: /edit/i }))
+    fireEvent.change(screen.getByDisplayValue('75'), { target: { value: '80' } })
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+    await waitFor(() => expect(onItemsChanged).toHaveBeenCalledTimes(1))
+  })
+
+  /** Verifies that clicking Cancel closes the panel without making an API call. */
+  it('clicking Cancel closes the panel without calling the API', async () => {
+    let patchCalled = false
+    server.use(http.patch('/items/:id', () => { patchCalled = true; return HttpResponse.json(ITEM) }))
+    render(<ItemList items={[ITEM]} intakeId={5} onItemsChanged={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: /edit/i }))
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
+    expect(screen.queryByDisplayValue('Red skis')).not.toBeInTheDocument()
+    expect(patchCalled).toBe(false)
+  })
+
+  /** Verifies that opening a second edit panel closes the first. */
+  it('opening a second Edit panel closes the first', () => {
+    const item2: Item = { ...ITEM, id: 2, code: 'A001-002', description: 'Blue boots', brand: 'Salomon' }
+    render(<ItemList items={[ITEM, item2]} intakeId={5} onItemsChanged={vi.fn()} />)
+    fireEvent.click(screen.getAllByRole('button', { name: /edit/i })[0])
+    expect(screen.getByDisplayValue('Red skis')).toBeInTheDocument()
+    fireEvent.click(screen.getAllByRole('button', { name: /edit/i })[1])
+    expect(screen.queryByDisplayValue('Red skis')).not.toBeInTheDocument()
+    expect(screen.getByDisplayValue('Blue boots')).toBeInTheDocument()
+  })
+
+  /** Verifies that clicking Delete in the edit panel calls DELETE /items/:id and notifies the parent. */
+  it('Delete in edit panel calls DELETE /items/:id and triggers onItemsChanged', async () => {
     server.use(http.delete('/items/:id', () => new HttpResponse(null, { status: 204 })))
     const onItemsChanged = vi.fn()
     render(<ItemList items={[ITEM]} intakeId={5} onItemsChanged={onItemsChanged} />)
+    fireEvent.click(screen.getByRole('button', { name: /edit/i }))
     fireEvent.click(screen.getByRole('button', { name: /delete/i }))
     await waitFor(() => expect(onItemsChanged).toHaveBeenCalledTimes(1))
   })
 
-  /** Verifies that the Delete button is disabled when the item's label has already been printed. */
-  it('delete button is disabled when label is printed', () => {
+  /** Verifies that the Delete button inside the edit panel is disabled for printed items. */
+  it('Delete button is disabled in edit panel when label is printed', () => {
     render(<ItemList items={[LABEL_PRINTED]} intakeId={5} onItemsChanged={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: /edit/i }))
     expect(screen.getByRole('button', { name: /delete/i })).toBeDisabled()
   })
 
