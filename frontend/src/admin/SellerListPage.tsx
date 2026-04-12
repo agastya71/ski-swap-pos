@@ -1,18 +1,23 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import { searchSellers } from '../api/sellers'
 import { SellerForm } from '../intake/SellerForm'
+import { SellerPayoutPanel } from './SellerPayoutPanel'
 import type { Seller } from '../types'
 
 const NAVY = '#1e3a8a'
 
 /**
  * Admin seller list page — debounced search, tabular display, drill-in navigation.
- * Rendered inside the Sellers tab of AdminPage.
+ * Each row has View (navigate to detail) and Payout (inline payout panel) actions.
  */
-export function SellerListPage({ onSelectSeller }: { onSelectSeller: (seller: Seller) => void }) {
+export function SellerListPage({ onSelectSeller, eventId }: {
+  onSelectSeller: (seller: Seller) => void
+  eventId: number
+}) {
   const [query, setQuery] = useState('')
   const [sellers, setSellers] = useState<Seller[]>([])
   const [showCreate, setShowCreate] = useState(false)
+  const [expandedPayoutId, setExpandedPayoutId] = useState<number | null>(null)
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -57,20 +62,38 @@ export function SellerListPage({ onSelectSeller }: { onSelectSeller: (seller: Se
         </thead>
         <tbody>
           {sellers.map(s => (
-            <tr key={s.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-              <td style={{ padding: '8px 10px', fontWeight: 600, color: NAVY }}>{s.code}</td>
-              <td style={{ padding: '8px 10px' }}>{s.first_name} {s.last_name}{s.company ? ` (${s.company})` : ''}</td>
-              <td style={{ padding: '8px 10px', color: '#64748b' }}>{s.phone ?? '—'}</td>
-              <td style={{ padding: '8px 10px', color: '#64748b' }}>{s.email ?? '—'}</td>
-              <td style={{ padding: '8px 10px' }}>
-                <button
-                  onClick={() => onSelectSeller(s)}
-                  style={{ border: `1px solid ${NAVY}`, color: NAVY, background: 'none', padding: '3px 10px', cursor: 'pointer', borderRadius: 3 }}
-                >
-                  View →
-                </button>
-              </td>
-            </tr>
+            <Fragment key={s.id}>
+              <tr style={{ borderBottom: expandedPayoutId === s.id ? 'none' : '1px solid #f1f5f9' }}>
+                <td style={{ padding: '8px 10px', fontWeight: 600, color: NAVY }}>{s.code}</td>
+                <td style={{ padding: '8px 10px' }}>{s.first_name} {s.last_name}{s.company ? ` (${s.company})` : ''}</td>
+                <td style={{ padding: '8px 10px', color: '#64748b' }}>{s.phone ?? '—'}</td>
+                <td style={{ padding: '8px 10px', color: '#64748b' }}>{s.email ?? '—'}</td>
+                <td style={{ padding: '8px 10px' }}>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    <button
+                      onClick={() => onSelectSeller(s)}
+                      style={{ border: `1px solid ${NAVY}`, color: NAVY, background: 'none', padding: '3px 10px', cursor: 'pointer', borderRadius: 3 }}
+                    >
+                      View →
+                    </button>
+                    <button
+                      onClick={() => setExpandedPayoutId(prev => prev === s.id ? null : s.id)}
+                      style={{ border: `1px solid ${NAVY}`, color: NAVY, background: 'none', padding: '3px 10px', cursor: 'pointer', borderRadius: 3 }}
+                    >
+                      Payout
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              {expandedPayoutId === s.id && (
+                <tr>
+                  <td colSpan={5} style={{ padding: '8px 16px 16px', background: '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
+                    <strong style={{ fontSize: 13, display: 'block', marginBottom: 8 }}>Seller Payout</strong>
+                    <SellerPayoutPanel eventId={eventId} sellerId={s.id} />
+                  </td>
+                </tr>
+              )}
+            </Fragment>
           ))}
           {sellers.length === 0 && (
             <tr><td colSpan={5} style={{ padding: 16, textAlign: 'center', color: '#94a3b8' }}>No sellers found</td></tr>

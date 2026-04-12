@@ -109,4 +109,20 @@ describe('ItemForm', () => {
     expect(screen.getByRole('option', { name: '15.0 (Mondo)' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: '33.0 (Mondo)' })).toBeInTheDocument()
   })
+
+  it('description input has maxLength of 99', () => {
+    render(<ItemForm intakeId={5} onAdded={vi.fn()} />)
+    expect(screen.getByLabelText(/description/i)).toHaveAttribute('maxlength', '99')
+  })
+
+  it('shows character counter for description field', () => {
+    render(<ItemForm intakeId={5} onAdded={vi.fn()} />)
+    expect(screen.getByText('0 / 99')).toBeInTheDocument()
+  })
+
+  it('counter updates as user types in description', () => {
+    render(<ItemForm intakeId={5} onAdded={vi.fn()} />)
+    fireEvent.change(screen.getByLabelText(/description/i), { target: { value: 'Red skis' } })
+    expect(screen.getByText('8 / 99')).toBeInTheDocument()
+  })
 })

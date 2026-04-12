@@ -96,7 +96,19 @@ export function ItemForm({ intakeId, onAdded }: {
             {ITEM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
-        {text('description', 'Description')}
+        <div style={{ marginBottom: 8 }}>
+          <label htmlFor="description" style={{ display: 'block', fontSize: 13, marginBottom: 2 }}>Description</label>
+          <input
+            id="description"
+            value={f.description}
+            onChange={e => set('description', e.target.value)}
+            maxLength={99}
+            style={{ width: '100%', padding: 5, boxSizing: 'border-box' }}
+          />
+          <div style={{ textAlign: 'right', fontSize: 11, color: f.description.length >= 90 ? '#ef4444' : '#94a3b8', marginTop: 2 }}>
+            {f.description.length} / 99
+          </div>
+        </div>
         {text('color', 'Color')}
         <div style={{ marginBottom: 8 }}>
           <label htmlFor="size" style={{ display: 'block', fontSize: 13, marginBottom: 2 }}>Size</label>

@@ -1,6 +1,6 @@
 /**
  * Admin seller detail page — contact card with inline edit, items table,
- * Add Item form, and Excel import.
+ * Add Item form, Excel import, and inline payout panel.
  *
  * @module SellerDetailPage
  */
@@ -9,21 +9,15 @@ import { updateSeller, listSellerItems } from '../api/sellers'
 import { getSellerIntakes, createIntake, importItems } from '../api/intakes'
 import { deleteItem } from '../api/items'
 import { ItemForm } from '../intake/ItemForm'
+import { SellerPayoutPanel } from './SellerPayoutPanel'
 import type { Seller, Item, Intake, ImportResult } from '../types'
 
 const NAVY = '#1e3a8a'
 
-/**
- * Admin seller detail page — shows a contact card with inline editing,
- * a table of all the seller's items, and buttons for adding items and
- * importing from Excel.
- *
- * @param props.seller - The seller to display (initial value; updated after inline edit).
- * @param props.onBack - Callback invoked when the user clicks the Back button.
- */
-export function SellerDetailPage({ seller: initialSeller, onBack }: {
+export function SellerDetailPage({ seller: initialSeller, onBack, eventId }: {
   seller: Seller
   onBack: () => void
+  eventId: number
 }) {
   const [seller, setSeller] = useState<Seller>(initialSeller)
   const [editing, setEditing] = useState(false)
@@ -33,6 +27,7 @@ export function SellerDetailPage({ seller: initialSeller, onBack }: {
   const [addItemIntakeId, setAddItemIntakeId] = useState<number | null>(null)
   const [intakes, setIntakes] = useState<Intake[]>([])
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
+  const [showPayout, setShowPayout] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -184,6 +179,12 @@ export function SellerDetailPage({ seller: initialSeller, onBack }: {
             onChange={handleImportFile}
           />
           <button
+            onClick={() => setShowPayout(prev => !prev)}
+            style={{ border: `1px solid ${NAVY}`, color: NAVY, background: 'none', padding: '4px 10px', cursor: 'pointer', borderRadius: 3, fontSize: 13 }}
+          >
+            Payout
+          </button>
+          <button
             onClick={async () => {
               const id = await getOrCreateIntakeId()
               setAddItemIntakeId(id)
@@ -278,6 +279,14 @@ export function SellerDetailPage({ seller: initialSeller, onBack }: {
           )}
         </tbody>
       </table>
+
+      {/* Payout panel */}
+      {showPayout && (
+        <div style={{ marginTop: 16, padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6 }}>
+          <strong style={{ fontSize: 13, display: 'block', marginBottom: 8 }}>Seller Payout</strong>
+          <SellerPayoutPanel eventId={eventId} sellerId={seller.id} />
+        </div>
+      )}
     </div>
   )
 }
