@@ -60,4 +60,15 @@ describe('AdminPage navigation', () => {
     fireEvent.click(screen.getByRole('button', { name: /end of day/i }))
     await waitFor(() => expect(screen.getByRole('button', { name: /download backup/i })).toBeInTheDocument())
   })
+
+  it('renders Sellers tab button', () => {
+    renderWithAuth()
+    expect(screen.getByRole('button', { name: 'Sellers' })).toBeInTheDocument()
+  })
+
+  it('shows SellerListPage when Sellers tab is clicked', async () => {
+    renderWithAuth()
+    fireEvent.click(screen.getByRole('button', { name: 'Sellers' }))
+    await waitFor(() => expect(screen.getByText(/Jane Smith/)).toBeInTheDocument())
+  })
 })
