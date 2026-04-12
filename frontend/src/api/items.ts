@@ -82,9 +82,12 @@ export function downloadImportTemplate(): Promise<void> {
   return fetch('/api/items/import-template', {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   })
-    .then(r => {
+    .then(async r => {
       if (!r.ok) throw new Error(`Template download failed: ${r.statusText}`)
-      return r.blob()
+      const buf = await r.arrayBuffer()
+      return new Blob([buf], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      })
     })
     .then(blob => {
       const url = URL.createObjectURL(blob)
@@ -94,6 +97,6 @@ export function downloadImportTemplate(): Promise<void> {
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
-      setTimeout(() => URL.revokeObjectURL(url), 100)
+      setTimeout(() => URL.revokeObjectURL(url), 5000)
     })
 }
