@@ -106,11 +106,11 @@ describe('IntakeModulePage — Download Template button (functional)', () => {
       }),
     )
 
-    renderPage()
-
-    // Suppress blob URL side-effects after mount
+    // Suppress blob URL side-effects before mount
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:test')
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+
+    renderPage()
 
     fireEvent.click(screen.getByRole('button', { name: /download template/i }))
 
