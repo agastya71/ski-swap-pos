@@ -1,7 +1,7 @@
 /**
- * Tests for {@link SellerForm} — covers initial field rendering, successful registration
- * invoking onCreated, HTML5 required-field validation, Cancel button behaviour,
- * and API error display in an alert element.
+ * Tests for {@link SellerForm} — covers initial field rendering, address field rendering,
+ * successful registration invoking onCreated, HTML5 required-field validation,
+ * Cancel button behaviour, and API error display in an alert element.
  *
  * @module SellerForm.test
  */
@@ -20,13 +20,21 @@ const CREATED: Seller = {
 
 /** Tests covering the SellerForm component's rendering and submission behaviour. */
 describe('SellerForm', () => {
-  /** Verifies that the seller code, first name, last name, and Register button are all rendered. */
-  it('renders code, first name, last name and submit button', () => {
+  /** Verifies that first name, last name, and Register button are all rendered. */
+  it('renders first name, last name and submit button', () => {
     render(<SellerForm onCreated={vi.fn()} onCancel={vi.fn()} />)
-    expect(screen.getByLabelText(/seller code/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/first name/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/last name/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /register/i })).toBeInTheDocument()
+  })
+
+  /** Verifies that address fields are rendered in the form. */
+  it('renders address fields', () => {
+    render(<SellerForm onCreated={vi.fn()} onCancel={vi.fn()} />)
+    expect(screen.getByLabelText(/street address/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/city/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/state/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/zip/i)).toBeInTheDocument()
   })
 
   /** Verifies that a successful submit calls onCreated with the seller object returned by the API. */
@@ -34,11 +42,24 @@ describe('SellerForm', () => {
     server.use(http.post('/sellers', () => HttpResponse.json(CREATED)))
     const onCreated = vi.fn()
     render(<SellerForm onCreated={onCreated} onCancel={vi.fn()} />)
-    fireEvent.change(screen.getByLabelText(/seller code/i), { target: { value: 'B001' } })
     fireEvent.change(screen.getByLabelText(/first name/i), { target: { value: 'Bob' } })
     fireEvent.change(screen.getByLabelText(/last name/i), { target: { value: 'Smith' } })
     fireEvent.click(screen.getByRole('button', { name: /register/i }))
     await waitFor(() => expect(onCreated).toHaveBeenCalledWith(CREATED))
+  })
+
+  /** Verifies that a submit without code but with address fields calls onCreated. */
+  it('submits without code and includes address', async () => {
+    const onCreated = vi.fn()
+    render(<SellerForm onCreated={onCreated} onCancel={vi.fn()} />)
+    fireEvent.change(screen.getByLabelText(/first name/i), { target: { value: 'Jane' } })
+    fireEvent.change(screen.getByLabelText(/last name/i), { target: { value: 'Smith' } })
+    fireEvent.change(screen.getByLabelText(/street address/i), { target: { value: '123 Main St' } })
+    fireEvent.change(screen.getByLabelText(/city/i), { target: { value: 'Minneapolis' } })
+    fireEvent.change(screen.getByLabelText(/state/i), { target: { value: 'MN' } })
+    fireEvent.change(screen.getByLabelText(/zip/i), { target: { value: '55401' } })
+    fireEvent.submit(screen.getByRole('button', { name: /register/i }).closest('form')!)
+    await waitFor(() => expect(onCreated).toHaveBeenCalled())
   })
 
   /** Verifies that the first name field carries the HTML required attribute, blocking submission. */
@@ -61,7 +82,6 @@ describe('SellerForm', () => {
   it('shows API error in alert on failure', async () => {
     server.use(http.post('/sellers', () => HttpResponse.json({ detail: 'Duplicate seller code' }, { status: 400 })))
     render(<SellerForm onCreated={vi.fn()} onCancel={vi.fn()} />)
-    fireEvent.change(screen.getByLabelText(/seller code/i), { target: { value: 'B001' } })
     fireEvent.change(screen.getByLabelText(/first name/i), { target: { value: 'Bob' } })
     fireEvent.change(screen.getByLabelText(/last name/i), { target: { value: 'Smith' } })
     fireEvent.click(screen.getByRole('button', { name: /register/i }))

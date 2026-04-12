@@ -1,4 +1,7 @@
 import datetime
+import io
+
+import openpyxl
 import pytest
 from app.models.intake import Intake
 from app.models.seller import Seller
@@ -97,6 +100,93 @@ def test_intake_user_can_create_intake(client, intake_token, seller):
         headers={"Authorization": f"Bearer {intake_token}"},
     )
     assert resp.status_code == 201
+
+
+def test_add_item_auto_assigns_code(client, active_event, admin_token):
+    """POST /intakes/{id}/items auto-generates item code as {seller_code}-01."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json={"first_name": "A", "last_name": "B"}, headers=headers)
+    seller_code = seller_r.json()["code"]  # e.g. "001"
+    intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
+    intake_id = intake_r.json()["id"]
+
+    item_r = client.post(
+        f"/intakes/{intake_id}/items",
+        json={"description": "Ski boots", "price": 50.0},
+        headers=headers,
+    )
+    assert item_r.status_code == 201
+    assert item_r.json()["code"] == f"{seller_code}-01"
+
+
+def test_add_two_items_increments_code(client, active_event, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json={"first_name": "A", "last_name": "B"}, headers=headers)
+    seller_code = seller_r.json()["code"]
+    intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
+    intake_id = intake_r.json()["id"]
+
+    client.post(f"/intakes/{intake_id}/items", json={"description": "Skis", "price": 80.0}, headers=headers)
+    r2 = client.post(f"/intakes/{intake_id}/items", json={"description": "Boots", "price": 40.0}, headers=headers)
+    assert r2.json()["code"] == f"{seller_code}-02"
+
+
+def test_import_items_from_excel(client, active_event, admin_token):
+    """POST /intakes/{id}/items/import creates items from a valid xlsx file."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json={"first_name": "A", "last_name": "B"}, headers=headers)
+    intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
+    intake_id = intake_r.json()["id"]
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["Description", "Category", "Brand", "Type", "Color", "Size", "Gender/Age", "Year", "Price", "Used", "Donate if Unsold"])
+    ws.append(["Atomic skis", "Skis", "Atomic", "Alpine", "Red", "160cm", "Men", 2020, 120.0, "Yes", "No"])
+    ws.append(["Ski boots", "Boots", "Salomon", "", "", "10", "", None, 50.0, "Yes", "No"])
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    r = client.post(
+        f"/intakes/{intake_id}/items/import",
+        files={"file": ("items.xlsx", buf, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["imported"] == 2
+    assert body["skipped"] == 0
+
+    # Verify items exist
+    items_r = client.get(f"/sellers/{seller_r.json()['id']}/items", headers=headers)
+    assert len(items_r.json()) == 2
+
+
+def test_import_skips_rows_missing_price(client, active_event, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json={"first_name": "A", "last_name": "B"}, headers=headers)
+    intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
+    intake_id = intake_r.json()["id"]
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["Description", "Category", "Brand", "Type", "Color", "Size", "Gender/Age", "Year", "Price", "Used", "Donate if Unsold"])
+    ws.append(["Good row", None, None, None, None, None, None, None, 30.0, "Yes", "No"])
+    ws.append([None, None, None, None, None, None, None, None, None, "Yes", "No"])  # missing description AND price
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    r = client.post(
+        f"/intakes/{intake_id}/items/import",
+        files={"file": ("items.xlsx", buf, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["imported"] == 1
+    assert body["skipped"] == 1
+    assert body["errors"][0]["row"] == 3
 
 
 def test_create_intake_no_active_event_returns_503(client, db):

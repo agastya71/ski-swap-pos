@@ -56,24 +56,15 @@ def item(db, intake, seller):
 def test_add_item_to_intake(client, admin_token, intake):
     resp = client.post(
         f"/intakes/{intake.id}/items",
-        json={"code": "ABC-001", "price": 25.00, "description": "Ski boots size 8", "category": "boots"},
+        json={"price": 25.00, "description": "Ski boots size 8", "category": "boots"},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 201
     data = resp.json()
-    assert data["code"] == "ABC-001"
+    assert data["code"].endswith("-01")
     assert data["price"] == 25.00
     assert data["status"] == "available"
     assert data["label_printed"] is False
-
-
-def test_add_item_duplicate_code_returns_409(client, admin_token, intake, item):
-    resp = client.post(
-        f"/intakes/{intake.id}/items",
-        json={"code": "ABC-001", "price": 10.00},
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
-    assert resp.status_code == 409
 
 
 def test_get_item(client, admin_token, item):
@@ -126,7 +117,7 @@ def test_get_intake_includes_items(client, admin_token, intake, item):
 def test_cashier_cannot_add_item(client, cashier_token, intake):
     resp = client.post(
         f"/intakes/{intake.id}/items",
-        json={"code": "ZZZ-001", "price": 5.00},
+        json={"price": 5.00},
         headers={"Authorization": f"Bearer {cashier_token}"},
     )
     assert resp.status_code == 403
@@ -182,3 +173,46 @@ def test_lookup_no_active_event(client, db, cashier_token):
         headers={"Authorization": f"Bearer {cashier_token}"},
     )
     assert resp.status_code == 503
+
+
+# ── Search tests ──────────────────────────────────────────────────────────────
+
+def test_search_items_by_description(client, active_event, admin_token):
+    """GET /items/search?q= matches item description."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json={"first_name": "A", "last_name": "B"}, headers=headers)
+    intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
+    client.post(
+        f"/intakes/{intake_r.json()['id']}/items",
+        json={"description": "Atomic skis 160cm", "price": 120.0},
+        headers=headers,
+    )
+    r = client.get("/items/search?q=atomic", headers=headers)
+    assert r.status_code == 200
+    assert len(r.json()) == 1
+    assert "Atomic" in r.json()[0]["description"]
+
+
+def test_search_items_by_brand(client, active_event, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json={"first_name": "A", "last_name": "B"}, headers=headers)
+    intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
+    client.post(
+        f"/intakes/{intake_r.json()['id']}/items",
+        json={"brand": "Rossignol", "price": 80.0},
+        headers=headers,
+    )
+    r = client.get("/items/search?q=rossig", headers=headers)
+    assert r.status_code == 200
+    assert len(r.json()) == 1
+
+
+def test_search_items_by_seller_code(client, active_event, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json={"first_name": "A", "last_name": "B"}, headers=headers)
+    seller_code = seller_r.json()["code"]
+    intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
+    client.post(f"/intakes/{intake_r.json()['id']}/items", json={"price": 30.0}, headers=headers)
+    r = client.get(f"/items/search?q={seller_code}", headers=headers)
+    assert r.status_code == 200
+    assert len(r.json()) >= 1

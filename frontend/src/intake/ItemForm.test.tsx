@@ -23,10 +23,9 @@ const ITEM: Item = {
 
 /** Tests covering the ItemForm component's rendering, submission, and error handling. */
 describe('ItemForm', () => {
-  /** Verifies that the code, category, and price fields carry the HTML required attribute. */
-  it('renders code, category and price fields as required', () => {
+  /** Verifies that category and price fields carry the HTML required attribute. */
+  it('renders category and price fields as required', () => {
     render(<ItemForm intakeId={5} onAdded={vi.fn()} />)
-    expect(screen.getByLabelText(/^code/i)).toBeRequired()
     expect(screen.getByLabelText(/category/i)).toBeRequired()
     expect(screen.getByLabelText(/price/i)).toBeRequired()
   })
@@ -36,7 +35,6 @@ describe('ItemForm', () => {
     server.use(http.post('/intakes/:id/items', () => HttpResponse.json(ITEM)))
     const onAdded = vi.fn()
     render(<ItemForm intakeId={5} onAdded={onAdded} />)
-    fireEvent.change(screen.getByLabelText(/^code/i), { target: { value: 'A001-001' } })
     fireEvent.change(screen.getByLabelText(/category/i), { target: { value: 'Skis' } })
     fireEvent.change(screen.getByLabelText(/price/i), { target: { value: '75' } })
     fireEvent.click(screen.getByRole('button', { name: /add item/i }))
@@ -47,7 +45,6 @@ describe('ItemForm', () => {
   it('resets form fields after successful submit', async () => {
     server.use(http.post('/intakes/:id/items', () => HttpResponse.json(ITEM)))
     render(<ItemForm intakeId={5} onAdded={vi.fn()} />)
-    fireEvent.change(screen.getByLabelText(/^code/i), { target: { value: 'A001-001' } })
     fireEvent.change(screen.getByLabelText(/category/i), { target: { value: 'Skis' } })
     fireEvent.change(screen.getByLabelText(/price/i), { target: { value: '75' } })
     fireEvent.click(screen.getByRole('button', { name: /add item/i }))
@@ -58,7 +55,6 @@ describe('ItemForm', () => {
   it('shows error on API failure', async () => {
     server.use(http.post('/intakes/:id/items', () => HttpResponse.json({ detail: 'Labels already printed' }, { status: 409 })))
     render(<ItemForm intakeId={5} onAdded={vi.fn()} />)
-    fireEvent.change(screen.getByLabelText(/^code/i), { target: { value: 'A001-001' } })
     fireEvent.change(screen.getByLabelText(/category/i), { target: { value: 'Skis' } })
     fireEvent.change(screen.getByLabelText(/price/i), { target: { value: '75' } })
     fireEvent.click(screen.getByRole('button', { name: /add item/i }))

@@ -3,7 +3,7 @@
  * Requires admin or intake role.
  */
 import { apiFetch } from './client'
-import type { Seller, SellerCreate, SellerUpdate } from '../types'
+import type { Seller, SellerCreate, SellerUpdate, Item } from '../types'
 
 /**
  * Search sellers by partial code, first/last name, or company.
@@ -28,7 +28,7 @@ export const getSeller = (id: number) => apiFetch<Seller>(`/sellers/${id}`)
 /**
  * Register a new consignment seller for the active event.
  *
- * @param data - Seller details including required code, first name, and last name.
+ * @param data - Seller details including required first name and last name.
  * @returns The newly created Seller record.
  * @throws {ApiError} 409 if a seller with the same code already exists for this event.
  * @throws {ApiError} 401 if the session token is invalid.
@@ -47,3 +47,12 @@ export const createSeller = (data: SellerCreate) =>
  */
 export const updateSeller = (id: number, data: SellerUpdate) =>
   apiFetch<Seller>(`/sellers/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+
+/**
+ * List all items for a seller in the active event.
+ *
+ * @param sellerId - Primary key of the seller.
+ * @returns Array of Item records ordered by item code.
+ */
+export const listSellerItems = (sellerId: number) =>
+  apiFetch<Item[]>(`/sellers/${sellerId}/items`)

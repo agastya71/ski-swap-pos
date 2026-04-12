@@ -1,4 +1,6 @@
 import pytest
+from app.models.intake import Intake
+from app.models.item import Item
 from app.models.seller import Seller
 
 
@@ -6,7 +8,7 @@ from app.models.seller import Seller
 def seller(db, active_event):
     s = Seller(
         event_id=active_event.id,
-        code="ABC",
+        code="001",
         first_name="Jane",
         last_name="Smith",
         is_vendor=False,
@@ -18,26 +20,17 @@ def seller(db, active_event):
     return s
 
 
-def test_create_seller(client, admin_token):
+def test_create_seller(client, active_event, admin_token):
     resp = client.post(
         "/sellers",
-        json={"code": "XYZ", "first_name": "Bob", "last_name": "Jones", "is_vendor": False},
+        json={"first_name": "Bob", "last_name": "Jones", "is_vendor": False},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 201
     data = resp.json()
-    assert data["code"] == "XYZ"
+    assert len(data["code"]) == 3
     assert data["first_name"] == "Bob"
     assert data["event_id"] is not None
-
-
-def test_create_seller_duplicate_code_returns_409(client, admin_token, seller):
-    resp = client.post(
-        "/sellers",
-        json={"code": "ABC", "first_name": "Other", "last_name": "Person", "is_vendor": False},
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
-    assert resp.status_code == 409
 
 
 def test_list_sellers_no_filter(client, admin_token, seller):
@@ -47,9 +40,9 @@ def test_list_sellers_no_filter(client, admin_token, seller):
 
 
 def test_search_sellers_by_code(client, intake_token, seller):
-    resp = client.get("/sellers?q=ABC", headers={"Authorization": f"Bearer {intake_token}"})
+    resp = client.get("/sellers?q=001", headers={"Authorization": f"Bearer {intake_token}"})
     assert resp.status_code == 200
-    assert resp.json()[0]["code"] == "ABC"
+    assert resp.json()[0]["code"] == "001"
 
 
 def test_search_sellers_by_name(client, intake_token, seller):
@@ -67,7 +60,7 @@ def test_search_sellers_no_match(client, intake_token, seller):
 def test_get_seller(client, admin_token, seller):
     resp = client.get(f"/sellers/{seller.id}", headers={"Authorization": f"Bearer {admin_token}"})
     assert resp.status_code == 200
-    assert resp.json()["code"] == "ABC"
+    assert resp.json()["code"] == "001"
 
 
 def test_get_seller_not_found(client, admin_token):
@@ -88,7 +81,66 @@ def test_update_seller(client, admin_token, seller):
 def test_cashier_cannot_create_seller(client, cashier_token):
     resp = client.post(
         "/sellers",
-        json={"code": "ZZZ", "first_name": "A", "last_name": "B", "is_vendor": False},
+        json={"first_name": "A", "last_name": "B", "is_vendor": False},
         headers={"Authorization": f"Bearer {cashier_token}"},
     )
     assert resp.status_code == 403
+
+
+def test_create_seller_auto_assigns_code(client, active_event, admin_token):
+    """POST /sellers assigns a sequential 3-digit code; client need not provide one."""
+    r = client.post(
+        "/sellers",
+        json={"first_name": "Jane", "last_name": "Smith"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert r.status_code == 201
+    assert r.json()["code"] == "001"
+
+
+def test_create_two_sellers_increments_code(client, active_event, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    client.post("/sellers", json={"first_name": "A", "last_name": "B"}, headers=headers)
+    r2 = client.post("/sellers", json={"first_name": "C", "last_name": "D"}, headers=headers)
+    assert r2.json()["code"] == "002"
+
+
+def test_list_seller_items_empty(client, active_event, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    # Create a seller first
+    r = client.post("/sellers", json={"first_name": "X", "last_name": "Y"}, headers=headers)
+    seller_id = r.json()["id"]
+    r2 = client.get(f"/sellers/{seller_id}/items", headers=headers)
+    assert r2.status_code == 200
+    assert r2.json() == []
+
+
+def test_list_seller_items_with_items(client, db, active_event, admin_token, seller):
+    """GET /sellers/{id}/items returns items belonging to the seller in the active event."""
+    intake = Intake(
+        seller_id=seller.id,
+        donate_unsold=False,
+        donate_proceeds=False,
+        created_by="admin",
+    )
+    db.add(intake)
+    db.commit()
+    db.refresh(intake)
+
+    item = Item(
+        intake_id=intake.id,
+        seller_id=seller.id,
+        code="001-001",
+        price=25.00,
+        created_by="admin",
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    r = client.get(f"/sellers/{seller.id}/items", headers=headers)
+    assert r.status_code == 200
+    data = r.json()
+    assert len(data) == 1
+    assert data[0]["code"] == item.code

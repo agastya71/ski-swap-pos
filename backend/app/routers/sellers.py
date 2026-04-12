@@ -3,15 +3,19 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import require_roles
 from app.models.event import Event
 from app.models.intake import Intake
+from app.models.item import Item
 from app.models.seller import Seller
 from app.models.user import User
 from app.schemas.intake import IntakeResponse
+from app.schemas.item import ItemResponse
 from app.schemas.seller import SellerCreate, SellerResponse, SellerUpdate
 
 router = APIRouter(prefix="/sellers", tags=["sellers"])
@@ -25,6 +29,22 @@ def _active_event(db: Session) -> Event:
     if not event:
         raise HTTPException(status_code=503, detail="No active event configured")
     return event
+
+
+def _next_seller_code(event_id: int, db: Session) -> str:
+    """Return the next sequential 3-digit zero-padded seller code for the event."""
+    max_code = (
+        db.query(func.max(Seller.code))
+        .filter(Seller.event_id == event_id)
+        .scalar()
+    )
+    if max_code is None:
+        return "001"
+    try:
+        next_num = int(max_code) + 1
+    except (ValueError, TypeError):
+        next_num = db.query(func.count(Seller.id)).filter(Seller.event_id == event_id).scalar() + 1
+    return f"{next_num:03d}"
 
 
 @router.get("", response_model=list[SellerResponse])
@@ -53,23 +73,22 @@ def create_seller(
     db: Session = Depends(get_db),
     current_user: User = Depends(_INTAKE_ADMIN),
 ):
-    """Register a new seller for the active event."""
+    """Register a new seller for the active event with an auto-generated code."""
     event = _active_event(db)
-    existing = (
-        db.query(Seller)
-        .filter(Seller.event_id == event.id, Seller.code == body.code)
-        .first()
-    )
-    if existing:
-        raise HTTPException(status_code=409, detail="Seller code already exists for this event")
+    code = _next_seller_code(event.id, db)
     seller = Seller(
         **body.model_dump(),
+        code=code,
         event_id=event.id,
         created_by=current_user.username,
     )
     db.add(seller)
-    db.commit()
-    db.refresh(seller)
+    try:
+        db.commit()
+        db.refresh(seller)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Seller code conflict, please retry")
     return seller
 
 
@@ -112,6 +131,35 @@ def list_seller_intakes(
         .order_by(Intake.id.desc())
         .all()
     )
+
+
+@router.get("/{seller_id}/items", response_model=list[ItemResponse])
+def list_seller_items(
+    seller_id: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(_INTAKE_ADMIN),
+):
+    """List all items for a seller in the active event, ordered by item code."""
+    event = _active_event(db)
+    seller = (
+        db.query(Seller)
+        .filter(Seller.id == seller_id, Seller.event_id == event.id)
+        .first()
+    )
+    if not seller:
+        raise HTTPException(status_code=404, detail="Seller not found")
+    items = (
+        db.query(Item)
+        .join(Intake, Item.intake_id == Intake.id)
+        .join(Seller, Intake.seller_id == Seller.id)
+        .filter(
+            Item.seller_id == seller_id,
+            Seller.event_id == event.id,
+        )
+        .order_by(Item.code)
+        .all()
+    )
+    return items
 
 
 @router.patch("/{seller_id}", response_model=SellerResponse)

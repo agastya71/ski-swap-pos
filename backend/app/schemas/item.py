@@ -7,9 +7,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class ItemCreate(BaseModel):
-    """Payload for adding a new consigned item to an intake session."""
+    """Payload for adding a new consigned item to an intake session. Item code is auto-generated."""
 
-    code: str = Field(description="Unique item code (e.g., seller code + sequence number) printed on the price tag.")
     category: Optional[str] = Field(default=None, description="High-level merchandise category (e.g., 'Skis', 'Boots', 'Apparel').")
     brand: Optional[str] = Field(default=None, description="Manufacturer or brand name of the item.")
     type: Optional[str] = Field(default=None, description="Sub-type within the category (e.g., 'Alpine', 'Nordic').")
@@ -22,7 +21,7 @@ class ItemCreate(BaseModel):
     used: bool = Field(default=True, description="True if the item is used/pre-owned; False if new.")
     price: float = Field(description="Asking price set by the seller in dollars.")
     quantity: float = Field(default=1.0, description="Number of units represented by this item record (usually 1).")
-    barcode_39: Optional[str] = Field(default=None, description="Code 39 barcode string to print on the item label.")
+    barcode_39: Optional[str] = Field(default=None, description="Code 39 barcode string to print on the item label. Defaults to the auto-generated item code if omitted.")
     label_line_2: Optional[str] = Field(default=None, description="Second custom text line printed on the item label.")
     label_line_3: Optional[str] = Field(default=None, description="Third custom text line printed on the item label.")
     donate_unsold: bool = Field(default=False, description="If True, this specific item will be donated if it does not sell.")
@@ -86,3 +85,18 @@ class ItemLookupResponse(ItemResponse):
     """Extended item response used by the POS cashier lookup, adding the seller code for display."""
 
     seller_code: str = Field(description="Seller code associated with this item, included for quick cashier reference.")
+
+
+class ImportRowError(BaseModel):
+    """Describes a single skipped row from an Excel import."""
+
+    row: int = Field(description="1-based row number in the uploaded file (header = row 1).")
+    reason: str = Field(description="Human-readable explanation of why the row was skipped.")
+
+
+class ImportResult(BaseModel):
+    """Summary returned after a bulk Excel item import."""
+
+    imported: int = Field(description="Number of items successfully created.")
+    skipped: int = Field(description="Number of rows skipped due to validation errors.")
+    errors: list[ImportRowError] = Field(description="Details of each skipped row.")

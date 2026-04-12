@@ -1,29 +1,35 @@
-/**
- * Admin dashboard page — top-level container for all administrative sub-sections
- * (Event Setup, Users, Reports, End of Day), rendered for admin-role users only.
- */
-
 import { useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { EventSetup } from './EventSetup'
 import { UserManagement } from './UserManagement'
 import { ReportsPage } from './ReportsPage'
 import { EndOfDayPage } from './EndOfDayPage'
+import { SellerListPage } from './SellerListPage'
+import { SellerDetailPage } from './SellerDetailPage'
+import type { Seller } from '../types'
 
-/** Union type of the available admin sub-section keys. */
-type AdminSection = 'events' | 'users' | 'reports' | 'eod'
+type AdminSection = 'events' | 'users' | 'reports' | 'eod' | 'sellers'
 
-/** Ordered list of admin navigation tabs with their display labels. */
 const SECTIONS: { key: AdminSection; label: string }[] = [
   { key: 'events', label: 'Event Setup' },
   { key: 'users', label: 'Users' },
+  { key: 'sellers', label: 'Sellers' },
   { key: 'reports', label: 'Reports' },
   { key: 'eod', label: 'End of Day' },
 ]
 
+/** SellersSection manages its own list↔detail navigation state. */
+function SellersSection() {
+  const [selectedSeller, setSelectedSeller] = useState<Seller | null>(null)
+  if (selectedSeller) {
+    return <SellerDetailPage seller={selectedSeller} onBack={() => setSelectedSeller(null)} />
+  }
+  return <SellerListPage onSelectSeller={setSelectedSeller} />
+}
+
 /**
- * Top-level admin dashboard that renders a tab bar and conditionally mounts
- * one of four admin sub-section components based on the active tab.
+ * Admin dashboard page — top-level container for all administrative sub-sections
+ * with tab-based navigation.
  */
 export function AdminPage() {
   const { decoded } = useAuth()
@@ -53,6 +59,7 @@ export function AdminPage() {
 
       {section === 'events' && <EventSetup />}
       {section === 'users' && <UserManagement />}
+      {section === 'sellers' && <SellersSection />}
       {section === 'reports' && <ReportsPage eventId={eventId} />}
       {section === 'eod' && <EndOfDayPage eventId={eventId} />}
     </div>

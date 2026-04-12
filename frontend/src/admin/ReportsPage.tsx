@@ -8,7 +8,8 @@
 
 import { useState, useEffect, type FormEvent } from 'react'
 import { getEventRevenue, getDonations, getUnsoldItems, getSellerPayout, downloadFile } from '../api/reports'
-import type { EventRevenueReport, DonationsReport, UnsoldItemsReport, SellerPayoutReport } from '../types'
+import type { EventRevenueReport, DonationsReport, UnsoldItemsReport, SellerPayoutReport, Seller } from '../types'
+import { SellerCombobox } from '../components/SellerCombobox'
 
 /**
  * Renders all event-level financial and inventory reports with inline data tables
@@ -20,7 +21,7 @@ export function ReportsPage({ eventId }: { eventId: number }) {
   const [revenue, setRevenue] = useState<EventRevenueReport | null>(null)
   const [donations, setDonations] = useState<DonationsReport | null>(null)
   const [unsold, setUnsold] = useState<UnsoldItemsReport | null>(null)
-  const [sellerIdInput, setSellerIdInput] = useState('')
+  const [selectedSeller, setSelectedSeller] = useState<Seller | null>(null)
   const [payout, setPayout] = useState<SellerPayoutReport | null>(null)
   const [payoutError, setPayoutError] = useState<string | null>(null)
 
@@ -32,13 +33,14 @@ export function ReportsPage({ eventId }: { eventId: number }) {
     ]).catch(() => {})
   }, [eventId])
 
-  /** Looks up the payout report for the seller ID entered in the form field. */
+  /** Looks up the payout report for the selected seller. */
   async function handlePayoutLookup(e: FormEvent) {
     e.preventDefault()
+    if (!selectedSeller) return
     setPayoutError(null)
     setPayout(null)
     try {
-      const data = await getSellerPayout(eventId, parseInt(sellerIdInput))
+      const data = await getSellerPayout(eventId, selectedSeller.id)
       setPayout(data)
     } catch (err) {
       setPayoutError(err instanceof Error ? err.message : 'Failed to load payout')
@@ -162,18 +164,11 @@ export function ReportsPage({ eventId }: { eventId: number }) {
           )}
         </div>
         <form onSubmit={handlePayoutLookup} style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 16 }}>
-          <div>
-            <label htmlFor="sellerIdInput" style={{ display: 'block', fontSize: 13, marginBottom: 3 }}>Seller ID</label>
-            <input
-              id="sellerIdInput"
-              type="number"
-              value={sellerIdInput}
-              onChange={e => setSellerIdInput(e.target.value)}
-              required
-              style={{ width: 120, padding: 6 }}
-            />
+          <div style={{ flex: 1 }}>
+            <label style={{ display: 'block', fontSize: 13, marginBottom: 3 }}>Seller</label>
+            <SellerCombobox onSelect={setSelectedSeller} placeholder="Search by name or code..." />
           </div>
-          <button type="submit">Get Payout</button>
+          <button type="submit" disabled={!selectedSeller}>Get Payout</button>
         </form>
         {payoutError && <div role="alert" style={{ color: 'red' }}>{payoutError}</div>}
         {payout && (
@@ -194,6 +189,32 @@ export function ReportsPage({ eventId }: { eventId: number }) {
                 ))}
               </tbody>
             </table>
+            {payout.line_items.length > 0 && (
+              <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 16 }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid #ccc' }}>
+                    <th style={{ textAlign: 'left', padding: '4px 8px' }}>Item Code</th>
+                    <th style={{ textAlign: 'left', padding: '4px 8px' }}>Description</th>
+                    <th style={{ textAlign: 'left', padding: '4px 8px' }}>Status</th>
+                    <th style={{ textAlign: 'right', padding: '4px 8px' }}>Ask Price</th>
+                    <th style={{ textAlign: 'right', padding: '4px 8px' }}>Sold Price</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payout.line_items.map(li => (
+                    <tr key={li.item_code} style={{ borderBottom: '1px solid #eee' }}>
+                      <td style={{ padding: '4px 8px' }}>{li.item_code}</td>
+                      <td style={{ padding: '4px 8px' }}>{li.description ?? '—'}</td>
+                      <td style={{ padding: '4px 8px' }}>{li.status}</td>
+                      <td style={{ padding: '4px 8px', textAlign: 'right' }}>${li.price.toFixed(2)}</td>
+                      <td style={{ padding: '4px 8px', textAlign: 'right' }}>
+                        {li.status === 'sold' ? `$${li.sell_price.toFixed(2)}` : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         )}
       </section>

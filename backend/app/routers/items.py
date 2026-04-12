@@ -1,6 +1,10 @@
 """Item router — manages individual consignment items for lookup, editing, and printing; requires admin, intake, or cashier role."""
 
+from io import BytesIO
+
+import openpyxl
 from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -64,15 +68,23 @@ def search_items(
     db: Session = Depends(get_db),
     _user: User = Depends(_CASHIER_ADMIN),
 ):
-    """Search items by partial code match and return up to 20 results."""
+    """Search items by partial match on code, description, category, brand, or seller code."""
     event = db.query(Event).filter(Event.is_active == True).first()
     if not event:
         raise HTTPException(status_code=503, detail="No active event configured")
+    like = f"%{q}%"
     items = (
         db.query(Item)
         .join(Intake)
         .join(Seller)
-        .filter(Item.code.ilike(f"%{q}%"), Seller.event_id == event.id)
+        .filter(
+            (Item.code.ilike(like))
+            | (Item.description.ilike(like))
+            | (Item.category.ilike(like))
+            | (Item.brand.ilike(like))
+            | (Seller.code.ilike(like)),
+            Seller.event_id == event.id,
+        )
         .order_by(Item.code)
         .limit(20)
         .all()
@@ -81,6 +93,25 @@ def search_items(
         ItemLookupResponse.model_validate({**item.__dict__, "seller_code": item.seller.code})
         for item in items
     ]
+
+
+@router.get("/import-template")
+def download_import_template(_user: User = Depends(_INTAKE_ADMIN)):
+    """Return a blank Excel template for bulk item import."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append([
+        "Description", "Category", "Brand", "Type", "Color",
+        "Size", "Gender/Age", "Year", "Price", "Used", "Donate if Unsold",
+    ])
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=import-template.xlsx"},
+    )
 
 
 @router.get("/{item_id}", response_model=ItemResponse)

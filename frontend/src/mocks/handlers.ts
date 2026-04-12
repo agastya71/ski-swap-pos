@@ -68,12 +68,54 @@ export const handlers = [
   /** PATCH /users/:id/deactivate — returns the same user with is_active set to false. */
   http.patch('/users/:id/deactivate', () => HttpResponse.json({ id: 1, username: 'user1', role: 'intake', is_active: false, event_id: 1 })),
 
-  /** GET /sellers — returns an empty seller list (tests override as needed). */
-  http.get('/sellers', () => HttpResponse.json([])),
-  /** POST /sellers — returns the shared SELLER fixture. */
-  http.post('/sellers', () => HttpResponse.json(SELLER)),
+  /** GET /sellers — filters by optional `q` query param (code, first/last name). */
+  http.get('/sellers', ({ request }) => {
+    const url = new URL(request.url)
+    const q = url.searchParams.get('q') ?? ''
+    const sellers = [
+      { id: 1, code: '001', first_name: 'Jane', last_name: 'Smith', company: null,
+        is_vendor: false, phone: null, email: null, address: null, city: null,
+        state: null, zip: null, event_id: 1, created_at: '2026-01-01T00:00:00Z' },
+    ].filter(s =>
+      !q ||
+      s.code.includes(q) || s.first_name.toLowerCase().includes(q.toLowerCase()) ||
+      s.last_name.toLowerCase().includes(q.toLowerCase())
+    )
+    return HttpResponse.json(sellers)
+  }),
+  /** POST /sellers — creates a new seller, auto-assigns code '001'. */
+  http.post('/sellers', async ({ request }) => {
+    const body = await request.json() as Record<string, unknown>
+    return HttpResponse.json({
+      id: 1, code: '001',
+      first_name: body.first_name ?? 'Jane',
+      last_name: body.last_name ?? 'Smith',
+      company: body.company ?? null,
+      is_vendor: body.is_vendor ?? false,
+      phone: body.phone ?? null,
+      email: body.email ?? null,
+      address: body.address ?? null,
+      city: body.city ?? null,
+      state: body.state ?? null,
+      zip: body.zip ?? null,
+      event_id: 1,
+      created_at: '2026-01-01T00:00:00Z',
+    }, { status: 201 })
+  }),
   /** GET /sellers/:id/intakes — returns a single-element intake array for the seller. */
   http.get('/sellers/:id/intakes', () => HttpResponse.json([INTAKE])),
+  /** GET /sellers/:id/items — returns a single-element item array for the seller. */
+  http.get('/sellers/:id/items', () => HttpResponse.json([
+    {
+      id: 1, intake_id: 1, seller_id: 1, code: '001-01',
+      category: 'Skis', brand: 'Atomic', type: null, description: 'Atomic skis 160cm',
+      color: 'Red', size: '160cm', uom: null, gender_age: 'Men', year: 2020,
+      used: true, price: 120.0, quantity: 1, barcode_39: '001-01',
+      label_line_2: null, label_line_3: null, donate_unsold: false,
+      status: 'available', label_printed: false, vendor_item_id: null,
+      created_at: '2026-01-01T00:00:00Z',
+    },
+  ])),
   /** GET /sellers/:id — returns the shared SELLER fixture. */
   http.get('/sellers/:id', () => HttpResponse.json(SELLER)),
   /** PATCH /sellers/:id — returns the shared SELLER fixture unchanged. */
@@ -85,10 +127,39 @@ export const handlers = [
   http.get('/intakes/:id', () => HttpResponse.json({ ...INTAKE, items: [] })),
   /** PATCH /intakes/:id — updates intake options, returns the INTAKE fixture. */
   http.patch('/intakes/:id', () => HttpResponse.json(INTAKE)),
-  /** POST /intakes/:id/items — adds an item to the intake, returns the ITEM fixture. */
-  http.post('/intakes/:id/items', () => HttpResponse.json(ITEM)),
+  /** POST /intakes/:intakeId/items — adds an item to the intake; auto-assigns code '001-01'. */
+  http.post('/intakes/:intakeId/items', async ({ request }) => {
+    const body = await request.json() as Record<string, unknown>
+    return HttpResponse.json({
+      id: 1, intake_id: 1, seller_id: 1,
+      code: '001-01',
+      category: body.category ?? null,
+      brand: body.brand ?? null,
+      type: body.type ?? null,
+      description: body.description ?? null,
+      color: body.color ?? null,
+      size: body.size ?? null,
+      uom: body.uom ?? null,
+      gender_age: body.gender_age ?? null,
+      year: body.year ?? null,
+      used: body.used ?? true,
+      price: body.price ?? 0,
+      quantity: body.quantity ?? 1,
+      barcode_39: '001-01',
+      label_line_2: null, label_line_3: null,
+      donate_unsold: body.donate_unsold ?? false,
+      status: 'available',
+      label_printed: false,
+      vendor_item_id: null,
+      created_at: '2026-01-01T00:00:00Z',
+    }, { status: 201 })
+  }),
   /** POST /intakes/:id/labels — triggers label printing, returns a count of printed labels. */
   http.post('/intakes/:id/labels', () => HttpResponse.json({ intake_id: 1, printed: 5 })),
+  /** POST /api/intakes/:intakeId/items/import — bulk Excel import; returns import summary. */
+  http.post('/api/intakes/:intakeId/items/import', () =>
+    HttpResponse.json({ imported: 2, skipped: 0, errors: [] })
+  ),
 
   /** GET /items/lookup — exact item lookup by code or barcode; returns ITEM with seller_code. */
   http.get('/items/lookup', () => HttpResponse.json({ ...ITEM, seller_code: 'A001' })),
@@ -110,17 +181,19 @@ export const handlers = [
   /** POST /sales/:id/void — voids a sale, returns the SALE fixture with is_voided true. */
   http.post('/sales/:id/void', () => HttpResponse.json({ ...SALE, is_voided: true })),
 
-  /** GET /reports/:eventId/seller/:sellerId — returns seller payout report for seller A001 (Jane Doe). */
+  /** GET /reports/:eventId/seller/:sellerId — returns seller payout report for seller 001 (Jane Smith). */
   http.get('/reports/:eventId/seller/:sellerId', () =>
     HttpResponse.json({
-      event_id: 1, event_name: 'Test Event', seller_id: 1, seller_code: 'A001',
-      seller_name: 'Jane Doe', seller_email: 'jane@example.com',
-      items_consigned: 4, items_sold: 3, items_unsold: 1, items_donated: 0,
-      gross_sales: 150, mysl_total: 45, seller_total: 105,
+      event_id: 1, event_name: 'Swap 2026',
+      seller_id: 1, seller_code: '001', seller_name: 'Jane Smith',
+      seller_email: null,
+      items_consigned: 2, items_sold: 1, items_unsold: 1, items_donated: 0,
+      gross_sales: 120.0, mysl_total: 36.0, seller_total: 84.0,
       line_items: [
-        { item_code: 'A001-001', description: 'Ski boots', price: 50, sell_price: 50, status: 'sold' },
+        { item_code: '001-01', description: 'Atomic skis', price: 120.0, sell_price: 120.0, status: 'sold' },
+        { item_code: '001-02', description: 'Boots', price: 40.0, sell_price: 0.0, status: 'unsold' },
       ],
-      generated_at: '2026-04-04T10:00:00',
+      generated_at: '2026-04-11T00:00:00Z',
     })
   ),
   /** GET /reports/:eventId/revenue — returns event-level revenue totals and payment breakdown. */

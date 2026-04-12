@@ -3,7 +3,7 @@
  * Requires admin or intake role.
  */
 import { apiFetch } from './client'
-import type { Intake, IntakeWithItems, IntakeCreate, IntakeUpdate, Item, ItemCreate } from '../types'
+import type { Intake, IntakeWithItems, IntakeCreate, IntakeUpdate, Item, ItemCreate, ImportResult } from '../types'
 
 /**
  * Fetch all intake sessions for a given seller in the active event.
@@ -72,3 +72,24 @@ export const addItem = (intakeId: number, data: ItemCreate) =>
  */
 export const printIntakeLabels = (intakeId: number) =>
   apiFetch<{ intake_id: number; printed: number }>(`/intakes/${intakeId}/labels`, { method: 'POST' })
+
+/**
+ * Bulk-import items into an intake session from an Excel file.
+ *
+ * @param intakeId - Primary key of the intake to import into.
+ * @param file - The .xlsx file using the standard import template.
+ * @returns Import summary with counts and any row-level errors.
+ */
+export async function importItems(intakeId: number, file: File): Promise<ImportResult> {
+  const form = new FormData()
+  form.append('file', file)
+  // Use raw fetch — apiFetch serialises JSON; multipart requires FormData
+  const token = localStorage.getItem('token')
+  const res = await fetch(`/api/intakes/${intakeId}/items/import`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  })
+  if (!res.ok) throw new Error(`Import failed: ${res.statusText}`)
+  return res.json() as Promise<ImportResult>
+}
