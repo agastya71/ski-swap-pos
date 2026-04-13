@@ -8,7 +8,10 @@
 import { Fragment, useState } from 'react'
 import { deleteItem, printLabel, updateItem } from '../api/items'
 import { printIntakeLabels } from '../api/intakes'
+import { ITEM_TYPES, SIZE_OPTIONS } from '../lib/itemSizes'
 import type { Item, ItemUpdate } from '../types'
+
+const GENDER_AGE_OPTIONS = ['Adult', 'Youth', 'Toddler', 'Unisex']
 
 const NAVY = '#1e3a8a'
 
@@ -28,7 +31,7 @@ export function ItemList({ items, intakeId, onItemsChanged }: {
   onItemsChanged: () => void
 }) {
   const [expandedEditId, setExpandedEditId] = useState<number | null>(null)
-  const [draft, setDraft] = useState({ description: '', price: '', brand: '', size: '', color: '' })
+  const [draft, setDraft] = useState({ description: '', price: '', brand: '', type: '', size: '', gender_age: '', color: '' })
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
@@ -43,7 +46,9 @@ export function ItemList({ items, intakeId, onItemsChanged }: {
       description: item.description ?? '',
       price: String(item.price),
       brand: item.brand ?? '',
+      type: item.type ?? '',
       size: item.size ?? '',
+      gender_age: item.gender_age ?? '',
       color: item.color ?? '',
     })
     setSaveError(null)
@@ -66,7 +71,9 @@ export function ItemList({ items, intakeId, onItemsChanged }: {
       if (draft.description !== (original.description ?? '')) update.description = draft.description
       if (parseFloat(draft.price) !== original.price) update.price = parseFloat(draft.price)
       if (draft.brand !== (original.brand ?? '')) update.brand = draft.brand
+      if (draft.type !== (original.type ?? '')) update.type = draft.type
       if (draft.size !== (original.size ?? '')) update.size = draft.size
+      if (draft.gender_age !== (original.gender_age ?? '')) update.gender_age = draft.gender_age
       if (draft.color !== (original.color ?? '')) update.color = draft.color
       await updateItem(itemId, update as ItemUpdate)
       setExpandedEditId(null)
@@ -156,12 +163,45 @@ export function ItemList({ items, intakeId, onItemsChanged }: {
                         />
                       </div>
                       <div>
-                        <label style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 2 }}>Size</label>
-                        <input
-                          value={draft.size}
-                          onChange={e => setDraft(d => ({ ...d, size: e.target.value }))}
+                        <label style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 2 }}>Type</label>
+                        <select
+                          value={draft.type}
+                          onChange={e => setDraft(d => ({ ...d, type: e.target.value, size: '' }))}
                           style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box', fontSize: 13 }}
-                        />
+                        >
+                          <option value="">— select type —</option>
+                          {ITEM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 2 }}>Size</label>
+                        {SIZE_OPTIONS[draft.type] ? (
+                          <select
+                            value={draft.size}
+                            onChange={e => setDraft(d => ({ ...d, size: e.target.value }))}
+                            style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box', fontSize: 13 }}
+                          >
+                            <option value="">— select size —</option>
+                            {SIZE_OPTIONS[draft.type].map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                        ) : (
+                          <input
+                            value={draft.size}
+                            onChange={e => setDraft(d => ({ ...d, size: e.target.value }))}
+                            style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box', fontSize: 13 }}
+                          />
+                        )}
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 2 }}>Gender/Age</label>
+                        <select
+                          value={draft.gender_age}
+                          onChange={e => setDraft(d => ({ ...d, gender_age: e.target.value }))}
+                          style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box', fontSize: 13 }}
+                        >
+                          <option value="">— select —</option>
+                          {GENDER_AGE_OPTIONS.map(g => <option key={g} value={g}>{g}</option>)}
+                        </select>
                       </div>
                       <div>
                         <label style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 2 }}>Color</label>
