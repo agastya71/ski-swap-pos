@@ -58,6 +58,7 @@ class DonationItem(BaseModel):
     """A single item row within the donations report."""
 
     seller_code: str = Field(description="Code of the seller who consigned this donated item.")
+    seller_name: str = Field(description="Full name of the seller who consigned this donated item.")
     item_code: str = Field(description="Unique item code identifying the donated item.")
     description: Optional[str] = Field(default=None, description="Free-text description of the donated item.")
     price: float = Field(description="Original asking price of the donated item.")
@@ -79,6 +80,7 @@ class UnsoldItem(BaseModel):
     """A single item row within the unsold items report."""
 
     seller_code: str = Field(description="Code of the seller who consigned this unsold item.")
+    seller_name: str = Field(description="Full name of the seller who consigned this unsold item.")
     item_code: str = Field(description="Unique item code identifying the unsold item.")
     description: Optional[str] = Field(default=None, description="Free-text description of the unsold item.")
     category: Optional[str] = Field(default=None, description="Merchandise category of the unsold item.")

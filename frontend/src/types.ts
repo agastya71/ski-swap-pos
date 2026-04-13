@@ -549,6 +549,8 @@ export interface EventRevenueReport {
 export interface DonationItem {
   /** Short seller code of the item's consignor. */
   seller_code: string
+  /** Full name of the item's consignor. */
+  seller_name: string
   /** Item code, e.g. "A001-003". */
   item_code: string
   /** Item description; null if not provided. */
@@ -579,6 +581,8 @@ export interface DonationsReport {
 export interface UnsoldItem {
   /** Short seller code of the item's consignor. */
   seller_code: string
+  /** Full name of the item's consignor. */
+  seller_name: string
   /** Item code, e.g. "A001-003". */
   item_code: string
   /** Item description; null if not provided. */
