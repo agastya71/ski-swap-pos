@@ -241,6 +241,7 @@ def get_donations(db: Session, event_id: int) -> DonationsReport:
     items = [
         DonationItem(
             seller_code=si.item.seller.code,
+            seller_name=f"{si.item.seller.first_name} {si.item.seller.last_name}",
             item_code=si.item.code,
             description=si.item.description,
             price=si.sell_price,
@@ -250,6 +251,7 @@ def get_donations(db: Session, event_id: int) -> DonationsReport:
     ] + [
         DonationItem(
             seller_code=it.seller.code,
+            seller_name=f"{it.seller.first_name} {it.seller.last_name}",
             item_code=it.code,
             description=it.description,
             price=it.price,
@@ -285,12 +287,14 @@ def get_unsold_items(db: Session, event_id: int) -> UnsoldItemsReport:
     items = (
         db.query(Item)
         .join(Seller)
+        .options(joinedload(Item.seller))
         .filter(Seller.event_id == event_id, Item.status == "available")
         .all()
     )
     unsold = [
         UnsoldItem(
             seller_code=it.seller.code,
+            seller_name=f"{it.seller.first_name} {it.seller.last_name}",
             item_code=it.code,
             description=it.description,
             category=it.category,

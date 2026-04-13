@@ -211,7 +211,7 @@ export const handlers = [
     HttpResponse.json({
       event_id: 1, event_name: 'Test Event',
       items: [
-        { seller_code: 'A001', item_code: 'A001-004', description: 'Blue helmet', price: 30, donation_type: 'donate_unsold' },
+        { seller_code: 'A001', seller_name: 'Jane Smith', item_code: 'A001-004', description: 'Blue helmet', price: 30, donation_type: 'donate_unsold' },
       ],
       total_items: 1, total_value: 30, generated_at: '2026-04-04T10:00:00',
     })
@@ -221,7 +221,7 @@ export const handlers = [
     HttpResponse.json({
       event_id: 1, event_name: 'Test Event',
       items: [
-        { seller_code: 'A001', item_code: 'A001-005', description: 'Red jacket', category: 'Jackets', price: 45 },
+        { seller_code: 'A001', seller_name: 'Jane Smith', item_code: 'A001-005', description: 'Red jacket', category: 'Jackets', price: 45 },
       ],
       total_items: 1, total_value: 45, generated_at: '2026-04-04T10:00:00',
     })

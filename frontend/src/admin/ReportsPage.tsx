@@ -135,7 +135,10 @@ export function ReportsPage({ eventId }: { eventId: number }) {
                 <tbody>
                   {donations.items.map(item => (
                     <tr key={`${item.seller_code}-${item.item_code}`} style={{ borderBottom: '1px solid #eee' }}>
-                      <td style={{ padding: '4px 8px' }}>{item.seller_code}</td>
+                      <td style={{ padding: '4px 8px' }}>
+                        <span style={{ fontWeight: 500 }}>{item.seller_name}</span>
+                        <span style={{ color: '#64748b', fontSize: 12, marginLeft: 4 }}>({item.seller_code})</span>
+                      </td>
                       <td style={{ padding: '4px 8px' }}>{item.item_code}</td>
                       <td style={{ padding: '4px 8px' }}>{item.description ?? '—'}</td>
                       <td style={{ padding: '4px 8px', textAlign: 'right' }}>${item.price.toFixed(2)}</td>
@@ -179,7 +182,10 @@ export function ReportsPage({ eventId }: { eventId: number }) {
                 <tbody>
                   {unsold.items.map(item => (
                     <tr key={`${item.seller_code}-${item.item_code}`} style={{ borderBottom: '1px solid #eee' }}>
-                      <td style={{ padding: '4px 8px' }}>{item.seller_code}</td>
+                      <td style={{ padding: '4px 8px' }}>
+                        <span style={{ fontWeight: 500 }}>{item.seller_name}</span>
+                        <span style={{ color: '#64748b', fontSize: 12, marginLeft: 4 }}>({item.seller_code})</span>
+                      </td>
                       <td style={{ padding: '4px 8px' }}>{item.item_code}</td>
                       <td style={{ padding: '4px 8px' }}>{item.description ?? '—'}</td>
                       <td style={{ padding: '4px 8px' }}>{item.category ?? '—'}</td>
