@@ -166,7 +166,7 @@ export function ItemList({ items, intakeId, onItemsChanged }: {
                         <label style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 2 }}>Type</label>
                         <select
                           value={draft.type}
-                          onChange={e => setDraft(d => ({ ...d, type: e.target.value, size: '' }))}
+                          onChange={e => setDraft(d => ({ ...d, type: e.target.value, size: d.type ? '' : d.size }))}
                           style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box', fontSize: 13 }}
                         >
                           <option value="">— select type —</option>
