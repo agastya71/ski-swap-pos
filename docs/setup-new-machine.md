@@ -74,11 +74,31 @@ npm run build        # compiles to backend/static/
 
 ---
 
-## 8. Start the server
+## 8. Seed the database
+
+**Required before first login.** The app returns `503 No active event configured` on
+every login attempt until an active event and at least one user exist.
 
 ```bash
 cd ../backend
 source .venv/bin/activate
+python seed_demo.py
+```
+
+Default credentials created by the seeder:
+
+| Username   | Password     | Role     |
+|------------|--------------|----------|
+| `admin`    | `admin123`   | admin    |
+| `intake1`  | `intake123`  | intake   |
+| `cashier1` | `cashier123` | cashier  |
+
+---
+
+## 9. Start the server
+
+```bash
+# still inside backend/ with venv active
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
@@ -87,7 +107,7 @@ Other devices on the same network can reach it at `http://<this-machine-ip>:8000
 
 ---
 
-## 9. Zebra ZD421 label printer (USB)
+## 10. Zebra ZD421 label printer (USB)
 
 On Linux, ZPL is written directly to `/dev/usb/lp0` — no CUPS, no driver needed.
 
@@ -111,7 +131,7 @@ LABEL_PRINTER_PATH=/dev/usb/lp1 uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 ---
 
-## Subsequent starts (after first setup)
+## 11. Subsequent starts (after first setup)
 
 The frontend is already built. Only the backend needs to run:
 
@@ -149,7 +169,7 @@ See `backend/seed_demo.py` for the default credentials.
 
 ---
 
-## Rebuilding the frontend (after code changes)
+## 12. Rebuilding the frontend (after code changes)
 
 ```bash
 cd frontend
