@@ -5,9 +5,10 @@ set -euo pipefail
 
 PR=${1:?Usage: merge-pr.sh <PR-number>}
 
-# Commit any pending wolf files so they don't block the pull
+# Commit any pending changes to already-tracked wolf files (e.g. buglog.json).
+# Uses -u to avoid accidentally staging untracked files in .wolf/.
 if ! git diff --quiet .wolf/ 2>/dev/null; then
-  git add .wolf/
+  git add -u .wolf/
   git commit -m "chore: update wolf files before merge"
 fi
 
