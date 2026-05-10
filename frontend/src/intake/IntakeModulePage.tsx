@@ -3,6 +3,7 @@ import { IntakePage } from './IntakePage'
 import { SellerListPage } from '../admin/SellerListPage'
 import { SellerDetailPage } from '../admin/SellerDetailPage'
 import { downloadImportTemplate } from '../api/items'
+import { useAuth } from '../auth/AuthContext'
 import type { Seller } from '../types'
 
 type IntakeTab = 'intake' | 'sellers'
@@ -13,6 +14,8 @@ type IntakeTab = 'intake' | 'sellers'
  * The Download Template button is always visible in the tab bar for quick access.
  */
 export function IntakeModulePage() {
+  const { decoded } = useAuth()
+  const eventId = decoded?.event_id ?? 1
   const [tab, setTab] = useState<IntakeTab>('intake')
   const [selectedSeller, setSelectedSeller] = useState<Seller | null>(null)
 
@@ -50,8 +53,8 @@ export function IntakeModulePage() {
       {tab === 'intake' && <IntakePage />}
       {tab === 'sellers' && (
         selectedSeller
-          ? <SellerDetailPage seller={selectedSeller} onBack={() => setSelectedSeller(null)} />
-          : <SellerListPage onSelectSeller={setSelectedSeller} />
+          ? <SellerDetailPage seller={selectedSeller} onBack={() => setSelectedSeller(null)} eventId={eventId} />
+          : <SellerListPage onSelectSeller={setSelectedSeller} eventId={eventId} />
       )}
     </div>
   )
