@@ -185,7 +185,7 @@ describe('LookupField', () => {
 
   /** Tests for ArrowUp/Down keyboard navigation within the autocomplete dropdown. */
   describe('arrow key navigation', () => {
-    const SOLD = { ...FOUND, id: 3, code: 'A001-003', status: 'sold' }
+    const SOLD = { ...FOUND, id: 3, code: 'A001-003', status: 'sold' as const }
 
     beforeEach(() => { vi.useFakeTimers() })
     afterEach(() => { vi.runOnlyPendingTimers(); vi.useRealTimers() })

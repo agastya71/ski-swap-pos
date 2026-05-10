@@ -42,12 +42,14 @@ export function getToken(): string | null {
  * e.g. 401 for session expiry, 404 for missing resources, 409 for conflicts.
  */
 export class ApiError extends Error {
+  status: number
   /**
    * @param status - HTTP status code returned by the server.
    * @param message - `detail` field from the error response body, or the HTTP status text.
    */
-  constructor(public status: number, message: string) {
+  constructor(status: number, message: string) {
     super(message)
+    this.status = status
     this.name = 'ApiError'
   }
 }
