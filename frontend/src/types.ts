@@ -107,6 +107,10 @@ export interface Seller {
   state: string | null
   /** ZIP code; null if not provided. */
   zip: string | null
+  /** Per-seller default pre-populating intake.donate_unsold. */
+  donate_unsold_default: boolean
+  /** Per-seller default pre-populating intake.donate_proceeds. */
+  donate_proceeds_default: boolean
   /** ID of the event this seller is registered for. */
   event_id: number
   /** ISO 8601 timestamp when this seller record was created. */
@@ -135,6 +139,10 @@ export interface SellerCreate {
   state?: string
   /** ZIP code. */
   zip?: string
+  /** Per-seller default pre-populating intake.donate_unsold. Defaults to false. */
+  donate_unsold_default?: boolean
+  /** Per-seller default pre-populating intake.donate_proceeds. Defaults to false. */
+  donate_proceeds_default?: boolean
 }
 
 /** Payload for partially updating a seller's contact details. */
@@ -161,6 +169,10 @@ export interface SellerUpdate {
   state?: string
   /** Updated ZIP code. */
   zip?: string
+  /** Updated default for intake.donate_unsold, if changing. */
+  donate_unsold_default?: boolean
+  /** Updated default for intake.donate_proceeds, if changing. */
+  donate_proceeds_default?: boolean
 }
 
 // Items

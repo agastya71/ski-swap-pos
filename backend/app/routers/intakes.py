@@ -63,8 +63,9 @@ def create_intake(
         seller_id=body.seller_id,
         date_entered=body.date_entered or datetime.date.today(),
         date_received=body.date_received,
-        donate_unsold=body.donate_unsold,
-        donate_proceeds=body.donate_proceeds,
+        # Explicit values win; null inherits the seller's per-seller defaults.
+        donate_unsold=body.donate_unsold if body.donate_unsold is not None else seller.donate_unsold_default,
+        donate_proceeds=body.donate_proceeds if body.donate_proceeds is not None else seller.donate_proceeds_default,
         created_by=current_user.username,
     )
     db.add(intake)

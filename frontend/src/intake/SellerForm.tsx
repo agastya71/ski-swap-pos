@@ -31,6 +31,8 @@ export function SellerForm({ onCreated, onCancel }: {
   const [state, setState] = useState('')
   const [zip, setZip] = useState('')
   const [isVendor, setIsVendor] = useState(false)
+  const [donateUnsoldDefault, setDonateUnsoldDefault] = useState(false)
+  const [donateProceedsDefault, setDonateProceedsDefault] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -57,6 +59,8 @@ export function SellerForm({ onCreated, onCancel }: {
         state,
         zip,
         is_vendor: isVendor,
+        donate_unsold_default: donateUnsoldDefault,
+        donate_proceeds_default: donateProceedsDefault,
       })
       onCreated(seller)
     } catch (err) {
@@ -108,6 +112,21 @@ export function SellerForm({ onCreated, onCancel }: {
           <input id="zip" value={zip} onChange={e => setZip(e.target.value)} required
             pattern="\d{5}" maxLength={5} inputMode="numeric"
             style={{ width: '100%', padding: 6, boxSizing: 'border-box' }} />
+        </div>
+      </fieldset>
+      <fieldset style={{ border: '1px solid #e2e8f0', borderRadius: 4, padding: '10px 12px', marginBottom: 10 }}>
+        <legend style={{ fontSize: 13, color: '#64748b' }}>Donation defaults (applied to new intakes)</legend>
+        <div style={{ marginBottom: 6 }}>
+          <label>
+            <input type="checkbox" id="donateProceedsDefault" checked={donateProceedsDefault} onChange={e => setDonateProceedsDefault(e.target.checked)} />
+            {' '}Donate proceeds by default (MYSL keeps 100% of sale price)
+          </label>
+        </div>
+        <div style={{ marginBottom: 6 }}>
+          <label>
+            <input type="checkbox" id="donateUnsoldDefault" checked={donateUnsoldDefault} onChange={e => setDonateUnsoldDefault(e.target.checked)} />
+            {' '}Donate unsold items by default
+          </label>
         </div>
       </fieldset>
       {error && <div role="alert" style={{ color: 'red', marginBottom: 10 }}>{error}</div>}

@@ -11,7 +11,7 @@ import { ADMIN_TOKEN } from './tokens'
 const SELLER = {
   id: 1, code: 'A001', first_name: 'Jane', last_name: 'Doe',
   company: null, is_vendor: false, phone: null, email: null,
-  address: null, city: null, state: null, zip: null,
+  address: null, city: null, state: null, zip: null, donate_unsold_default: false, donate_proceeds_default: false,
   event_id: 1, created_at: '2026-04-04T10:00:00',
 }
 
@@ -75,7 +75,7 @@ export const handlers = [
     const sellers = [
       { id: 1, code: '001', first_name: 'Jane', last_name: 'Smith', company: null,
         is_vendor: false, phone: null, email: null, address: null, city: null,
-        state: null, zip: null, event_id: 1, created_at: '2026-01-01T00:00:00Z' },
+        state: null, zip: null, donate_unsold_default: false, donate_proceeds_default: false, event_id: 1, created_at: '2026-01-01T00:00:00Z' },
     ].filter(s =>
       !q ||
       s.code.includes(q) || s.first_name.toLowerCase().includes(q.toLowerCase()) ||

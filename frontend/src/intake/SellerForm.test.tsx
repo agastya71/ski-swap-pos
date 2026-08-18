@@ -16,7 +16,7 @@ import type { Seller } from '../types'
 const CREATED: Seller = {
   id: 2, code: 'B001', first_name: 'Bob', last_name: 'Smith',
   company: null, is_vendor: false, phone: null, email: null,
-  address: null, city: null, state: null, zip: null,
+  address: null, city: null, state: null, zip: null, donate_unsold_default: false, donate_proceeds_default: false,
   event_id: 1, created_at: '2026-04-04T10:00:00',
 }
 
@@ -150,6 +150,25 @@ describe('SellerForm', () => {
     render(<SellerForm onCreated={vi.fn()} onCancel={onCancel} />)
     fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
     expect(onCancel).toHaveBeenCalledTimes(1)
+  })
+
+  /** Donation-default checkboxes are included in the registration payload. */
+  it('sends donation defaults in the request body when checked', async () => {
+    let captured: Record<string, unknown> = {}
+    server.use(http.post('/sellers', async ({ request }) => {
+      captured = (await request.json()) as Record<string, unknown>
+      return HttpResponse.json(CREATED)
+    }))
+    const onCreated = vi.fn()
+    render(<SellerForm onCreated={onCreated} onCancel={vi.fn()} />)
+    fireEvent.change(screen.getByLabelText(/first name/i), { target: { value: 'Bob' } })
+    fireEvent.change(screen.getByLabelText(/last name/i), { target: { value: 'Smith' } })
+    fillRequiredIndividual()
+    fireEvent.click(screen.getByLabelText(/donate unsold items by default/i))
+    fireEvent.click(screen.getByRole('button', { name: /register/i }))
+    await waitFor(() => expect(onCreated).toHaveBeenCalled())
+    expect(captured['donate_unsold_default']).toBe(true)
+    expect(captured['donate_proceeds_default']).toBe(false)
   })
 
   /** Verifies that an API error response causes an alert with the error detail to appear. */

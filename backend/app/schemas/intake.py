@@ -20,13 +20,15 @@ class IntakeCreate(BaseModel):
         default=None,
         description="Date the physical items were received at the swap venue.",
     )
-    donate_unsold: bool = Field(
-        default=False,
-        description="If True, any items not sold will be donated rather than returned to the seller.",
+    donate_unsold: Optional[bool] = Field(
+        default=None,
+        description="If True, any items not sold will be donated rather than returned. "
+        "Omit (null) to inherit the seller's donate_unsold_default.",
     )
-    donate_proceeds: bool = Field(
-        default=False,
-        description="If True, the seller's share of sale proceeds will be donated.",
+    donate_proceeds: Optional[bool] = Field(
+        default=None,
+        description="If True, the seller's share of sale proceeds will be donated. "
+        "Omit (null) to inherit the seller's donate_proceeds_default.",
     )
 
 

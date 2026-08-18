@@ -4,7 +4,7 @@
  *
  * @module IntakeForm
  */
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { createIntake } from '../api/intakes'
 import type { Seller, Intake } from '../types'
 
@@ -19,10 +19,17 @@ export function IntakeForm({ seller, onCreated }: {
   seller: Seller
   onCreated: (intake: Intake) => void
 }) {
-  const [donateProceeds, setDonateProceeds] = useState(false)
-  const [donateUnsold, setDonateUnsold] = useState(false)
+  const [donateProceeds, setDonateProceeds] = useState(seller.donate_proceeds_default ?? false)
+  const [donateUnsold, setDonateUnsold] = useState(seller.donate_unsold_default ?? false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  // When the selected seller changes, re-seed the donation checkboxes from that
+  // seller's per-seller defaults (intake inherits these unless overridden here).
+  useEffect(() => {
+    setDonateProceeds(seller.donate_proceeds_default ?? false)
+    setDonateUnsold(seller.donate_unsold_default ?? false)
+  }, [seller.id, seller.donate_proceeds_default, seller.donate_unsold_default])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -44,7 +51,7 @@ export function IntakeForm({ seller, onCreated }: {
 
   return (
     <form onSubmit={handleSubmit}>
-      <h3>New Intake — {seller.first_name} {seller.last_name} ({seller.code})</h3>
+      <h3>New Intake — {seller.is_vendor ? (seller.company ?? seller.code) : [seller.first_name, seller.last_name].filter(Boolean).join(' ')} ({seller.code})</h3>
       <div style={{ marginBottom: 10 }}>
         <label>
           <input type="checkbox" id="donateProceeds" checked={donateProceeds} onChange={e => setDonateProceeds(e.target.checked)} />
