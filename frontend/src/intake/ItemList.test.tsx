@@ -18,7 +18,7 @@ const ITEM: Item = {
   uom: null, gender_age: null, year: null,
   used: true, price: 75, quantity: 1,
   barcode_39: null, label_line_2: null, label_line_3: null,
-  donate_unsold: false, status: 'available', label_printed: false,
+  donate_unsold: false, status: 'available', label_printed: false, is_deleted: false,
   vendor_item_id: null, created_at: '2026-04-04T10:00:00',
 }
 const LABEL_PRINTED: Item = { ...ITEM, label_printed: true }
@@ -128,3 +128,34 @@ describe('ItemList', () => {
     expect(screen.getByText(/no items yet/i)).toBeInTheDocument()
   })
 })
+
+  /** Delete button is also disabled for sold items (not just printed ones). */
+  it('Delete button is disabled when item has been sold', () => {
+    const sold: Item = { ...ITEM, status: 'sold', quantity: 0 }
+    render(<ItemList items={[sold]} intakeId={5} onItemsChanged={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: /edit/i }))
+    expect(screen.getByRole('button', { name: /delete/i })).toBeDisabled()
+  })
+
+  /** Quantity column shows the on-hand quantity. */
+  it('shows the on-hand quantity column', () => {
+    const multi = { ...ITEM, quantity: 5 }
+    render(<ItemList items={[multi]} intakeId={5} onItemsChanged={vi.fn()} />)
+    expect(screen.getByText('5')).toBeInTheDocument()
+  })
+
+  /** Adjusting quantity calls PATCH /items/:id/quantity with the signed delta. */
+  it('Adjust quantity calls PATCH /items/:id/quantity and refreshes', async () => {
+    let captured: { adjustment?: number } = {}
+    server.use(http.patch('/items/:id/quantity', async ({ request }) => {
+      captured = (await request.json()) as { adjustment?: number }
+      return HttpResponse.json({ ...ITEM, quantity: 8 })
+    }))
+    const onItemsChanged = vi.fn()
+    render(<ItemList items={[{ ...ITEM, quantity: 5 }]} intakeId={5} onItemsChanged={onItemsChanged} />)
+    fireEvent.click(screen.getByRole('button', { name: /edit/i }))
+    fireEvent.change(screen.getByPlaceholderText(/e.g. 3 or -2/i), { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: /apply/i }))
+    await waitFor(() => expect(captured.adjustment).toBe(3))
+    await waitFor(() => expect(onItemsChanged).toHaveBeenCalled())
+  })

@@ -70,7 +70,44 @@ The 5 frontend failures are **pre-existing on `main`** in `src/pos/POSPage.test.
 Merged via PR (see git history).
 
 
-## Phase 3 — Soft Delete + Quantity Model (pending)
+## Phase 3 — Soft Delete + Quantity Model
+
+**Branch:** `feat/phase-3-soft-delete-quantity`
+**Spec section:** §7 (soft delete) + §8 (quantity model)
+
+### Decisions / clarifications
+- `item.quantity` is **remaining on-hand** (decrements on sale, per Q15). An item is sellable while `quantity > 0`; `status` flips to `sold` on the first sale of any quantity (so `status='sold'` may coexist with `quantity > 0`).
+- **PATCH quantity floor = `new_qty >= 0`** (not `new_qty >= sold_count`). Rationale: since `quantity` is remaining, `new_qty >= 0` is *equivalent* to "implied total (remaining + sold) >= sold" — which is exactly Q16's "cannot reduce below sold." The spec §8 was corrected accordingly.
+- Soft delete via `item.is_deleted`; hard delete removed. Delete allowed only when `label_printed == False` and `status == 'available'`. Deleted items 404 from get/lookup and are excluded from listings/reports/checkout.
+- UnsoldItemsReport and donations-unsold now filter `quantity > 0` + `is_deleted == False` (remaining stock), replacing `status == 'available'`.
+- Checkout-side Cart quantity UI deferred to Phase 4 (which rewrites POSPage); backend supports partial-quantity sales now.
+
+### Backend changes
+- Migration `c3d4e5f6a7b8_add_is_deleted_to_item`; `Item.is_deleted` column.
+- `ItemResponse` += `is_deleted`; new `ItemQuantityAdjustment` schema; `SaleItemCreate.quantity` (int ≥ 1).
+- `items.py`: `DELETE` → soft delete; new `PATCH /items/{id}/quantity`; `is_deleted` filtering in get/lookup/search.
+- `sellers.py`: `list_seller_items` filters `is_deleted`.
+- `checkout.py`: partial-quantity — uses `line.quantity`, enforces `≤ remaining`, decrements `item.quantity`, sets `status='sold'`, rejects deleted (404) and sold-out/over-remaining (422 "only N remaining").
+- `sales.py` void: restores `item.quantity` and recomputes `status` (sold if any non-voided sale_item remains, else available).
+- `reports.py`: unsold + donations-unsold filter `quantity > 0`; seller payout items filter `is_deleted`.
+
+### Frontend changes
+- `types.ts`: `Item.is_deleted`, `SaleItemCreate.quantity`.
+- `api/items.ts`: `adjustItemQuantity(id, delta)`.
+- `ItemList.tsx`: Qty column; quantity adjust control (signed delta + Apply); Delete disabled when `label_printed` OR `status != 'available'`. colSpan bumped to 7.
+- Updated all `Item`/`ItemLookupResponse` test fixtures + MSW handlers with `is_deleted: false`. +3 ItemList tests.
+
+### Test results (after Phase 3)
+| Suite | Result | Δ from Phase 2 |
+|---|---|---|
+| Backend | 192 passed | +11 |
+| Frontend | 170 passed / 5 failed | +3 (new); 5 failures unchanged pre-existing |
+| `tsc -b` | clean | — |
+
+### Status
+Merged via PR (see git history).
+
+
 ## Phase 4 — Single-Page Checkout + Sale Timestamp + Payment IDs (pending)
 ## Phase 5 — Brand Matching + Bulk Import (pending)
 ## Phase 6 — Category→Type→Size Cascade (blocked: pending stakeholder mapping)

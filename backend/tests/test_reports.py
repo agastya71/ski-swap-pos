@@ -25,7 +25,7 @@ def rpt_intake(db, rpt_seller):
 @pytest.fixture
 def rpt_item(db, rpt_intake, rpt_seller):
     it = Item(intake_id=rpt_intake.id, seller_id=rpt_seller.id, code="RPT-001",
-              price=25.00, quantity=1.0, status="sold", label_printed=True,
+              price=25.00, quantity=0.0, status="sold", label_printed=True,
               created_by="admin")
     db.add(it); db.commit(); db.refresh(it)
     return it
@@ -236,7 +236,7 @@ def test_payout_uses_vendor_rate_for_vendor_seller(
 
     item = Item(
         intake_id=intake.id, seller_id=vendor.id, code="VND-001",
-        price=100.00, quantity=1.0, status="sold", label_printed=True, created_by="admin",
+        price=100.00, quantity=0.0, status="sold", label_printed=True, created_by="admin",
     )
     db.add(item)
     db.flush()

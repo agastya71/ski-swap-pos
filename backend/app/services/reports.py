@@ -71,7 +71,8 @@ def get_seller_payout(db: Session, event_id: int, seller_id: int) -> SellerPayou
     items = (
         db.query(Item)
         .join(Seller)
-        .filter(Item.seller_id == seller_id, Seller.event_id == event_id)
+        .filter(Item.seller_id == seller_id, Seller.event_id == event_id,
+                Item.is_deleted.is_(False))
         .all()
     )
     items_sold = sum(1 for it in items if it.status == "sold")
@@ -232,8 +233,9 @@ def get_donations(db: Session, event_id: int) -> DonationsReport:
         .options(joinedload(Item.seller))
         .filter(
             Seller.event_id == event_id,
-            Item.status == "available",
+            Item.quantity > 0,
             Item.donate_unsold.is_(True),
+            Item.is_deleted.is_(False),
         )
         .all()
     )
@@ -288,7 +290,8 @@ def get_unsold_items(db: Session, event_id: int) -> UnsoldItemsReport:
         db.query(Item)
         .join(Seller)
         .options(joinedload(Item.seller))
-        .filter(Seller.event_id == event_id, Item.status == "available")
+        .filter(Seller.event_id == event_id, Item.quantity > 0,
+                Item.is_deleted.is_(False))
         .all()
     )
     unsold = [

@@ -41,6 +41,7 @@ class Item(Base):
     donate_unsold = Column(Boolean, default=False)  # item goes to charity if unsold; copied from intake at creation
     status = Column(String, nullable=False, default="available")  # available/sold/donated/returned
     label_printed = Column(Boolean, nullable=False, default=False)
+    is_deleted = Column(Boolean, nullable=False, default=False)  # soft delete; excluded from listings/lookup/reports/checkout
     vendor_item_id = Column(String)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(

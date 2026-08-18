@@ -91,9 +91,16 @@ def create_sale_atomic(
         )
         if not item:
             raise HTTPException(status_code=404, detail=f"Item {line.item_id} not found")
-        if item.status != "available":
+        if item.is_deleted:
+            raise HTTPException(status_code=404, detail=f"Item {item.code} not found")
+        if item.quantity <= 0:
             raise HTTPException(
-                status_code=422, detail=f"Item {item.code} is not available"
+                status_code=422, detail=f"Item {item.code} is sold out"
+            )
+        if line.quantity > item.quantity:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Item {item.code} has only {int(item.quantity)} remaining",
             )
         items_and_intakes.append((line, item, item.intake))
 
@@ -120,7 +127,7 @@ def create_sale_atomic(
 
     for line_number, (line, item, intake) in enumerate(items_and_intakes, start=1):
         sell_price = line.sell_price if line.sell_price is not None else item.price
-        extended_price = round(sell_price * item.quantity, 2)
+        extended_price = round(sell_price * line.quantity, 2)
         mysl_share, seller_share = compute_commission(
             extended_price, intake.donate_proceeds, event.commission_rate
         )
@@ -128,12 +135,15 @@ def create_sale_atomic(
             sale_id=sale.id,
             item_id=item.id,
             line_number=line_number,
-            quantity=item.quantity,
+            quantity=line.quantity,
             sell_price=sell_price,
             extended_price=extended_price,
             notes=line.notes,
             created_by=username,
         ))
+        # Partial-quantity sale: decrement on-hand; status reflects that a sale
+        # has occurred (sellable while quantity > 0, fully sold at 0).
+        item.quantity -= line.quantity
         item.status = "sold"
         sale_total += extended_price
         mysl_total += mysl_share

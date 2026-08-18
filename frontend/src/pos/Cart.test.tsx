@@ -13,7 +13,7 @@ const ITEM_A: ItemLookupResponse = {
   color: null, size: null, uom: null, gender_age: null, year: null,
   used: true, price: 75, quantity: 1,
   barcode_39: null, label_line_2: null, label_line_3: null,
-  donate_unsold: false, status: 'available', label_printed: false,
+  donate_unsold: false, status: 'available', label_printed: false, is_deleted: false,
   vendor_item_id: null, created_at: '2026-04-04T10:00:00',
   seller_code: 'A001',
 }
@@ -23,7 +23,7 @@ const ITEM_B: ItemLookupResponse = {
   color: null, size: null, uom: null, gender_age: null, year: null,
   used: true, price: 40, quantity: 1,
   barcode_39: null, label_line_2: null, label_line_3: null,
-  donate_unsold: false, status: 'available', label_printed: false,
+  donate_unsold: false, status: 'available', label_printed: false, is_deleted: false,
   vendor_item_id: null, created_at: '2026-04-04T10:00:00',
   seller_code: 'B001',
 }

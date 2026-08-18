@@ -155,6 +155,7 @@ def list_seller_items(
         .filter(
             Item.seller_id == seller_id,
             Seller.event_id == event.id,
+            Item.is_deleted.is_(False),
         )
         .order_by(Item.code)
         .all()
