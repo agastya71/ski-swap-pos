@@ -21,7 +21,7 @@ const ITEM = {
   color: null, size: null, uom: null, gender_age: null, year: null,
   used: true, price: 50, quantity: 1,
   barcode_39: null, label_line_2: null, label_line_3: null,
-  donate_unsold: false, status: 'available', label_printed: false,
+  donate_unsold: false, status: 'available', label_printed: false, is_deleted: false,
   vendor_item_id: null, created_at: '2026-04-04T10:00:00',
 }
 
@@ -112,7 +112,7 @@ export const handlers = [
       color: 'Red', size: '160cm', uom: null, gender_age: 'Men', year: 2020,
       used: true, price: 120.0, quantity: 1, barcode_39: '001-01',
       label_line_2: null, label_line_3: null, donate_unsold: false,
-      status: 'available', label_printed: false, vendor_item_id: null,
+      status: 'available', label_printed: false, is_deleted: false, vendor_item_id: null,
       created_at: '2026-01-01T00:00:00Z',
     },
   ])),
@@ -149,7 +149,7 @@ export const handlers = [
       label_line_2: null, label_line_3: null,
       donate_unsold: body.donate_unsold ?? false,
       status: 'available',
-      label_printed: false,
+      label_printed: false, is_deleted: false,
       vendor_item_id: null,
       created_at: '2026-01-01T00:00:00Z',
     }, { status: 201 })

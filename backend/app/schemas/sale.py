@@ -10,9 +10,10 @@ class SaleItemCreate(BaseModel):
     """Payload for a single line item being added to a new sale."""
 
     item_id: int = Field(description="ID of the inventory item being sold.")
+    quantity: int = Field(default=1, ge=1, description="Number of units to sell; must not exceed the item's remaining quantity.")
     sell_price: Optional[float] = Field(
         default=None,
-        description="Override sell price for this item; uses the item's listed price if omitted.",
+        description="Override per-unit sell price; uses the item's listed price if omitted.",
     )
     notes: Optional[str] = Field(default=None, description="Cashier notes specific to this line item (e.g., price negotiation reason).")
 

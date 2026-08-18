@@ -273,7 +273,7 @@ The existing `frontend/src/lib/itemSizes.ts` `ITEM_TYPES` flat list is **retired
 - New endpoint `PATCH /items/{id}/quantity` — roles `admin | intake`.
 - Request body: `{ "adjustment": int }` (signed integer). **Not** a new total.
   - `adjustment > 0`: `item.quantity += adjustment` (increase by the difference).
-  - `adjustment < 0`: `new_qty = item.quantity + adjustment`. Reject (422) if `new_qty < sold_count`, where `sold_count = sum(sale_item.quantity for non-voided sales of this item)`.
+  - `adjustment < 0`: `new_qty = item.quantity + adjustment`. Reject (422) if `new_qty < 0`. Since `item.quantity` is *remaining* on-hand, `new_qty >= 0` is equivalent to "implied total (remaining + sold) >= sold" — i.e. the staff cannot reduce the total below the number already sold (Q16).
 - The UI asks the user for the **amount to add or remove**, not the new total, and shows current quantity + sold count so the floor is visible.
 - Quantity may only be adjusted while `is_deleted == False`. Editing after `label_printed` is **allowed** (counts must stay current per the stakeholder note); no label reprint is triggered automatically.
 

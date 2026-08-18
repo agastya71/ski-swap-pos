@@ -62,8 +62,17 @@ def void_sale(
     if not sale:
         raise HTTPException(status_code=404, detail="Sale not found")
     for sale_item in sale.sale_items:
-        sale_item.item.status = "available"
+        sale_item.item.quantity += sale_item.quantity
     sale.is_voided = True
+    db.flush()
+    # Recompute status per affected item: 'sold' if any non-voided sale_item
+    # still references it, else 'available'.
+    for sale_item in sale.sale_items:
+        item = sale_item.item
+        nonvoided_qty = sum(
+            si.quantity for si in item.sale_items if not si.sale.is_voided
+        )
+        item.status = "sold" if nonvoided_qty > 0 else "available"
     db.commit()
     db.refresh(sale)
     return sale

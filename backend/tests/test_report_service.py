@@ -41,7 +41,7 @@ def available_item(db, intake, seller):
 @pytest.fixture
 def sold_item(db, intake, seller):
     it = Item(intake_id=intake.id, seller_id=seller.id, code="TST-002", price=15.00,
-              quantity=1.0, status="sold", label_printed=True, created_by="admin")
+              quantity=0.0, status="sold", label_printed=True, created_by="admin")
     db.add(it); db.commit(); db.refresh(it)
     return it
 
@@ -49,7 +49,7 @@ def sold_item(db, intake, seller):
 @pytest.fixture
 def donate_sold_item(db, donate_intake, seller):
     it = Item(intake_id=donate_intake.id, seller_id=seller.id, code="TST-003", price=30.00,
-              quantity=1.0, status="sold", label_printed=True, created_by="admin")
+              quantity=0.0, status="sold", label_printed=True, created_by="admin")
     db.add(it); db.commit(); db.refresh(it)
     return it
 

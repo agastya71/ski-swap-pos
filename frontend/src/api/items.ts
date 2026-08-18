@@ -40,6 +40,22 @@ export const deleteItem = (id: number) =>
   apiFetch<void>(`/items/${id}`, { method: 'DELETE' })
 
 /**
+ * Adjust an item's on-hand quantity by a signed delta.
+ *
+ * Positive values increase the quantity by the difference; negative values
+ * decrease it (the resulting quantity may not go below zero, i.e. fewer total
+ * units than already sold).
+ *
+ * @param id - Primary key of the item to adjust.
+ * @param adjustment - Signed integer to add to (or subtract from) the quantity.
+ * @returns The updated Item record.
+ * @throws {ApiError} 422 if the adjustment would reduce quantity below zero.
+ * @throws {ApiError} 404 if no item with the given ID exists.
+ */
+export const adjustItemQuantity = (id: number, adjustment: number) =>
+  apiFetch<Item>(`/items/${id}/quantity`, { method: 'PATCH', body: JSON.stringify({ adjustment }) })
+
+/**
  * Send a ZPL barcode label for one item to the label printer.
  *
  * @param id - Primary key of the item whose label should be printed.

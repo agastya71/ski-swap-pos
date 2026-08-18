@@ -94,7 +94,7 @@ def sold_item(db, intake, seller):
         seller_id=seller.id,
         code="ABC-003",
         price=10.00,
-        quantity=1.0,
+        quantity=0.0,
         status="sold",
         label_printed=True,
         created_by="admin",
@@ -467,3 +467,92 @@ def test_get_sale_from_wrong_event(client, db, cashier_token, active_event):
         headers={"Authorization": f"Bearer {cashier_token}"},
     )
     assert resp.status_code == 404
+
+
+# ── partial-quantity sales + void (Phase 3) ───────────────────────────────────
+
+def _qty_item(db, intake, seller, code, qty=5.0, price=10.00):
+    from app.models.item import Item
+    it = Item(intake_id=intake.id, seller_id=seller.id, code=code, price=price,
+              quantity=qty, status="available", label_printed=False, created_by="admin")
+    db.add(it); db.commit(); db.refresh(it)
+    return it
+
+
+def test_create_sale_partial_quantity(client, db, cashier_token, active_event, intake, seller):
+    it = _qty_item(db, intake, seller, "PQ-001", qty=5.0, price=10.00)
+    r = client.post("/sales",
+                    json={"items": [{"item_id": it.id, "quantity": 3}], "cash_amount": 30.00},
+                    headers={"Authorization": f"Bearer {cashier_token}"})
+    assert r.status_code == 201
+    data = r.json()
+    assert data["sale_total"] == 30.00
+    assert data["sale_items"][0]["quantity"] == 3
+    assert data["sale_items"][0]["extended_price"] == 30.00
+    db.refresh(it)
+    assert it.quantity == 2.0          # remaining decremented
+    assert it.status == "sold"         # status sold (partial), still sellable
+
+
+def test_create_sale_exceeds_remaining_422(client, db, cashier_token, active_event, intake, seller):
+    it = _qty_item(db, intake, seller, "PQ-002", qty=5.0)
+    r = client.post("/sales",
+                    json={"items": [{"item_id": it.id, "quantity": 6}], "cash_amount": 60.00},
+                    headers={"Authorization": f"Bearer {cashier_token}"})
+    assert r.status_code == 422
+    assert "PQ-002" in r.json()["detail"]
+    assert "5 remaining" in r.json()["detail"]
+
+
+def test_create_sale_last_unit_sets_quantity_zero(client, db, cashier_token, active_event, intake, seller):
+    it = _qty_item(db, intake, seller, "PQ-003", qty=2.0, price=10.00)
+    r = client.post("/sales",
+                    json={"items": [{"item_id": it.id, "quantity": 2}], "cash_amount": 20.00},
+                    headers={"Authorization": f"Bearer {cashier_token}"})
+    assert r.status_code == 201
+    db.refresh(it)
+    assert it.quantity == 0.0
+    assert it.status == "sold"
+
+
+def test_create_sale_deleted_item_404(client, db, cashier_token, active_event, intake, seller):
+    it = _qty_item(db, intake, seller, "PQ-004", qty=5.0)
+    it.is_deleted = True
+    db.commit()
+    r = client.post("/sales",
+                    json={"items": [{"item_id": it.id, "quantity": 1}], "cash_amount": 10.00},
+                    headers={"Authorization": f"Bearer {cashier_token}"})
+    assert r.status_code == 404
+
+
+def test_void_restores_quantity_and_status(client, db, admin_token, cashier_token, active_event, intake, seller):
+    it = _qty_item(db, intake, seller, "PQ-005", qty=5.0)
+    r = client.post("/sales",
+                    json={"items": [{"item_id": it.id, "quantity": 3}], "cash_amount": 30.00},
+                    headers={"Authorization": f"Bearer {cashier_token}"})
+    sale_id = r.json()["id"]
+    db.refresh(it)
+    assert it.quantity == 2.0 and it.status == "sold"
+    v = client.post(f"/sales/{sale_id}/void",
+                    headers={"Authorization": f"Bearer {admin_token}"})
+    assert v.status_code == 200
+    db.refresh(it)
+    assert it.quantity == 5.0          # restored
+    assert it.status == "available"    # no non-voided sales remain
+
+
+def test_void_keeps_sold_status_when_other_sales_remain(client, db, admin_token, cashier_token, active_event, intake, seller):
+    it = _qty_item(db, intake, seller, "PQ-006", qty=5.0)
+    r1 = client.post("/sales", json={"items": [{"item_id": it.id, "quantity": 2}], "cash_amount": 20.00},
+                     headers={"Authorization": f"Bearer {cashier_token}"})
+    r2 = client.post("/sales", json={"items": [{"item_id": it.id, "quantity": 1}], "cash_amount": 10.00},
+                     headers={"Authorization": f"Bearer {cashier_token}"})
+    db.refresh(it)
+    assert it.quantity == 2.0  # 5 - 2 - 1
+    # void the second sale -> restore 1 -> remaining 3, status still sold (first sale non-voided)
+    v = client.post(f"/sales/{r2.json()['id']}/void",
+                    headers={"Authorization": f"Bearer {admin_token}"})
+    assert v.status_code == 200
+    db.refresh(it)
+    assert it.quantity == 3.0
+    assert it.status == "sold"

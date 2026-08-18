@@ -50,6 +50,18 @@ class ItemUpdate(BaseModel):
     vendor_item_id: Optional[str] = Field(default=None, description="Updated vendor item identifier, if changing.")
 
 
+class ItemQuantityAdjustment(BaseModel):
+    """Payload for adjusting an item's on-hand quantity by a signed delta.
+
+    Positive values increase the quantity by the given difference (not a new
+    total). Negative values decrease it; the resulting quantity may not fall
+    below the number of units already sold (sum of non-voided sale_item
+    quantities for this item).
+    """
+
+    adjustment: int = Field(description="Signed integer to add to (or subtract from) the current quantity.")
+
+
 class ItemResponse(BaseModel):
     """Read-only representation of an inventory item returned by the API."""
 
@@ -77,6 +89,7 @@ class ItemResponse(BaseModel):
     donate_unsold: bool = Field(description="Whether this item will be donated if unsold.")
     status: str = Field(description="Current lifecycle status of the item (e.g., 'available', 'sold', 'donated', 'returned').")
     label_printed: bool = Field(description="Whether a price label has been printed for this item.")
+    is_deleted: bool = Field(default=False, description="True if the item has been soft-deleted and is excluded from listings/checkout.")
     vendor_item_id: Optional[str] = Field(default=None, description="External item identifier supplied by a commercial vendor.")
     created_at: datetime.datetime = Field(description="UTC timestamp when the item record was created.")
 

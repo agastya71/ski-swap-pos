@@ -222,6 +222,8 @@ export interface Item {
   status: 'available' | 'sold' | 'donated' | 'returned'
   /** Whether a ZPL barcode label has been sent to the printer for this item. */
   label_printed: boolean
+  /** True if the item has been soft-deleted and excluded from listings/checkout. */
+  is_deleted: boolean
   /** Vendor-assigned item ID for cross-referencing vendor inventory; null for individuals. */
   vendor_item_id: string | null
   /** ISO 8601 timestamp when this item record was created. */
@@ -388,6 +390,8 @@ export interface IntakeUpdate {
 export interface SaleItemCreate {
   /** ID of the inventory item being sold. */
   item_id: number
+  /** Number of units to sell; must not exceed the item's remaining quantity. Defaults to 1. */
+  quantity?: number
   /** Override sell price in dollars; defaults to the item's listed price if omitted. */
   sell_price?: number
   /** Optional notes for this line item. */

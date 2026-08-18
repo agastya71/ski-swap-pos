@@ -14,7 +14,7 @@ from app.models.intake import Intake
 from app.models.item import Item
 from app.models.seller import Seller
 from app.models.user import User
-from app.schemas.item import ItemLookupResponse, ItemResponse, ItemUpdate
+from app.schemas.item import ItemLookupResponse, ItemQuantityAdjustment, ItemResponse, ItemUpdate
 from app.services.zpl import generate_zpl, send_to_printer
 
 router = APIRouter(prefix="/items", tags=["items"])
@@ -32,7 +32,7 @@ def _item_for_active_event(item_id: int, db: Session) -> Item:
         db.query(Item)
         .join(Intake)
         .join(Seller)
-        .filter(Item.id == item_id, Seller.event_id == event.id)
+        .filter(Item.id == item_id, Seller.event_id == event.id, Item.is_deleted.is_(False))
         .first()
     )
     if not item:
@@ -54,7 +54,7 @@ def lookup_item(
         db.query(Item)
         .join(Intake)
         .join(Seller)
-        .filter(Item.code == code, Seller.event_id == event.id)
+        .filter(Item.code == code, Seller.event_id == event.id, Item.is_deleted.is_(False))
         .first()
     )
     if not item:
@@ -84,6 +84,7 @@ def search_items(
             | (Item.brand.ilike(like))
             | (Seller.code.ilike(like)),
             Seller.event_id == event.id,
+            Item.is_deleted.is_(False),
         )
         .order_by(Item.code)
         .limit(20)
@@ -165,12 +166,45 @@ def delete_item(
     db: Session = Depends(get_db),
     _user: User = Depends(_INTAKE_ADMIN),
 ):
-    """Delete an item that has not yet had its label printed or been sold."""
+    """Soft-delete an item that has not yet had its label printed or been sold.
+
+    Sets ``is_deleted=True``; the row is retained for audit. Allowed only when
+    the item is not label-printed and is still ``available`` (no sales). Sold
+    or partially-sold items cannot be deleted.
+    """
     item = _item_for_active_event(item_id, db)
     if item.label_printed:
         raise HTTPException(status_code=409, detail="Cannot delete item after label has been printed")
     if item.status != "available":
-        raise HTTPException(status_code=409, detail="Cannot delete a sold item")
-    db.delete(item)
+        raise HTTPException(status_code=409, detail="Cannot delete an item that has been sold")
+    item.is_deleted = True
     db.commit()
     return Response(status_code=204)
+
+
+@router.patch("/{item_id}/quantity", response_model=ItemResponse)
+def adjust_item_quantity(
+    item_id: int,
+    body: ItemQuantityAdjustment,
+    db: Session = Depends(get_db),
+    _user: User = Depends(_INTAKE_ADMIN),
+):
+    """Adjust an item's on-hand quantity by a signed delta.
+
+    Positive ``adjustment`` increases the quantity by the difference. Negative
+    ``adjustment`` decreases it; the resulting quantity may not fall below the
+    number of units already sold (sum of non-voided sale_item quantities).
+    """
+    item = _item_for_active_event(item_id, db)
+    new_qty = item.quantity + body.adjustment
+    # item.quantity is remaining on-hand. Reducing it below 0 would imply fewer
+    # total units than have already sold (total = remaining + sold), so floor = 0.
+    if new_qty < 0:
+        raise HTTPException(
+            status_code=422,
+            detail="Quantity cannot be reduced below zero (would imply fewer units than already sold)",
+        )
+    item.quantity = new_qty
+    db.commit()
+    db.refresh(item)
+    return item

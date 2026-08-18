@@ -217,3 +217,75 @@ def test_search_items_by_seller_code(client, active_event, admin_token):
     r = client.get(f"/items/search?q={seller_code}", headers=headers)
     assert r.status_code == 200
     assert len(r.json()) >= 1
+
+
+# ── soft delete + quantity model (Phase 3) ────────────────────────────────────
+
+def test_soft_delete_excludes_from_get_lookup_and_list(client, admin_token, intake, seller, item):
+    """DELETE soft-deletes; item is then 404 on get/lookup and absent from seller items."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    # Before delete: lookup works
+    r = client.get(f"/items/lookup?code={item.code}", headers=headers)
+    assert r.status_code == 200
+    # Delete
+    d = client.delete(f"/items/{item.id}", headers=headers)
+    assert d.status_code == 204
+    # After delete: get -> 404, lookup -> 404, not in seller items
+    assert client.get(f"/items/{item.id}", headers=headers).status_code == 404
+    assert client.get(f"/items/lookup?code={item.code}", headers=headers).status_code == 404
+    listed = client.get(f"/sellers/{seller.id}/items", headers=headers).json()
+    assert all(it["id"] != item.id for it in listed)
+
+
+def test_delete_sold_item_returns_409(client, admin_token, db, item):
+    item.status = "sold"
+    item.quantity = 0.0
+    db.commit()
+    resp = client.delete(f"/items/{item.id}", headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 409
+
+
+def test_adjust_quantity_increase_by_difference(client, admin_token, db, intake, seller):
+    from app.models.item import Item
+    it = Item(intake_id=intake.id, seller_id=seller.id, code="Q-001", price=10.00,
+              quantity=5.0, status="available", label_printed=False, created_by="admin")
+    db.add(it); db.commit(); db.refresh(it)
+    # current 5, add 3 -> 8
+    r = client.patch(f"/items/{it.id}/quantity", json={"adjustment": 3},
+                     headers={"Authorization": f"Bearer {admin_token}"})
+    assert r.status_code == 200
+    assert r.json()["quantity"] == 8.0
+
+
+def test_adjust_quantity_decrease_to_total_equals_sold_ok(client, cashier_token, admin_token, db, active_event, intake, seller):
+    """Reduce remaining to 0 (total == sold) is allowed."""
+    from app.models.item import Item
+    it = Item(intake_id=intake.id, seller_id=seller.id, code="Q-004", price=10.00,
+              quantity=5.0, status="available", label_printed=False, created_by="admin")
+    db.add(it); db.commit(); db.refresh(it)
+    # sell 3 -> remaining 2, sold 3
+    client.post("/sales", json={"items": [{"item_id": it.id, "quantity": 3}], "cash_amount": 30.00},
+                headers={"Authorization": f"Bearer {cashier_token}"})
+    db.refresh(it)
+    assert it.quantity == 2.0
+    # decrease remaining by 2 -> remaining 0 (total 3 == sold 3) -> allowed
+    r = client.patch(f"/items/{it.id}/quantity", json={"adjustment": -2},
+                     headers={"Authorization": f"Bearer {admin_token}"})
+    assert r.status_code == 200
+    assert r.json()["quantity"] == 0.0
+
+
+def test_adjust_quantity_decrease_below_zero_422(client, cashier_token, admin_token, db, active_event, intake, seller):
+    """Reducing remaining below 0 (total < sold) is rejected."""
+    from app.models.item import Item
+    it = Item(intake_id=intake.id, seller_id=seller.id, code="Q-005", price=10.00,
+              quantity=5.0, status="available", label_printed=False, created_by="admin")
+    db.add(it); db.commit(); db.refresh(it)
+    client.post("/sales", json={"items": [{"item_id": it.id, "quantity": 3}], "cash_amount": 30.00},
+                headers={"Authorization": f"Bearer {cashier_token}"})
+    db.refresh(it)
+    assert it.quantity == 2.0
+    # decrease remaining by 3 -> remaining -1 (total 2 < sold 3) -> 422
+    r = client.patch(f"/items/{it.id}/quantity", json={"adjustment": -3},
+                     headers={"Authorization": f"Bearer {admin_token}"})
+    assert r.status_code == 422

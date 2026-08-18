@@ -6,7 +6,7 @@
  * @module ItemList
  */
 import { Fragment, useState } from 'react'
-import { deleteItem, printLabel, updateItem } from '../api/items'
+import { adjustItemQuantity, deleteItem, printLabel, updateItem } from '../api/items'
 import { printIntakeLabels } from '../api/intakes'
 import { ITEM_TYPES, SIZE_OPTIONS } from '../lib/itemSizes'
 import type { Item, ItemUpdate } from '../types'
@@ -34,6 +34,8 @@ export function ItemList({ items, intakeId, onItemsChanged }: {
   const [draft, setDraft] = useState({ description: '', price: '', brand: '', type: '', size: '', gender_age: '', color: '' })
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [qtyAdjust, setQtyAdjust] = useState('')
+  const [qtyError, setQtyError] = useState<string | null>(null)
 
   /** Opens the edit panel for the given item, or closes it if already open. */
   function openEdit(item: Item) {
@@ -59,6 +61,20 @@ export function ItemList({ items, intakeId, onItemsChanged }: {
     await deleteItem(id)
     setExpandedEditId(null)
     onItemsChanged()
+  }
+
+  /** Adjusts the item's on-hand quantity by a signed delta and refreshes. */
+  async function handleAdjustQty(itemId: number) {
+    const delta = parseInt(qtyAdjust, 10)
+    if (Number.isNaN(delta) || delta === 0) return
+    setQtyError(null)
+    try {
+      await adjustItemQuantity(itemId, delta)
+      setQtyAdjust('')
+      onItemsChanged()
+    } catch (err) {
+      setQtyError(err instanceof Error ? err.message : 'Failed to adjust quantity')
+    }
   }
 
   /** PATCHes the item with only the fields that changed, closes the panel, and notifies the parent. */
@@ -112,6 +128,7 @@ export function ItemList({ items, intakeId, onItemsChanged }: {
             <th style={{ textAlign: 'left', padding: '4px 8px' }}>Category</th>
             <th style={{ textAlign: 'left', padding: '4px 8px' }}>Description</th>
             <th style={{ textAlign: 'right', padding: '4px 8px' }}>Price</th>
+            <th style={{ textAlign: 'right', padding: '4px 8px' }}>Qty</th>
             <th style={{ textAlign: 'left', padding: '4px 8px' }}>Label</th>
             <th />
           </tr>
@@ -124,6 +141,7 @@ export function ItemList({ items, intakeId, onItemsChanged }: {
                 <td style={{ padding: '4px 8px' }}>{item.category}</td>
                 <td style={{ padding: '4px 8px' }}>{[item.brand, item.description].filter(Boolean).join(' — ') || '—'}</td>
                 <td style={{ padding: '4px 8px', textAlign: 'right' }}>${item.price.toFixed(2)}</td>
+                <td style={{ padding: '4px 8px', textAlign: 'right' }}>{item.quantity}</td>
                 <td style={{ padding: '4px 8px' }}>{item.label_printed ? '✓ printed' : '—'}</td>
                 <td style={{ padding: '4px 8px', whiteSpace: 'nowrap' }}>
                   <button onClick={() => handlePrintOne(item.id)} style={{ marginRight: 4 }}>Print Label</button>
@@ -132,7 +150,7 @@ export function ItemList({ items, intakeId, onItemsChanged }: {
               </tr>
               {expandedEditId === item.id && (
                 <tr>
-                  <td colSpan={6} style={{ padding: '8px 16px 16px', background: '#f8fafc', borderBottom: '1px solid #eee' }}>
+                  <td colSpan={7} style={{ padding: '8px 16px 16px', background: '#f8fafc', borderBottom: '1px solid #eee' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
                       <div>
                         <label style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 2 }}>Description</label>
@@ -212,6 +230,25 @@ export function ItemList({ items, intakeId, onItemsChanged }: {
                         />
                       </div>
                     </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 13 }}>
+                      <span style={{ color: '#64748b' }}>Quantity on hand: <strong>{item.quantity}</strong></span>
+                      <label style={{ color: '#64748b' }}>Adjust by:</label>
+                      <input
+                        type="number"
+                        value={qtyAdjust}
+                        onChange={e => setQtyAdjust(e.target.value)}
+                        placeholder="e.g. 3 or -2"
+                        style={{ width: 90, padding: '4px 6px', fontSize: 13 }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleAdjustQty(item.id)}
+                        style={{ padding: '4px 12px', fontSize: 13, cursor: 'pointer' }}
+                      >
+                        Apply
+                      </button>
+                      {qtyError && <span role="alert" style={{ color: '#ef4444' }}>{qtyError}</span>}
+                    </div>
                     {saveError && (
                       <p role="alert" style={{ color: '#ef4444', fontSize: 12, margin: '0 0 8px' }}>{saveError}</p>
                     )}
@@ -231,9 +268,9 @@ export function ItemList({ items, intakeId, onItemsChanged }: {
                       </button>
                       <button
                         onClick={() => handleDelete(item.id)}
-                        disabled={item.label_printed}
-                        title={item.label_printed ? 'Cannot delete after labels are printed' : ''}
-                        style={{ marginLeft: 'auto', border: 'none', background: 'none', color: item.label_printed ? '#94a3b8' : '#ef4444', cursor: item.label_printed ? 'default' : 'pointer', fontSize: 13 }}
+                        disabled={item.label_printed || item.status !== 'available'}
+                        title={item.label_printed ? 'Cannot delete after labels are printed' : item.status !== 'available' ? 'Cannot delete an item that has been sold' : ''}
+                        style={{ marginLeft: 'auto', border: 'none', background: 'none', color: (item.label_printed || item.status !== 'available') ? '#94a3b8' : '#ef4444', cursor: (item.label_printed || item.status !== 'available') ? 'default' : 'pointer', fontSize: 13 }}
                       >
                         Delete
                       </button>
