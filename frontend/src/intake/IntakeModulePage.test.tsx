@@ -11,7 +11,7 @@ import { setToken } from '../api/client'
 const SELLER: Seller = {
   id: 1, code: '001', first_name: 'Jane', last_name: 'Doe',
   company: null, is_vendor: false, phone: '555-1234', email: 'jane@example.com',
-  address: null, city: null, state: null, zip: null,
+  address: null, city: null, state: null, zip: null, donate_unsold_default: false, donate_proceeds_default: false,
   event_id: 1, created_at: '2026-04-04T10:00:00',
 }
 

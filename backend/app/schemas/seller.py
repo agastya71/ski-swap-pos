@@ -65,6 +65,14 @@ class SellerCreate(BaseModel):
     city: str = Field(min_length=1, description="City. Required.")
     state: str = Field(min_length=2, max_length=2, description="Two-letter US state abbreviation. Required.")
     zip: str = Field(pattern=_ZIP_RE, description="US 5-digit ZIP code. Required.")
+    donate_unsold_default: bool = Field(
+        default=False,
+        description="Per-seller default for intake.donate_unsold; pre-populates new intakes.",
+    )
+    donate_proceeds_default: bool = Field(
+        default=False,
+        description="Per-seller default for intake.donate_proceeds; pre-populates new intakes.",
+    )
 
     @field_validator("email")
     @classmethod
@@ -120,6 +128,8 @@ class SellerUpdate(BaseModel):
     city: Optional[str] = Field(default=None, description="Updated city, if changing.")
     state: Optional[str] = Field(default=None, description="Updated two-letter state abbreviation, if changing.")
     zip: Optional[str] = Field(default=None, description="Updated ZIP code, if changing.")
+    donate_unsold_default: Optional[bool] = Field(default=None, description="Updated default for intake.donate_unsold, if changing.")
+    donate_proceeds_default: Optional[bool] = Field(default=None, description="Updated default for intake.donate_proceeds, if changing.")
 
     @field_validator("email")
     @classmethod
@@ -164,4 +174,6 @@ class SellerResponse(BaseModel):
     city: Optional[str] = Field(default=None, description="City for the seller's mailing address.")
     state: Optional[str] = Field(default=None, description="Two-letter US state abbreviation.")
     zip: Optional[str] = Field(default=None, description="US 5-digit ZIP code.")
+    donate_unsold_default: bool = Field(description="Per-seller default pre-populating intake.donate_unsold.")
+    donate_proceeds_default: bool = Field(description="Per-seller default pre-populating intake.donate_proceeds.")
     created_at: datetime = Field(description="UTC timestamp when the seller record was created.")

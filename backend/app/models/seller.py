@@ -34,6 +34,10 @@ class Seller(Base):
     city = Column(String)
     state = Column(String)
     zip = Column(String)
+    # Per-seller donation defaults that pre-populate the corresponding intake flags
+    # at intake creation. Intake flags can still be overridden per intake/per item.
+    donate_unsold_default = Column(Boolean, nullable=False, default=False)
+    donate_proceeds_default = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
         DateTime,

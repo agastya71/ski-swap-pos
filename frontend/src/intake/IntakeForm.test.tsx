@@ -13,7 +13,7 @@ import type { Seller, Intake } from '../types'
 const SELLER: Seller = {
   id: 1, code: 'A001', first_name: 'Jane', last_name: 'Doe',
   company: null, is_vendor: false, phone: null, email: null,
-  address: null, city: null, state: null, zip: null,
+  address: null, city: null, state: null, zip: null, donate_unsold_default: false, donate_proceeds_default: false,
   event_id: 1, created_at: '2026-04-04T10:00:00',
 }
 const INTAKE: Intake = {
@@ -48,5 +48,21 @@ describe('IntakeForm', () => {
     render(<IntakeForm seller={SELLER} onCreated={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: /start intake/i }))
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/no active event/i))
+  })
+
+  /** Donation checkboxes pre-fill from the seller's per-seller defaults. */
+  it('pre-fills donation checkboxes from seller defaults', () => {
+    const sellerWithDefaults: Seller = { ...SELLER, donate_unsold_default: true, donate_proceeds_default: true }
+    render(<IntakeForm seller={sellerWithDefaults} onCreated={vi.fn()} />)
+    expect((screen.getByLabelText(/donate unsold/i) as HTMLInputElement).checked).toBe(true)
+    expect((screen.getByLabelText(/donate proceeds/i) as HTMLInputElement).checked).toBe(true)
+  })
+
+  /** Changing the seller re-seeds the checkboxes from the new seller's defaults. */
+  it('re-seeds checkboxes when seller changes', () => {
+    const { rerender } = render(<IntakeForm seller={SELLER} onCreated={vi.fn()} />)
+    expect((screen.getByLabelText(/donate unsold/i) as HTMLInputElement).checked).toBe(false)
+    rerender(<IntakeForm seller={{ ...SELLER, id: 2, code: 'A002', donate_unsold_default: true }} onCreated={vi.fn()} />)
+    expect((screen.getByLabelText(/donate unsold/i) as HTMLInputElement).checked).toBe(true)
   })
 })

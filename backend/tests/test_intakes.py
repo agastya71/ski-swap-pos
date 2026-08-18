@@ -220,3 +220,63 @@ def test_create_intake_no_active_event_returns_503(client, db):
         headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 503
+
+
+# ── donation-default inheritance (Phase 2) ───────────────────────────────────
+
+def _seller_with_defaults(db, active_event, *, unsold=True, proceeds=True, code="D1"):
+    s = Seller(
+        event_id=active_event.id,
+        code=code,
+        first_name="Donor",
+        last_name="Person",
+        is_vendor=False,
+        donate_unsold_default=unsold,
+        donate_proceeds_default=proceeds,
+        created_by="admin",
+    )
+    db.add(s)
+    db.commit()
+    db.refresh(s)
+    return s
+
+
+def test_create_intake_inherits_seller_donation_defaults(db, client, active_event, admin_token):
+    """Omitting donation flags inherits the seller's per-seller defaults."""
+    s = _seller_with_defaults(db, active_event, unsold=True, proceeds=True, code="D1")
+    r = client.post(
+        "/intakes",
+        json={"seller_id": s.id},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert r.status_code == 201
+    data = r.json()
+    assert data["donate_unsold"] is True
+    assert data["donate_proceeds"] is True
+
+
+def test_create_intake_explicit_override_beats_seller_default(db, client, active_event, admin_token):
+    """Explicit donation flags on the request win over the seller's defaults."""
+    s = _seller_with_defaults(db, active_event, unsold=True, proceeds=True, code="D2")
+    r = client.post(
+        "/intakes",
+        json={"seller_id": s.id, "donate_unsold": False, "donate_proceeds": False},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert r.status_code == 201
+    data = r.json()
+    assert data["donate_unsold"] is False
+    assert data["donate_proceeds"] is False
+
+
+def test_create_intake_defaults_false_when_seller_default_false(client, admin_token, seller):
+    """A seller with False defaults yields False intake flags when omitted."""
+    r = client.post(
+        "/intakes",
+        json={"seller_id": seller.id},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert r.status_code == 201
+    data = r.json()
+    assert data["donate_unsold"] is False
+    assert data["donate_proceeds"] is False

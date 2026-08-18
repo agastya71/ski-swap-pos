@@ -240,3 +240,24 @@ def test_create_seller_missing_address_is_422(client, active_event, admin_token)
     payload.pop("address")
     resp = client.post("/sellers", json=payload, headers={"Authorization": f"Bearer {admin_token}"})
     assert resp.status_code == 422
+
+
+def test_create_seller_records_donation_defaults(client, active_event, admin_token):
+    """SellerCreate persists donate_unsold_default / donate_proceeds_default."""
+    payload = valid_seller_create(donate_unsold_default=True, donate_proceeds_default=False)
+    resp = client.post("/sellers", json=payload, headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["donate_unsold_default"] is True
+    assert data["donate_proceeds_default"] is False
+
+
+def test_update_seller_donation_defaults(client, admin_token, seller):
+    """PATCH /sellers can update the donation defaults."""
+    resp = client.patch(
+        f"/sellers/{seller.id}",
+        json={"donate_proceeds_default": True},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["donate_proceeds_default"] is True

@@ -13,6 +13,7 @@ const seller = {
   id: 1, code: '001', first_name: 'Jane', last_name: 'Smith',
   company: null, is_vendor: false, phone: '612-555-0101', email: 'jane@example.com',
   address: '123 Main St', city: 'Minneapolis', state: 'MN', zip: '55401',
+  donate_unsold_default: false, donate_proceeds_default: false,
   event_id: 1, created_at: '2026-01-01T00:00:00Z',
 }
 
