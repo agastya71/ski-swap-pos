@@ -5,6 +5,7 @@ import openpyxl
 import pytest
 from app.models.intake import Intake
 from app.models.seller import Seller
+from tests.helpers import valid_seller_create
 
 
 @pytest.fixture
@@ -105,7 +106,7 @@ def test_intake_user_can_create_intake(client, intake_token, seller):
 def test_add_item_auto_assigns_code(client, active_event, admin_token):
     """POST /intakes/{id}/items auto-generates item code as {seller_code}-01."""
     headers = {"Authorization": f"Bearer {admin_token}"}
-    seller_r = client.post("/sellers", json={"first_name": "A", "last_name": "B"}, headers=headers)
+    seller_r = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
     seller_code = seller_r.json()["code"]  # e.g. "001"
     intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
     intake_id = intake_r.json()["id"]
@@ -121,7 +122,7 @@ def test_add_item_auto_assigns_code(client, active_event, admin_token):
 
 def test_add_two_items_increments_code(client, active_event, admin_token):
     headers = {"Authorization": f"Bearer {admin_token}"}
-    seller_r = client.post("/sellers", json={"first_name": "A", "last_name": "B"}, headers=headers)
+    seller_r = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
     seller_code = seller_r.json()["code"]
     intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
     intake_id = intake_r.json()["id"]
@@ -134,7 +135,7 @@ def test_add_two_items_increments_code(client, active_event, admin_token):
 def test_import_items_from_excel(client, active_event, admin_token):
     """POST /intakes/{id}/items/import creates items from a valid xlsx file."""
     headers = {"Authorization": f"Bearer {admin_token}"}
-    seller_r = client.post("/sellers", json={"first_name": "A", "last_name": "B"}, headers=headers)
+    seller_r = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
     intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
     intake_id = intake_r.json()["id"]
 
@@ -164,7 +165,7 @@ def test_import_items_from_excel(client, active_event, admin_token):
 
 def test_import_skips_rows_missing_price(client, active_event, admin_token):
     headers = {"Authorization": f"Bearer {admin_token}"}
-    seller_r = client.post("/sellers", json={"first_name": "A", "last_name": "B"}, headers=headers)
+    seller_r = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
     intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
     intake_id = intake_r.json()["id"]
 
