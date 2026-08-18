@@ -44,8 +44,8 @@ export function SellerDetailPage({ seller: initialSeller, onBack, eventId }: {
   async function handleSaveEdit() {
     try {
       const updated = await updateSeller(seller.id, {
-        first_name: editDraft.first_name,
-        last_name: editDraft.last_name,
+        first_name: editDraft.first_name ?? undefined,
+        last_name: editDraft.last_name ?? undefined,
         company: editDraft.company ?? undefined,
         phone: editDraft.phone ?? undefined,
         email: editDraft.email ?? undefined,

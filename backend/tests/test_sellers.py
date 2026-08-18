@@ -2,6 +2,7 @@ import pytest
 from app.models.intake import Intake
 from app.models.item import Item
 from app.models.seller import Seller
+from tests.helpers import valid_seller_create, valid_vendor_create
 
 
 @pytest.fixture
@@ -23,7 +24,7 @@ def seller(db, active_event):
 def test_create_seller(client, active_event, admin_token):
     resp = client.post(
         "/sellers",
-        json={"first_name": "Bob", "last_name": "Jones", "is_vendor": False},
+        json=valid_seller_create(first_name="Bob", last_name="Jones"),
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 201
@@ -71,7 +72,7 @@ def test_get_seller_not_found(client, admin_token):
 def test_update_seller(client, admin_token, seller):
     resp = client.patch(
         f"/sellers/{seller.id}",
-        json={"email": "jane@example.com", "phone": "555-1234"},
+        json={"email": "jane@example.com", "phone": "6125551234"},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 200
@@ -91,7 +92,7 @@ def test_create_seller_auto_assigns_code(client, active_event, admin_token):
     """POST /sellers assigns a sequential 3-digit code; client need not provide one."""
     r = client.post(
         "/sellers",
-        json={"first_name": "Jane", "last_name": "Smith"},
+        json=valid_seller_create(),
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert r.status_code == 201
@@ -100,15 +101,15 @@ def test_create_seller_auto_assigns_code(client, active_event, admin_token):
 
 def test_create_two_sellers_increments_code(client, active_event, admin_token):
     headers = {"Authorization": f"Bearer {admin_token}"}
-    client.post("/sellers", json={"first_name": "A", "last_name": "B"}, headers=headers)
-    r2 = client.post("/sellers", json={"first_name": "C", "last_name": "D"}, headers=headers)
+    client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
+    r2 = client.post("/sellers", json=valid_seller_create(first_name="C", last_name="D"), headers=headers)
     assert r2.json()["code"] == "002"
 
 
 def test_list_seller_items_empty(client, active_event, admin_token):
     headers = {"Authorization": f"Bearer {admin_token}"}
     # Create a seller first
-    r = client.post("/sellers", json={"first_name": "X", "last_name": "Y"}, headers=headers)
+    r = client.post("/sellers", json=valid_seller_create(first_name="X", last_name="Y"), headers=headers)
     seller_id = r.json()["id"]
     r2 = client.get(f"/sellers/{seller_id}/items", headers=headers)
     assert r2.status_code == 200
@@ -144,3 +145,98 @@ def test_list_seller_items_with_items(client, db, active_event, admin_token, sel
     data = r.json()
     assert len(data) == 1
     assert data[0]["code"] == item.code
+
+
+# ── seller registration validation (Phase 1) ────────────────────────────────
+
+def test_create_vendor_with_company_only(client, active_event, admin_token):
+    """A vendor (is_vendor=True) registers with company and no first/last name."""
+    resp = client.post(
+        "/sellers",
+        json=valid_vendor_create(),
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["is_vendor"] is True
+    assert data["company"] == "Pioneer Sports"
+    assert data["first_name"] is None
+    assert data["last_name"] is None
+
+
+def test_create_vendor_without_company_is_422(client, active_event, admin_token):
+    payload = valid_vendor_create()
+    payload.pop("company")
+    resp = client.post("/sellers", json=payload, headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 422
+
+
+def test_create_individual_missing_last_name_is_422(client, active_event, admin_token):
+    payload = valid_seller_create()
+    payload.pop("last_name")
+    resp = client.post("/sellers", json=payload, headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 422
+
+
+def test_create_individual_missing_both_phone_and_email_is_422(client, active_event, admin_token):
+    payload = valid_seller_create()
+    payload.pop("phone")
+    resp = client.post("/sellers", json=payload, headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 422
+
+
+def test_create_individual_with_email_only_is_201(client, active_event, admin_token):
+    """Email alone (no phone) satisfies the contact requirement."""
+    payload = valid_seller_create()
+    payload.pop("phone")
+    payload["email"] = "jane@example.com"
+    resp = client.post("/sellers", json=payload, headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 201
+    assert resp.json()["email"] == "jane@example.com"
+    assert resp.json()["phone"] is None
+
+
+def test_create_seller_bad_email_is_422(client, active_event, admin_token):
+    payload = valid_seller_create(email="not-an-email")
+    resp = client.post("/sellers", json=payload, headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 422
+
+
+def test_create_seller_phone_9_digits_is_422(client, active_event, admin_token):
+    payload = valid_seller_create(phone="612555123")
+    resp = client.post("/sellers", json=payload, headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 422
+
+
+def test_create_seller_phone_normalized_to_10_digits(client, active_event, admin_token):
+    """Formatted phone '(612) 555-1234' is normalized to '6125551234' and accepted."""
+    payload = valid_seller_create(phone="(612) 555-1234")
+    resp = client.post("/sellers", json=payload, headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 201
+    assert resp.json()["phone"] == "6125551234"
+
+
+def test_create_seller_zip_4_digits_is_422(client, active_event, admin_token):
+    payload = valid_seller_create(zip="5540")
+    resp = client.post("/sellers", json=payload, headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 422
+
+
+def test_create_seller_state_3_chars_is_422(client, active_event, admin_token):
+    payload = valid_seller_create(state="MIN")
+    resp = client.post("/sellers", json=payload, headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 422
+
+
+def test_create_seller_state_uppercased(client, active_event, admin_token):
+    payload = valid_seller_create(state="mn")
+    resp = client.post("/sellers", json=payload, headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 201
+    assert resp.json()["state"] == "MN"
+
+
+def test_create_seller_missing_address_is_422(client, active_event, admin_token):
+    payload = valid_seller_create()
+    payload.pop("address")
+    resp = client.post("/sellers", json=payload, headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 422

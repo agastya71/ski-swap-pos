@@ -87,10 +87,10 @@ export interface Seller {
   id: number
   /** Short seller code, e.g. "A001". Unique within the event. */
   code: string
-  /** Seller's first name. */
-  first_name: string
-  /** Seller's last name. */
-  last_name: string
+  /** Seller's first name; null for vendor sellers that have no person name. */
+  first_name: string | null
+  /** Seller's last name; null for vendor sellers that have no person name. */
+  last_name: string | null
   /** Company name for vendor sellers; null for individuals. */
   company: string | null
   /** Whether this seller is a vendor (business) rather than an individual. */
@@ -115,10 +115,10 @@ export interface Seller {
 
 /** Payload for registering a new seller. */
 export interface SellerCreate {
-  /** Seller's first name. */
-  first_name: string
-  /** Seller's last name. */
-  last_name: string
+  /** Seller's first name. Required for individuals; omitted for vendors. */
+  first_name?: string
+  /** Seller's last name. Required for individuals; omitted for vendors. */
+  last_name?: string
   /** Company name; omit for individual sellers. */
   company?: string
   /** Whether this seller is a vendor (business). Defaults to false. */

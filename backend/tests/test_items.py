@@ -3,6 +3,7 @@ import pytest
 from app.models.intake import Intake
 from app.models.item import Item
 from app.models.seller import Seller
+from tests.helpers import valid_seller_create
 
 
 @pytest.fixture
@@ -180,7 +181,7 @@ def test_lookup_no_active_event(client, db, cashier_token):
 def test_search_items_by_description(client, active_event, admin_token):
     """GET /items/search?q= matches item description."""
     headers = {"Authorization": f"Bearer {admin_token}"}
-    seller_r = client.post("/sellers", json={"first_name": "A", "last_name": "B"}, headers=headers)
+    seller_r = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
     intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
     client.post(
         f"/intakes/{intake_r.json()['id']}/items",
@@ -195,7 +196,7 @@ def test_search_items_by_description(client, active_event, admin_token):
 
 def test_search_items_by_brand(client, active_event, admin_token):
     headers = {"Authorization": f"Bearer {admin_token}"}
-    seller_r = client.post("/sellers", json={"first_name": "A", "last_name": "B"}, headers=headers)
+    seller_r = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
     intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
     client.post(
         f"/intakes/{intake_r.json()['id']}/items",
@@ -209,7 +210,7 @@ def test_search_items_by_brand(client, active_event, admin_token):
 
 def test_search_items_by_seller_code(client, active_event, admin_token):
     headers = {"Authorization": f"Bearer {admin_token}"}
-    seller_r = client.post("/sellers", json={"first_name": "A", "last_name": "B"}, headers=headers)
+    seller_r = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
     seller_code = seller_r.json()["code"]
     intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
     client.post(f"/intakes/{intake_r.json()['id']}/items", json={"price": 30.0}, headers=headers)

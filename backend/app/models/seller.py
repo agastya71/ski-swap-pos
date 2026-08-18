@@ -22,8 +22,10 @@ class Seller(Base):
     id = Column(Integer, primary_key=True, index=True)
     event_id = Column(Integer, ForeignKey("event.id"), nullable=False)
     code = Column(String, nullable=False)
-    first_name = Column(String, nullable=False)
-    last_name = Column(String, nullable=False)
+    # first_name/last_name are optional for vendor sellers (businesses, not people).
+    # The individual-vs-vendor name requirement is enforced in SellerCreate validators.
+    first_name = Column(String, nullable=True)
+    last_name = Column(String, nullable=True)
     company = Column(String)
     is_vendor = Column(Boolean, nullable=False, default=False)
     email = Column(String)

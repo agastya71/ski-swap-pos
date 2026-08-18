@@ -1,7 +1,8 @@
 /**
- * Tests for {@link SellerForm} — covers initial field rendering, address field rendering,
- * successful registration invoking onCreated, HTML5 required-field validation,
- * Cancel button behaviour, and API error display in an alert element.
+ * Tests for {@link SellerForm} — covers field rendering, conditional required
+ * fields for individual vs vendor, the US state dropdown, ZIP validation,
+ * the phone-or-email client check, successful registration invoking onCreated,
+ * Cancel button behaviour, and API error display.
  *
  * @module SellerForm.test
  */
@@ -9,6 +10,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { server } from '../mocks/server'
 import { http, HttpResponse } from 'msw'
 import { SellerForm } from './SellerForm'
+import { US_STATES } from '../lib/usStates'
 import type { Seller } from '../types'
 
 const CREATED: Seller = {
@@ -16,6 +18,15 @@ const CREATED: Seller = {
   company: null, is_vendor: false, phone: null, email: null,
   address: null, city: null, state: null, zip: null,
   event_id: 1, created_at: '2026-04-04T10:00:00',
+}
+
+/** Fills the required contact + address fields for an individual seller. */
+function fillRequiredIndividual() {
+  fireEvent.change(screen.getByLabelText(/phone/i), { target: { value: '6125551234' } })
+  fireEvent.change(screen.getByLabelText(/street address/i), { target: { value: '123 Main St' } })
+  fireEvent.change(screen.getByLabelText(/^city/i), { target: { value: 'Minneapolis' } })
+  fireEvent.change(screen.getByLabelText(/state/i), { target: { value: 'MN' } })
+  fireEvent.change(screen.getByLabelText(/zip/i), { target: { value: '55401' } })
 }
 
 /** Tests covering the SellerForm component's rendering and submission behaviour. */
@@ -32,9 +43,61 @@ describe('SellerForm', () => {
   it('renders address fields', () => {
     render(<SellerForm onCreated={vi.fn()} onCancel={vi.fn()} />)
     expect(screen.getByLabelText(/street address/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/city/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/^city/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/state/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/zip/i)).toBeInTheDocument()
+  })
+
+  /** State field is a <select> populated with US states (+ DC) and a blank option. */
+  it('renders state as a select with US states', () => {
+    render(<SellerForm onCreated={vi.fn()} onCancel={vi.fn()} />)
+    const stateSelect = screen.getByLabelText(/state/i)
+    expect(stateSelect.tagName).toBe('SELECT')
+    const options = (stateSelect as HTMLSelectElement).options
+    // blank "— select state —" + 50 states + DC
+    expect(options.length).toBe(US_STATES.length + 1)
+    expect((stateSelect as HTMLSelectElement).querySelector('option[value="MN"]')).not.toBeNull()
+  })
+
+  /** ZIP field enforces US 5-digit pattern and maxLength. */
+  it('renders zip with 5-digit pattern and maxLength', () => {
+    render(<SellerForm onCreated={vi.fn()} onCancel={vi.fn()} />)
+    const zip = screen.getByLabelText(/zip/i) as HTMLInputElement
+    expect(zip.pattern).toBe('\\d{5}')
+    expect(zip.maxLength).toBe(5)
+    expect(zip).toBeRequired()
+  })
+
+  /** Individual seller: first/last name required, company optional. */
+  it('requires first and last name for an individual', () => {
+    render(<SellerForm onCreated={vi.fn()} onCancel={vi.fn()} />)
+    expect(screen.getByLabelText(/first name/i)).toBeRequired()
+    expect(screen.getByLabelText(/last name/i)).toBeRequired()
+    expect(screen.getByLabelText(/company/i)).not.toBeRequired()
+  })
+
+  /** Vendor: company required, first/last name not required. */
+  it('requires company and not names when vendor is checked', () => {
+    render(<SellerForm onCreated={vi.fn()} onCancel={vi.fn()} />)
+    fireEvent.click(screen.getByRole('checkbox', { name: /vendor/i }))
+    expect(screen.getByLabelText(/company/i)).toBeRequired()
+    expect(screen.getByLabelText(/first name/i)).not.toBeRequired()
+    expect(screen.getByLabelText(/last name/i)).not.toBeRequired()
+  })
+
+  /** Phone-or-email client check: submitting with neither shows an error and does not call the API. */
+  it('blocks submit and shows error when neither phone nor email is provided', async () => {
+    const onCreated = vi.fn()
+    render(<SellerForm onCreated={onCreated} onCancel={vi.fn()} />)
+    fireEvent.change(screen.getByLabelText(/first name/i), { target: { value: 'Bob' } })
+    fireEvent.change(screen.getByLabelText(/last name/i), { target: { value: 'Smith' } })
+    fireEvent.change(screen.getByLabelText(/street address/i), { target: { value: '123 Main St' } })
+    fireEvent.change(screen.getByLabelText(/^city/i), { target: { value: 'Minneapolis' } })
+    fireEvent.change(screen.getByLabelText(/state/i), { target: { value: 'MN' } })
+    fireEvent.change(screen.getByLabelText(/zip/i), { target: { value: '55401' } })
+    fireEvent.click(screen.getByRole('button', { name: /register/i }))
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/phone or email/i))
+    expect(onCreated).not.toHaveBeenCalled()
   })
 
   /** Verifies that a successful submit calls onCreated with the seller object returned by the API. */
@@ -44,22 +107,33 @@ describe('SellerForm', () => {
     render(<SellerForm onCreated={onCreated} onCancel={vi.fn()} />)
     fireEvent.change(screen.getByLabelText(/first name/i), { target: { value: 'Bob' } })
     fireEvent.change(screen.getByLabelText(/last name/i), { target: { value: 'Smith' } })
+    fillRequiredIndividual()
     fireEvent.click(screen.getByRole('button', { name: /register/i }))
     await waitFor(() => expect(onCreated).toHaveBeenCalledWith(CREATED))
   })
 
-  /** Verifies that a submit without code but with address fields calls onCreated. */
-  it('submits without code and includes address', async () => {
+  /** Verifies that a vendor submit omits first/last name from the request body. */
+  it('omits first/last name in the request body for a vendor', async () => {
+    let captured: Record<string, unknown> = {}
+    server.use(http.post('/sellers', async ({ request }) => {
+      captured = (await request.json()) as Record<string, unknown>
+      return HttpResponse.json(CREATED)
+    }))
     const onCreated = vi.fn()
     render(<SellerForm onCreated={onCreated} onCancel={vi.fn()} />)
-    fireEvent.change(screen.getByLabelText(/first name/i), { target: { value: 'Jane' } })
-    fireEvent.change(screen.getByLabelText(/last name/i), { target: { value: 'Smith' } })
-    fireEvent.change(screen.getByLabelText(/street address/i), { target: { value: '123 Main St' } })
-    fireEvent.change(screen.getByLabelText(/city/i), { target: { value: 'Minneapolis' } })
+    fireEvent.click(screen.getByRole('checkbox', { name: /vendor/i }))
+    fireEvent.change(screen.getByLabelText(/company/i), { target: { value: 'Pioneer Sports' } })
+    fireEvent.change(screen.getByLabelText(/phone/i), { target: { value: '6125559999' } })
+    fireEvent.change(screen.getByLabelText(/street address/i), { target: { value: '456 Industrial Blvd' } })
+    fireEvent.change(screen.getByLabelText(/^city/i), { target: { value: 'Bloomington' } })
     fireEvent.change(screen.getByLabelText(/state/i), { target: { value: 'MN' } })
-    fireEvent.change(screen.getByLabelText(/zip/i), { target: { value: '55401' } })
-    fireEvent.submit(screen.getByRole('button', { name: /register/i }).closest('form')!)
+    fireEvent.change(screen.getByLabelText(/zip/i), { target: { value: '55420' } })
+    fireEvent.click(screen.getByRole('button', { name: /register/i }))
     await waitFor(() => expect(onCreated).toHaveBeenCalled())
+    expect(captured['is_vendor']).toBe(true)
+    expect(captured['company']).toBe('Pioneer Sports')
+    expect('first_name' in captured).toBe(false)
+    expect('last_name' in captured).toBe(false)
   })
 
   /** Verifies that the first name field carries the HTML required attribute, blocking submission. */
@@ -84,6 +158,7 @@ describe('SellerForm', () => {
     render(<SellerForm onCreated={vi.fn()} onCancel={vi.fn()} />)
     fireEvent.change(screen.getByLabelText(/first name/i), { target: { value: 'Bob' } })
     fireEvent.change(screen.getByLabelText(/last name/i), { target: { value: 'Smith' } })
+    fillRequiredIndividual()
     fireEvent.click(screen.getByRole('button', { name: /register/i }))
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/duplicate seller code/i))
   })
