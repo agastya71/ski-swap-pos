@@ -5,7 +5,7 @@ item availability, computing per-item commission splits between MYSL and the
 seller, and persisting the Sale and SaleItem rows atomically.
 """
 
-from datetime import date
+from datetime import datetime, timezone
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -107,7 +107,7 @@ def create_sale_atomic(
     # Create sale row
     sale = Sale(
         event_id=event.id,
-        date_of_sale=date.today(),
+        date_of_sale=datetime.now(timezone.utc),
         customer_name=payload.customer_name,
         customer_email=payload.customer_email,
         notes=payload.notes,
@@ -115,6 +115,7 @@ def create_sale_atomic(
         check_amount=payload.check_amount,
         check_number=payload.check_number,
         cc_amount=payload.cc_amount,
+        cc_transaction_id=payload.cc_transaction_id,
         created_by=username,
     )
     db.add(sale)

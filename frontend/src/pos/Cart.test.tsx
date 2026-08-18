@@ -1,10 +1,13 @@
 /**
- * Tests for {@link Cart} — covers empty-state rendering, item display (code,
- * description, price, seller code), running total calculation, and the Remove
- * button callback.
+ * Tests for {@link Cart} — covers empty-state, line display, editable quantity
+ * (capped at remaining), price override + adjustment notes, running total, and
+ * the Remove callback.
+ *
+ * @module Cart.test
  */
 import { render, screen, fireEvent } from '@testing-library/react'
-import { Cart } from './Cart'
+import { useState } from 'react'
+import { Cart, type CartLine } from './Cart'
 import type { ItemLookupResponse } from '../types'
 
 const ITEM_A: ItemLookupResponse = {
@@ -28,17 +31,17 @@ const ITEM_B: ItemLookupResponse = {
   seller_code: 'B001',
 }
 
-/** Tests for the Cart component covering display and interaction. */
+const line = (item: ItemLookupResponse, qty = 1, sellPrice = item.price, notes = ''): CartLine =>
+  ({ item, quantity: qty, sell_price: sellPrice, notes })
+
 describe('Cart', () => {
-  /** Verifies an empty-state message is shown when no items are in the cart. */
   it('shows empty message when cart is empty', () => {
-    render(<Cart items={[]} onRemove={vi.fn()} />)
+    render(<Cart lines={[]} onUpdate={vi.fn()} onRemove={vi.fn()} />)
     expect(screen.getByText(/cart is empty/i)).toBeInTheDocument()
   })
 
-  /** Verifies each cart item's code, description, and price are rendered in the table. */
-  it('shows each item with code, description and price', () => {
-    render(<Cart items={[ITEM_A, ITEM_B]} onRemove={vi.fn()} />)
+  it('shows each item with code, description and line total', () => {
+    render(<Cart lines={[line(ITEM_A), line(ITEM_B)]} onUpdate={vi.fn()} onRemove={vi.fn()} />)
     expect(screen.getByText('A001-001')).toBeInTheDocument()
     expect(screen.getByText('Red skis')).toBeInTheDocument()
     expect(screen.getByText('$75.00')).toBeInTheDocument()
@@ -46,23 +49,42 @@ describe('Cart', () => {
     expect(screen.getByText('$40.00')).toBeInTheDocument()
   })
 
-  /** Verifies the running total row displays the sum of all item prices. */
   it('shows running total', () => {
-    render(<Cart items={[ITEM_A, ITEM_B]} onRemove={vi.fn()} />)
+    render(<Cart lines={[line(ITEM_A), line(ITEM_B)]} onUpdate={vi.fn()} onRemove={vi.fn()} />)
     expect(screen.getByText('$115.00')).toBeInTheDocument()
   })
 
-  /** Verifies onRemove is called with the correct item ID when the Remove button is clicked. */
   it('calls onRemove with item id when Remove is clicked', () => {
     const onRemove = vi.fn()
-    render(<Cart items={[ITEM_A]} onRemove={onRemove} />)
-    fireEvent.click(screen.getByRole('button', { name: /remove/i }))
+    render(<Cart lines={[line(ITEM_A)]} onUpdate={vi.fn()} onRemove={onRemove} />)
+    fireEvent.click(screen.getByRole('button', { name: /remove A001-001/i }))
     expect(onRemove).toHaveBeenCalledWith(ITEM_A.id)
   })
 
-  /** Verifies the seller code column is displayed for each item in the cart. */
   it('shows seller code for each item', () => {
-    render(<Cart items={[ITEM_A]} onRemove={vi.fn()} />)
+    render(<Cart lines={[line(ITEM_A)]} onUpdate={vi.fn()} onRemove={vi.fn()} />)
     expect(screen.getByText('A001')).toBeInTheDocument()
+  })
+
+  it('quantity input is capped at the item remaining quantity', () => {
+    const multi = { ...ITEM_A, quantity: 5 }
+    const onUpdate = vi.fn()
+    render(<Cart lines={[line(multi, 1)]} onUpdate={onUpdate} onRemove={vi.fn()} />)
+    const qtyInput = screen.getByLabelText(/quantity for A001-001/i) as HTMLInputElement
+    expect(qtyInput.max).toBe('5')
+    fireEvent.change(qtyInput, { target: { value: '99' } })
+    expect(onUpdate).toHaveBeenCalledWith(ITEM_A.id, { quantity: 5 })
+  })
+
+  it('changing price calls onUpdate and reveals adjustment notes field', () => {
+    const Wrapper = () => {
+      const [lines, setLines] = useState<CartLine[]>([line(ITEM_A)])
+      return <Cart lines={lines} onUpdate={(id, patch) => setLines(prev => prev.map(l => l.item.id === id ? { ...l, ...patch } : l))} onRemove={vi.fn()} />
+    }
+    render(<Wrapper />)
+    const priceInput = screen.getByLabelText(/unit price for A001-001/i) as HTMLInputElement
+    fireEvent.change(priceInput, { target: { value: '60' } })
+    // notes field appears because the line price no longer matches the listed price
+    expect(screen.getByLabelText(/price adjustment notes for A001-001/i)).toBeInTheDocument()
   })
 })

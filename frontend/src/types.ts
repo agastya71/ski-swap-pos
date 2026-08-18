@@ -408,6 +408,8 @@ export interface SaleCreate {
   check_amount?: number
   /** Amount charged to a credit/debit card via Square (dollars). */
   cc_amount?: number
+  /** Square transaction id (or card reference) when payment is by card. */
+  cc_transaction_id?: string
   /** Check number if payment is by check. */
   check_number?: string
   /** Customer name for receipt or records. */
@@ -466,6 +468,8 @@ export interface SaleWithItemsResponse {
   cc_amount: number
   /** Check number; null if payment was not by check. */
   check_number: string | null
+  /** Square transaction id / card reference; null if payment was not by card. */
+  cc_transaction_id: string | null
   /** Total amount paid (cash + check + cc). */
   total_paid: number
   /** Remaining amount owed after payment; typically 0 for completed sales. */

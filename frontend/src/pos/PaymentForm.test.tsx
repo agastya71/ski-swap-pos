@@ -22,7 +22,7 @@ describe('PaymentForm', () => {
     render(<PaymentForm total={115} onSubmit={onSubmit} onCancel={vi.fn()} squareToken={null} />)
     fireEvent.change(screen.getByLabelText(/cash/i), { target: { value: '115' } })
     fireEvent.click(screen.getByRole('button', { name: /complete sale/i }))
-    expect(onSubmit).toHaveBeenCalledWith({ cash: 115, check: 0, square: 0, squareToken: null })
+    expect(onSubmit).toHaveBeenCalledWith({ cash: 115, check: 0, square: 0, squareToken: null, checkNumber: null, notes: null })
   })
 
   /** Verifies onSubmit receives the correct split amounts when both cash and check are entered. */
@@ -32,7 +32,7 @@ describe('PaymentForm', () => {
     fireEvent.change(screen.getByLabelText(/cash/i), { target: { value: '50' } })
     fireEvent.change(screen.getByLabelText(/check/i), { target: { value: '65' } })
     fireEvent.click(screen.getByRole('button', { name: /complete sale/i }))
-    expect(onSubmit).toHaveBeenCalledWith({ cash: 50, check: 65, square: 0, squareToken: null })
+    expect(onSubmit).toHaveBeenCalledWith({ cash: 50, check: 65, square: 0, squareToken: null, checkNumber: null, notes: null })
   })
 
   /** Verifies an alert is shown when the tendered amount is less than the sale total. */
@@ -57,6 +57,6 @@ describe('PaymentForm', () => {
     render(<PaymentForm total={115} onSubmit={onSubmit} onCancel={vi.fn()} squareToken="tok_abc" />)
     fireEvent.change(screen.getByLabelText(/cash/i), { target: { value: '15' } })
     fireEvent.click(screen.getByRole('button', { name: /complete sale/i }))
-    expect(onSubmit).toHaveBeenCalledWith({ cash: 15, check: 0, square: 100, squareToken: 'tok_abc' })
+    expect(onSubmit).toHaveBeenCalledWith({ cash: 15, check: 0, square: 100, squareToken: 'tok_abc', checkNumber: null, notes: null })
   })
 })

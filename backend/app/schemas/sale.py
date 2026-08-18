@@ -3,7 +3,7 @@
 import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class SaleItemCreate(BaseModel):
@@ -28,6 +28,7 @@ class SaleCreate(BaseModel):
     check_amount: float = Field(default=0.0, description="Amount tendered by the buyer by check.")
     check_number: Optional[str] = Field(default=None, description="Check number for the check tender, if applicable.")
     cc_amount: float = Field(default=0.0, description="Amount tendered by the buyer by credit/debit card.")
+    cc_transaction_id: Optional[str] = Field(default=None, description="Square transaction id (or card reference) when payment is by card.")
     items: list[SaleItemCreate] = Field(description="One or more line items included in this sale; must not be empty.")
 
     @field_validator("items")
@@ -36,6 +37,14 @@ class SaleCreate(BaseModel):
         if not v:
             raise ValueError("items list must not be empty")
         return v
+
+    @model_validator(mode="after")
+    def _validate_payment_ids(self) -> "SaleCreate":
+        if self.check_amount > 0 and not (self.check_number and self.check_number.strip()):
+            raise ValueError("check_number is required when check_amount > 0")
+        if self.cc_amount > 0 and not (self.cc_transaction_id and self.cc_transaction_id.strip()):
+            raise ValueError("cc_transaction_id is required when cc_amount > 0")
+        return self
 
 
 class SaleItemResponse(BaseModel):
@@ -61,7 +70,7 @@ class SaleResponse(BaseModel):
 
     id: int = Field(description="Auto-generated primary key for the sale.")
     event_id: int = Field(description="ID of the active event this sale was made under.")
-    date_of_sale: Optional[datetime.date] = Field(default=None, description="Calendar date on which the sale occurred.")
+    date_of_sale: Optional[datetime.datetime] = Field(default=None, description="Full timestamp at which the sale occurred.")
     customer_name: Optional[str] = Field(default=None, description="Buyer's name, if recorded.")
     customer_email: Optional[str] = Field(default=None, description="Buyer's email address, if recorded.")
     sale_total: float = Field(description="Sum of all line item extended prices (gross sale amount).")
@@ -71,6 +80,7 @@ class SaleResponse(BaseModel):
     check_amount: float = Field(description="Amount paid by check.")
     cc_amount: float = Field(description="Amount paid by credit/debit card.")
     check_number: Optional[str] = Field(default=None, description="Check number, if payment included a check.")
+    cc_transaction_id: Optional[str] = Field(default=None, description="Square transaction id / card reference, if payment was by card.")
     total_paid: float = Field(description="Total amount actually tendered (cash + check + cc).")
     balance_due: float = Field(description="Remaining balance after subtracting total_paid from sale_total (should be 0 for settled transactions).")
     notes: Optional[str] = Field(default=None, description="General cashier notes about the transaction.")
