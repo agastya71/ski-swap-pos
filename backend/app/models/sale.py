@@ -22,7 +22,7 @@ class Sale(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     event_id = Column(Integer, ForeignKey("event.id"), nullable=False)
-    date_of_sale = Column(Date)
+    date_of_sale = Column(DateTime)  # full timestamp of the transaction
     customer_name = Column(String)
     customer_email = Column(String)
     sale_total = Column(Float, nullable=False, default=0.0)
@@ -32,6 +32,7 @@ class Sale(Base):
     check_amount = Column(Float, default=0.0)
     cc_amount = Column(Float, default=0.0)
     check_number = Column(String)
+    cc_transaction_id = Column(String)  # Square transaction id / card reference
     total_paid = Column(Float, default=0.0)
     balance_due = Column(Float, default=0.0)
     notes = Column(String)

@@ -108,7 +108,39 @@ Merged via PR (see git history).
 Merged via PR (see git history).
 
 
-## Phase 4 — Single-Page Checkout + Sale Timestamp + Payment IDs (pending)
+## Phase 4 — Single-Page Checkout + Sale Timestamp + Payment IDs
+
+**Branch:** `feat/phase-4-single-page-checkout`
+**Spec section:** §9 (sale record), §10 (single-page checkout), §11 (price adjustment at sale time)
+
+### Backend
+- Migration `d4e5f6a7b8c9_sale_datetime_and_cc_txn`: `sale.date_of_sale` Date → DateTime (full timestamp); adds `sale.cc_transaction_id`.
+- `Sale` model: `date_of_sale` DateTime, `cc_transaction_id` String nullable.
+- `SaleCreate`: adds `cc_transaction_id`; model validator — `check_number` required when `check_amount > 0`, `cc_transaction_id` required when `cc_amount > 0`.
+- `SaleResponse`: `date_of_sale` is now datetime; includes `cc_transaction_id`.
+- `checkout.py`: `date_of_sale = datetime.now(timezone.utc)`; passes `cc_transaction_id`.
+- Tests: updated payment-split test (adds cc_transaction_id); +3 (check-without-number 422, cc-without-txn-id 422, timestamp+cashier recorded).
+
+### Frontend
+- **Single-page checkout**: `POSPage` rewritten — cart + payment + confirmation on one screen; `phase: 'editing' | 'confirmed'`; no separate payment step. Payment form always visible below cart (Complete Sale disabled while cart empty); confirmation inline with New Transaction.
+- **Cart** rewritten to `CartLine` ({item, quantity, sell_price, notes}): editable quantity (capped at item.remaining), editable unit price, price-adjustment notes field (shown when price overridden), Remove. Duplicate scan increments line quantity (capped). Running total = Σ sell_price × quantity.
+- **PaymentForm**: added check number (shown when check > 0) and sale notes fields; `onSubmit` now carries `checkNumber` + `notes`.
+- `POSPage.handlePayment` sends per-line `quantity`/`sell_price`/`notes`, `check_number`, `cc_transaction_id` (= Square token when card), sale `notes`.
+- types: `SaleCreate.cc_transaction_id`; `SaleResponse/SaleWithItemsResponse.cc_transaction_id`.
+- **Fixed the 5 pre-existing `POSPage.test.tsx` failures** (root cause: un-mocked `/items/search` debounce + localStorage cart leaking between tests). Added `localStorage.clear()` to global test-setup `afterEach`; POSPage tests mock `/items/search` → [].
+- Rewrote `Cart.test.tsx`, `POSPage.test.tsx`; updated `PaymentForm.test.tsx` + `ConfirmationScreen.test.tsx` fixtures.
+
+### Test results (after Phase 4)
+| Suite | Result | Δ from Phase 3 |
+|---|---|---|
+| Backend | 195 passed | +3 |
+| Frontend | **177 passed / 0 failed** | +7 net; **5 pre-existing failures fixed** |
+| `tsc -b` | clean | — |
+
+### Status
+Merged via PR (see git history).
+
+
 ## Phase 5 — Brand Matching + Bulk Import (pending)
 ## Phase 6 — Category→Type→Size Cascade (blocked: pending stakeholder mapping)
 ## Phase 7 — Reports Per-Item Commission/Payout/Rate (pending)

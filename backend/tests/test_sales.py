@@ -202,6 +202,7 @@ def test_create_sale_payment_split(client, cashier_token, active_event, item):
             "check_amount": 5.00,
             "cc_amount": 5.00,
             "check_number": "1234",
+            "cc_transaction_id": "sq-txn-123",
         },
         headers={"Authorization": f"Bearer {cashier_token}"},
     )
@@ -211,6 +212,7 @@ def test_create_sale_payment_split(client, cashier_token, active_event, item):
     assert data["check_amount"] == 5.00
     assert data["cc_amount"] == 5.00
     assert data["check_number"] == "1234"
+    assert data["cc_transaction_id"] == "sq-txn-123"
     assert data["total_paid"] == 20.00
     assert data["balance_due"] == 0.00
 
@@ -556,3 +558,31 @@ def test_void_keeps_sold_status_when_other_sales_remain(client, db, admin_token,
     db.refresh(it)
     assert it.quantity == 3.0
     assert it.status == "sold"
+
+
+# ── payment-id validators + timestamp (Phase 4) ───────────────────────────────
+
+def test_create_sale_check_without_number_422(client, cashier_token, active_event, item):
+    r = client.post("/sales",
+                    json={"items": [{"item_id": item.id}], "check_amount": 20.00},
+                    headers={"Authorization": f"Bearer {cashier_token}"})
+    assert r.status_code == 422
+
+
+def test_create_sale_cc_without_transaction_id_422(client, cashier_token, active_event, item):
+    r = client.post("/sales",
+                    json={"items": [{"item_id": item.id}], "cc_amount": 20.00},
+                    headers={"Authorization": f"Bearer {cashier_token}"})
+    assert r.status_code == 422
+
+
+def test_create_sale_records_timestamp_and_cashier(client, cashier_token, active_event, item):
+    r = client.post("/sales",
+                    json={"items": [{"item_id": item.id}], "cash_amount": 20.00},
+                    headers={"Authorization": f"Bearer {cashier_token}"})
+    assert r.status_code == 201
+    data = r.json()
+    # date_of_sale is now a full ISO datetime (contains a 'T')
+    assert "T" in data["date_of_sale"]
+    assert data["created_by"] == "cashier1"
+    assert data["cc_transaction_id"] is None

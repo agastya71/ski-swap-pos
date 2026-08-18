@@ -11,7 +11,7 @@ const SALE: SaleWithItemsResponse = {
   customer_name: null, customer_email: null,
   sale_total: 115, mysl_total: 34.5, seller_total: 80.5,
   cash_amount: 115, check_amount: 0, cc_amount: 0,
-  check_number: null, total_paid: 115, balance_due: 0,
+  check_number: null, cc_transaction_id: null, total_paid: 115, balance_due: 0,
   notes: null, is_voided: false, created_at: '2026-04-04T10:00:00',
   created_by: null,
   sale_items: [
