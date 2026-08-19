@@ -6,6 +6,7 @@
  */
 import { useState, type FormEvent } from 'react'
 import { addItem } from '../api/intakes'
+import { fetchBrands } from '../api/items'
 import { ITEM_TYPES, SIZE_OPTIONS } from '../lib/itemSizes'
 import type { Item } from '../types'
 
@@ -31,6 +32,14 @@ export function ItemForm({ intakeId, onAdded }: {
   const [f, setF] = useState(() => emptyForm())
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [brandSuggestions, setBrandSuggestions] = useState<string[]>([])
+
+  /** Brand typeahead: fetch matching existing brands as the cashier types. */
+  async function handleBrandInput(value: string) {
+    set('brand', value)
+    if (value.trim().length < 1) { setBrandSuggestions([]); return }
+    try { setBrandSuggestions(await fetchBrands(value.trim())) } catch { setBrandSuggestions([]) }
+  }
 
   function set(k: keyof ReturnType<typeof emptyForm>, v: string | boolean) {
     setF(prev => ({ ...prev, [k]: v }))
@@ -47,7 +56,7 @@ export function ItemForm({ intakeId, onAdded }: {
     try {
       const item = await addItem(intakeId, {
         category: f.category || undefined,
-        brand: f.brand || undefined,
+        brand: f.brand,
         type: f.type || undefined,
         description: f.description || undefined,
         color: f.color || undefined,
@@ -88,7 +97,20 @@ export function ItemForm({ intakeId, onAdded }: {
             {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
-        {text('brand', 'Brand')}
+        <div style={{ marginBottom: 8 }}>
+          <label htmlFor="brand" style={{ display: 'block', fontSize: 13, marginBottom: 2 }}>Brand *</label>
+          <input
+            id="brand"
+            list="brand-suggestions"
+            value={f.brand}
+            onChange={e => handleBrandInput(e.target.value)}
+            required
+            style={{ width: '100%', padding: 5 }}
+          />
+          <datalist id="brand-suggestions">
+            {brandSuggestions.map(b => <option key={b} value={b} />)}
+          </datalist>
+        </div>
         <div style={{ marginBottom: 8 }}>
           <label htmlFor="type" style={{ display: 'block', fontSize: 13, marginBottom: 2 }}>Type</label>
           <select id="type" value={f.type} onChange={e => handleTypeChange(e.target.value)} style={{ width: '100%', padding: 5 }}>

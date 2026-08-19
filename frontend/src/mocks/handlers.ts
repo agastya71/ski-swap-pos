@@ -165,6 +165,7 @@ export const handlers = [
   http.get('/items/lookup', () => HttpResponse.json({ ...ITEM, seller_code: 'A001' })),
   /** GET /items/search — partial-code search; returns an empty array (tests override as needed). */
   http.get('/items/search', () => HttpResponse.json([])),
+  http.get('/items/brands', () => HttpResponse.json([])),
   /** GET /items/:id — fetches a single item by numeric ID, returns the ITEM fixture. */
   http.get('/items/:id', () => HttpResponse.json(ITEM)),
   /** PATCH /items/:id — updates item fields, returns the ITEM fixture unchanged. */

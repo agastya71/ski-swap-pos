@@ -10,7 +10,7 @@ class ItemCreate(BaseModel):
     """Payload for adding a new consigned item to an intake session. Item code is auto-generated."""
 
     category: Optional[str] = Field(default=None, description="High-level merchandise category (e.g., 'Skis', 'Boots', 'Apparel').")
-    brand: Optional[str] = Field(default=None, description="Manufacturer or brand name of the item.")
+    brand: str = Field(min_length=1, description="Manufacturer or brand name. Required.")
     type: Optional[str] = Field(default=None, description="Sub-type within the category (e.g., 'Alpine', 'Nordic').")
     description: Optional[str] = Field(default=None, description="Free-text description of the item as it will appear on the label.")
     color: Optional[str] = Field(default=None, description="Color or color combination of the item.")

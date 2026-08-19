@@ -56,6 +56,17 @@ export const adjustItemQuantity = (id: number, adjustment: number) =>
   apiFetch<Item>(`/items/${id}/quantity`, { method: 'PATCH', body: JSON.stringify({ adjustment }) })
 
 /**
+ * Fetch distinct brand names for the active event, optionally filtered by prefix.
+ * Used by the item-entry brand typeahead to suggest close alternatives.
+ *
+ * @param q - Partial brand string to filter by (case-insensitive).
+ * @returns Array of matching brand names; may be empty.
+ * @throws {ApiError} 401 if the session token is invalid.
+ */
+export const fetchBrands = (q: string) =>
+  apiFetch<string[]>(`/items/brands?q=${encodeURIComponent(q)}`)
+
+/**
  * Send a ZPL barcode label for one item to the label printer.
  *
  * @param id - Primary key of the item whose label should be printed.

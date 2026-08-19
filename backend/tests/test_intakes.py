@@ -113,7 +113,7 @@ def test_add_item_auto_assigns_code(client, active_event, admin_token):
 
     item_r = client.post(
         f"/intakes/{intake_id}/items",
-        json={"description": "Ski boots", "price": 50.0},
+        json={"description": "Ski boots", "brand": "Salomon", "price": 50.0},
         headers=headers,
     )
     assert item_r.status_code == 201
@@ -127,8 +127,8 @@ def test_add_two_items_increments_code(client, active_event, admin_token):
     intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
     intake_id = intake_r.json()["id"]
 
-    client.post(f"/intakes/{intake_id}/items", json={"description": "Skis", "price": 80.0}, headers=headers)
-    r2 = client.post(f"/intakes/{intake_id}/items", json={"description": "Boots", "price": 40.0}, headers=headers)
+    client.post(f"/intakes/{intake_id}/items", json={"description": "Skis", "brand": "Atomic", "price": 80.0}, headers=headers)
+    r2 = client.post(f"/intakes/{intake_id}/items", json={"description": "Boots", "brand": "Rossignol", "price": 40.0}, headers=headers)
     assert r2.json()["code"] == f"{seller_code}-02"
 
 
@@ -172,7 +172,7 @@ def test_import_skips_rows_missing_price(client, active_event, admin_token):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.append(["Description", "Category", "Brand", "Type", "Color", "Size", "Gender/Age", "Year", "Price", "Used", "Donate if Unsold"])
-    ws.append(["Good row", None, None, None, None, None, None, None, 30.0, "Yes", "No"])
+    ws.append(["Good row", None, "Atomic", None, None, None, None, None, 30.0, "Yes", "No"])
     ws.append([None, None, None, None, None, None, None, None, None, "Yes", "No"])  # missing description AND price
     buf = io.BytesIO()
     wb.save(buf)

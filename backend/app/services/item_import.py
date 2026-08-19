@@ -1,0 +1,158 @@
+"""Bulk item import service — parses an uploaded template file (Excel .xlsx, CSV,
+or TSV) and creates item rows for an intake, applying brand closest-matching and
+collecting per-row errors.
+
+Semantics: every row is validated; valid rows are committed in a single
+transaction and invalid rows are reported back in an error list (the caller can
+render/download the error report). Brand values are replaced with the closest
+existing brand (normalized edit distance ≤ 2) when a close match exists.
+"""
+
+import csv
+import io
+from io import BytesIO
+from typing import Any
+
+import openpyxl
+from sqlalchemy.orm import Session
+
+from app.models.intake import Intake
+from app.models.item import Item
+from app.models.seller import Seller
+from app.schemas.item import ImportResult, ImportRowError
+from app.services.brand_match import closest_brand
+
+
+def parse_upload(filename: str, data: bytes) -> list[list[Any]]:
+    """Parse an uploaded template file into a list of data rows (no header).
+
+    Detects format by extension: .xlsx via openpyxl, .csv/.tsv via the stdlib
+    csv module (delimiter sniffed). Raises ValueError for unsupported formats or
+    unreadable files.
+    """
+    name = (filename or "").lower()
+    if name.endswith(".xlsx"):
+        try:
+            wb = openpyxl.load_workbook(BytesIO(data))
+        except Exception as exc:  # noqa: BLE001 - surface as a single 422
+            raise ValueError("Invalid or unreadable xlsx file") from exc
+        return list(wb.active.iter_rows(min_row=2, values_only=True))
+    if name.endswith(".csv") or name.endswith(".tsv"):
+        delimiter = "\t" if name.endswith(".tsv") else ","
+        text = data.decode("utf-8-sig", errors="replace")
+        reader = csv.reader(io.StringIO(text), delimiter=delimiter)
+        rows = list(reader)
+        return rows[1:]  # drop header
+    # Unknown extension: try CSV as a forgiving fallback, else xlsx bytes.
+    try:
+        text = data.decode("utf-8-sig", errors="replace")
+        rows = list(csv.reader(io.StringIO(text)))
+        return rows[1:]
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError("Unsupported import format (use .xlsx, .csv, or .tsv)") from exc
+
+
+def _existing_brands(db: Session, seller: Seller) -> list[str]:
+    """Distinct brand strings already used by this seller's event (for matching)."""
+    rows = (
+        db.query(Item.brand)
+        .join(Intake, Item.intake_id == Intake.id)
+        .join(Seller, Intake.seller_id == Seller.id)
+        .filter(Seller.event_id == seller.event_id, Item.brand.isnot(None))
+        .distinct()
+        .all()
+    )
+    return [r[0] for r in rows if r[0]]
+
+
+def import_items(
+    db: Session,
+    intake: Intake,
+    seller: Seller,
+    username: str,
+    filename: str,
+    data: bytes,
+) -> ImportResult:
+    """Import items from an uploaded template into the given intake session."""
+    try:
+        rows = parse_upload(filename, data)
+    except ValueError as exc:
+        raise exc
+
+    brands_pool = _existing_brands(db, seller)
+
+    prefix = f"{seller.code}-"
+    existing_codes = (
+        db.query(Item.code)
+        .join(Intake, Item.intake_id == Intake.id)
+        .filter(Intake.seller_id == seller.id, Item.code.like(f"{prefix}%"))
+        .all()
+    )
+    next_seq = max((int(r[0].rsplit("-", 1)[-1]) for r in existing_codes), default=0) + 1
+
+    errors: list[ImportRowError] = []
+    imported = 0
+    skipped = 0
+
+    for i, row in enumerate(rows, start=2):  # row 1 is the header
+        padded = (list(row) + [None] * 11)[:11]
+        description, category, brand, type_, color, size, gender_age, year, price, used_str, donate_str = padded
+
+        if not description or price is None:
+            errors.append(ImportRowError(row=i, reason="Missing required field: Description or Price"))
+            skipped += 1
+            continue
+        if not brand or not str(brand).strip():
+            errors.append(ImportRowError(row=i, reason="Missing required field: Brand"))
+            skipped += 1
+            continue
+
+        try:
+            price_float = float(price)
+        except (TypeError, ValueError):
+            errors.append(ImportRowError(row=i, reason=f"Invalid Price value: {price!r}"))
+            skipped += 1
+            continue
+
+        # Brand closest-match: replace with an existing brand if one is close.
+        brand_str = str(brand).strip()
+        matched = closest_brand(brand_str, brands_pool)
+        if matched is not None:
+            brand_str = matched
+        elif brand_str not in brands_pool:
+            brands_pool.append(brand_str)  # later rows can match this newly-seen brand
+
+        item_code = f"{prefix}{next_seq:02d}"
+        used = str(used_str).strip().lower() != "no" if used_str is not None else True
+        donate = str(donate_str).strip().lower() == "yes" if donate_str is not None else False
+
+        year_int = None
+        if year is not None:
+            try:
+                year_int = int(year)
+            except (TypeError, ValueError):
+                year_int = None
+
+        db.add(Item(
+            intake_id=intake.id,
+            seller_id=seller.id,
+            code=item_code,
+            barcode_39=item_code,
+            description=str(description),
+            category=str(category) if category else None,
+            brand=brand_str,
+            type=str(type_) if type_ else None,
+            color=str(color) if color else None,
+            size=str(size) if size else None,
+            gender_age=str(gender_age) if gender_age else None,
+            year=year_int,
+            price=price_float,
+            used=used,
+            donate_unsold=donate,
+            created_by=username,
+        ))
+        next_seq += 1
+        imported += 1
+
+    db.commit()
+    return ImportResult(imported=imported, skipped=skipped, errors=errors)

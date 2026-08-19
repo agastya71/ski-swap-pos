@@ -214,12 +214,12 @@ export function SellerDetailPage({ seller: initialSeller, onBack, eventId }: {
             onClick={() => fileInputRef.current?.click()}
             style={{ border: `1px solid ${NAVY}`, color: NAVY, background: 'none', padding: '4px 10px', cursor: 'pointer', borderRadius: 3, fontSize: 13 }}
           >
-            Import from Excel
+            Import Items
           </button>
           <input
             ref={fileInputRef}
             type="file"
-            accept=".xlsx"
+            accept=".xlsx,.csv,.tsv"
             style={{ display: 'none' }}
             onChange={handleImportFile}
           />
