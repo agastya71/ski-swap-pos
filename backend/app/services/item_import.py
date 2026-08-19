@@ -124,7 +124,11 @@ def import_items(
 
         item_code = f"{prefix}{next_seq:02d}"
         used = str(used_str).strip().lower() != "no" if used_str is not None else True
-        donate = str(donate_str).strip().lower() == "yes" if donate_str is not None else False
+        # Inherit donate_unsold from the intake when the row leaves it blank.
+        if donate_str is None or str(donate_str).strip() == "":
+            donate = intake.donate_unsold
+        else:
+            donate = str(donate_str).strip().lower() == "yes"
 
         year_int = None
         if year is not None:

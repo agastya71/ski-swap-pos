@@ -118,13 +118,17 @@ def add_item_to_intake(
     if not seller:
         raise HTTPException(status_code=404, detail="Seller not found")
     item_code = _next_item_code(intake.seller_id, seller.code, db)
+    # donate_unsold inherits from the intake (which itself inherits from the
+    # seller's default) unless explicitly set on this item.
+    donate_unsold = body.donate_unsold if body.donate_unsold is not None else intake.donate_unsold
     item = Item(
         intake_id=intake.id,
         seller_id=intake.seller_id,
         code=item_code,
         barcode_39=body.barcode_39 or item_code,
         created_by=current_user.username,
-        **body.model_dump(exclude={"barcode_39"}),
+        **body.model_dump(exclude={"barcode_39", "donate_unsold"}),
+        donate_unsold=donate_unsold,
     )
     db.add(item)
     db.commit()

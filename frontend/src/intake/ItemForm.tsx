@@ -12,9 +12,9 @@ import type { Item } from '../types'
 
 const CATEGORIES = ['Skis', 'Ski Boots', 'Ski Poles', 'Snowboard', 'Snowboard Boots', 'Bindings', 'Helmet', 'Clothing', 'Other']
 
-const emptyForm = () => ({
+const emptyForm = (donateUnsold: boolean) => ({
   category: '', brand: '', type: '', description: '', color: '',
-  size: '', uom: '', gender_age: '', year: '', used: false, price: '', donate_unsold: false,
+  size: '', uom: '', gender_age: '', year: '', used: false, price: '', donate_unsold: donateUnsold,
 })
 
 /**
@@ -25,11 +25,13 @@ const emptyForm = () => ({
  * @param props.intakeId - ID of the intake session to which the item will be added.
  * @param props.onAdded - Callback invoked with the newly created {@link Item} on success.
  */
-export function ItemForm({ intakeId, onAdded }: {
+export function ItemForm({ intakeId, onAdded, defaultDonateUnsold = false }: {
   intakeId: number
   onAdded: (item: Item) => void
+  /** Per-item donate-unsold initial state; inherits the intake's (and seller's) preference. */
+  defaultDonateUnsold?: boolean
 }) {
-  const [f, setF] = useState(() => emptyForm())
+  const [f, setF] = useState(() => emptyForm(defaultDonateUnsold))
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [brandSuggestions, setBrandSuggestions] = useState<string[]>([])
@@ -69,7 +71,7 @@ export function ItemForm({ intakeId, onAdded }: {
         donate_unsold: f.donate_unsold,
       })
       onAdded(item)
-      setF(emptyForm())
+      setF(emptyForm(defaultDonateUnsold))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add item')
     } finally {
