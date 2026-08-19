@@ -229,6 +229,7 @@ export function IntakePage() {
           <ItemForm
             intakeId={intake.id}
             onAdded={handleItemAdded}
+            defaultDonateUnsold={intake.donate_unsold}
           />
           <div style={{ margin: '12px 0' }}>
             <ImportItemsButton intakeId={intake.id} onImported={() => refreshItems()} />

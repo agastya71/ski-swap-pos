@@ -131,13 +131,26 @@ describe('ItemForm', () => {
   })
 })
 
-  /** Typing a brand fetches existing-brand suggestions into the datalist. */
-  it('suggests existing brands via the typeahead datalist', async () => {
-    server.use(http.get('/items/brands', () => HttpResponse.json(['Rossignol', 'Rottefella'])))
-    render(<ItemForm intakeId={5} onAdded={vi.fn()} />)
-    fireEvent.change(screen.getByLabelText(/brand/i), { target: { value: 'Ro' } })
-    await waitFor(() => {
-      const opts = document.querySelectorAll('#brand-suggestions option')
-      expect(Array.from(opts).map(o => o.getAttribute('value'))).toEqual(['Rossignol', 'Rottefella'])
-    })
+/** Typing a brand fetches existing-brand suggestions into the datalist. */
+it('suggests existing brands via the typeahead datalist', async () => {
+  server.use(http.get('/items/brands', () => HttpResponse.json(['Rossignol', 'Rottefella'])))
+  render(<ItemForm intakeId={5} onAdded={vi.fn()} />)
+  fireEvent.change(screen.getByLabelText(/brand/i), { target: { value: 'Ro' } })
+  await waitFor(() => {
+    const opts = document.querySelectorAll('#brand-suggestions option')
+    expect(Array.from(opts).map(o => o.getAttribute('value'))).toEqual(['Rossignol', 'Rottefella'])
   })
+})
+
+/** defaultDonateUnsold pre-fills the donate-unsold checkbox (inherits intake/seller preference). */
+it('pre-fills the donate-unsold checkbox from defaultDonateUnsold', () => {
+  render(<ItemForm intakeId={5} onAdded={vi.fn()} defaultDonateUnsold={true} />)
+  const checkbox = screen.getByRole('checkbox', { name: /donate if unsold/i }) as HTMLInputElement
+  expect(checkbox.checked).toBe(true)
+})
+
+it('defaults the donate-unsold checkbox to false when defaultDonateUnsold is not provided', () => {
+  render(<ItemForm intakeId={5} onAdded={vi.fn()} />)
+  const checkbox = screen.getByRole('checkbox', { name: /donate if unsold/i }) as HTMLInputElement
+  expect(checkbox.checked).toBe(false)
+})

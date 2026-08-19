@@ -280,3 +280,38 @@ def test_create_intake_defaults_false_when_seller_default_false(client, admin_to
     data = r.json()
     assert data["donate_unsold"] is False
     assert data["donate_proceeds"] is False
+
+
+# ── per-item donate_unsold inheritance from intake (fix) ──────────────────────
+
+def test_add_item_inherits_intake_donate_unsold(db, client, active_event, admin_token):
+    """An item without an explicit donate_unsold inherits the intake's flag
+    (which itself inherits the seller's default)."""
+    from app.models.seller import Seller
+    s = Seller(event_id=active_event.id, code="INH", first_name="Don", last_name="Nor",
+               is_vendor=False, donate_unsold_default=True, created_by="admin")
+    db.add(s); db.commit(); db.refresh(s)
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    intake_r = client.post("/intakes", json={"seller_id": s.id}, headers=headers)
+    assert intake_r.json()["donate_unsold"] is True  # inherited from seller default
+    intake_id = intake_r.json()["id"]
+    # Add an item WITHOUT donate_unsold -> should inherit True
+    r = client.post(f"/intakes/{intake_id}/items",
+                    json={"description": "Skis", "brand": "Atomic", "price": 50.0},
+                    headers=headers)
+    assert r.status_code == 201
+    assert r.json()["donate_unsold"] is True
+
+
+def test_add_item_explicit_donate_unsold_overrides_intake(db, client, active_event, admin_token):
+    from app.models.seller import Seller
+    s = Seller(event_id=active_event.id, code="INH2", first_name="Don", last_name="Nor",
+               is_vendor=False, donate_unsold_default=True, created_by="admin")
+    db.add(s); db.commit(); db.refresh(s)
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    intake_id = client.post("/intakes", json={"seller_id": s.id}, headers=headers).json()["id"]
+    r = client.post(f"/intakes/{intake_id}/items",
+                    json={"description": "Skis", "brand": "Atomic", "price": 50.0, "donate_unsold": False},
+                    headers=headers)
+    assert r.status_code == 201
+    assert r.json()["donate_unsold"] is False

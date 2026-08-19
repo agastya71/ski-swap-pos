@@ -379,3 +379,26 @@ def test_import_skips_rows_missing_brand(client, active_event, admin_token):
     assert body["imported"] == 1
     assert body["skipped"] == 1
     assert body["errors"][0]["row"] == 3
+
+
+def test_import_inherits_donate_unsold_from_intake_when_blank(client, db, active_event, admin_token):
+    """A import row with a blank 'Donate if Unsold' cell inherits the intake's flag."""
+    from app.models.seller import Seller
+    from app.models.intake import Intake
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    # Seller + intake with donate_unsold=True
+    s = Seller(event_id=active_event.id, code="IMP", first_name="I", last_name="M",
+               is_vendor=False, donate_unsold_default=True, created_by="admin")
+    db.add(s); db.commit(); db.refresh(s)
+    intake = Intake(seller_id=s.id, donate_unsold=True, donate_proceeds=False, created_by="admin")
+    db.add(intake); db.commit(); db.refresh(intake)
+    # Row with brand but blank Donate column
+    csv_text = "Description,Category,Brand,Type,Color,Size,Gender/Age,Year,Price,Used,Donate if Unsold\n"
+    csv_text += "Skis,Skis,Atomic,Alpine,Red,170,Men,2020,110.0,Yes,\n"
+    r = client.post(f"/intakes/{intake.id}/items/import",
+                    files={"file": ("items.csv", csv_text.encode("utf-8"), "text/csv")},
+                    headers=headers)
+    assert r.status_code == 200
+    assert r.json()["imported"] == 1
+    listed = client.get(f"/sellers/{s.id}/items", headers=headers).json()
+    assert listed[0]["donate_unsold"] is True

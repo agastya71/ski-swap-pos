@@ -24,7 +24,7 @@ class ItemCreate(BaseModel):
     barcode_39: Optional[str] = Field(default=None, description="Code 39 barcode string to print on the item label. Defaults to the auto-generated item code if omitted.")
     label_line_2: Optional[str] = Field(default=None, description="Second custom text line printed on the item label.")
     label_line_3: Optional[str] = Field(default=None, description="Third custom text line printed on the item label.")
-    donate_unsold: bool = Field(default=False, description="If True, this specific item will be donated if it does not sell.")
+    donate_unsold: Optional[bool] = Field(default=None, description="If True, this specific item will be donated if it does not sell. Omit (null) to inherit the intake's donate_unsold.")
     vendor_item_id: Optional[str] = Field(default=None, description="External item identifier supplied by a commercial vendor.")
 
 
