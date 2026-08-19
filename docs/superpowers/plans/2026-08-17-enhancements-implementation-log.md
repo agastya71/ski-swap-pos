@@ -174,4 +174,29 @@ Merged via PR (see git history).
 
 
 ## Phase 6 — Category→Type→Size Cascade (blocked: pending stakeholder mapping)
-## Phase 7 — Reports Per-Item Commission/Payout/Rate (pending)
+## Phase 7 — Reports Per-Item Commission/Payout/Rate
+
+**Branch:** `feat/phase-7-reports-per-item-commission`
+**Spec section:** §12
+
+### Backend
+- `SellerPayoutLineItem` schema += `mysl_share`, `seller_share`, `commission_rate`.
+- `get_seller_payout` computes per-item shares from non-voided sale_items: `sold_amount = Σ extended_price`; if `donate_proceeds` → `mysl_share = sold_amount, seller_share = 0`; else `mysl_share = round(sold_amount * rate, 2)`, `seller_share = sold_amount - mysl_share`. Non-sold items → 0/0. `commission_rate` = vendor rate if `seller.is_vendor` else individual rate (shown on every line).
+- `report_formatter`: CSV/MD/PDF payout tables include MYSL / Seller / Rate columns.
+- Tests: `test_report_service.py` +4 (per-item shares, non-sold 0/0+rate, donate_proceeds full-to-MYSL, vendor rate). Updated `test_report_formatter.py` line-item fixture.
+
+### Frontend
+- `types.ts`: `SellerPayoutLineItem` += the three fields.
+- `SellerPayoutPanel.tsx`: line-item table adds MYSL / Seller / Rate columns.
+- MSW payout handler + tests updated for the new fields; payout assertions use `getAllByText`/`queryAllByText` (summary and per-line values now coincide for single-sold-item fixtures).
+
+### Test results (after Phase 7)
+| Suite | Result | Δ from Phase 5 |
+|---|---|---|
+| Backend | 208 passed | +4 |
+| Frontend | 178 passed / 0 failed | suite stayed green |
+| `tsc -b` | clean | — |
+
+### Status
+Merged via PR (see git history).
+

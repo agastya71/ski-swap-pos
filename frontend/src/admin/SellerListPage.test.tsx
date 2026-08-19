@@ -37,14 +37,14 @@ describe('SellerListPage', () => {
     render(<SellerListPage onSelectSeller={vi.fn()} eventId={1} />)
     await waitFor(() => screen.getByText('Jane Smith'))
     fireEvent.click(screen.getByRole('button', { name: /payout/i }))
-    await waitFor(() => expect(screen.getByText('$84.00')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getAllByText('$84.00')[0]).toBeInTheDocument())
   })
 
   it('hides payout panel when Payout is clicked a second time', async () => {
     render(<SellerListPage onSelectSeller={vi.fn()} eventId={1} />)
     await waitFor(() => screen.getByText('Jane Smith'))
     fireEvent.click(screen.getByRole('button', { name: /payout/i }))
-    await waitFor(() => expect(screen.getByText('$84.00')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getAllByText('$84.00')[0]).toBeInTheDocument())
     fireEvent.click(screen.getByRole('button', { name: /payout/i }))
     await waitFor(() => expect(screen.queryByText('$84.00')).not.toBeInTheDocument())
   })

@@ -48,7 +48,7 @@ export function SellerPayoutPanel({ eventId, sellerId }: { eventId: number; sell
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderBottom: '2px solid #ccc' }}>
-              {['Item Code', 'Description', 'Status', 'Ask Price', 'Sold Price'].map(h => (
+              {['Item Code', 'Description', 'Status', 'Ask', 'Sold', 'MYSL', 'Seller', 'Rate'].map(h => (
                 <th key={h} style={{ textAlign: 'left', padding: '4px 8px', fontSize: 12 }}>{h}</th>
               ))}
             </tr>
@@ -63,6 +63,9 @@ export function SellerPayoutPanel({ eventId, sellerId }: { eventId: number; sell
                 <td style={{ padding: '4px 8px', textAlign: 'right', fontSize: 12 }}>
                   {li.status === 'sold' ? `$${li.sell_price.toFixed(2)}` : '—'}
                 </td>
+                <td style={{ padding: '4px 8px', textAlign: 'right', fontSize: 12 }}>${li.mysl_share.toFixed(2)}</td>
+                <td style={{ padding: '4px 8px', textAlign: 'right', fontSize: 12 }}>${li.seller_share.toFixed(2)}</td>
+                <td style={{ padding: '4px 8px', textAlign: 'right', fontSize: 12 }}>{(li.commission_rate * 100).toFixed(0)}%</td>
               </tr>
             ))}
           </tbody>
