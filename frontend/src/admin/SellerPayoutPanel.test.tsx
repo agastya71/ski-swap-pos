@@ -16,7 +16,7 @@ describe('SellerPayoutPanel', () => {
     expect(screen.getByText('Items Sold')).toBeInTheDocument()
     expect(screen.getByText('Gross Sales')).toBeInTheDocument()
     expect(screen.getByText('Seller Payout')).toBeInTheDocument()
-    expect(screen.getByText('$84.00')).toBeInTheDocument()
+    expect(screen.getAllByText('$84.00')[0]).toBeInTheDocument()
   })
 
   it('renders line items after data loads', async () => {

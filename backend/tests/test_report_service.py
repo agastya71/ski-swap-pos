@@ -210,3 +210,70 @@ def test_end_of_day_matches_revenue(db, active_event, sale, sold_item, seller, i
     assert eod.gross_revenue == rev.gross_revenue
     assert eod.sales_count == rev.total_sales
     assert eod.voided_count == rev.voided_sales
+
+
+# ── per-item commission/payout/rate (Phase 7) ─────────────────────────────────
+
+def test_seller_payout_per_item_shares(db, active_event, sale):
+    """A sold item's line carries mysl_share, seller_share, and the applied rate."""
+    from app.services.reports import get_seller_payout
+    report = get_seller_payout(db, active_event.id, sale.sale_items[0].item.seller_id)
+    sold = [li for li in report.line_items if li.status == "sold"]
+    assert len(sold) == 1
+    li = sold[0]
+    assert li.mysl_share == 4.5       # 15 * 0.30
+    assert li.seller_share == 10.5    # 15 - 4.5
+    assert li.commission_rate == 0.30
+
+
+def test_seller_payout_non_sold_item_zero_shares(db, active_event, seller, intake, available_item):
+    """A non-sold item line shows zero shares but still carries the applicable rate."""
+    from app.services.reports import get_seller_payout
+    report = get_seller_payout(db, active_event.id, seller.id)
+    avail = [li for li in report.line_items if li.item_code == available_item.code]
+    assert len(avail) == 1
+    assert avail[0].mysl_share == 0.0
+    assert avail[0].seller_share == 0.0
+    assert avail[0].commission_rate == 0.30   # individual rate
+
+
+def test_seller_payout_donate_proceeds_item_full_to_mysl(db, active_event, donate_sale):
+    """A sold item from a donate_proceeds intake: mysl_share = extended_price, seller 0."""
+    from app.services.reports import get_seller_payout
+    report = get_seller_payout(db, active_event.id, donate_sale.sale_items[0].item.seller_id)
+    li = [x for x in report.line_items if x.status == "sold"][0]
+    assert li.mysl_share == 30.0
+    assert li.seller_share == 0.0
+
+
+def test_seller_payout_vendor_rate_applied(db, active_event):
+    """A vendor seller's lines use the event's vendor_commission_rate."""
+    from app.models.seller import Seller
+    from app.models.intake import Intake
+    from app.models.item import Item
+    from app.models.sale import Sale
+    from app.models.sale_item import SaleItem
+    from app.services.reports import get_seller_payout
+
+    active_event.vendor_commission_rate = 0.25
+    db.commit()
+    vendor = Seller(event_id=active_event.id, code="VND", first_name=None, last_name=None,
+                    company="Vendor Co", is_vendor=True, created_by="admin")
+    db.add(vendor); db.commit(); db.refresh(vendor)
+    intake = Intake(seller_id=vendor.id, donate_proceeds=False, created_by="admin")
+    db.add(intake); db.commit(); db.refresh(intake)
+    it = Item(intake_id=intake.id, seller_id=vendor.id, code="VND-001", price=100.0,
+              quantity=0.0, status="sold", label_printed=True, created_by="admin")
+    db.add(it); db.commit(); db.refresh(it)
+    sale = Sale(event_id=active_event.id, sale_total=100.0, mysl_total=25.0, seller_total=75.0,
+                cash_amount=100.0, total_paid=100.0, is_voided=False, created_by="admin")
+    db.add(sale); db.flush()
+    db.add(SaleItem(sale_id=sale.id, item_id=it.id, line_number=1, quantity=1,
+                    sell_price=100.0, extended_price=100.0, created_by="admin"))
+    db.commit()
+
+    report = get_seller_payout(db, active_event.id, vendor.id)
+    li = [x for x in report.line_items if x.status == "sold"][0]
+    assert li.commission_rate == 0.25
+    assert li.mysl_share == 25.0
+    assert li.seller_share == 75.0

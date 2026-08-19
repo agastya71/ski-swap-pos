@@ -499,6 +499,12 @@ export interface SellerPayoutLineItem {
   sell_price: number
   /** Lifecycle status of the item at time of report generation. */
   status: string
+  /** MYSL commission for this item (0 for non-sold items). */
+  mysl_share: number
+  /** Seller payout for this item (0 for non-sold items). */
+  seller_share: number
+  /** Commission rate applied (or that would apply) to this item. */
+  commission_rate: number
 }
 
 /** Full payout report for a single seller, listing all their consigned items and totals. */

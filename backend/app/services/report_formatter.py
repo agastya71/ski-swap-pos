@@ -67,9 +67,11 @@ def _to_csv(report: BaseModel, filename_base: str) -> Response:
                     report.items_sold, report.items_unsold, report.items_donated,
                     report.gross_sales, report.mysl_total, report.seller_total])
         w.writerow([])
-        w.writerow(["item_code", "description", "price", "sell_price", "status"])
+        w.writerow(["item_code", "description", "price", "sell_price", "status",
+                    "mysl_share", "seller_share", "commission_rate"])
         for li in report.line_items:
-            w.writerow([li.item_code, li.description, li.price, li.sell_price, li.status])
+            w.writerow([li.item_code, li.description, li.price, li.sell_price, li.status,
+                        li.mysl_share, li.seller_share, li.commission_rate])
     elif isinstance(report, DonationsReport):
         w.writerow(["seller_code", "item_code", "description", "price", "donation_type"])
         for item in report.items:
@@ -109,12 +111,13 @@ def _to_md(report: BaseModel, filename_base: str) -> Response:
             f"{report.items_donated} | ${report.gross_sales:.2f} | ${report.mysl_total:.2f} | "
             f"${report.seller_total:.2f} |",
             "", "## Line Items",
-            "| Item Code | Description | Price | Sell Price | Status |",
-            "|-----------|-------------|-------|------------|--------|",
+            "| Item Code | Description | Price | Sell Price | Status | MYSL | Seller | Rate |",
+            "|-----------|-------------|-------|------------|--------|-------|--------|------|",
         ]
         for li in report.line_items:
             lines.append(f"| {li.item_code} | {li.description or ''} | ${li.price:.2f} | "
-                         f"${li.sell_price:.2f} | {li.status} |")
+                         f"${li.sell_price:.2f} | {li.status} | ${li.mysl_share:.2f} | "
+                         f"${li.seller_share:.2f} | {li.commission_rate:.0%} |")
     elif isinstance(report, EventRevenueReport):
         lines += [
             f"# Event Revenue: {report.event_name}",
@@ -205,8 +208,9 @@ def _to_pdf(report: BaseModel, filename_base: str) -> Response:
             pdf.cell(45, 6, val, border=1)
         pdf.ln(10)
         pdf.set_font("Helvetica", "B", 10)
-        for hdr, width in [("Item Code", 30), ("Description", 65), ("Price", 25),
-                            ("Sell Price", 25), ("Status", 25)]:
+        for hdr, width in [("Item Code", 28), ("Description", 50), ("Price", 20),
+                            ("Sell", 20), ("Status", 20), ("MYSL", 22),
+                            ("Seller", 22), ("Rate", 18)]:
             pdf.cell(width, 6, hdr, border=1)
         pdf.ln()
         pdf.set_font("Helvetica", "", 9)
@@ -214,16 +218,20 @@ def _to_pdf(report: BaseModel, filename_base: str) -> Response:
             if pdf.get_y() > 260:
                 pdf.add_page()
                 pdf.set_font("Helvetica", "B", 10)
-                for hdr, width in [("Item Code", 30), ("Description", 65), ("Price", 25),
-                                    ("Sell Price", 25), ("Status", 25)]:
+                for hdr, width in [("Item Code", 28), ("Description", 50), ("Price", 20),
+                                    ("Sell", 20), ("Status", 20), ("MYSL", 22),
+                                    ("Seller", 22), ("Rate", 18)]:
                     pdf.cell(width, 6, hdr, border=1)
                 pdf.ln()
                 pdf.set_font("Helvetica", "", 9)
-            pdf.cell(30, 6, _safe(li.item_code), border=1)
-            pdf.cell(65, 6, _safe((li.description or "")[:35]), border=1)
-            pdf.cell(25, 6, f"${li.price:.2f}", border=1)
-            pdf.cell(25, 6, f"${li.sell_price:.2f}", border=1)
-            pdf.cell(25, 6, _safe(li.status), border=1)
+            pdf.cell(28, 6, _safe(li.item_code), border=1)
+            pdf.cell(50, 6, _safe((li.description or "")[:28]), border=1)
+            pdf.cell(20, 6, f"${li.price:.2f}", border=1)
+            pdf.cell(20, 6, f"${li.sell_price:.2f}", border=1)
+            pdf.cell(20, 6, _safe(li.status), border=1)
+            pdf.cell(22, 6, f"${li.mysl_share:.2f}", border=1)
+            pdf.cell(22, 6, f"${li.seller_share:.2f}", border=1)
+            pdf.cell(18, 6, f"{li.commission_rate:.0%}", border=1)
             pdf.ln()
 
     elif isinstance(report, EventRevenueReport):

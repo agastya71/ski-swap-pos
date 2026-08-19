@@ -191,8 +191,8 @@ export const handlers = [
       items_consigned: 2, items_sold: 1, items_unsold: 1, items_donated: 0,
       gross_sales: 120.0, mysl_total: 36.0, seller_total: 84.0,
       line_items: [
-        { item_code: '001-01', description: 'Atomic skis', price: 120.0, sell_price: 120.0, status: 'sold' },
-        { item_code: '001-02', description: 'Boots', price: 40.0, sell_price: 0.0, status: 'unsold' },
+        { item_code: '001-01', description: 'Atomic skis', price: 120.0, sell_price: 120.0, status: 'sold', mysl_share: 36.0, seller_share: 84.0, commission_rate: 0.30 },
+        { item_code: '001-02', description: 'Boots', price: 40.0, sell_price: 0.0, status: 'unsold', mysl_share: 0.0, seller_share: 0.0, commission_rate: 0.30 },
       ],
       generated_at: '2026-04-11T00:00:00Z',
     })

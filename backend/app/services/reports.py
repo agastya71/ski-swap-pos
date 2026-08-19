@@ -103,17 +103,39 @@ def get_seller_payout(db: Session, event_id: int, seller_id: int) -> SellerPayou
             mysl_total += mysl_share
             seller_total_amt += si.extended_price - mysl_share
 
-    si_by_item = {si.item_id: si for si in sale_items}
-    line_items = [
-        SellerPayoutLineItem(
+    # Per-item aggregates for the per-line commission/payout breakdown.
+    rate = event.vendor_commission_rate if seller.is_vendor else event.commission_rate
+    sold_amount_by_item: dict[int, float] = {}
+    sell_price_by_item: dict[int, float] = {}
+    donate_proceeds_by_item: dict[int, bool] = {}
+    for si in sale_items:
+        sold_amount_by_item[si.item_id] = sold_amount_by_item.get(si.item_id, 0.0) + si.extended_price
+        sell_price_by_item[si.item_id] = si.sell_price
+        donate_proceeds_by_item[si.item_id] = si.item.intake.donate_proceeds
+
+    line_items = []
+    for it in items:
+        sold_amount = round(sold_amount_by_item.get(it.id, 0.0), 2)
+        if sold_amount > 0 and it.id in donate_proceeds_by_item:
+            if donate_proceeds_by_item[it.id]:
+                mysl_share = sold_amount
+                seller_share = 0.0
+            else:
+                mysl_share = round(sold_amount * rate, 2)
+                seller_share = round(sold_amount - mysl_share, 2)
+        else:
+            mysl_share = 0.0
+            seller_share = 0.0
+        line_items.append(SellerPayoutLineItem(
             item_code=it.code,
             description=it.description,
             price=it.price,
-            sell_price=si_by_item[it.id].sell_price if it.id in si_by_item else it.price,
+            sell_price=sell_price_by_item.get(it.id, it.price),
             status=it.status,
-        )
-        for it in items
-    ]
+            mysl_share=mysl_share,
+            seller_share=seller_share,
+            commission_rate=rate,
+        ))
 
     return SellerPayoutReport(
         event_id=event_id,

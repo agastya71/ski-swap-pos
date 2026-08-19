@@ -12,8 +12,11 @@ class SellerPayoutLineItem(BaseModel):
     item_code: str = Field(description="Unique item code identifying the consigned item.")
     description: Optional[str] = Field(default=None, description="Free-text description of the item.")
     price: float = Field(description="Original asking price set by the seller.")
-    sell_price: float = Field(description="Actual price at which the item was sold.")
-    status: str = Field(description="Final status of the item (e.g., 'sold', 'unsold', 'donated').")
+    sell_price: float = Field(description="Actual price at which the item was sold (per unit).")
+    status: str = Field(description="Final status of the item (e.g., 'sold', 'available', 'donated').")
+    mysl_share: float = Field(description="MYSL commission for this item (0 for non-sold items).")
+    seller_share: float = Field(description="Seller payout for this item (0 for non-sold items).")
+    commission_rate: float = Field(description="Commission rate applied (or that would apply) to this item.")
 
 
 class SellerPayoutReport(BaseModel):
