@@ -4,8 +4,9 @@
  * and role badge, a Sign Out button, and a footer. Wraps each page's content in a
  * full-height flex container.
  */
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useAuth } from '../auth/AuthContext'
+import { ChangePasswordModal } from '../auth/ChangePasswordModal'
 
 type Page = 'intake' | 'pos' | 'admin'
 
@@ -59,6 +60,7 @@ export function Layout({ children, page, onNavigate }: {
 }) {
   const { decoded, signOut } = useAuth()
   const role = decoded?.role
+  const [showChangePw, setShowChangePw] = useState(false)
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#f8fafc' }}>
@@ -118,6 +120,20 @@ export function Layout({ children, page, onNavigate }: {
             {role}
           </span>
           <button
+            onClick={() => setShowChangePw(true)}
+            style={{
+              background: WHITE,
+              color: NAVY,
+              border: `1px solid ${NAVY}`,
+              padding: '5px 14px',
+              fontSize: 13,
+              fontWeight: 500,
+              borderRadius: 4,
+            }}
+          >
+            Change Password
+          </button>
+          <button
             onClick={signOut}
             style={{
               background: WHITE,
@@ -153,6 +169,8 @@ export function Layout({ children, page, onNavigate }: {
         <span>Minnesota Youth Ski League — Ski Swap POS</span>
         <span>myxc.org</span>
       </footer>
+
+      {showChangePw && <ChangePasswordModal onClose={() => setShowChangePw(false)} />}
     </div>
   )
 }

@@ -7,7 +7,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.event import Event
 from app.models.user import User
-from app.schemas.auth import LoginRequest, TokenResponse
+from app.schemas.auth import LoginRequest, PasswordChange, TokenResponse
 from app.services.auth import create_access_token, hash_password, verify_password
 
 # Precomputed dummy hash — ensures bcrypt runs even for unknown usernames
@@ -45,3 +45,24 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
 def me(user: User = Depends(get_current_user)):
     """Return the identity and role of the currently authenticated user."""
     return {"id": user.id, "username": user.username, "role": user.role, "event_id": user.event_id}
+
+
+@router.post("/change-password", status_code=200)
+def change_password(
+    body: PasswordChange,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Let an authenticated user change their own password.
+
+    Re-verifies the current password before accepting the new one. The new
+    password is complexity-checked by the schema validator. Returns 200 on
+    success; 401 if the old password is wrong.
+    """
+    if not verify_password(body.old_password, current_user.password_hash):
+        raise HTTPException(status_code=401, detail="Current password is incorrect")
+    if body.old_password == body.new_password:
+        raise HTTPException(status_code=422, detail="New password must differ from the current password")
+    current_user.password_hash = hash_password(body.new_password)
+    db.commit()
+    return {"ok": True}
