@@ -86,6 +86,8 @@ describe('IntakePage workflow', () => {
     fireEvent.click(screen.getByRole('button', { name: /start intake/i }))
     await waitFor(() => expect(screen.getByRole('button', { name: /add item/i })).toBeInTheDocument())
     expect(screen.getByText(/no items yet/i)).toBeInTheDocument()
+    // The bulk-import control is available in the intake items step (individual consignors).
+    expect(screen.getByRole('button', { name: /import items/i })).toBeInTheDocument()
   })
 
   /** Verifies that clicking the breadcrumb "Intake" link resets the workflow to seller search. */

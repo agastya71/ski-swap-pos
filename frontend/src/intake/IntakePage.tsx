@@ -12,6 +12,7 @@ import { SellerForm } from './SellerForm'
 import { IntakeForm } from './IntakeForm'
 import { ItemForm } from './ItemForm'
 import { ItemList } from './ItemList'
+import { ImportItemsButton } from './ImportItemsButton'
 import type { Seller, Intake, Item } from '../types'
 
 type Step = 'search' | 'register' | 'select-intake' | 'intake' | 'items'
@@ -229,6 +230,9 @@ export function IntakePage() {
             intakeId={intake.id}
             onAdded={handleItemAdded}
           />
+          <div style={{ margin: '12px 0' }}>
+            <ImportItemsButton intakeId={intake.id} onImported={() => refreshItems()} />
+          </div>
           <hr style={{ margin: '16px 0' }} />
           <ItemList items={items} intakeId={intake.id} onItemsChanged={refreshItems} />
         </div>

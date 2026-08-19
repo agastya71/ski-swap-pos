@@ -111,6 +111,21 @@ describe('POSPage', () => {
     expect(screen.getByText(/cart is empty/i)).toBeInTheDocument()
   })
 
+  it('keeps cart visible on the same screen as the confirmation after sale', async () => {
+    lookupReturns(ITEM_A)
+    server.use(http.post('/sales', () => HttpResponse.json(SALE)))
+    renderPOS()
+    scan('A001-001')
+    await waitFor(() => expect(screen.getByText('A001-001')).toBeInTheDocument())
+    fireEvent.change(screen.getByLabelText(/cash/i), { target: { value: '75' } })
+    fireEvent.click(screen.getByRole('button', { name: /complete sale/i }))
+    // After completion, the confirmation banner AND the cart (with the sold item) coexist on one screen.
+    await waitFor(() => expect(screen.getByText(/sale complete/i)).toBeInTheDocument())
+    expect(screen.getByText(/sale #1/i)).toBeInTheDocument()
+    expect(screen.getByText('A001-001')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /new transaction/i })).toBeInTheDocument()
+  })
+
   it('sends per-line quantity in the sale payload', async () => {
     lookupReturns(ITEM_MULTI)
     let captured: { items?: { item_id: number; quantity: number }[] } = {}
