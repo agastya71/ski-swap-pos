@@ -7,7 +7,7 @@ from app.database import get_db
 from app.dependencies import require_roles
 from app.models.event import Event
 from app.models.user import User
-from app.schemas.user import UserCreate, UserResponse
+from app.schemas.user import PasswordReset, UserCreate, UserResponse
 from app.services.auth import hash_password
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -80,3 +80,26 @@ def deactivate_user(
     db.commit()
     db.refresh(user)
     return user
+
+
+@router.post("/{user_id}/reset-password", status_code=200)
+def reset_user_password(
+    user_id: int,
+    body: PasswordReset,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_roles("admin")),
+):
+    """Admin resets another user's (or their own) password.
+
+    The new password is complexity-checked by the schema validator. The admin
+    does not need to know the user's current password. Returns 200 on success.
+    """
+    event = db.query(Event).filter(Event.is_active == True).first()
+    if not event:
+        raise HTTPException(status_code=503, detail="No active event configured")
+    user = db.query(User).filter(User.id == user_id, User.event_id == event.id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.password_hash = hash_password(body.new_password)
+    db.commit()
+    return {"ok": True}

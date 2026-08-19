@@ -82,4 +82,22 @@ describe('UserManagement', () => {
     fireEvent.click(screen.getByRole('button', { name: /create user/i }))
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/username already taken/i))
   })
+  /** Each user row has a Reset Password control (admin reset). */
+  it('shows a Reset Password button for each user', async () => {
+    server.use(http.get('/users', () => HttpResponse.json(USERS)))
+    render(<UserManagement />)
+    await waitFor(() => screen.getByText('admin1'))
+    expect(screen.getAllByRole('button', { name: /reset password/i }).length).toBe(3)
+  })
+
+  /** Clicking Reset Password opens the reset modal for that user. */
+  it('opens the reset password modal for the chosen user', async () => {
+    server.use(http.get('/users', () => HttpResponse.json(USERS)))
+    render(<UserManagement />)
+    await waitFor(() => screen.getByText('cashier1'))
+    fireEvent.click(screen.getAllByRole('button', { name: /reset password/i })[2]) // cashier1 row
+    expect(screen.getByRole('dialog')).toHaveTextContent(/cashier1/i)
+    expect(screen.getByLabelText(/^new password$/i)).toBeInTheDocument()
+  })
+
 })

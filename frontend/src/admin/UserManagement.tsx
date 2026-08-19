@@ -5,6 +5,7 @@
 
 import { useState, useEffect, type FormEvent } from 'react'
 import { getUsers, createUser, deactivateUser } from '../api/users'
+import { ResetPasswordModal } from './ResetPasswordModal'
 import type { User } from '../types'
 
 /** Permitted role values for event user accounts. */
@@ -21,6 +22,7 @@ export function UserManagement() {
   const [role, setRole] = useState<Role>('cashier')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [resetTarget, setResetTarget] = useState<User | null>(null)
 
   /** Fetches all event users from the API and updates local state. */
   async function load() {
@@ -71,7 +73,8 @@ export function UserManagement() {
               <td style={{ padding: '6px 8px' }}>{u.username}</td>
               <td style={{ padding: '6px 8px' }}>{u.role}</td>
               <td style={{ padding: '6px 8px' }}>{u.is_active ? 'Active' : <em>Inactive</em>}</td>
-              <td style={{ padding: '6px 8px' }}>
+              <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>
+                <button onClick={() => setResetTarget(u)} style={{ marginRight: 6 }}>Reset Password</button>
                 {u.is_active && (
                   <button onClick={() => handleDeactivate(u.id)}>Deactivate</button>
                 )}
@@ -102,6 +105,7 @@ export function UserManagement() {
         <button type="submit" disabled={loading}>Create User</button>
       </form>
       {error && <div role="alert" style={{ color: 'red', marginTop: 8 }}>{error}</div>}
+      {resetTarget && <ResetPasswordModal user={resetTarget} onClose={() => setResetTarget(null)} />}
     </div>
   )
 }
