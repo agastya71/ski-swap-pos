@@ -234,8 +234,8 @@ export interface Item {
 export interface ItemCreate {
   /** Equipment category. */
   category?: string
-  /** Equipment brand name. */
-  brand?: string
+  /** Equipment brand name. Required. */
+  brand: string
   /** Item sub-type. */
   type?: string
   /** Free-text description. */

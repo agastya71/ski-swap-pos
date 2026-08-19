@@ -28,6 +28,7 @@ describe('ItemForm', () => {
     render(<ItemForm intakeId={5} onAdded={vi.fn()} />)
     expect(screen.getByLabelText(/category/i)).toBeRequired()
     expect(screen.getByLabelText(/price/i)).toBeRequired()
+    expect(screen.getByLabelText(/brand/i)).toBeRequired()
   })
 
   /** Verifies that a successful submit calls onAdded with the item object returned by the API. */
@@ -36,6 +37,7 @@ describe('ItemForm', () => {
     const onAdded = vi.fn()
     render(<ItemForm intakeId={5} onAdded={onAdded} />)
     fireEvent.change(screen.getByLabelText(/category/i), { target: { value: 'Skis' } })
+    fireEvent.change(screen.getByLabelText(/brand/i), { target: { value: 'Rossignol' } })
     fireEvent.change(screen.getByLabelText(/price/i), { target: { value: '75' } })
     fireEvent.click(screen.getByRole('button', { name: /add item/i }))
     await waitFor(() => expect(onAdded).toHaveBeenCalledWith(ITEM))
@@ -46,6 +48,7 @@ describe('ItemForm', () => {
     server.use(http.post('/intakes/:id/items', () => HttpResponse.json(ITEM)))
     render(<ItemForm intakeId={5} onAdded={vi.fn()} />)
     fireEvent.change(screen.getByLabelText(/category/i), { target: { value: 'Skis' } })
+    fireEvent.change(screen.getByLabelText(/brand/i), { target: { value: 'Rossignol' } })
     fireEvent.change(screen.getByLabelText(/price/i), { target: { value: '75' } })
     fireEvent.click(screen.getByRole('button', { name: /add item/i }))
     await waitFor(() => expect((screen.getByLabelText(/category/i) as HTMLSelectElement).value).toBe(''))
@@ -56,6 +59,7 @@ describe('ItemForm', () => {
     server.use(http.post('/intakes/:id/items', () => HttpResponse.json({ detail: 'Labels already printed' }, { status: 409 })))
     render(<ItemForm intakeId={5} onAdded={vi.fn()} />)
     fireEvent.change(screen.getByLabelText(/category/i), { target: { value: 'Skis' } })
+    fireEvent.change(screen.getByLabelText(/brand/i), { target: { value: 'Rossignol' } })
     fireEvent.change(screen.getByLabelText(/price/i), { target: { value: '75' } })
     fireEvent.click(screen.getByRole('button', { name: /add item/i }))
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/labels already printed/i))
@@ -126,3 +130,14 @@ describe('ItemForm', () => {
     expect(screen.getByText('8 / 99')).toBeInTheDocument()
   })
 })
+
+  /** Typing a brand fetches existing-brand suggestions into the datalist. */
+  it('suggests existing brands via the typeahead datalist', async () => {
+    server.use(http.get('/items/brands', () => HttpResponse.json(['Rossignol', 'Rottefella'])))
+    render(<ItemForm intakeId={5} onAdded={vi.fn()} />)
+    fireEvent.change(screen.getByLabelText(/brand/i), { target: { value: 'Ro' } })
+    await waitFor(() => {
+      const opts = document.querySelectorAll('#brand-suggestions option')
+      expect(Array.from(opts).map(o => o.getAttribute('value'))).toEqual(['Rossignol', 'Rottefella'])
+    })
+  })

@@ -139,88 +139,23 @@ def import_items_from_excel(
     db: Session = Depends(get_db),
     current_user: User = Depends(_INTAKE_ADMIN),
 ):
-    """Bulk-import items into an intake session from an Excel file using the standard template."""
+    """Bulk-import items into an intake session from an Excel/CSV/TSV template.
+
+    Supports .xlsx, .csv, and .tsv. Brand values are matched to the closest
+    existing brand in the event. Valid rows are committed; invalid rows are
+    reported in the returned error list.
+    """
     event = _active_event(db)
     intake = _get_intake_for_event(intake_id, event.id, db)
     seller = db.query(Seller).filter(Seller.id == intake.seller_id).first()
     if not seller:
         raise HTTPException(status_code=404, detail="Seller not found")
-
+    data = file.file.read()
     try:
-        wb = openpyxl.load_workbook(BytesIO(file.file.read()))
-    except Exception:
-        raise HTTPException(status_code=422, detail="Invalid or unreadable xlsx file")
-    ws = wb.active
-    rows = list(ws.iter_rows(min_row=2, values_only=True))
-
-    # Compute starting sequence number in Python (not SQL string max)
-    prefix = f"{seller.code}-"
-    existing_codes = (
-        db.query(Item.code)
-        .join(Intake, Item.intake_id == Intake.id)
-        .filter(Intake.seller_id == intake.seller_id, Item.code.like(f"{prefix}%"))
-        .all()
-    )
-    if existing_codes:
-        next_seq = max(int(row[0].rsplit("-", 1)[-1]) for row in existing_codes) + 1
-    else:
-        next_seq = 1
-
-    errors: list[ImportRowError] = []
-    imported = 0
-    skipped = 0
-
-    for i, row in enumerate(rows, start=2):
-        padded = (list(row) + [None] * 11)[:11]
-        description, category, brand, type_, color, size, gender_age, year, price, used_str, donate_str = padded
-
-        if not description or price is None:
-            errors.append(ImportRowError(row=i, reason="Missing required field: Description or Price"))
-            skipped += 1
-            continue
-
-        try:
-            price_float = float(price)
-        except (TypeError, ValueError):
-            errors.append(ImportRowError(row=i, reason=f"Invalid Price value: {price!r}"))
-            skipped += 1
-            continue
-
-        item_code = f"{prefix}{next_seq:02d}"
-        used = str(used_str).strip().lower() != "no" if used_str is not None else True
-        donate = str(donate_str).strip().lower() == "yes" if donate_str is not None else False
-
-        year_int = None
-        if year is not None:
-            try:
-                year_int = int(year)
-            except (TypeError, ValueError):
-                year_int = None
-
-        item = Item(
-            intake_id=intake.id,
-            seller_id=intake.seller_id,
-            code=item_code,
-            barcode_39=item_code,
-            description=str(description),
-            category=str(category) if category else None,
-            brand=str(brand) if brand else None,
-            type=str(type_) if type_ else None,
-            color=str(color) if color else None,
-            size=str(size) if size else None,
-            gender_age=str(gender_age) if gender_age else None,
-            year=year_int,
-            price=price_float,
-            used=used,
-            donate_unsold=donate,
-            created_by=current_user.username,
-        )
-        db.add(item)
-        next_seq += 1
-        imported += 1
-
-    db.commit()
-    return ImportResult(imported=imported, skipped=skipped, errors=errors)
+        from app.services.item_import import import_items as _import_items
+        return _import_items(db, intake, seller, current_user.username, file.filename, data)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
 
 
 @router.post("/{intake_id}/labels")

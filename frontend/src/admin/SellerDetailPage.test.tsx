@@ -44,9 +44,9 @@ describe('SellerDetailPage', () => {
     expect(screen.getByRole('button', { name: /add item/i })).toBeInTheDocument()
   })
 
-  it('shows Import from Excel button', () => {
+  it('shows Import Items button', () => {
     render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />)
-    expect(screen.getByRole('button', { name: /import from excel/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /import items/i })).toBeInTheDocument()
   })
 
   it('shows Payout button in action bar', () => {
@@ -131,7 +131,7 @@ describe('SellerDetailPage', () => {
   })
 })
 
-describe('SellerDetailPage — Import from Excel button (functional)', () => {
+describe('SellerDetailPage — Import Items button (functional)', () => {
   afterEach(() => {
     vi.restoreAllMocks()
     setToken(null)

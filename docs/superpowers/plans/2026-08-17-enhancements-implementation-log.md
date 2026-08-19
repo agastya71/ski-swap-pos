@@ -141,6 +141,37 @@ Merged via PR (see git history).
 Merged via PR (see git history).
 
 
-## Phase 5 — Brand Matching + Bulk Import (pending)
+## Phase 5 — Brand Matching + Bulk Import
+
+**Branch:** `feat/phase-5-brand-match-bulk-import`
+**Spec section:** §3 (bulk import) + §5 (brand matching)
+
+### Backend
+- **`app/services/brand_match.py`** (new): `normalize_brand`, `closest_brand(value, existing, threshold=2)` via normalized Levenshtein. Catches typos ("Rossignnol"→"Rossignol"); abbreviations ("Rossi") are out of threshold by design.
+- **`app/services/item_import.py`** (new): `parse_upload` (xlsx via openpyxl, csv/tsv via stdlib csv) + `import_items` (validates, applies brand closest-match, commits valid rows, collects per-row errors). Brand required on import.
+- `intakes.py` import endpoint refactored to use the service; now supports **.xlsx, .csv, .tsv**.
+- **Brand required**: `ItemCreate.brand` is now `min_length=1`.
+- **`GET /items/brands?q=`** endpoint (admin/cashier): distinct brands for the active event, for the frontend typeahead.
+- Tests: `test_brand_match.py` (4 unit) + `test_items.py` +6 (brand required 422, brands endpoint, CSV import, brand closest-match on import, brand-missing skip). Updated existing add-item/import tests to include brand.
+
+### Frontend
+- `api/items.ts`: `fetchBrands(q)`.
+- `ItemForm.tsx`: brand field **required** + **typeahead datalist** (fetches `/items/brands?q=` as the user types).
+- `SellerDetailPage.tsx`: import button relabeled "Import Items", file input `accept=".xlsx,.csv,.tsv"`.
+- `types.ts`: `ItemCreate.brand` required.
+- MSW: default `/items/brands` handler returning [] (so typeahead doesn't fire unhandled requests in tests).
+- Tests: updated ItemForm submit tests to fill brand; +1 typeahead datalist test; fixed Import button test.
+
+### Test results (after Phase 5)
+| Suite | Result | Δ from Phase 4 |
+|---|---|---|
+| Backend | 204 passed | +9 |
+| Frontend | 178 passed / 0 failed | +1 (net; suite stayed green) |
+| `tsc -b` | clean | — |
+
+### Status
+Merged via PR (see git history).
+
+
 ## Phase 6 — Category→Type→Size Cascade (blocked: pending stakeholder mapping)
 ## Phase 7 — Reports Per-Item Commission/Payout/Rate (pending)

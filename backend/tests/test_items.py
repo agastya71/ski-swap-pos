@@ -57,7 +57,7 @@ def item(db, intake, seller):
 def test_add_item_to_intake(client, admin_token, intake):
     resp = client.post(
         f"/intakes/{intake.id}/items",
-        json={"price": 25.00, "description": "Ski boots size 8", "category": "boots"},
+        json={"price": 25.00, "description": "Ski boots size 8", "category": "boots", "brand": "Salomon"},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 201
@@ -185,7 +185,7 @@ def test_search_items_by_description(client, active_event, admin_token):
     intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
     client.post(
         f"/intakes/{intake_r.json()['id']}/items",
-        json={"description": "Atomic skis 160cm", "price": 120.0},
+        json={"description": "Atomic skis 160cm", "brand": "Atomic", "price": 120.0},
         headers=headers,
     )
     r = client.get("/items/search?q=atomic", headers=headers)
@@ -213,7 +213,7 @@ def test_search_items_by_seller_code(client, active_event, admin_token):
     seller_r = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
     seller_code = seller_r.json()["code"]
     intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
-    client.post(f"/intakes/{intake_r.json()['id']}/items", json={"price": 30.0}, headers=headers)
+    client.post(f"/intakes/{intake_r.json()['id']}/items", json={"description": "Skis", "brand": "Atomic", "price": 30.0}, headers=headers)
     r = client.get(f"/items/search?q={seller_code}", headers=headers)
     assert r.status_code == 200
     assert len(r.json()) >= 1
@@ -289,3 +289,93 @@ def test_adjust_quantity_decrease_below_zero_422(client, cashier_token, admin_to
     r = client.patch(f"/items/{it.id}/quantity", json={"adjustment": -3},
                      headers={"Authorization": f"Bearer {admin_token}"})
     assert r.status_code == 422
+
+
+# ── brand required + brand endpoint + import formats (Phase 5) ────────────────
+
+def test_add_item_requires_brand(client, admin_token, intake):
+    """POST /intakes/{id}/items rejects an item without a brand (422)."""
+    resp = client.post(
+        f"/intakes/{intake.id}/items",
+        json={"price": 25.00, "description": "No brand"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 422
+
+
+def test_list_brands_returns_distinct(client, active_event, admin_token):
+    """GET /items/brands returns distinct brands for the active event."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
+    intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
+    iid = intake_r.json()["id"]
+    for brand in ("Atomic", "Atomic", "Salomon"):
+        client.post(f"/intakes/{iid}/items",
+                    json={"description": "x", "brand": brand, "price": 10.0}, headers=headers)
+    r = client.get("/items/brands", headers=headers)
+    assert r.status_code == 200
+    brands = r.json()
+    assert sorted(brands) == ["Atomic", "Salomon"]
+
+
+def test_import_items_from_csv(client, active_event, admin_token):
+    """Import supports CSV (not just xlsx)."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
+    intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
+    csv_text = "Description,Category,Brand,Type,Color,Size,Gender/Age,Year,Price,Used,Donate if Unsold\n"
+    csv_text += "Skis,Skis,Atomic,Alpine,Red,170,Men,2020,110.0,Yes,No\n"
+    csv_text += "Boots,Boots,Salomon,,,26.5,,None,60.0,Yes,No\n"
+    r = client.post(
+        f"/intakes/{intake_r.json()['id']}/items/import",
+        files={"file": ("items.csv", csv_text.encode("utf-8"), "text/csv")},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    assert r.json()["imported"] == 2
+    assert r.json()["skipped"] == 0
+
+
+def test_import_brand_closest_match(client, active_event, admin_token):
+    """Import replaces a near-miss brand with the closest existing brand."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
+    intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
+    iid = intake_r.json()["id"]
+    # Seed an existing brand "Rossignol"
+    client.post(f"/intakes/{iid}/items",
+                json={"description": "seed", "brand": "Rossignol", "price": 10.0}, headers=headers)
+    # Import a row with a near-miss brand "Rossignnol" -> should be matched to "Rossignol"
+    csv_text = "Description,Category,Brand,Type,Color,Size,Gender/Age,Year,Price,Used,Donate if Unsold\n"
+    csv_text += "Skis,Skis,Rossignnol,Alpine,Red,170,Men,2020,110.0,Yes,No\n"
+    r = client.post(
+        f"/intakes/{iid}/items/import",
+        files={"file": ("items.csv", csv_text.encode("utf-8"), "text/csv")},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    assert r.json()["imported"] == 1
+    listed = client.get(f"/sellers/{seller_r.json()['id']}/items", headers=headers).json()
+    brands = [it["brand"] for it in listed]
+    assert "Rossignol" in brands
+    assert "Rossignnol" not in brands
+
+
+def test_import_skips_rows_missing_brand(client, active_event, admin_token):
+    """Import reports a row missing a brand as an error (brand is required)."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
+    intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
+    csv_text = "Description,Category,Brand,Type,Color,Size,Gender/Age,Year,Price,Used,Donate if Unsold\n"
+    csv_text += "Good row,Skis,Atomic,Alpine,Red,170,Men,2020,110.0,Yes,No\n"
+    csv_text += "No brand,Skis,,,Red,170,Men,2020,90.0,Yes,No\n"
+    r = client.post(
+        f"/intakes/{intake_r.json()['id']}/items/import",
+        files={"file": ("items.csv", csv_text.encode("utf-8"), "text/csv")},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["imported"] == 1
+    assert body["skipped"] == 1
+    assert body["errors"][0]["row"] == 3

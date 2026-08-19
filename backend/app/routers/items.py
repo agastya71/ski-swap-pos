@@ -96,6 +96,30 @@ def search_items(
     ]
 
 
+@router.get("/brands", response_model=list[str])
+def list_brands(
+    q: str = "",
+    db: Session = Depends(get_db),
+    _user: User = Depends(_CASHIER_ADMIN),
+):
+    """Return distinct brand names for the active event, optionally filtered by prefix.
+
+    Used by the POS/intake brand typeahead to suggest close alternatives.
+    """
+    event = db.query(Event).filter(Event.is_active == True).first()
+    if not event:
+        raise HTTPException(status_code=503, detail="No active event configured")
+    query = (
+        db.query(Item.brand)
+        .join(Intake)
+        .join(Seller)
+        .filter(Seller.event_id == event.id, Item.is_deleted.is_(False), Item.brand.isnot(None))
+        .distinct()
+    )
+    if q.strip():
+        query = query.filter(Item.brand.ilike(f"%{q.strip()}%"))
+    return [b[0] for b in query.order_by(Item.brand).all() if b[0]]
+
 @router.get("/import-template")
 def download_import_template(_user: User = Depends(_INTAKE_ADMIN)):
     """Return a blank Excel template for bulk item import."""
