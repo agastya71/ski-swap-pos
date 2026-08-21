@@ -54,4 +54,12 @@ describe('ChangePasswordModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /change password/i }))
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/current password is incorrect/i))
   })
+
+  /** Suggest prefills the new + confirm fields with a compliant password. */
+  it('Suggest prefills new and confirm with a compliant password', async () => {
+    render(<ChangePasswordModal onClose={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: /suggest/i }))
+    await waitFor(() => expect(screen.getByLabelText(/^new password$/i)).toHaveValue('Generated1!'))
+    expect(screen.getByLabelText(/confirm new password/i)).toHaveValue('Generated1!')
+  })
 })

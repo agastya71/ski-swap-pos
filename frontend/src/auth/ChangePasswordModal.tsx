@@ -6,7 +6,7 @@
  * @module ChangePasswordModal
  */
 import { useState, type FormEvent } from 'react'
-import { changePassword } from '../api/auth'
+import { changePassword, generatePassword } from '../api/auth'
 import { validatePassword, PASSWORD_MIN_LENGTH } from '../lib/passwordPolicy'
 
 const NAVY = '#1e3a8a'
@@ -23,6 +23,18 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
 
   const policy = validatePassword(newPassword)
   const confirmMismatch = confirm.length > 0 && newPassword !== confirm
+
+  /** Prefill the new-password fields with a compliant suggestion; the user can
+   *  accept it as-is or edit before submitting. */
+  async function fillSuggested() {
+    try {
+      const pw = await generatePassword()
+      setNewPassword(pw)
+      setConfirm(pw)
+    } catch {
+      // ignore — user can still type a password manually
+    }
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -66,8 +78,11 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
         </div>
         <div style={{ marginBottom: 10 }}>
           <label htmlFor="newPassword" style={{ display: 'block', fontSize: 13, marginBottom: 3 }}>New Password</label>
-          <input id="newPassword" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required
-            minLength={PASSWORD_MIN_LENGTH} style={{ width: '100%', padding: 8, boxSizing: 'border-box' }} />
+          <div style={{ display: 'flex', gap: 6 }}>
+            <input id="newPassword" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required
+              minLength={PASSWORD_MIN_LENGTH} style={{ flex: 1, padding: 8, boxSizing: 'border-box' }} />
+            <button type="button" onClick={fillSuggested} title="Suggest a compliant password" style={{ padding: '8px 12px' }}>Suggest</button>
+          </div>
         </div>
         <div style={{ marginBottom: 10 }}>
           <label htmlFor="confirmPassword" style={{ display: 'block', fontSize: 13, marginBottom: 3 }}>Confirm New Password</label>

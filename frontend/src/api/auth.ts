@@ -46,3 +46,23 @@ export async function changePassword(oldPassword: string, newPassword: string): 
     throw new Error((data as { detail?: string }).detail ?? 'Password change failed')
   }
 }
+
+/**
+ * Fetch a suggested password that satisfies the complexity policy.
+ *
+ * Used to prefill a compliant default when creating a user or resetting /
+ * changing a password. Available to any authenticated user.
+ *
+ * @returns A plaintext password that meets the policy.
+ * @throws {Error} If the session token is invalid or the server returns non-2xx.
+ */
+export async function generatePassword(): Promise<string> {
+  const res = await fetch('/auth/generate-password', {
+    headers: { ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}) },
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({ detail: 'Failed to generate password' }))
+    throw new Error((data as { detail?: string }).detail ?? 'Failed to generate password')
+  }
+  return ((await res.json()) as { password: string }).password
+}

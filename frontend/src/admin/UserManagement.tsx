@@ -5,7 +5,9 @@
 
 import { useState, useEffect, type FormEvent } from 'react'
 import { getUsers, createUser, deactivateUser } from '../api/users'
+import { generatePassword } from '../api/auth'
 import { ResetPasswordModal } from './ResetPasswordModal'
+import { CreatedUserModal } from './CreatedUserModal'
 import type { User } from '../types'
 
 /** Permitted role values for event user accounts. */
@@ -23,6 +25,8 @@ export function UserManagement() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [resetTarget, setResetTarget] = useState<User | null>(null)
+  // Credentials of the most recently created user, shown once in a popup.
+  const [created, setCreated] = useState<{ username: string; password: string } | null>(null)
 
   /** Fetches all event users from the API and updates local state. */
   async function load() {
@@ -30,18 +34,32 @@ export function UserManagement() {
     setUsers(data)
   }
 
-  useEffect(() => { load().catch(() => {}) }, [])
+  /** Prefills the password field with a compliant generated default. */
+  async function fillGeneratedPassword() {
+    try {
+      setPassword(await generatePassword())
+    } catch {
+      // Leave the field empty; the admin can still type a password manually.
+    }
+  }
 
-  /** Submits the create-user form and appends the new user to the list on success. */
+  useEffect(() => {
+    load().catch(() => {})
+    fillGeneratedPassword()
+  }, [])
+
+  /** Submits the create-user form; on success shows the credentials once. */
   async function handleCreate(e: FormEvent) {
     e.preventDefault()
     setError(null)
     setLoading(true)
     try {
-      const created = await createUser({ username, password, role })
-      setUsers(prev => [...prev, created])
+      await createUser({ username, password, role })
+      setCreated({ username, password })
+      await load()
       setUsername('')
       setPassword('')
+      fillGeneratedPassword() // prefill a fresh default for the next user
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create user')
     } finally {
@@ -92,7 +110,10 @@ export function UserManagement() {
         </div>
         <div>
           <label htmlFor="newPassword" style={{ display: 'block', fontSize: 13, marginBottom: 3 }}>Password</label>
-          <input id="newPassword" type="password" value={password} onChange={e => setPassword(e.target.value)} required style={{ width: '100%', padding: 6, boxSizing: 'border-box' }} />
+          <div style={{ display: 'flex', gap: 6 }}>
+            <input id="newPassword" type="password" value={password} onChange={e => setPassword(e.target.value)} required style={{ flex: 1, padding: 6, boxSizing: 'border-box' }} />
+            <button type="button" onClick={() => fillGeneratedPassword()} title="Generate a compliant password" style={{ padding: '6px 10px' }}>Generate</button>
+          </div>
         </div>
         <div>
           <label htmlFor="newRole" style={{ display: 'block', fontSize: 13, marginBottom: 3 }}>Role</label>
@@ -106,6 +127,13 @@ export function UserManagement() {
       </form>
       {error && <div role="alert" style={{ color: 'red', marginTop: 8 }}>{error}</div>}
       {resetTarget && <ResetPasswordModal user={resetTarget} onClose={() => setResetTarget(null)} />}
+      {created && (
+        <CreatedUserModal
+          username={created.username}
+          password={created.password}
+          onClose={() => setCreated(null)}
+        />
+      )}
     </div>
   )
 }

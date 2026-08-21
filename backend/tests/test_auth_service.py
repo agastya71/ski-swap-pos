@@ -4,7 +4,9 @@ from jose import JWTError
 from app.services.auth import (
     create_access_token,
     decode_access_token,
+    generate_password,
     hash_password,
+    validate_password,
     verify_password,
 )
 
@@ -37,3 +39,24 @@ def test_create_and_decode_token():
 def test_decode_invalid_token_raises():
     with pytest.raises(JWTError):
         decode_access_token("not.a.valid.token")
+
+
+def test_generate_password_meets_policy():
+    pw = generate_password()
+    assert validate_password(pw) == pw  # raises if it fails
+
+
+def test_generate_password_meets_policy_over_many_iterations():
+    # Probabilistic guard: every generated password must satisfy the policy.
+    for _ in range(200):
+        assert validate_password(generate_password()) 
+
+
+def test_generate_password_respects_min_length():
+    assert len(generate_password(length=4)) >= 8  # clamped to the policy minimum
+    assert len(generate_password(length=20)) == 20
+
+
+def test_generate_password_is_random():
+    # Extremely unlikely to collide for two independent draws.
+    assert generate_password() != generate_password()

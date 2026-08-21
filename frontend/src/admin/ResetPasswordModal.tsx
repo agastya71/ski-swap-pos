@@ -7,6 +7,7 @@
  */
 import { useState, type FormEvent } from 'react'
 import { resetUserPassword } from '../api/users'
+import { generatePassword } from '../api/auth'
 import { validatePassword, PASSWORD_MIN_LENGTH } from '../lib/passwordPolicy'
 import type { User } from '../types'
 
@@ -24,6 +25,18 @@ export function ResetPasswordModal({ user, onClose }: { user: User; onClose: () 
 
   const policy = validatePassword(newPassword)
   const confirmMismatch = confirm.length > 0 && newPassword !== confirm
+
+  /** Prefill both fields with a compliant suggested password; the admin can
+   *  accept it as-is or edit before submitting. */
+  async function fillSuggested() {
+    try {
+      const pw = await generatePassword()
+      setNewPassword(pw)
+      setConfirm(pw)
+    } catch {
+      // ignore — admin can still type a password manually
+    }
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -50,8 +63,11 @@ export function ResetPasswordModal({ user, onClose }: { user: User; onClose: () 
         <h3 style={{ marginTop: 0 }}>Reset Password — {user.username}</h3>
         <div style={{ marginBottom: 10 }}>
           <label htmlFor="resetNewPassword" style={{ display: 'block', fontSize: 13, marginBottom: 3 }}>New Password</label>
-          <input id="resetNewPassword" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required
-            minLength={PASSWORD_MIN_LENGTH} style={{ width: '100%', padding: 8, boxSizing: 'border-box' }} />
+          <div style={{ display: 'flex', gap: 6 }}>
+            <input id="resetNewPassword" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required
+              minLength={PASSWORD_MIN_LENGTH} style={{ flex: 1, padding: 8, boxSizing: 'border-box' }} />
+            <button type="button" onClick={fillSuggested} title="Suggest a compliant password" style={{ padding: '8px 12px' }}>Suggest</button>
+          </div>
         </div>
         <div style={{ marginBottom: 10 }}>
           <label htmlFor="resetConfirmPassword" style={{ display: 'block', fontSize: 13, marginBottom: 3 }}>Confirm New Password</label>
