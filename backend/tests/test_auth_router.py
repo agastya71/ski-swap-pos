@@ -60,3 +60,17 @@ def test_me_no_token(client):
 def test_me_invalid_token(client):
     response = client.get("/auth/me", headers={"Authorization": "Bearer bad.token.here"})
     assert response.status_code == 401
+
+
+def test_generate_password_returns_compliant_password(client, active_event, admin_user, admin_token):
+    from app.services.auth import validate_password
+
+    response = client.get("/auth/generate-password", headers={"Authorization": f"Bearer {admin_token}"})
+    assert response.status_code == 200
+    pw = response.json()["password"]
+    assert validate_password(pw) == pw  # satisfies the complexity policy
+
+
+def test_generate_password_requires_auth(client):
+    response = client.get("/auth/generate-password")
+    assert response.status_code == 403

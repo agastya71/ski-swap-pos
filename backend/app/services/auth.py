@@ -6,6 +6,8 @@ the FastAPI dependency-injection auth layer.
 """
 
 import re
+import secrets
+import string
 from datetime import datetime, timedelta, timezone
 
 from jose import jwt
@@ -41,6 +43,49 @@ def validate_password(password: str) -> str:
     if not _SPECIAL_RE.search(password):
         raise ValueError("Password must contain at least one special character")
     return password
+
+
+# Character pools for generate_password. Specials avoid ambiguous characters
+# (quotes, backslash, brackets) that break copy/paste or shell entry.
+_GEN_UPPER = string.ascii_uppercase
+_GEN_LOWER = string.ascii_lowercase
+_GEN_DIGITS = string.digits
+_GEN_SPECIALS = "!@#$%^&*-_=+?"
+_GEN_POOL = _GEN_UPPER + _GEN_LOWER + _GEN_DIGITS + _GEN_SPECIALS
+
+
+def generate_password(length: int = 12) -> str:
+    """Generate a random password guaranteed to satisfy ``validate_password``.
+
+    Guarantees at least one uppercase letter, one lowercase letter, one digit,
+    and one special character, then fills the remainder from the full pool and
+    shuffles. Uses :mod:`secrets` for cryptographic randomness. The result is
+    re-checked against ``validate_password`` before returning.
+
+    Args:
+        length: Desired length (clamped to the minimum policy length).
+
+    Returns:
+        A plaintext password that passes the complexity policy.
+    """
+    if length < _PASSWORD_MIN_LENGTH:
+        length = _PASSWORD_MIN_LENGTH
+    rng = secrets.SystemRandom()
+    for _ in range(32):
+        chars = [
+            secrets.choice(_GEN_UPPER),
+            secrets.choice(_GEN_LOWER),
+            secrets.choice(_GEN_DIGITS),
+            secrets.choice(_GEN_SPECIALS),
+        ] + [secrets.choice(_GEN_POOL) for _ in range(length - 4)]
+        rng.shuffle(chars)
+        pw = "".join(chars)
+        # Always true given the guaranteed classes, but guard regardless.
+        try:
+            return validate_password(pw)
+        except ValueError:
+            continue
+    raise RuntimeError("Failed to generate a compliant password")
 
 
 def hash_password(password: str) -> str:

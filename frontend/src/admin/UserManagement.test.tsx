@@ -100,4 +100,45 @@ describe('UserManagement', () => {
     expect(screen.getByLabelText(/^new password$/i)).toBeInTheDocument()
   })
 
+  /** The password field is prefilled with a compliant generated default on load. */
+  it('prefills the password field with a generated default', async () => {
+    server.use(http.get('/users', () => HttpResponse.json(USERS)))
+    render(<UserManagement />)
+    await waitFor(() => expect(screen.getByLabelText(/password/i)).toHaveValue('Generated1!'))
+  })
+
+  /** The Generate button replaces the password with a fresh suggestion. */
+  it('Generate button replaces the password with a fresh suggestion', async () => {
+    let count = 0
+    server.use(
+      http.get('/users', () => HttpResponse.json(USERS)),
+      http.get('/auth/generate-password', () => HttpResponse.json({ password: `Fresh${count++}Pass1!` })),
+    )
+    render(<UserManagement />)
+    // Mount prefills with the first suggestion.
+    await waitFor(() => expect(screen.getByLabelText(/password/i)).toHaveValue('Fresh0Pass1!'))
+    fireEvent.click(screen.getByRole('button', { name: /generate/i }))
+    // Clicking Generate fetches a different suggestion.
+    await waitFor(() => expect(screen.getByLabelText(/password/i)).toHaveValue('Fresh1Pass1!'))
+  })
+
+  /** Creating a user shows a one-time credentials popup; Dismiss closes it. */
+  it('shows a credentials popup after creating a user and dismisses', async () => {
+    server.use(
+      http.get('/users', () => HttpResponse.json(USERS)),
+      http.post('/users', () => HttpResponse.json({ id: 4, username: 'newcashier', role: 'cashier', is_active: true, event_id: 1 })),
+    )
+    render(<UserManagement />)
+    await waitFor(() => screen.getByText('admin1'))
+    fireEvent.change(screen.getByLabelText(/username/i), { target: { value: 'newcashier' } })
+    fireEvent.change(screen.getByLabelText(/role/i), { target: { value: 'cashier' } })
+    fireEvent.click(screen.getByRole('button', { name: /create user/i }))
+    await waitFor(() => expect(screen.getByRole('dialog', { name: /created user newcashier/i })).toBeInTheDocument())
+    expect(screen.getByText('newcashier')).toBeInTheDocument()
+    // The generated default used at creation is shown once.
+    expect(screen.getByText('Generated1!')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /dismiss/i }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: /created user newcashier/i })).not.toBeInTheDocument())
+  })
+
 })

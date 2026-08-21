@@ -47,6 +47,8 @@ export const handlers = [
   http.post('/auth/login', () =>
     HttpResponse.json({ access_token: ADMIN_TOKEN, role: 'admin', event_id: 1 })
   ),
+  /** GET /auth/generate-password — returns a compliant suggested password. */
+  http.get('/auth/generate-password', () => HttpResponse.json({ password: 'Generated1!' })),
 
   /** GET /events — returns a two-event list (one inactive, one active). */
   http.get('/events', () => HttpResponse.json([

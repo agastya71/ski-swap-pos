@@ -8,7 +8,7 @@ from app.dependencies import get_current_user
 from app.models.event import Event
 from app.models.user import User
 from app.schemas.auth import LoginRequest, PasswordChange, TokenResponse
-from app.services.auth import create_access_token, hash_password, verify_password
+from app.services.auth import create_access_token, generate_password, hash_password, verify_password
 
 # Precomputed dummy hash — ensures bcrypt runs even for unknown usernames
 # (prevents timing oracle that would reveal valid usernames)
@@ -45,6 +45,16 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
 def me(user: User = Depends(get_current_user)):
     """Return the identity and role of the currently authenticated user."""
     return {"id": user.id, "username": user.username, "role": user.role, "event_id": user.event_id}
+
+
+@router.get("/generate-password")
+def suggest_password(_user: User = Depends(get_current_user)):
+    """Return a suggested password that satisfies the complexity policy.
+
+    Used by the UI to prefill a compliant default when creating a user or
+    resetting/changing a password. Available to any authenticated user.
+    """
+    return {"password": generate_password()}
 
 
 @router.post("/change-password", status_code=200)
