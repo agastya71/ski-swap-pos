@@ -7,17 +7,27 @@
  */
 
 import { useState, useEffect, type ReactNode, type FormEvent } from 'react'
-import { getEventRevenue, getDonations, getUnsoldItems, getSellerPayout, downloadFile } from '../api/reports'
-import type { EventRevenueReport, DonationsReport, UnsoldItemsReport, SellerPayoutReport, Seller } from '../types'
+import { getEventRevenue, getDonations, getUnsoldItems, downloadFile } from '../api/reports'
+import type { EventRevenueReport, DonationsReport, UnsoldItemsReport, Seller } from '../types'
 import { SellerCombobox } from '../components/SellerCombobox'
+import { SellerPayoutPanel } from './SellerPayoutPanel'
+
+/** Display name for a seller, matching the rest of the app (individuals use
+ *  first/last name; vendors use company; fall back to the code if neither). */
+function sellerDisplayName(s: Seller): string {
+  if (s.is_vendor) return s.company ?? s.code
+  const name = `${s.first_name ?? ''} ${s.last_name ?? ''}`.trim()
+  return name || s.code
+}
 
 export function ReportsPage({ eventId }: { eventId: number }) {
   const [revenue, setRevenue] = useState<EventRevenueReport | null>(null)
   const [donations, setDonations] = useState<DonationsReport | null>(null)
   const [unsold, setUnsold] = useState<UnsoldItemsReport | null>(null)
   const [selectedSeller, setSelectedSeller] = useState<Seller | null>(null)
-  const [payout, setPayout] = useState<SellerPayoutReport | null>(null)
-  const [payoutError, setPayoutError] = useState<string | null>(null)
+  // The seller whose payout is currently shown. Set on "Get Payout" submit;
+  // the actual report is fetched and rendered by <SellerPayoutPanel>.
+  const [payoutSeller, setPayoutSeller] = useState<Seller | null>(null)
   const [open, setOpen] = useState({ revenue: false, donations: false, unsold: false })
 
   useEffect(() => {
@@ -32,17 +42,10 @@ export function ReportsPage({ eventId }: { eventId: number }) {
     setOpen(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
-  async function handlePayoutLookup(e: FormEvent) {
+  function handlePayoutLookup(e: FormEvent) {
     e.preventDefault()
     if (!selectedSeller) return
-    setPayoutError(null)
-    setPayout(null)
-    try {
-      const data = await getSellerPayout(eventId, selectedSeller.id)
-      setPayout(data)
-    } catch (err) {
-      setPayoutError(err instanceof Error ? err.message : 'Failed to load payout')
-    }
+    setPayoutSeller(selectedSeller)
   }
 
   const sectionHeader = (
@@ -203,8 +206,8 @@ export function ReportsPage({ eventId }: { eventId: number }) {
       <section style={{ marginBottom: 32 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3>Seller Payout</h3>
-          {payout && (
-            <button onClick={() => downloadFile(`/reports/${eventId}/seller/${payout.seller_id}?format=csv`, `payout-${payout.seller_code}.csv`)}>
+          {payoutSeller && (
+            <button onClick={() => downloadFile(`/reports/${eventId}/seller/${payoutSeller.id}?format=csv`, `payout-${payoutSeller.code}.csv`)}>
               Download CSV
             </button>
           )}
@@ -216,51 +219,12 @@ export function ReportsPage({ eventId }: { eventId: number }) {
           </div>
           <button type="submit" disabled={!selectedSeller}>Get Payout</button>
         </form>
-        {payoutError && <div role="alert" style={{ color: 'red' }}>{payoutError}</div>}
-        {payout && (
+        {payoutSeller && (
           <div>
-            <p><strong>{payout.seller_name}</strong> ({payout.seller_code})</p>
-            <table style={{ borderCollapse: 'collapse' }}>
-              <tbody>
-                {[
-                  ['Items Sold', String(payout.items_sold)],
-                  ['Gross Sales', `$${payout.gross_sales.toFixed(2)}`],
-                  ['MYSL Total', `$${payout.mysl_total.toFixed(2)}`],
-                  ['Seller Payout', `$${payout.seller_total.toFixed(2)}`],
-                ].map(([label, val]) => (
-                  <tr key={label} style={{ borderBottom: '1px solid #eee' }}>
-                    <td style={{ padding: '4px 16px 4px 8px', fontWeight: 'bold' }}>{label}</td>
-                    <td style={{ padding: '4px 8px', textAlign: 'right' }}>{val}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {payout.line_items.length > 0 && (
-              <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 16 }}>
-                <thead>
-                  <tr style={{ borderBottom: '2px solid #ccc' }}>
-                    <th style={{ textAlign: 'left', padding: '4px 8px' }}>Item Code</th>
-                    <th style={{ textAlign: 'left', padding: '4px 8px' }}>Description</th>
-                    <th style={{ textAlign: 'left', padding: '4px 8px' }}>Status</th>
-                    <th style={{ textAlign: 'right', padding: '4px 8px' }}>Ask Price</th>
-                    <th style={{ textAlign: 'right', padding: '4px 8px' }}>Sold Price</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {payout.line_items.map(li => (
-                    <tr key={li.item_code} style={{ borderBottom: '1px solid #eee' }}>
-                      <td style={{ padding: '4px 8px' }}>{li.item_code}</td>
-                      <td style={{ padding: '4px 8px' }}>{li.description ?? '—'}</td>
-                      <td style={{ padding: '4px 8px' }}>{li.status}</td>
-                      <td style={{ padding: '4px 8px', textAlign: 'right' }}>${li.price.toFixed(2)}</td>
-                      <td style={{ padding: '4px 8px', textAlign: 'right' }}>
-                        {li.status === 'sold' ? `$${li.sell_price.toFixed(2)}` : '—'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+            <p><strong>{sellerDisplayName(payoutSeller)}</strong> ({payoutSeller.code})</p>
+            {/* Reuses the same payout panel as the Sellers page so the summary
+                and line-items tables are identical everywhere. */}
+            <SellerPayoutPanel eventId={eventId} sellerId={payoutSeller.id} />
           </div>
         )}
       </section>
