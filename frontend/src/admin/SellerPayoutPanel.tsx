@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react'
 import { getSellerPayout } from '../api/reports'
 import type { SellerPayoutReport } from '../types'
 
+/** Columns whose values are right-aligned (currency / rate). Headers must
+ *  match so the label sits over its values. */
+const numericColumns = new Set(['Ask', 'Sold', 'MYSL', 'Seller', 'Rate'])
+
 /**
  * Fetches and displays the payout report for a single seller.
  * Manages its own loading and error state.
@@ -48,8 +52,10 @@ export function SellerPayoutPanel({ eventId, sellerId }: { eventId: number; sell
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderBottom: '2px solid #ccc' }}>
-              {['Item Code', 'Description', 'Status', 'Ask', 'Sold', 'MYSL', 'Seller', 'Rate'].map(h => (
-                <th key={h} style={{ textAlign: 'left', padding: '4px 8px', fontSize: 12 }}>{h}</th>
+              {/* Align each header with its value cells: text columns left,
+                  numeric columns (Ask, Sold, MYSL, Seller, Rate) right. */}
+              {(['Item Code', 'Description', 'Status', 'Ask', 'Sold', 'MYSL', 'Seller', 'Rate'] as const).map(h => (
+                <th key={h} style={{ textAlign: numericColumns.has(h) ? 'right' : 'left', padding: '4px 8px', fontSize: 12 }}>{h}</th>
               ))}
             </tr>
           </thead>
