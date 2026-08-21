@@ -16,7 +16,7 @@ What gets created:
 """
 import os
 import sys
-from datetime import date
+from datetime import date, datetime
 
 # Allow running from repo root as well as backend/
 sys.path.insert(0, os.path.dirname(__file__))
@@ -386,7 +386,11 @@ try:
 
             sale = Sale(
                 event_id=event.id,
-                date_of_sale=date.fromisoformat(sale_date_str),
+                # date_of_sale is a DateTime column — must be a datetime, not a
+                # date. Passing date(...) made SQLite store the bare year (2026)
+                # as an integer, which crashes SQLAlchemy's datetime parser on
+                # read-back. datetime.fromisoformat('YYYY-MM-DD') → midnight datetime.
+                date_of_sale=datetime.fromisoformat(sale_date_str),
                 customer_name=cust_name,
                 customer_email=cust_email,
                 cash_amount=cash,
