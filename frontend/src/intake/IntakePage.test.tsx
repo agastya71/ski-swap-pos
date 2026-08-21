@@ -22,6 +22,7 @@ const INTAKE: Intake = {
   id: 5, seller_id: 1, date_entered: '2026-04-04', date_received: null,
   donate_proceeds: false, donate_unsold: false,
   total: 0, mysl_total: 0, seller_total: 0, created_at: '2026-04-04T10:00:00',
+  created_by: 'intake1',
 }
 const INTAKE_WITH_ITEMS: IntakeWithItems = { ...INTAKE, items: [] }
 
@@ -66,6 +67,8 @@ describe('IntakePage workflow', () => {
     await selectSeller()
     await waitFor(() => expect(screen.getByRole('button', { name: /continue/i })).toBeInTheDocument())
     expect(screen.getByText('#5')).toBeInTheDocument()
+    // The "Intake by" column surfaces who recorded the intake.
+    expect(screen.getByText('intake1')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /continue/i }))
     await waitFor(() => expect(screen.getByRole('button', { name: /add item/i })).toBeInTheDocument())
   })

@@ -353,6 +353,8 @@ export interface Intake {
   seller_total: number
   /** ISO 8601 timestamp when this intake record was created. */
   created_at: string
+  /** Username of the intake clerk who recorded this intake; null if not recorded. */
+  created_by: string | null
 }
 
 /** {@link Intake} with its items eagerly loaded. */

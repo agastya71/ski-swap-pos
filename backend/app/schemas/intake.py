@@ -75,6 +75,11 @@ class IntakeResponse(BaseModel):
         description="Portion of total sales from this intake to be paid out to the seller."
     )
     created_at: datetime.datetime = Field(description="UTC timestamp when the intake record was created.")
+    created_by: Optional[str] = Field(
+        default=None,
+        description="Username of the admin/intake user who recorded this intake session; "
+        "identifies who performed the intake.",
+    )
 
 
 class IntakeWithItemsResponse(IntakeResponse):
