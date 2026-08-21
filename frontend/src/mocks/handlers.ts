@@ -29,6 +29,7 @@ const INTAKE = {
   id: 1, seller_id: 1, date_entered: '2026-04-04', date_received: null,
   donate_unsold: false, donate_proceeds: false,
   total: 0, mysl_total: 0, seller_total: 0, created_at: '2026-04-04T10:00:00',
+  created_by: 'intake1',
 }
 
 const SALE = {

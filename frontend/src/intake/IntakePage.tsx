@@ -188,6 +188,7 @@ export function IntakePage() {
                   <tr style={{ textAlign: 'left', borderBottom: '2px solid #ccc', fontSize: 13 }}>
                     <th style={{ padding: '4px 8px' }}>Intake #</th>
                     <th style={{ padding: '4px 8px' }}>Date</th>
+                    <th style={{ padding: '4px 8px' }}>Intake by</th>
                     <th style={{ padding: '4px 8px' }}>Donate Unsold</th>
                     <th style={{ padding: '4px 8px' }}>Donate Proceeds</th>
                     <th></th>
@@ -198,6 +199,7 @@ export function IntakePage() {
                     <tr key={i.id} style={{ borderBottom: '1px solid #eee' }}>
                       <td style={{ padding: '6px 8px' }}>#{i.id}</td>
                       <td style={{ padding: '6px 8px' }}>{i.date_entered}</td>
+                      <td style={{ padding: '6px 8px' }}>{i.created_by ?? '—'}</td>
                       <td style={{ padding: '6px 8px' }}>{i.donate_unsold ? 'Yes' : 'No'}</td>
                       <td style={{ padding: '6px 8px' }}>{i.donate_proceeds ? 'Yes' : 'No'}</td>
                       <td style={{ padding: '6px 8px' }}>
@@ -226,6 +228,9 @@ export function IntakePage() {
 
       {step === 'items' && intake && (
         <div>
+          <p style={{ color: '#666', fontSize: 13, margin: '0 0 8px' }}>
+            Intake #{intake.id} · recorded by <strong>{intake.created_by ?? '—'}</strong>
+          </p>
           <ItemForm
             intakeId={intake.id}
             onAdded={handleItemAdded}

@@ -49,6 +49,8 @@ def test_create_intake(client, admin_token, seller):
     data = resp.json()
     assert data["seller_id"] == seller.id
     assert data["donate_unsold"] is False
+    # created_by records which user performed the intake (the authed user).
+    assert data["created_by"] == "admin"
 
 
 def test_create_intake_unknown_seller_returns_404(client, admin_token):
@@ -66,6 +68,8 @@ def test_get_intake(client, admin_token, intake):
     data = resp.json()
     assert data["id"] == intake.id
     assert data["seller_id"] == intake.seller_id
+    # created_by is surfaced in the intake response so the UI can show who did it.
+    assert data["created_by"] == "admin"
 
 
 def test_get_intake_not_found(client, admin_token):
@@ -101,6 +105,8 @@ def test_intake_user_can_create_intake(client, intake_token, seller):
         headers={"Authorization": f"Bearer {intake_token}"},
     )
     assert resp.status_code == 201
+    # created_by reflects the authed intake user, not a hardcoded value.
+    assert resp.json()["created_by"] == "intake1"
 
 
 def test_add_item_auto_assigns_code(client, active_event, admin_token):
