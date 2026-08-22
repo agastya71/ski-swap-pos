@@ -7,3 +7,4 @@ __pycache__/
 *.db
 *.db.bak
 backend/.jwt_secret
+legacy_transformed/
