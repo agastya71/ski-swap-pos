@@ -21,6 +21,7 @@ export function UserManagement() {
   const [users, setUsers] = useState<User[]>([])
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [showPw, setShowPw] = useState(false)
   const [role, setRole] = useState<Role>('cashier')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -111,8 +112,9 @@ export function UserManagement() {
         <div>
           <label htmlFor="newPassword" style={{ display: 'block', fontSize: 13, marginBottom: 3 }}>Password</label>
           <div style={{ display: 'flex', gap: 6 }}>
-            <input id="newPassword" type="password" value={password} onChange={e => setPassword(e.target.value)} required style={{ flex: 1, padding: 6, boxSizing: 'border-box' }} />
+            <input id="newPassword" type={showPw ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} required style={{ flex: 1, padding: 6, boxSizing: 'border-box' }} />
             <button type="button" onClick={() => fillGeneratedPassword()} title="Generate a compliant password" style={{ padding: '6px 10px' }}>Generate</button>
+            <button type="button" onClick={() => setShowPw(s => !s)} title={showPw ? 'Hide password' : 'Show password'} style={{ padding: '6px 10px' }}>{showPw ? 'Hide' : 'Show'}</button>
           </div>
         </div>
         <div>

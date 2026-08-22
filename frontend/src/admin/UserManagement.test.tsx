@@ -107,6 +107,18 @@ describe('UserManagement', () => {
     await waitFor(() => expect(screen.getByLabelText(/password/i)).toHaveValue('Generated1!'))
   })
 
+  /** The Show/Hide toggle reveals the generated password so the admin can read and copy it. */
+  it('Show toggle reveals the password field as plain text', async () => {
+    server.use(http.get('/users', () => HttpResponse.json(USERS)))
+    render(<UserManagement />)
+    await waitFor(() => expect(screen.getByLabelText(/password/i)).toHaveValue('Generated1!'))
+    // Password field is obscured by default.
+    expect(screen.getByLabelText(/password/i)).toHaveAttribute('type', 'password')
+    fireEvent.click(screen.getByRole('button', { name: /show/i }))
+    expect(screen.getByLabelText(/password/i)).toHaveAttribute('type', 'text')
+    expect(screen.getByRole('button', { name: /hide/i })).toBeInTheDocument()
+  })
+
   /** The Generate button replaces the password with a fresh suggestion. */
   it('Generate button replaces the password with a fresh suggestion', async () => {
     let count = 0
