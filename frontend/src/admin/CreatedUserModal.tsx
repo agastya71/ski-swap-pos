@@ -24,14 +24,38 @@ export function CreatedUserModal({
   onClose: () => void
 }) {
   const [copied, setCopied] = useState<'user' | 'pw' | null>(null)
+  const [copyError, setCopyError] = useState<string | null>(null)
 
+  /** Copy to the clipboard with a fallback for non-secure contexts where the
+   *  async Clipboard API is unavailable. Surfaces a visible error instead of
+   *  failing silently. */
   async function copy(label: 'user' | 'pw', text: string) {
+    let ok = false
     try {
       await navigator.clipboard.writeText(text)
-      setCopied(label)
+      ok = true
     } catch {
-      // Clipboard may be unavailable (e.g. non-secure context); ignore.
+      // Fallback: hidden textarea + execCommand for older/secure-less contexts.
+      try {
+        const ta = document.createElement('textarea')
+        ta.value = text
+        ta.style.position = 'fixed'
+        ta.style.opacity = '0'
+        document.body.appendChild(ta)
+        ta.focus()
+        ta.select()
+        ok = document.execCommand('copy')
+        document.body.removeChild(ta)
+      } catch {
+        ok = false
+      }
+    }
+    if (ok) {
+      setCopied(label)
+      setCopyError(null)
+    } else {
       setCopied(null)
+      setCopyError('Copy failed — select the text and copy manually.')
     }
   }
 
@@ -67,6 +91,9 @@ export function CreatedUserModal({
             {copied === 'pw' ? 'Copied' : 'Copy'}
           </button>
         </div>
+        {copyError && (
+          <div role="alert" style={{ color: '#ef4444', fontSize: 12, marginBottom: 8 }}>{copyError}</div>
+        )}
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
           <button type="button" onClick={onClose}
             style={{ padding: '8px 16px', background: NAVY, color: '#fff', border: 'none', cursor: 'pointer' }}>
