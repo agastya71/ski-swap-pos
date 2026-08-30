@@ -1,7 +1,9 @@
 /**
  * Item list table for an intake session — displays all consigned items with
- * per-item Edit (expand-below panel), Print Label, and bulk Print All Labels actions.
- * Delete is accessed via the edit panel and is disabled for label-printed items.
+ * per-item Edit (expand-below panel), per-row Delete (also available inside the
+ * edit panel), Print Label, and bulk Print All Labels actions. Row-level Delete
+ * (added 2026-08-29 after tester feedback) carries the same soft-delete
+ * guardrails: disabled for label-printed or sold items with a tooltip reason.
  *
  * @module ItemList
  */

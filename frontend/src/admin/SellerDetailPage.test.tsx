@@ -79,6 +79,23 @@ describe('SellerDetailPage', () => {
     expect(patched).toBe(false)
   })
 
+  /** Verifies clearing Street Address blocks the save with a clear message
+   *  (parity with the registration form's required seller fields). */
+  it('shows an error when saving without a street address or city', async () => {
+    let patched = false
+    server.use(http.patch('/sellers/1', () => {
+      patched = true
+      return HttpResponse.json(seller)
+    }))
+    setToken(ADMIN_TOKEN)
+    render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />)
+    fireEvent.click(screen.getByRole('button', { name: /edit/i }))
+    fireEvent.change(screen.getByLabelText('Street Address *'), { target: { value: '' } })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    expect(screen.getByRole('alert')).toHaveTextContent(/street address and city are required/i)
+    expect(patched).toBe(false)
+  })
+
   /** Verifies non-5-digit ZIP input is corrected and a short ZIP blocks saving. */
   it('shows an error when the ZIP is not 5 digits', async () => {
     let patched = false

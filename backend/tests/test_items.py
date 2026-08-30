@@ -527,3 +527,47 @@ def test_import_rounds_price_up_to_whole_dollar(client, active_event, admin_toke
     assert by_desc["Whole"] == 24.0
     assert by_desc["Half"] == 25.0
     assert by_desc["Cents"] == 1.0
+
+
+def test_import_rejects_nonfinite_and_negative_prices(client, active_event, admin_token):
+    """NaN/inf/negative prices get per-row errors instead of breaking the whole
+    file (ceil(NaN) → ValueError → 422; ceil(inf) → OverflowError → 500)."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
+    iid = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers).json()["id"]
+    csv_text = (
+        "Description,Category,Brand,Type,Color,Size,Gender/Age,Year,Price,Used,Donate if Unsold,Quantity\n"
+        "Good,Skis,Atomic,Alpine,,,170,,50.0,Yes,No,\n"
+        "Bad,Skis,Atomic,Alpine,,,170,,nan,Yes,No,\n"
+        "Negative,Skis,Atomic,Alpine,,,170,,-5.0,Yes,No,\n"
+    )
+    resp = client.post(
+        f"/intakes/{iid}/items/import",
+        files={"file": ("items.csv", csv_text.encode("utf-8"), "text/csv")},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["imported"] == 1
+    assert body["skipped"] == 2
+    reasons = " | ".join(e["reason"] for e in body["errors"])
+    assert "real number" in reasons
+    assert "≥ 0" in reasons
+    # The valid row still imported with its price untouched.
+    listed = client.get(f"/sellers/{seller_r.json()['id']}/items", headers=headers).json()
+    assert [it["price"] for it in listed] == [50.0]
+
+
+def test_import_template_has_quantity_column(client, admin_token):
+    """GET /items/import-template pins the 12-column header, incl. Quantity —
+    the parser is positional, so the template header is the contract."""
+    import io
+    import openpyxl
+    resp = client.get("/items/import-template", headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 200
+    wb = openpyxl.load_workbook(io.BytesIO(resp.content))
+    headers_row = [c.value for c in next(wb.active.iter_rows(min_row=1, max_row=1))]
+    assert headers_row == [
+        "Description", "Category", "Brand", "Type", "Color",
+        "Size", "Gender/Age", "Year", "Price", "Used", "Donate if Unsold", "Quantity",
+    ]

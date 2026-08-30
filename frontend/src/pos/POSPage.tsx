@@ -29,6 +29,36 @@ const CART_KEY = 'pos_cart'
  *  already-sold items; with it, the cashier sees the read-only receipt. */
 const SALE_KEY = 'pos_sale'
 
+/** Validate restored localStorage JSON shape (defense against corrupted or
+ *  hand-edited storage: wrong-shape-but-parseable JSON would otherwise crash
+ *  the POS render instead of degrading to an empty state). */
+function loadPersistedLines(): CartLine[] {
+  try {
+    const stored = localStorage.getItem(CART_KEY)
+    if (!stored) return []
+    const parsed = JSON.parse(stored)
+    return Array.isArray(parsed) ? (parsed.filter((l: unknown) => !!l && typeof l === 'object' && 'item' in (l as object)) as CartLine[]) : []
+  } catch {
+    return []
+  }
+}
+
+function loadPersistedSale(): SaleWithItemsResponse | null {
+  try {
+    const stored = localStorage.getItem(SALE_KEY)
+    if (!stored) return null
+    const parsed = JSON.parse(stored) as SaleWithItemsResponse
+    if (parsed && typeof parsed === 'object' && typeof parsed.id === 'number'
+        && typeof parsed.sale_total === 'number') {
+      return parsed
+    }
+    localStorage.removeItem(SALE_KEY)
+    return null
+  } catch {
+    return null
+  }
+}
+
 /**
  * Root POS component. Manages cart lines, the completed sale (if any), Square
  * token, and sale submission. The payment form is visible only while editing
@@ -36,22 +66,8 @@ const SALE_KEY = 'pos_sale'
  * replaces it on the same page.
  */
 export function POSPage() {
-  const [lines, setLinesState] = useState<CartLine[]>(() => {
-    try {
-      const stored = localStorage.getItem(CART_KEY)
-      return stored ? (JSON.parse(stored) as CartLine[]) : []
-    } catch {
-      return []
-    }
-  })
-  const [sale, setSale] = useState<SaleWithItemsResponse | null>(() => {
-    try {
-      const stored = localStorage.getItem(SALE_KEY)
-      return stored ? (JSON.parse(stored) as SaleWithItemsResponse) : null
-    } catch {
-      return null
-    }
-  })
+  const [lines, setLinesState] = useState<CartLine[]>(loadPersistedLines)
+  const [sale, setSale] = useState<SaleWithItemsResponse | null>(loadPersistedSale)
   const [squareToken, setSquareToken] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -170,7 +186,7 @@ export function POSPage() {
       {!sale && <LookupField onFound={handleFound} />}
 
       <div style={{ margin: '16px 0' }}>
-        <Cart lines={lines} onUpdate={handleUpdate} onRemove={handleRemove} />
+        <Cart lines={lines} onUpdate={handleUpdate} onRemove={handleRemove} readOnly={!!sale} />
       </div>
 
       {!sale && (

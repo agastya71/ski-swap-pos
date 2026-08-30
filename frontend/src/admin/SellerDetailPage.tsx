@@ -46,10 +46,15 @@ export function SellerDetailPage({ seller: initialSeller, onBack, eventId }: {
   async function handleSaveEdit() {
     setEditError(null)
     // Same mandatory-field rules as the registration form (SellerForm):
-    // state is a 2-char US code and ZIP is 5 digits, enforced client-side
-    // since this panel saves via a button (no native form submission). Also
-    // surface API errors visibly instead of swallowing them.
+    // state is a 2-char US code, ZIP is 5 digits, street address and city are
+    // required — enforced client-side since this panel saves via a button (no
+    // native form submission). Also surface API errors visibly instead of
+    // swallowing them.
     const zip = (editDraft.zip ?? '').trim()
+    if (!editDraft.address?.trim() || !editDraft.city?.trim()) {
+      setEditError('Street address and city are required.')
+      return
+    }
     if (!editDraft.state?.trim()) {
       setEditError('State is required.')
       return

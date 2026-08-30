@@ -139,6 +139,22 @@ describe('POSPage', () => {
     // Nothing is resubmittable: no payment form, no lookup.
     expect(screen.queryByRole('button', { name: /complete sale/i })).not.toBeInTheDocument()
     expect(screen.queryByPlaceholderText(/scan barcode/i)).not.toBeInTheDocument()
+    // The restored receipt is genuinely read-only: no qty/price inputs, no Remove.
+    expect(screen.queryByLabelText(/quantity for A001-001/i)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/unit price for A001-001/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /remove A001-001/i })).not.toBeInTheDocument()
+  })
+
+  /** Verifies corrupted localStorage degrades to a clean editing state instead
+   *  of crashing the POS render (wrong-shape-but-parseable JSON). */
+  it('recovers from corrupted localStorage instead of crashing', () => {
+    localStorage.setItem('pos_cart', JSON.stringify({ not: 'an array' }))
+    localStorage.setItem('pos_sale', JSON.stringify(12345))
+    renderPOS()
+    // Degraded to an empty editing state: sale dropped, no crash.
+    expect(screen.getByText(/cart is empty/i)).toBeInTheDocument()
+    expect(screen.getByPlaceholderText(/scan barcode/i)).toBeInTheDocument()
+    expect(screen.queryByText(/sale complete/i)).not.toBeInTheDocument()
   })
 
   /** Verifies New Transaction clears both the cart and the persisted sale. */

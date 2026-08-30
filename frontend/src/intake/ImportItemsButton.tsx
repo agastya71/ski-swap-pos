@@ -44,6 +44,14 @@ export function ImportItemsButton({ intakeId, onImported }: {
     }
   }
 
+  async function handleDownloadTemplate() {
+    try {
+      await downloadImportTemplate()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Template download failed')
+    }
+  }
+
   return (
     <div style={{ display: 'inline-block' }}>
       <div style={{ display: 'flex', gap: 8 }}>
@@ -56,7 +64,7 @@ export function ImportItemsButton({ intakeId, onImported }: {
         </button>
         <button
           type="button"
-          onClick={() => downloadImportTemplate().catch(() => undefined)}
+          onClick={handleDownloadTemplate}
           title="Download the blank .xlsx bulk-import template to fill out"
           style={{ border: `1px solid ${NAVY}`, color: NAVY, background: 'none', padding: '4px 10px', cursor: 'pointer', borderRadius: 3, fontSize: 13 }}
         >

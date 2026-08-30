@@ -142,6 +142,17 @@ def import_items(
             continue
         # Whole-dollar pricing: round UP to the nearest dollar (decision
         # 2026-08-29) so consignment prices never carry cents from templates.
+        # Reject non-finite (NaN/inf) and negative values first — ceil(NaN)
+        # raises ValueError and ceil(inf) OverflowError, which would otherwise
+        # fail the whole file with an unhandled 500 or cryptic message.
+        if not math.isfinite(price_float):
+            errors.append(ImportRowError(row=i, reason=f"Invalid Price value: {price!r} (must be a real number)"))
+            skipped += 1
+            continue
+        if price_float < 0:
+            errors.append(ImportRowError(row=i, reason=f"Invalid Price value: {price!r} (must be ≥ 0)"))
+            skipped += 1
+            continue
         price_float = float(math.ceil(price_float))
 
         # Brand closest-match: replace with an existing brand if one is close.
