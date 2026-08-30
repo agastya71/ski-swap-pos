@@ -28,7 +28,8 @@ describe('IntakeForm', () => {
   /** Verifies that the seller name heading and both donation preference checkboxes are rendered. */
   it('shows seller name and donation preference checkboxes', () => {
     render(<IntakeForm seller={SELLER} onCreated={vi.fn()} />)
-    expect(screen.getByText(/Jane Doe/)).toBeInTheDocument()
+    // Name appears in the header and in the inheritance hint line — assert presence.
+    expect(screen.getAllByText(/Jane Doe/).length).toBeGreaterThanOrEqual(1)
     expect(screen.getByLabelText(/donate proceeds/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/donate unsold/i)).toBeInTheDocument()
   })

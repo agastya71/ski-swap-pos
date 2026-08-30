@@ -11,6 +11,7 @@
  */
 import { useRef, useState, type ChangeEvent } from 'react'
 import { importItems } from '../api/intakes'
+import { downloadImportTemplate } from '../api/items'
 import type { ImportResult } from '../types'
 
 const NAVY = '#1e3a8a'
@@ -45,13 +46,23 @@ export function ImportItemsButton({ intakeId, onImported }: {
 
   return (
     <div style={{ display: 'inline-block' }}>
-      <button
-        type="button"
-        onClick={() => fileInputRef.current?.click()}
-        style={{ border: `1px solid ${NAVY}`, color: NAVY, background: 'none', padding: '4px 10px', cursor: 'pointer', borderRadius: 3, fontSize: 13 }}
-      >
-        Import Items
-      </button>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          style={{ border: `1px solid ${NAVY}`, color: NAVY, background: 'none', padding: '4px 10px', cursor: 'pointer', borderRadius: 3, fontSize: 13 }}
+        >
+          Import Items
+        </button>
+        <button
+          type="button"
+          onClick={() => downloadImportTemplate().catch(() => undefined)}
+          title="Download the blank .xlsx bulk-import template to fill out"
+          style={{ border: `1px solid ${NAVY}`, color: NAVY, background: 'none', padding: '4px 10px', cursor: 'pointer', borderRadius: 3, fontSize: 13 }}
+        >
+          Download Template
+        </button>
+      </div>
       <input
         ref={fileInputRef}
         type="file"

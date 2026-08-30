@@ -34,6 +34,7 @@ export function ItemList({ items, intakeId, onItemsChanged }: {
   const [draft, setDraft] = useState({ description: '', price: '', brand: '', type: '', size: '', gender_age: '', color: '' })
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [qtyAdjust, setQtyAdjust] = useState('')
   const [qtyError, setQtyError] = useState<string | null>(null)
 
@@ -56,11 +57,17 @@ export function ItemList({ items, intakeId, onItemsChanged }: {
     setSaveError(null)
   }
 
-  /** Deletes a single item by ID, closes the panel, and notifies the parent. */
+  /** Deletes a single item by ID (soft delete; backend refuses once a label is
+   *  printed or the item sold), closes the panel, and notifies the parent. */
   async function handleDelete(id: number) {
-    await deleteItem(id)
-    setExpandedEditId(null)
-    onItemsChanged()
+    setDeleteError(null)
+    try {
+      await deleteItem(id)
+      setExpandedEditId(null)
+      onItemsChanged()
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Failed to delete item')
+    }
   }
 
   /** Adjusts the item's on-hand quantity by a signed delta and refreshes. */
@@ -117,6 +124,7 @@ export function ItemList({ items, intakeId, onItemsChanged }: {
 
   return (
     <div>
+      {deleteError && <div role="alert" style={{ color: 'red', marginBottom: 8 }}>{deleteError}</div>}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <h4 style={{ margin: 0 }}>{items.length} item{items.length !== 1 ? 's' : ''}</h4>
         <button onClick={handlePrintAll}>Print All Labels</button>
@@ -145,7 +153,23 @@ export function ItemList({ items, intakeId, onItemsChanged }: {
                 <td style={{ padding: '4px 8px' }}>{item.label_printed ? '✓ printed' : '—'}</td>
                 <td style={{ padding: '4px 8px', whiteSpace: 'nowrap' }}>
                   <button onClick={() => handlePrintOne(item.id)} style={{ marginRight: 4 }}>Print Label</button>
-                  <button onClick={() => openEdit(item)}>Edit</button>
+                  <button onClick={() => openEdit(item)} style={{ marginRight: 4 }}>Edit</button>
+                  {/* Per-row Delete (tester feedback: "Not seeing a Delete button").
+                      Same soft-delete guardrails as the edit-panel Delete. */}
+                  <button
+                    aria-label={`Delete ${item.code}`}
+                    disabled={item.label_printed || item.status !== 'available'}
+                    title={
+                      item.label_printed
+                        ? 'Cannot delete after labels are printed'
+                        : item.status !== 'available'
+                          ? 'Only available items can be deleted'
+                          : `Delete item ${item.code}`
+                    }
+                    onClick={() => { if (window.confirm(`Delete item ${item.code}? This cannot be undone.`)) void handleDelete(item.id) }}
+                  >
+                    Delete
+                  </button>
                 </td>
               </tr>
               {expandedEditId === item.id && (

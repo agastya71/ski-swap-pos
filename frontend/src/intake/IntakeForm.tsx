@@ -52,18 +52,26 @@ export function IntakeForm({ seller, onCreated }: {
   return (
     <form onSubmit={handleSubmit}>
       <h3>New Intake — {seller.is_vendor ? (seller.company ?? seller.code) : [seller.first_name, seller.last_name].filter(Boolean).join(' ')} ({seller.code})</h3>
-      <div style={{ marginBottom: 10 }}>
-        <label>
-          <input type="checkbox" id="donateProceeds" checked={donateProceeds} onChange={e => setDonateProceeds(e.target.checked)} />
-          {' '}Donate proceeds (MYSL keeps 100% of sale price)
-        </label>
-      </div>
-      <div style={{ marginBottom: 10 }}>
-        <label>
-          <input type="checkbox" id="donateUnsold" checked={donateUnsold} onChange={e => setDonateUnsold(e.target.checked)} />
-          {' '}Donate unsold items
-        </label>
-      </div>
+      <fieldset style={{ border: '1px solid #e2e8f0', borderRadius: 4, padding: '10px 12px', marginBottom: 10 }}>
+        <legend style={{ fontSize: 13, color: '#64748b' }}>Donation preferences (default for this intake's items)</legend>
+        <div style={{ marginBottom: 10 }}>
+          <label>
+            <input type="checkbox" id="donateProceeds" checked={donateProceeds} onChange={e => setDonateProceeds(e.target.checked)} />
+            {' '}Donate proceeds (MYSL keeps 100% of sale price)
+          </label>
+        </div>
+        <div style={{ marginBottom: 10 }}>
+          <label>
+            <input type="checkbox" id="donateUnsold" checked={donateUnsold} onChange={e => setDonateUnsold(e.target.checked)} />
+            {' '}Donate unsold items
+          </label>
+          </div>
+        {/* Inheritance visibility: the checkboxes above are pre-seeded from the
+            seller's registration defaults; items inherit them unless overridden. */}
+        <div style={{ fontSize: 11, color: '#64748b' }}>
+          Pre-filled from {seller.is_vendor ? (seller.company ?? seller.code) : [seller.first_name, seller.last_name].filter(Boolean).join(' ')}'s registration — items inherit these unless overridden per item.
+        </div>
+      </fieldset>
       {error && <div role="alert" style={{ color: 'red', marginBottom: 10 }}>{error}</div>}
       <button type="submit" disabled={loading}>Start Intake</button>
     </form>

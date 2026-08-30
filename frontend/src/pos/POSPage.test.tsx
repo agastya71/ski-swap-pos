@@ -96,6 +96,62 @@ describe('POSPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /complete sale/i }))
     await waitFor(() => expect(screen.getByText(/sale complete/i)).toBeInTheDocument())
     expect(screen.getByText(/sale #1/i)).toBeInTheDocument()
+    // The completed sale is persisted so a reload restores the receipt, not an editable cart.
+    expect(localStorage.getItem('pos_sale')).not.toBeNull()
+  })
+
+  /** Verifies Cancel abandons the entire checkout: confirmation, cart cleared, back to lookup. */
+  it('abandons the whole checkout when Cancel is confirmed', async () => {
+    lookupReturns(ITEM_A)
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    renderPOS()
+    scan('A001-001')
+    await waitFor(() => expect(screen.getByText('A001-001')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
+    expect(confirmSpy).toHaveBeenCalledOnce()
+    expect(screen.getByText(/cart is empty/i)).toBeInTheDocument()
+    expect(screen.getByPlaceholderText(/scan barcode/i)).toBeInTheDocument()
+    expect(localStorage.getItem('pos_cart')).toBeNull()
+  })
+
+  /** Verifies declining the Cancel confirmation keeps the cart intact. */
+  it('keeps the cart when the Cancel confirmation is declined', async () => {
+    lookupReturns(ITEM_A)
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    renderPOS()
+    scan('A001-001')
+    await waitFor(() => expect(screen.getByText('A001-001')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
+    expect(screen.getByText('A001-001')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /complete sale/i })).toBeInTheDocument()
+  })
+
+  /** Verifies a reload after a completed sale restores the read-only receipt,
+   *  not an editable cart of already-sold items. */
+  it('restores the receipt after reload instead of an editable cart', () => {
+    localStorage.setItem('pos_cart', JSON.stringify([
+      { item: ITEM_A, quantity: 1, sell_price: ITEM_A.price, notes: '' },
+    ]))
+    localStorage.setItem('pos_sale', JSON.stringify(SALE))
+    renderPOS()
+    expect(screen.getByText(/sale complete/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /new transaction/i })).toBeInTheDocument()
+    // Nothing is resubmittable: no payment form, no lookup.
+    expect(screen.queryByRole('button', { name: /complete sale/i })).not.toBeInTheDocument()
+    expect(screen.queryByPlaceholderText(/scan barcode/i)).not.toBeInTheDocument()
+  })
+
+  /** Verifies New Transaction clears both the cart and the persisted sale. */
+  it('clears the persisted sale and cart on New Transaction', () => {
+    localStorage.setItem('pos_cart', JSON.stringify([
+      { item: ITEM_A, quantity: 1, sell_price: ITEM_A.price, notes: '' },
+    ]))
+    localStorage.setItem('pos_sale', JSON.stringify(SALE))
+    renderPOS()
+    fireEvent.click(screen.getByRole('button', { name: /new transaction/i }))
+    expect(localStorage.getItem('pos_sale')).toBeNull()
+    expect(localStorage.getItem('pos_cart')).toBeNull()
+    expect(screen.getByText(/cart is empty/i)).toBeInTheDocument()
   })
 
   it('returns to empty cart after New Transaction', async () => {

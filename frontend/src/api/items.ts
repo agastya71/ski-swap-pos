@@ -63,8 +63,20 @@ export const adjustItemQuantity = (id: number, adjustment: number) =>
  * @returns Array of matching brand names; may be empty.
  * @throws {ApiError} 401 if the session token is invalid.
  */
-export const fetchBrands = (q: string) =>
-  apiFetch<string[]>(`/items/brands?q=${encodeURIComponent(q)}`)
+/**
+ * Fetch brand-typeahead suggestions for the active event.
+ *
+ * @param q - Partial brand string to filter by (case-insensitive).
+ * @param category - When provided (e.g. 'Skis'), only brands that have been
+ *   assigned to items in that category are returned.
+ * @returns Array of matching brand names; may be empty.
+ * @throws {ApiError} 401 if the session token is invalid.
+ */
+export const fetchBrands = (q: string, category?: string) => {
+  const params = new URLSearchParams({ q })
+  if (category) params.set('category', category)
+  return apiFetch<string[]>(`/items/brands?${params.toString()}`)
+}
 
 /**
  * Send a ZPL barcode label for one item to the label printer.

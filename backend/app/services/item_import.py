@@ -2,14 +2,22 @@
 or TSV) and creates item rows for an intake, applying brand closest-matching and
 collecting per-row errors.
 
+Columns (12): Description, Category, Brand, Type, Color, Size, Gender/Age, Year,
+Price, Used, Donate if Unsold, Quantity. Rows from an older 11-column template
+(without Quantity) are accepted — quantity defaults to 1. Price is rounded UP
+to the nearest whole dollar (whole-dollar pricing decision).
+
 Semantics: every row is validated; valid rows are committed in a single
 transaction and invalid rows are reported back in an error list (the caller can
 render/download the error report). Brand values are replaced with the closest
 existing brand (normalized edit distance ≤ 2) when a close match exists.
+Category and Type are case-insensitively normalized to the canonical casing
+(never rejected); Quantity defaults to 1 when blank.
 """
 
 import csv
 import io
+import math
 from io import BytesIO
 from typing import Any
 
@@ -21,6 +29,7 @@ from app.models.item import Item
 from app.models.seller import Seller
 from app.schemas.item import ImportResult, ImportRowError
 from app.services.brand_match import closest_brand
+from app.services.canonical import canonicalize_category, canonicalize_type
 
 
 def parse_upload(filename: str, data: bytes) -> list[list[Any]]:
@@ -95,8 +104,11 @@ def import_items(
     skipped = 0
 
     for i, row in enumerate(rows, start=2):  # row 1 is the header
-        padded = (list(row) + [None] * 11)[:11]
-        description, category, brand, type_, color, size, gender_age, year, price, used_str, donate_str = padded
+        padded = (list(row) + [None] * 12)[:12]
+        (
+            description, category, brand, type_, color, size, gender_age,
+            year, price, used_str, donate_str, quantity_val,
+        ) = padded
 
         if not description or price is None:
             errors.append(ImportRowError(row=i, reason="Missing required field: Description or Price"))
@@ -107,12 +119,30 @@ def import_items(
             skipped += 1
             continue
 
+        # Quantity: blank/None = 1; otherwise a positive integer (rows from an
+        # older 11-column template simply have nothing in this slot).
+        quantity = 1
+        if quantity_val is not None and str(quantity_val).strip() != "":
+            try:
+                quantity = int(quantity_val)
+            except (TypeError, ValueError):
+                errors.append(ImportRowError(row=i, reason=f"Invalid Quantity value: {quantity_val!r} (must be a whole number ≥ 1)"))
+                skipped += 1
+                continue
+            if quantity < 1:
+                errors.append(ImportRowError(row=i, reason=f"Invalid Quantity value: {quantity!r} (must be ≥ 1)"))
+                skipped += 1
+                continue
+
         try:
             price_float = float(price)
         except (TypeError, ValueError):
             errors.append(ImportRowError(row=i, reason=f"Invalid Price value: {price!r}"))
             skipped += 1
             continue
+        # Whole-dollar pricing: round UP to the nearest dollar (decision
+        # 2026-08-29) so consignment prices never carry cents from templates.
+        price_float = float(math.ceil(price_float))
 
         # Brand closest-match: replace with an existing brand if one is close.
         brand_str = str(brand).strip()
@@ -143,14 +173,18 @@ def import_items(
             code=item_code,
             barcode_39=item_code,
             description=str(description),
-            category=str(category) if category else None,
+            # Category/Type normalize case-insensitively to canonical casing
+            # ("skis" → "Skis", "ALPINE SKI" → "Alpine Ski"); unknown values
+            # are stored as typed, never rejected.
+            category=canonicalize_category(str(category)) if category else None,
             brand=brand_str,
-            type=str(type_) if type_ else None,
+            type=canonicalize_type(str(type_)) if type_ else None,
             color=str(color) if color else None,
             size=str(size) if size else None,
             gender_age=str(gender_age) if gender_age else None,
             year=year_int,
             price=price_float,
+            quantity=quantity,
             used=used,
             donate_unsold=donate,
             created_by=username,

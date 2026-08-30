@@ -7,14 +7,12 @@
 import { useState, type FormEvent } from 'react'
 import { addItem } from '../api/intakes'
 import { fetchBrands } from '../api/items'
-import { ITEM_TYPES, SIZE_OPTIONS } from '../lib/itemSizes'
+import { CATEGORIES, SIZE_OPTIONS, typesForCategory } from '../lib/itemSizes'
 import type { Item } from '../types'
-
-const CATEGORIES = ['Skis', 'Ski Boots', 'Ski Poles', 'Snowboard', 'Snowboard Boots', 'Bindings', 'Helmet', 'Clothing', 'Other']
 
 const emptyForm = (donateUnsold: boolean) => ({
   category: '', brand: '', type: '', description: '', color: '',
-  size: '', uom: '', gender_age: '', year: '', used: false, price: '', donate_unsold: donateUnsold,
+  size: '', uom: '', gender_age: '', year: '', quantity: '1', used: false, price: '', donate_unsold: donateUnsold,
 })
 
 /**
@@ -33,28 +31,51 @@ export function ItemForm({ intakeId, onAdded, defaultDonateUnsold = false }: {
 }) {
   const [f, setF] = useState(() => emptyForm(defaultDonateUnsold))
   const [error, setError] = useState<string | null>(null)
+  const [priceNote, setPriceNote] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [brandSuggestions, setBrandSuggestions] = useState<string[]>([])
 
-  /** Brand typeahead: fetch matching existing brands as the cashier types. */
+  /** Brand typeahead: fetch matching existing brands (scoped to the selected
+   *  category when one is chosen) as the cashier types. */
   async function handleBrandInput(value: string) {
     set('brand', value)
     if (value.trim().length < 1) { setBrandSuggestions([]); return }
-    try { setBrandSuggestions(await fetchBrands(value.trim())) } catch { setBrandSuggestions([]) }
+    try {
+      setBrandSuggestions(await fetchBrands(value.trim(), f.category || undefined))
+    } catch { setBrandSuggestions([]) }
   }
 
   function set(k: keyof ReturnType<typeof emptyForm>, v: string | boolean) {
     setF(prev => ({ ...prev, [k]: v }))
   }
 
+  /** Category change clears Type (and Size) so the pair stays consistent. */
+  function handleCategoryChange(newCategory: string) {
+    setF(prev => ({ ...prev, category: newCategory, type: '', size: '' }))
+  }
+
   function handleTypeChange(newType: string) {
     setF(prev => ({ ...prev, type: newType, size: '' }))
+  }
+
+  /** Whole-dollar price entry: show a live "rounds up" note when the user
+   *  types cents (same ceiling rule as bulk import; never blocks typing). */
+  function handlePriceInput(value: string) {
+    set('price', value)
+    setPriceNote(null)
+    const v = parseFloat(value)
+    if (Number.isFinite(v) && v > 0 && !Number.isInteger(v)) {
+      setPriceNote(`Rounds up to $${Math.ceil(v)} (whole dollars only)`)
+    }
   }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
     setLoading(true)
+    // Whole-dollar pricing: round UP to the nearest dollar (same rule as bulk
+    // intake import).
+    const wholePrice = Math.ceil(parseFloat(f.price))
     try {
       const item = await addItem(intakeId, {
         category: f.category || undefined,
@@ -67,11 +88,13 @@ export function ItemForm({ intakeId, onAdded, defaultDonateUnsold = false }: {
         gender_age: f.gender_age || undefined,
         year: f.year ? parseInt(f.year) : undefined,
         used: f.used,
-        price: parseFloat(f.price),
+        price: wholePrice,
+        quantity: Math.max(1, parseInt(f.quantity) || 1),
         donate_unsold: f.donate_unsold,
       })
       onAdded(item)
       setF(emptyForm(defaultDonateUnsold))
+      setPriceNote(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add item')
     } finally {
@@ -94,7 +117,7 @@ export function ItemForm({ intakeId, onAdded, defaultDonateUnsold = false }: {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
         <div style={{ marginBottom: 8 }}>
           <label htmlFor="category" style={{ display: 'block', fontSize: 13, marginBottom: 2 }}>Category *</label>
-          <select id="category" value={f.category} onChange={e => set('category', e.target.value)} required style={{ width: '100%', padding: 5 }}>
+          <select id="category" value={f.category} onChange={e => handleCategoryChange(e.target.value)} required style={{ width: '100%', padding: 5 }}>
             <option value="">— select —</option>
             {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
@@ -117,7 +140,7 @@ export function ItemForm({ intakeId, onAdded, defaultDonateUnsold = false }: {
           <label htmlFor="type" style={{ display: 'block', fontSize: 13, marginBottom: 2 }}>Type</label>
           <select id="type" value={f.type} onChange={e => handleTypeChange(e.target.value)} style={{ width: '100%', padding: 5 }}>
             <option value="">— select type —</option>
-            {ITEM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+            {typesForCategory(f.category).map(t => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
         <div style={{ marginBottom: 8 }}>
@@ -154,19 +177,33 @@ export function ItemForm({ intakeId, onAdded, defaultDonateUnsold = false }: {
         </div>
         {text('year', 'Year')}
         <div style={{ marginBottom: 8 }}>
-          <label htmlFor="price" style={{ display: 'block', fontSize: 13, marginBottom: 2 }}>Price *</label>
-          <input id="price" type="number" min="0" step="0.01" value={f.price} onChange={e => set('price', e.target.value)} required style={{ width: '100%', padding: 5, boxSizing: 'border-box' }} />
+          <label htmlFor="quantity" style={{ display: 'block', fontSize: 13, marginBottom: 2 }}>Quantity</label>
+          <input id="quantity" type="number" min="1" step="1" value={f.quantity}
+            onChange={e => set('quantity', e.target.value)} style={{ width: '100%', padding: 5, boxSizing: 'border-box' }} />
+        </div>
+        <div style={{ marginBottom: 8 }}>
+          <label htmlFor="price" style={{ display: 'block', fontSize: 13, marginBottom: 2 }}>Price * (whole dollars)</label>
+          <input id="price" type="number" min="0" step="0.01" value={f.price} onChange={e => handlePriceInput(e.target.value)} required style={{ width: '100%', padding: 5, boxSizing: 'border-box' }} />
+          {priceNote && <div style={{ fontSize: 11, color: '#b45309', marginTop: 2 }}>{priceNote}</div>}
         </div>
       </div>
-      <div style={{ marginBottom: 10, display: 'flex', gap: 16 }}>
+      <div style={{ marginBottom: 10, display: 'flex', gap: 16, alignItems: 'flex-start' }}>
         <label>
           <input type="checkbox" checked={f.used} onChange={e => set('used', e.target.checked)} />
           {' '}Used item
         </label>
-        <label>
-          <input type="checkbox" checked={f.donate_unsold} onChange={e => set('donate_unsold', e.target.checked)} />
-          {' '}Donate if unsold (override intake preference)
-        </label>
+        <div>
+          <label>
+            <input type="checkbox" checked={f.donate_unsold} onChange={e => set('donate_unsold', e.target.checked)} />
+            {' '}Donate if unsold (overrides the intake default)
+          </label>
+          {/* Inheritance visibility (tester feedback: "inherit donation permission
+              from seller registration onto equipment intake — not sure this is working").
+              Show the inherited value the checkbox starts from. */}
+          <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+            Intake default: donate unsold {defaultDonateUnsold ? 'Yes' : 'No'} — inherited from the seller's registration
+          </div>
+        </div>
       </div>
       {error && <div role="alert" style={{ color: 'red', marginBottom: 8 }}>{error}</div>}
       <button type="submit" disabled={loading}>Add Item</button>

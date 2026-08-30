@@ -1,7 +1,9 @@
 /**
  * Tests for {@link PaymentForm} — covers field rendering, cash-only submission,
- * split cash/check payment, under-tender validation error, Cancel callback,
- * and Square card token integration (square amount derived automatically).
+ * split cash/check payment, under-tender validation error, check-number and
+ * card-transaction-id required validation (no server round-trip), manual card
+ * entry for terminal payments, Cancel callback, and Square card token
+ * integration (square amount derived automatically).
  */
 import { render, screen, fireEvent } from '@testing-library/react'
 import { PaymentForm } from './PaymentForm'
@@ -14,6 +16,8 @@ describe('PaymentForm', () => {
     expect(screen.getByText(/\$115\.00/)).toBeInTheDocument()
     expect(screen.getByLabelText(/cash/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/check/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/card \(\$\)/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/card transaction id/i)).toBeInTheDocument()
   })
 
   /** Verifies onSubmit is called with the correct breakdown when the full amount is tendered in cash. */
@@ -22,17 +26,48 @@ describe('PaymentForm', () => {
     render(<PaymentForm total={115} onSubmit={onSubmit} onCancel={vi.fn()} squareToken={null} />)
     fireEvent.change(screen.getByLabelText(/cash/i), { target: { value: '115' } })
     fireEvent.click(screen.getByRole('button', { name: /complete sale/i }))
-    expect(onSubmit).toHaveBeenCalledWith({ cash: 115, check: 0, square: 0, squareToken: null, checkNumber: null, notes: null })
+    expect(onSubmit).toHaveBeenCalledWith({ cash: 115, check: 0, square: 0, squareToken: null, checkNumber: null, cardTransactionId: null, notes: null })
   })
 
   /** Verifies onSubmit receives the correct split amounts when both cash and check are entered. */
-  it('calls onSubmit with split payment', () => {
+  it('calls onSubmit with split payment including check number', () => {
     const onSubmit = vi.fn()
     render(<PaymentForm total={115} onSubmit={onSubmit} onCancel={vi.fn()} squareToken={null} />)
     fireEvent.change(screen.getByLabelText(/cash/i), { target: { value: '50' } })
     fireEvent.change(screen.getByLabelText(/check/i), { target: { value: '65' } })
+    fireEvent.change(screen.getByLabelText(/check number/i), { target: { value: '1042' } })
     fireEvent.click(screen.getByRole('button', { name: /complete sale/i }))
-    expect(onSubmit).toHaveBeenCalledWith({ cash: 50, check: 65, square: 0, squareToken: null, checkNumber: null, notes: null })
+    expect(onSubmit).toHaveBeenCalledWith({ cash: 50, check: 65, square: 0, squareToken: null, checkNumber: '1042', cardTransactionId: null, notes: null })
+  })
+
+  /** Verifies a check payment without a check number is blocked client-side with a clear message. */
+  it('shows error when paying by check without a check number', () => {
+    const onSubmit = vi.fn()
+    render(<PaymentForm total={115} onSubmit={onSubmit} onCancel={vi.fn()} squareToken={null} />)
+    fireEvent.change(screen.getByLabelText(/check/i), { target: { value: '115' } })
+    fireEvent.click(screen.getByRole('button', { name: /complete sale/i }))
+    expect(screen.getByRole('alert')).toHaveTextContent(/check number is required/i)
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  /** Verifies a manual card payment without a transaction id is blocked client-side. */
+  it('shows error when paying by card without a transaction id', () => {
+    const onSubmit = vi.fn()
+    render(<PaymentForm total={115} onSubmit={onSubmit} onCancel={vi.fn()} squareToken={null} />)
+    fireEvent.change(screen.getByLabelText(/card \(\$\)/i), { target: { value: '115' } })
+    fireEvent.click(screen.getByRole('button', { name: /complete sale/i }))
+    expect(screen.getByRole('alert')).toHaveTextContent(/card transaction id is required/i)
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  /** Verifies a manual (terminal) card payment with a transaction id submits and passes the id. */
+  it('submits manual card payment with transaction id', () => {
+    const onSubmit = vi.fn()
+    render(<PaymentForm total={115} onSubmit={onSubmit} onCancel={vi.fn()} squareToken={null} />)
+    fireEvent.change(screen.getByLabelText(/card \(\$\)/i), { target: { value: '115' } })
+    fireEvent.change(screen.getByLabelText(/card transaction id/i), { target: { value: 'tc_9k2' } })
+    fireEvent.click(screen.getByRole('button', { name: /complete sale/i }))
+    expect(onSubmit).toHaveBeenCalledWith({ cash: 0, check: 0, square: 115, squareToken: null, checkNumber: null, cardTransactionId: 'tc_9k2', notes: null })
   })
 
   /** Verifies an alert is shown when the tendered amount is less than the sale total. */
@@ -57,6 +92,13 @@ describe('PaymentForm', () => {
     render(<PaymentForm total={115} onSubmit={onSubmit} onCancel={vi.fn()} squareToken="tok_abc" />)
     fireEvent.change(screen.getByLabelText(/cash/i), { target: { value: '15' } })
     fireEvent.click(screen.getByRole('button', { name: /complete sale/i }))
-    expect(onSubmit).toHaveBeenCalledWith({ cash: 15, check: 0, square: 100, squareToken: 'tok_abc', checkNumber: null, notes: null })
+    expect(onSubmit).toHaveBeenCalledWith({ cash: 15, check: 0, square: 100, squareToken: 'tok_abc', checkNumber: null, cardTransactionId: null, notes: null })
+  })
+
+  /** Verifies the manual card inputs are replaced by the Square-captured notice when a token exists. */
+  it('hides manual card fields when a Square token is captured', () => {
+    render(<PaymentForm total={115} onSubmit={vi.fn()} onCancel={vi.fn()} squareToken="tok_abc" />)
+    expect(screen.queryByLabelText(/card transaction id/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/card captured via square/i)).toBeInTheDocument()
   })
 })
