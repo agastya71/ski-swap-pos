@@ -67,6 +67,7 @@ class DonationItem(BaseModel):
     item_code: str = Field(description="Unique item code identifying the donated item.")
     description: Optional[str] = Field(default=None, description="Free-text description of the donated item.")
     quantity: float = Field(description="Original intake quantity of the donated item.")
+    remaining: float = Field(description="On-hand units still not sold (donated units for unsold-type donations).")
     price: float = Field(description="Original asking price of the donated item.")
     donation_type: str = Field(description="Reason for donation: 'proceeds' (seller donated payout) or 'unsold' (seller donated unsold item).")
 

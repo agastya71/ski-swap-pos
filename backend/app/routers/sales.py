@@ -61,6 +61,8 @@ def void_sale(
     sale = db.query(Sale).filter(Sale.id == sale_id, Sale.event_id == event.id).first()
     if not sale:
         raise HTTPException(status_code=404, detail="Sale not found")
+    if sale.is_voided:
+        raise HTTPException(status_code=409, detail="Sale already voided")
     for sale_item in sale.sale_items:
         sale_item.item.remaining += sale_item.quantity
     sale.is_voided = True

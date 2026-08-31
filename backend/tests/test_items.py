@@ -250,12 +250,14 @@ def test_adjust_quantity_increase_by_difference(client, admin_token, db, intake,
     it = Item(intake_id=intake.id, seller_id=seller.id, code="Q-001", price=10.00,
               quantity=5.0, remaining=5.0, status="available", label_printed=False, created_by="admin")
     db.add(it); db.commit(); db.refresh(it)
-    # current remaining 5, add 3 -> remaining 8 (intake quantity stays 5)
+    # current remaining 5, add 3 -> BOTH columns corrected to 8 (the adjust
+    # endpoint corrects the consignment count, so the start.sh re-sync
+    # invariant remaining = quantity - sold survives).
     r = client.patch(f"/items/{it.id}/quantity", json={"adjustment": 3},
                      headers={"Authorization": f"Bearer {admin_token}"})
     assert r.status_code == 200
     assert r.json()["remaining"] == 8.0
-    assert r.json()["quantity"] == 5.0
+    assert r.json()["quantity"] == 8.0
 
 
 def test_adjust_quantity_decrease_to_total_equals_sold_ok(client, cashier_token, admin_token, db, active_event, intake, seller):

@@ -191,6 +191,25 @@ def test_donations_unsold_type(db, active_event, seller):
     assert unsold[0].item_code == "DU-001"
 
 
+def test_donations_partially_sold_shows_remaining(db, active_event, seller):
+    """A partially-sold donate-unsold item appears in donations with its
+    remaining on-hand units (review finding D5) — not the intake quantity."""
+    from app.models.intake import Intake
+    from app.models.item import Item
+    from app.services.reports import get_donations
+    i = Intake(seller_id=seller.id, donate_proceeds=False, donate_unsold=True, created_by="admin")
+    db.add(i); db.commit(); db.refresh(i)
+    it = Item(intake_id=i.id, seller_id=seller.id, code="DU-002", price=10.00,
+              quantity=5.0, remaining=3.0, status="sold", label_printed=True,
+              donate_unsold=True, created_by="admin")
+    db.add(it); db.commit()
+    report = get_donations(db, active_event.id)
+    unsold = [x for x in report.items if x.item_code == "DU-002"]
+    assert len(unsold) == 1
+    assert unsold[0].quantity == 5.0
+    assert unsold[0].remaining == 3.0
+
+
 # ── Unsold items ──────────────────────────────────────────────────────────────
 
 def test_unsold_only_available(db, active_event, seller, intake, available_item, sold_item):

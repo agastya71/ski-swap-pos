@@ -54,7 +54,8 @@ def create_sale_atomic(
     missing, belongs to a different event, or is not in ``"available"`` status
     the entire operation is rejected before the sale is created.  On success
     the Sale totals (sale_total, mysl_total, seller_total, total_paid,
-    balance_due) are computed and all items are marked ``"sold"``.
+    balance_due) are computed, item.remaining is decremented by each sold
+    quantity, and all items are marked ``"sold"``.
 
     Args:
         db: Active SQLAlchemy database session.
@@ -72,7 +73,7 @@ def create_sale_atomic(
     Raises:
         HTTPException: 422 if the request contains duplicate item IDs.
         HTTPException: 404 if any item ID is not found within the event.
-        HTTPException: 422 if any item is not in ``"available"`` status.
+        HTTPException: 422 if any line exceeds the item's remaining quantity.
     """
     # Dedup check
     item_ids = [line.item_id for line in payload.items]

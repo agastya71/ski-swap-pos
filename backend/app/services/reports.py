@@ -271,6 +271,7 @@ def get_donations(db: Session, event_id: int) -> DonationsReport:
             item_code=si.item.code,
             description=si.item.description,
             quantity=si.item.quantity,
+            remaining=si.item.remaining,
             price=si.sell_price,
             donation_type="proceeds",
         )
@@ -282,6 +283,7 @@ def get_donations(db: Session, event_id: int) -> DonationsReport:
             item_code=it.code,
             description=it.description,
             quantity=it.quantity,
+            remaining=it.remaining,
             price=it.price,
             donation_type="unsold",
         )

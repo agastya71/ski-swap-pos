@@ -226,21 +226,23 @@ def adjust_item_quantity(
 ):
     """Adjust an item's on-hand remaining quantity by a signed delta.
 
-    Positive ``adjustment`` increases the remaining on-hand units by the
-    difference (e.g. correcting an intake entry). Negative ``adjustment``
-    decreases them; the result may not fall below 0 (sold units are tracked
-    separately and cannot be "adjusted" out of remaining).
+    This corrects the CONSIGNMENT COUNT: the same delta is applied to BOTH
+    ``quantity`` (original intake units) and ``remaining`` (on-hand units), so
+    the invariant ``remaining = quantity − sold`` — enforced by the start.sh
+    re-sync — survives manual corrections. The result may not fall below 0
+    (already-sold units are tracked via sale_item and cannot be adjusted out).
     """
     item = _item_for_active_event(item_id, db)
-    new_qty = item.remaining + body.adjustment
+    new_remaining = item.remaining + body.adjustment
     # item.remaining is the on-hand sellable count; floor is 0 (sold units are
     # tracked via sale_item and cannot be adjusted away).
-    if new_qty < 0:
+    if new_remaining < 0:
         raise HTTPException(
             status_code=422,
             detail="Quantity cannot be reduced below zero (would imply fewer units than already sold)",
         )
-    item.remaining = new_qty
+    item.remaining = new_remaining
+    item.quantity = item.quantity + body.adjustment
     db.commit()
     db.refresh(item)
     return item

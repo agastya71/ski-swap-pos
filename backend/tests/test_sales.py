@@ -626,3 +626,21 @@ def test_create_sale_records_timestamp_and_cashier(client, cashier_token, active
     assert "T" in data["date_of_sale"]
     assert data["created_by"] == "cashier1"
     assert data["cc_transaction_id"] is None
+
+
+def test_void_twice_409_second_time(client, db, admin_token, cashier_token, active_event, intake, seller):
+    """Voiding an already-voided sale returns 409 and does NOT re-add stock
+    (review finding F1: repeat void inflated remaining until the restart)."""
+    it = _qty_item(db, intake, seller, "PQ-020", qty=3.0, price=10.00)
+    r = client.post("/sales",
+                    json={"items": [{"item_id": it.id, "quantity": 1}], "cash_amount": 10.00},
+                    headers={"Authorization": f"Bearer {cashier_token}"})
+    sale_id = r.json()["id"]
+    v1 = client.post(f"/sales/{sale_id}/void", headers={"Authorization": f"Bearer {admin_token}"})
+    assert v1.status_code == 200
+    db.refresh(it)
+    rem_after_first = it.remaining  # 3.0
+    v2 = client.post(f"/sales/{sale_id}/void", headers={"Authorization": f"Bearer {admin_token}"})
+    assert v2.status_code == 409
+    db.refresh(it)
+    assert it.remaining == 3.0      # unchanged by the re-void attempt

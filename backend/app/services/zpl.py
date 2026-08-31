@@ -46,7 +46,9 @@ def generate_zpl(item) -> str:
     bx           = _barcode_x(barcode)
     pw           = _PRINT_WIDTH
     try:
-        quantity = int(getattr(item, "quantity", 1) or 1)
+        # On-hand remaining (== intake quantity until a partial sale) —
+        # reprints mid-event print labels only for units still in stock.
+        quantity = int(getattr(item, "remaining", 1) or 1)
     except (TypeError, ValueError):
         quantity = 1
     copies = f"^PQ{max(1, quantity)}\n" if quantity > 1 else ""

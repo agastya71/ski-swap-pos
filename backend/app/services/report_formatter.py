@@ -73,10 +73,10 @@ def _to_csv(report: BaseModel, filename_base: str) -> Response:
             w.writerow([li.item_code, li.description, li.quantity, li.remaining, li.price, li.sell_price,
                         li.status, li.mysl_share, li.seller_share, li.commission_rate])
     elif isinstance(report, DonationsReport):
-        w.writerow(["seller_code", "item_code", "description", "quantity", "price", "donation_type"])
+        w.writerow(["seller_code", "item_code", "description", "quantity", "remaining", "price", "donation_type"])
         for item in report.items:
             w.writerow([item.seller_code, item.item_code, item.description,
-                        item.quantity, item.price, item.donation_type])
+                        item.quantity, item.remaining, item.price, item.donation_type])
     elif isinstance(report, UnsoldItemsReport):
         w.writerow(["seller_code", "item_code", "description", "category", "quantity", "remaining", "price"])
         for item in report.items:
@@ -138,12 +138,12 @@ def _to_md(report: BaseModel, filename_base: str) -> Response:
             f"# Donations: {report.event_name}",
             f"**Total Items:** {report.total_items}  **Total Value:** ${report.total_value:.2f}  ",
             f"**Generated:** {report.generated_at.isoformat()}", "",
-            "| Seller | Item Code | Description | Price | Type |",
-            "|--------|-----------|-------------|-------|------|",
+            "| Seller | Item Code | Description | Qty | Remaining | Price | Type |",
+            "|--------|-----------|-------------|-----|-----------|-------|------|",
         ]
         for item in report.items:
             lines.append(f"| {item.seller_code} | {item.item_code} | {item.description or ''} | "
-                         f"{item.quantity:G} | ${item.price:.2f} | {item.donation_type} |")
+                         f"{item.quantity:G} | {item.remaining:G} | ${item.price:.2f} | {item.donation_type} |")
     elif isinstance(report, UnsoldItemsReport):
         lines += [
             f"# Unsold Items: {report.event_name}",
@@ -208,9 +208,9 @@ def _to_pdf(report: BaseModel, filename_base: str) -> Response:
             pdf.cell(45, 6, val, border=1)
         pdf.ln(10)
         pdf.set_font("Helvetica", "B", 10)
-        for hdr, width in [("Item Code", 28), ("Description", 50), ("Price", 20),
-                            ("Sell", 20), ("Status", 20), ("MYSL", 22),
-                            ("Seller", 22), ("Rate", 18)]:
+        for hdr, width in [("Item Code", 26), ("Description", 42), ("Qty", 10),
+                            ("Rem", 10), ("Price", 16), ("Sell", 16),
+                            ("Status", 14), ("MYSL", 18), ("Seller", 18), ("Rate", 14)]:
             pdf.cell(width, 6, hdr, border=1)
         pdf.ln()
         pdf.set_font("Helvetica", "", 9)
@@ -224,14 +224,16 @@ def _to_pdf(report: BaseModel, filename_base: str) -> Response:
                     pdf.cell(width, 6, hdr, border=1)
                 pdf.ln()
                 pdf.set_font("Helvetica", "", 9)
-            pdf.cell(28, 6, _safe(li.item_code), border=1)
-            pdf.cell(50, 6, _safe((li.description or "")[:28]), border=1)
-            pdf.cell(20, 6, f"${li.price:.2f}", border=1)
-            pdf.cell(20, 6, f"${li.sell_price:.2f}", border=1)
-            pdf.cell(20, 6, _safe(li.status), border=1)
-            pdf.cell(22, 6, f"${li.mysl_share:.2f}", border=1)
-            pdf.cell(22, 6, f"${li.seller_share:.2f}", border=1)
-            pdf.cell(18, 6, f"{li.commission_rate:.0%}", border=1)
+            pdf.cell(26, 6, _safe(li.item_code), border=1)
+            pdf.cell(42, 6, _safe((li.description or "")[:26]), border=1)
+            pdf.cell(10, 6, f"{li.quantity:G}", border=1)
+            pdf.cell(10, 6, f"{li.remaining:G}", border=1)
+            pdf.cell(16, 6, f"${li.price:.2f}", border=1)
+            pdf.cell(16, 6, f"${li.sell_price:.2f}", border=1)
+            pdf.cell(14, 6, _safe(li.status), border=1)
+            pdf.cell(18, 6, f"${li.mysl_share:.2f}", border=1)
+            pdf.cell(18, 6, f"${li.seller_share:.2f}", border=1)
+            pdf.cell(14, 6, f"{li.commission_rate:.0%}", border=1)
             pdf.ln()
 
     elif isinstance(report, EventRevenueReport):
@@ -277,8 +279,10 @@ def _to_pdf(report: BaseModel, filename_base: str) -> Response:
                 pdf.set_font("Helvetica", "", 9)
             pdf.cell(25, 6, _safe(item.seller_code), border=1)
             pdf.cell(30, 6, _safe(item.item_code), border=1)
-            pdf.cell(65, 6, _safe((item.description or "")[:35]), border=1)
-            pdf.cell(25, 6, f"${item.price:.2f}", border=1)
+            pdf.cell(50, 6, _safe((item.description or "")[:32]), border=1)
+            pdf.cell(12, 6, f"{item.quantity:G}", border=1)
+            pdf.cell(12, 6, f"{item.remaining:G}", border=1)
+            pdf.cell(20, 6, f"${item.price:.2f}", border=1)
             pdf.cell(25, 6, _safe(item.donation_type), border=1)
             pdf.ln()
 
@@ -288,8 +292,8 @@ def _to_pdf(report: BaseModel, filename_base: str) -> Response:
         pdf.cell(0, 6, f"Total Items: {report.total_items}  Total Value: ${report.total_value:.2f}")
         pdf.ln(6)
         pdf.set_font("Helvetica", "B", 10)
-        for hdr, width in [("Seller", 25), ("Item Code", 30), ("Description", 65),
-                            ("Category", 30), ("Price", 20)]:
+        for hdr, width in [("Seller", 25), ("Item Code", 28), ("Description", 44),
+                            ("Category", 24), ("Qty", 10), ("Rem", 10), ("Price", 18)]:
             pdf.cell(width, 6, hdr, border=1)
         pdf.ln()
         pdf.set_font("Helvetica", "", 9)
@@ -297,16 +301,18 @@ def _to_pdf(report: BaseModel, filename_base: str) -> Response:
             if pdf.get_y() > 260:
                 pdf.add_page()
                 pdf.set_font("Helvetica", "B", 10)
-                for hdr, width in [("Seller", 25), ("Item Code", 30), ("Description", 65),
-                                    ("Category", 30), ("Price", 20)]:
+                for hdr, width in [("Seller", 25), ("Item Code", 28), ("Description", 44),
+                                    ("Category", 24), ("Qty", 10), ("Rem", 10), ("Price", 18)]:
                     pdf.cell(width, 6, hdr, border=1)
                 pdf.ln()
                 pdf.set_font("Helvetica", "", 9)
             pdf.cell(25, 6, _safe(item.seller_code), border=1)
-            pdf.cell(30, 6, _safe(item.item_code), border=1)
-            pdf.cell(65, 6, _safe((item.description or "")[:35]), border=1)
-            pdf.cell(30, 6, _safe(item.category or ""), border=1)
-            pdf.cell(20, 6, f"${item.price:.2f}", border=1)
+            pdf.cell(28, 6, _safe(item.item_code), border=1)
+            pdf.cell(44, 6, _safe((item.description or "")[:28]), border=1)
+            pdf.cell(24, 6, _safe(item.category or ""), border=1)
+            pdf.cell(10, 6, f"{item.quantity:G}", border=1)
+            pdf.cell(10, 6, f"{item.remaining:G}", border=1)
+            pdf.cell(18, 6, f"${item.price:.2f}", border=1)
             pdf.ln()
 
     elif isinstance(report, EndOfDayReport):
