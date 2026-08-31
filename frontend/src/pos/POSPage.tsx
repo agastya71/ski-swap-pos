@@ -8,6 +8,11 @@
  * stays visible as the line-item receipt. "New Transaction" clears state and
  * returns to editing. There is no separate confirmation screen.
  *
+ * Both the cart and the completed sale are persisted to localStorage, so a
+ * page reload after a completed sale restores the read-only receipt instead
+ * of an editable cart of already-sold items. Cancel abandons the whole
+ * checkout (with confirmation), clearing the cart back to lookup state.
+ *
  * @module POSPage
  */
 import { useState } from 'react'
@@ -19,6 +24,40 @@ import { SquarePayment } from './SquarePayment'
 import type { ItemLookupResponse, SaleWithItemsResponse } from '../types'
 
 const CART_KEY = 'pos_cart'
+/** localStorage key preserving the completed sale across reloads. Without it,
+ *  a completed checkout comes back after refresh as an editable cart of
+ *  already-sold items; with it, the cashier sees the read-only receipt. */
+const SALE_KEY = 'pos_sale'
+
+/** Validate restored localStorage JSON shape (defense against corrupted or
+ *  hand-edited storage: wrong-shape-but-parseable JSON would otherwise crash
+ *  the POS render instead of degrading to an empty state). */
+function loadPersistedLines(): CartLine[] {
+  try {
+    const stored = localStorage.getItem(CART_KEY)
+    if (!stored) return []
+    const parsed = JSON.parse(stored)
+    return Array.isArray(parsed) ? (parsed.filter((l: unknown) => !!l && typeof l === 'object' && 'item' in (l as object)) as CartLine[]) : []
+  } catch {
+    return []
+  }
+}
+
+function loadPersistedSale(): SaleWithItemsResponse | null {
+  try {
+    const stored = localStorage.getItem(SALE_KEY)
+    if (!stored) return null
+    const parsed = JSON.parse(stored) as SaleWithItemsResponse
+    if (parsed && typeof parsed === 'object' && typeof parsed.id === 'number'
+        && typeof parsed.sale_total === 'number') {
+      return parsed
+    }
+    localStorage.removeItem(SALE_KEY)
+    return null
+  } catch {
+    return null
+  }
+}
 
 /**
  * Root POS component. Manages cart lines, the completed sale (if any), Square
@@ -27,17 +66,20 @@ const CART_KEY = 'pos_cart'
  * replaces it on the same page.
  */
 export function POSPage() {
-  const [lines, setLinesState] = useState<CartLine[]>(() => {
-    try {
-      const stored = localStorage.getItem(CART_KEY)
-      return stored ? (JSON.parse(stored) as CartLine[]) : []
-    } catch {
-      return []
-    }
-  })
-  const [sale, setSale] = useState<SaleWithItemsResponse | null>(null)
+  const [lines, setLinesState] = useState<CartLine[]>(loadPersistedLines)
+  const [sale, setSale] = useState<SaleWithItemsResponse | null>(loadPersistedSale)
   const [squareToken, setSquareToken] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  /** Sets the completed sale and persists it so a reload restores the receipt,
+   *  not an editable cart of sold items. null clears the persisted copy. */
+  function persistSale(s: SaleWithItemsResponse | null) {
+    try {
+      if (s) localStorage.setItem(SALE_KEY, JSON.stringify(s))
+      else localStorage.removeItem(SALE_KEY)
+    } catch { /* non-browser environment */ }
+    setSale(s)
+  }
 
   function setLines(updater: CartLine[] | ((prev: CartLine[]) => CartLine[])) {
     setLinesState(prev => {
@@ -87,10 +129,10 @@ export function POSPage() {
         check_amount: p.check,
         check_number: p.checkNumber || undefined,
         cc_amount: p.square,
-        cc_transaction_id: p.square > 0 ? (p.squareToken || undefined) : undefined,
+        cc_transaction_id: p.square > 0 ? (p.squareToken || p.cardTransactionId || undefined) : undefined,
         notes: p.notes || undefined,
       })
-      setSale(created)
+      persistSale(created)
       // Cart lines remain visible as the line-item receipt until New Transaction.
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sale failed')
@@ -99,7 +141,17 @@ export function POSPage() {
 
   function handleNewTransaction() {
     setLines([])
-    setSale(null)
+    persistSale(null)
+    setSquareToken(null)
+    setError(null)
+  }
+
+  /** Abandons the whole checkout: clears the cart and returns to lookup state.
+   *  Asks for confirmation while the cart holds items so a full cart cannot be
+   *  wiped by a stray click. */
+  function handleCancelCheckout() {
+    if (lines.length > 0 && !window.confirm('Cancel this checkout? All scanned items will be cleared from the cart.')) return
+    setLines([])
     setSquareToken(null)
     setError(null)
   }
@@ -134,7 +186,7 @@ export function POSPage() {
       {!sale && <LookupField onFound={handleFound} />}
 
       <div style={{ margin: '16px 0' }}>
-        <Cart lines={lines} onUpdate={handleUpdate} onRemove={handleRemove} />
+        <Cart lines={lines} onUpdate={handleUpdate} onRemove={handleRemove} readOnly={!!sale} />
       </div>
 
       {!sale && (
@@ -150,7 +202,7 @@ export function POSPage() {
               total={total}
               squareToken={squareToken}
               onSubmit={handlePayment}
-              onCancel={() => { setSquareToken(null); setError(null) }}
+              onCancel={handleCancelCheckout}
             />
           </div>
         </div>

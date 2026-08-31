@@ -11,6 +11,7 @@ import { deleteItem, updateItem } from '../api/items'
 import { ItemForm } from '../intake/ItemForm'
 import { SellerPayoutPanel } from './SellerPayoutPanel'
 import { ITEM_TYPES, SIZE_OPTIONS } from '../lib/itemSizes'
+import { US_STATES } from '../lib/usStates'
 import type { Seller, Item, Intake, ImportResult, ItemUpdate } from '../types'
 
 const NAVY = '#1e3a8a'
@@ -35,6 +36,7 @@ export function SellerDetailPage({ seller: initialSeller, onBack, eventId }: {
   const [draft, setDraft] = useState({ description: '', price: '', brand: '', type: '', size: '', gender_age: '', color: '' })
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [editError, setEditError] = useState<string | null>(null)
 
   useEffect(() => {
     listSellerItems(seller.id).then(setItems).catch(() => {})
@@ -42,6 +44,25 @@ export function SellerDetailPage({ seller: initialSeller, onBack, eventId }: {
   }, [seller.id])
 
   async function handleSaveEdit() {
+    setEditError(null)
+    // Same mandatory-field rules as the registration form (SellerForm):
+    // state is a 2-char US code, ZIP is 5 digits, street address and city are
+    // required — enforced client-side since this panel saves via a button (no
+    // native form submission). Also surface API errors visibly instead of
+    // swallowing them.
+    const zip = (editDraft.zip ?? '').trim()
+    if (!editDraft.address?.trim() || !editDraft.city?.trim()) {
+      setEditError('Street address and city are required.')
+      return
+    }
+    if (!editDraft.state?.trim()) {
+      setEditError('State is required.')
+      return
+    }
+    if (!/^\d{5}$/.test(zip)) {
+      setEditError('ZIP must be a 5-digit US ZIP code.')
+      return
+    }
     try {
       const updated = await updateSeller(seller.id, {
         first_name: editDraft.first_name ?? undefined,
@@ -56,8 +77,9 @@ export function SellerDetailPage({ seller: initialSeller, onBack, eventId }: {
       })
       setSeller(updated)
       setEditing(false)
-    } catch {
+    } catch (err) {
       // keep editing open so the user can retry
+      setEditError(err instanceof Error ? err.message : 'Failed to save changes')
     }
   }
 
@@ -168,7 +190,7 @@ export function SellerDetailPage({ seller: initialSeller, onBack, eventId }: {
                 : null,
             )}
             <button
-              onClick={() => { setEditDraft(seller); setEditing(true) }}
+              onClick={() => { setEditDraft(seller); setEditError(null); setEditing(true) }}
               style={{ marginTop: 8, border: `1px solid ${NAVY}`, color: NAVY, background: 'none', padding: '4px 12px', cursor: 'pointer', borderRadius: 3 }}
             >
               Edit
@@ -176,18 +198,61 @@ export function SellerDetailPage({ seller: initialSeller, onBack, eventId }: {
           </>
         ) : (
           <div>
-            {(['first_name', 'last_name', 'phone', 'email', 'address', 'city', 'state', 'zip'] as const).map(f => (
+            {(['first_name', 'last_name', 'phone', 'email'] as const).map(f => (
               <div key={f} style={{ marginBottom: 8 }}>
-                <label style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 2 }}>
-                  {f.replace('_', ' ')}
+                <label htmlFor={`edit-${f}`} style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 2 }}>
+                  {f === 'first_name' ? 'First Name' : f === 'last_name' ? 'Last Name' : f === 'phone' ? 'Phone (10 digits)' : 'Email'}
                 </label>
                 <input
+                  id={`edit-${f}`}
                   value={(editDraft[f] as string) ?? ''}
                   onChange={e => setEditDraft(prev => ({ ...prev, [f]: e.target.value }))}
                   style={{ width: '100%', padding: '5px 8px', boxSizing: 'border-box' }}
                 />
               </div>
             ))}
+            <fieldset style={{ border: '1px solid #e2e8f0', borderRadius: 4, padding: '10px 12px', marginBottom: 8 }}>
+              <legend style={{ fontSize: 12, color: '#64748b' }}>Address</legend>
+              {/* Address fields rendered identically to the registration form (SellerForm):
+                  Street Address + City required, State as the 2-char US dropdown, ZIP 5-digit. */}
+              {(['address', 'city'] as const).map(f => (
+                <div key={f} style={{ marginBottom: 8 }}>
+                  <label htmlFor={`edit-${f}`} style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 2 }}>
+                    {f === 'address' ? 'Street Address' : 'City'} *
+                  </label>
+                  <input
+                    id={`edit-${f}`}
+                    value={(editDraft[f] as string) ?? ''}
+                    onChange={e => setEditDraft(prev => ({ ...prev, [f]: e.target.value }))}
+                    style={{ width: '100%', padding: '5px 8px', boxSizing: 'border-box' }}
+                  />
+                </div>
+              ))}
+              <div style={{ marginBottom: 8 }}>
+                <label htmlFor="edit-state" style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 2 }}>State *</label>
+                <select
+                  id="edit-state"
+                  value={editDraft.state ?? ''}
+                  onChange={e => setEditDraft(prev => ({ ...prev, state: e.target.value }))}
+                  style={{ width: '100%', padding: '5px 8px', boxSizing: 'border-box' }}
+                >
+                  <option value="">— select state —</option>
+                  {US_STATES.map(s => <option key={s.code} value={s.code}>{s.code} — {s.name}</option>)}
+                </select>
+              </div>
+              <div style={{ marginBottom: 8 }}>
+                <label htmlFor="edit-zip" style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 2 }}>ZIP *</label>
+                <input
+                  id="edit-zip"
+                  value={editDraft.zip ?? ''}
+                  maxLength={5}
+                  inputMode="numeric"
+                  onChange={e => setEditDraft(prev => ({ ...prev, zip: e.target.value.replace(/\D/g, '') }))}
+                  style={{ width: '100%', padding: '5px 8px', boxSizing: 'border-box' }}
+                />
+              </div>
+            </fieldset>
+            {editError && <div role="alert" style={{ color: 'red', marginBottom: 8, fontSize: 13 }}>{editError}</div>}
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
               <button
                 onClick={handleSaveEdit}
@@ -274,6 +339,7 @@ export function SellerDetailPage({ seller: initialSeller, onBack, eventId }: {
           </button>
           <ItemForm
             intakeId={addItemIntakeId}
+            defaultDonateUnsold={seller.donate_unsold_default ?? false}
             onAdded={item => { setItems(prev => [...prev, item]); setShowAddItem(false); setAddItemIntakeId(null) }}
           />
         </div>

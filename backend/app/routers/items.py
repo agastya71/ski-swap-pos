@@ -99,12 +99,16 @@ def search_items(
 @router.get("/brands", response_model=list[str])
 def list_brands(
     q: str = "",
+    category: str = "",
     db: Session = Depends(get_db),
     _user: User = Depends(_CASHIER_ADMIN),
 ):
-    """Return distinct brand names for the active event, optionally filtered by prefix.
+    """Return distinct brand names for the active event, optionally filtered by
+    prefix and/or by category (brands that have been assigned to that category).
 
-    Used by the POS/intake brand typeahead to suggest close alternatives.
+    Used by the POS/intake brand typeahead to suggest close alternatives; the
+    intake form passes the selected category so only category-appropriate
+    brands are offered (case-insensitive match on the stored category).
     """
     event = db.query(Event).filter(Event.is_active == True).first()
     if not event:
@@ -118,16 +122,23 @@ def list_brands(
     )
     if q.strip():
         query = query.filter(Item.brand.ilike(f"%{q.strip()}%"))
+    if category.strip():
+        query = query.filter(Item.category.ilike(category.strip()))
     return [b[0] for b in query.order_by(Item.brand).all() if b[0]]
 
 @router.get("/import-template")
 def download_import_template(_user: User = Depends(_INTAKE_ADMIN)):
-    """Return a blank Excel template for bulk item import."""
+    """Return a blank Excel template for bulk item import.
+
+    Columns: Description, Category, Brand, Type, Color, Size, Gender/Age, Year,
+    Price, Used, Donate if Unsold, Quantity. Quantity (blank = 1) represents
+    how many identical units one row covers.
+    """
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.append([
         "Description", "Category", "Brand", "Type", "Color",
-        "Size", "Gender/Age", "Year", "Price", "Used", "Donate if Unsold",
+        "Size", "Gender/Age", "Year", "Price", "Used", "Donate if Unsold", "Quantity",
     ])
     buf = BytesIO()
     wb.save(buf)

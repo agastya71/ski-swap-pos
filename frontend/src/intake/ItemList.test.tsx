@@ -89,11 +89,12 @@ describe('ItemList', () => {
 
   /** Verifies that clicking Delete in the edit panel calls DELETE /items/:id and notifies the parent. */
   it('Delete in edit panel calls DELETE /items/:id and triggers onItemsChanged', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
     server.use(http.delete('/items/:id', () => new HttpResponse(null, { status: 204 })))
     const onItemsChanged = vi.fn()
     render(<ItemList items={[ITEM]} intakeId={5} onItemsChanged={onItemsChanged} />)
     fireEvent.click(screen.getByRole('button', { name: /edit/i }))
-    fireEvent.click(screen.getByRole('button', { name: /delete/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^delete$/i }))
     await waitFor(() => expect(onItemsChanged).toHaveBeenCalledTimes(1))
   })
 
@@ -101,7 +102,37 @@ describe('ItemList', () => {
   it('Delete button is disabled in edit panel when label is printed', () => {
     render(<ItemList items={[LABEL_PRINTED]} intakeId={5} onItemsChanged={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: /edit/i }))
-    expect(screen.getByRole('button', { name: /delete/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /^delete$/i })).toBeDisabled()
+  })
+
+  /** Verifies a per-row Delete button is visible (tester feedback: "Not seeing a
+   *  Delete button") and disabled with an explanatory tooltip when blocked. */
+  it('shows a per-row Delete button, disabled with a tooltip for label-printed items', () => {
+    render(<ItemList items={[LABEL_PRINTED]} intakeId={5} onItemsChanged={vi.fn()} />)
+    const rowDelete = screen.getByRole('button', { name: 'Delete A001-001' })
+    expect(rowDelete).toBeDisabled()
+    expect(rowDelete).toHaveAttribute('title', 'Cannot delete after labels are printed')
+  })
+
+  /** Verifies the per-row Delete flows through the confirm dialog to DELETE /items/:id. */
+  it('per-row Delete confirms then deletes', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    server.use(http.delete('/items/:id', () => new HttpResponse(null, { status: 204 })))
+    const onItemsChanged = vi.fn()
+    render(<ItemList items={[ITEM]} intakeId={5} onItemsChanged={onItemsChanged} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Delete A001-001' }))
+    expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('A001-001'))
+    await waitFor(() => expect(onItemsChanged).toHaveBeenCalledTimes(1))
+  })
+
+  /** Verifies declining the per-row Delete confirmation does not delete anything. */
+  it('per-row Delete does nothing when confirmation is declined', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    server.use(http.delete('/items/:id', () => new HttpResponse(null, { status: 204 })))
+    const onItemsChanged = vi.fn()
+    render(<ItemList items={[ITEM]} intakeId={5} onItemsChanged={onItemsChanged} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Delete A001-001' }))
+    expect(onItemsChanged).not.toHaveBeenCalled()
   })
 
   /** Verifies that clicking Print Label issues a POST to /items/:id/label. */
@@ -134,7 +165,7 @@ describe('ItemList', () => {
     const sold: Item = { ...ITEM, status: 'sold', quantity: 0 }
     render(<ItemList items={[sold]} intakeId={5} onItemsChanged={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: /edit/i }))
-    expect(screen.getByRole('button', { name: /delete/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /^delete$/i })).toBeDisabled()
   })
 
   /** Quantity column shows the on-hand quantity. */

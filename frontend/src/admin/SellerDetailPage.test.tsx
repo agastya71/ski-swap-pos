@@ -17,6 +17,13 @@ const seller = {
   event_id: 1, created_at: '2026-01-01T00:00:00Z',
 }
 
+/** Click the contact-card Edit button (distinguished from per-item "Edit item" buttons). */
+function clickContactEdit() {
+  const btn = screen.getAllByRole('button').find(b => b.textContent?.trim() === 'Edit')
+  expect(btn).toBeDefined()
+  fireEvent.click(btn!)
+}
+
 describe('SellerDetailPage', () => {
   it('renders seller contact info', () => {
     render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />)
@@ -37,6 +44,73 @@ describe('SellerDetailPage', () => {
     render(<SellerDetailPage seller={seller} onBack={onBack} eventId={1} />)
     fireEvent.click(screen.getByRole('button', { name: /back/i }))
     expect(onBack).toHaveBeenCalled()
+  })
+
+  /** Verifies the edit form renders address fields exactly like the registration
+   *  form: State as the 2-char US dropdown (pre-selected with seller's state),
+   *  ZIP as 5-digit-constrained input, grouped under an Address fieldset. */
+  it('renders the contact edit form like the registration form', async () => {
+    render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />)
+    clickContactEdit()
+    expect(screen.getByText('Address')).toBeInTheDocument()
+    expect(screen.getByLabelText('Street Address *')).toHaveValue('123 Main St')
+    const stateSelect = screen.getByLabelText('State *') as HTMLSelectElement
+    expect(stateSelect.tagName).toBe('SELECT')
+    expect(stateSelect.value).toBe('MN')
+    // Same option format as the registration dropdown.
+    expect(screen.getByRole('option', { name: 'MA — Massachusetts' })).toBeInTheDocument()
+    const zipInput = screen.getByLabelText('ZIP *') as HTMLInputElement
+    expect(zipInput.maxLength).toBe(5)
+  })
+
+  /** Verifies saving blocks with a field error when State is cleared, and no PATCH fires. */
+  it('shows an error when saving without a state', async () => {
+    let patched = false
+    server.use(http.patch('/sellers/1', () => {
+      patched = true
+      return HttpResponse.json(seller)
+    }))
+    setToken(ADMIN_TOKEN)
+    render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />)
+    fireEvent.click(screen.getByRole('button', { name: /edit/i }))
+    fireEvent.change(screen.getByLabelText('State *'), { target: { value: '' } })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    expect(screen.getByRole('alert')).toHaveTextContent(/state is required/i)
+    expect(patched).toBe(false)
+  })
+
+  /** Verifies clearing Street Address blocks the save with a clear message
+   *  (parity with the registration form's required seller fields). */
+  it('shows an error when saving without a street address or city', async () => {
+    let patched = false
+    server.use(http.patch('/sellers/1', () => {
+      patched = true
+      return HttpResponse.json(seller)
+    }))
+    setToken(ADMIN_TOKEN)
+    render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />)
+    fireEvent.click(screen.getByRole('button', { name: /edit/i }))
+    fireEvent.change(screen.getByLabelText('Street Address *'), { target: { value: '' } })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    expect(screen.getByRole('alert')).toHaveTextContent(/street address and city are required/i)
+    expect(patched).toBe(false)
+  })
+
+  /** Verifies non-5-digit ZIP input is corrected and a short ZIP blocks saving. */
+  it('shows an error when the ZIP is not 5 digits', async () => {
+    let patched = false
+    server.use(http.patch('/sellers/1', () => {
+      patched = true
+      return HttpResponse.json(seller)
+    }))
+    setToken(ADMIN_TOKEN)
+    render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />)
+    fireEvent.click(screen.getByRole('button', { name: /edit/i }))
+    // Typing a letter is stripped; clearing leaves fewer than 5 digits.
+    fireEvent.change(screen.getByLabelText('ZIP *'), { target: { value: '12' } })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    expect(screen.getByRole('alert')).toHaveTextContent(/zip must be a 5-digit/i)
+    expect(patched).toBe(false)
   })
 
   it('shows Add Item button', () => {

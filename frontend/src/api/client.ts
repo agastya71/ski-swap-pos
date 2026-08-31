@@ -45,13 +45,52 @@ export class ApiError extends Error {
   status: number
   /**
    * @param status - HTTP status code returned by the server.
-   * @param message - `detail` field from the error response body, or the HTTP status text.
+   * @param message - Human-readable `detail` from the error response body, or the HTTP status text.
    */
   constructor(status: number, message: string) {
     super(message)
     this.status = status
     this.name = 'ApiError'
   }
+}
+
+interface FastApiValidationError {
+  loc?: (string | number)[]
+  msg?: string
+}
+
+/**
+ * Flatten a FastAPI error response `detail` into a human-readable message.
+ *
+ * FastAPI returns 422 validation errors as detail **arrays** of
+ * `{ loc: ["body", "check_number"], msg: "Field required" }` objects. Joining
+ * them into one readable line ("Field required (field: check_number)") keeps
+ * cashier-facing UI useful instead of showing "[object Object]".
+ *
+ * @param body - Parsed JSON response body (may be any shape).
+ * @returns A human-readable message, or undefined when nothing usable is present.
+ */
+export function extractApiErrorMessage(body: unknown): string | undefined {
+  if (typeof body !== 'object' || body === null) return undefined
+  const detail = (body as { detail?: unknown }).detail
+  if (detail === null || detail === undefined) return undefined
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) {
+    const parts = detail.map(entry => {
+      if (entry && typeof entry === 'object') {
+        const err = entry as FastApiValidationError
+        const field = err.loc?.filter(p => p !== 'body').join('.')
+        const msg = err.msg ?? 'validation error'
+        return field ? `${msg} (field: ${field})` : msg
+      }
+      return String(entry)
+    })
+    return parts.length > 0 ? parts.join('; ') : 'Validation error'
+  }
+  if (typeof detail === 'object' && 'msg' in (detail as Record<string, unknown>)) {
+    return String((detail as FastApiValidationError).msg)
+  }
+  return undefined
 }
 
 /**
@@ -73,8 +112,8 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
 
   const res = await fetch(path, { ...init, headers })
   if (!res.ok) {
-    const body = await res.json().catch(() => ({ detail: res.statusText }))
-    throw new ApiError(res.status, (body as { detail?: string }).detail ?? res.statusText)
+    const body: unknown = await res.json().catch(() => null)
+    throw new ApiError(res.status, extractApiErrorMessage(body) ?? res.statusText)
   }
   if (res.status === 204) return undefined as T
   return res.json() as Promise<T>

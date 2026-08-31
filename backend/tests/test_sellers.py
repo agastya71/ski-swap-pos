@@ -261,3 +261,27 @@ def test_update_seller_donation_defaults(client, admin_token, seller):
     )
     assert resp.status_code == 200
     assert resp.json()["donate_proceeds_default"] is True
+
+
+def test_state_accepts_any_case_and_normalizes_to_upper(client, active_event, admin_token):
+    """State abbreviations are case-tolerant ("camel case" feedback):
+    'vt' / 'Vt' / ' VT ' all normalize to uppercase 'VT' on create, and the
+    same tolerance applies on update. Lowercase must never error out."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    for raw in ("vt", "Vt", " VT ", "vT"):
+        payload = valid_seller_create(first_name="Case", last_name=raw.upper())
+        payload["state"] = raw
+        resp = client.post("/sellers", json=payload, headers=headers)
+        assert resp.status_code == 201, (raw, resp.text)
+        assert resp.json()["state"] == "VT"
+
+
+def test_update_state_accepts_lower_case(client, admin_token, seller):
+    """PATCHing the state in lowercase normalizes to uppercase."""
+    resp = client.patch(
+        f"/sellers/{seller.id}",
+        json={"state": "ma"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["state"] == "MA"

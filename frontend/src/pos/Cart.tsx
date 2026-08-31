@@ -24,14 +24,20 @@ export type CartLinePatch = Partial<Pick<CartLine, 'quantity' | 'sell_price' | '
  * override the unit price (with a notes field for the reason), or remove a line.
  * A running total sums each line's extended price (sell_price × quantity).
  *
+ * When `readOnly` is set (completed-sale receipt), rows render as plain text —
+ * no qty/price inputs, no price-adjustment notes, no Remove — so a restored
+ * receipt can never be edited back into an "active" checkout.
+ *
  * @param props.lines - Cart lines currently in the transaction.
  * @param props.onUpdate - Callback to update a line by item id with a patch.
  * @param props.onRemove - Callback to remove a line by item id.
+ * @param props.readOnly - Render as a receipt: text cells only, no edit controls.
  */
-export function Cart({ lines, onUpdate, onRemove }: {
+export function Cart({ lines, onUpdate, onRemove, readOnly = false }: {
   lines: CartLine[]
   onUpdate: (id: number, patch: CartLinePatch) => void
   onRemove: (id: number) => void
+  readOnly?: boolean
 }) {
   const total = lines.reduce((sum, l) => sum + l.sell_price * l.quantity, 0)
 
@@ -62,43 +68,53 @@ export function Cart({ lines, onUpdate, onRemove }: {
                 <td style={{ padding: '6px 8px' }}>{line.item.seller_code}</td>
                 <td style={{ padding: '6px 8px' }}>{line.item.description ?? '—'}</td>
                 <td style={{ padding: '6px 8px', textAlign: 'right' }}>
-                  <input
-                    type="number"
-                    min={1}
-                    max={maxQty}
-                    value={line.quantity}
-                    aria-label={`quantity for ${line.item.code}`}
-                    onChange={e => {
-                      const q = parseInt(e.target.value, 10)
-                      onUpdate(line.item.id, { quantity: Number.isNaN(q) ? 1 : Math.min(Math.max(1, q), maxQty) })
-                    }}
-                    style={{ width: 56, padding: '4px 6px', fontSize: 14, textAlign: 'right' }}
-                  />
+                  {readOnly ? (
+                    line.quantity
+                  ) : (
+                    <input
+                      type="number"
+                      min={1}
+                      max={maxQty}
+                      value={line.quantity}
+                      aria-label={`quantity for ${line.item.code}`}
+                      onChange={e => {
+                        const q = parseInt(e.target.value, 10)
+                        onUpdate(line.item.id, { quantity: Number.isNaN(q) ? 1 : Math.min(Math.max(1, q), maxQty) })
+                      }}
+                      style={{ width: 56, padding: '4px 6px', fontSize: 14, textAlign: 'right' }}
+                    />
+                  )}
                 </td>
                 <td style={{ padding: '6px 8px', textAlign: 'right' }}>
-                  <input
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    value={line.sell_price}
-                    aria-label={`unit price for ${line.item.code}`}
-                    onChange={e => {
-                      const p = parseFloat(e.target.value)
-                      onUpdate(line.item.id, { sell_price: Number.isNaN(p) ? 0 : p })
-                    }}
-                    style={{ width: 80, padding: '4px 6px', fontSize: 14, textAlign: 'right' }}
-                  />
+                  {readOnly ? (
+                    `$${line.sell_price.toFixed(2)}`
+                  ) : (
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={line.sell_price}
+                      aria-label={`unit price for ${line.item.code}`}
+                      onChange={e => {
+                        const p = parseFloat(e.target.value)
+                        onUpdate(line.item.id, { sell_price: Number.isNaN(p) ? 0 : p })
+                      }}
+                      style={{ width: 80, padding: '4px 6px', fontSize: 14, textAlign: 'right' }}
+                    />
+                  )}
                 </td>
                 <td style={{ padding: '6px 8px', textAlign: 'right' }}>${(line.sell_price * line.quantity).toFixed(2)}</td>
                 <td style={{ padding: '6px 8px' }}>
-                  <button onClick={() => onRemove(line.item.id)} aria-label={`remove ${line.item.code}`} style={{ fontSize: 12, cursor: 'pointer' }}>Remove</button>
+                  {!readOnly && (
+                    <button onClick={() => onRemove(line.item.id)} aria-label={`remove ${line.item.code}`} style={{ fontSize: 12, cursor: 'pointer' }}>Remove</button>
+                  )}
                 </td>
               </tr>
             )
           })}
         </tbody>
       </table>
-      {lines.some(l => l.sell_price !== l.item.price) && (
+      {lines.some(l => l.sell_price !== l.item.price) && !readOnly && (
         <div style={{ marginBottom: 8 }}>
           {lines.filter(l => l.sell_price !== l.item.price).map(l => (
             <div key={l.item.id} style={{ marginBottom: 4, fontSize: 13 }}>

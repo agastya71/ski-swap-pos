@@ -154,3 +154,21 @@ def test_print_batch_labels_printer_error_returns_503(client, admin_token, intak
             headers={"Authorization": f"Bearer {admin_token}"},
         )
     assert resp.status_code == 503
+
+
+def test_generate_zpl_prints_quantity_copies(item):
+    """generate_zpl emits an ^PQ command for items with quantity > 1 (N labels
+    per N units — one tag per physical unit, same item code)."""
+    from app.services.zpl import generate_zpl
+    item.quantity = 3
+    zpl = generate_zpl(item)
+    assert "^PQ3\n^XZ" in zpl
+
+
+def test_generate_zpl_no_copies_command_for_single_quantity(item):
+    """generate_zpl omits ^PQ for the common quantity == 1 case."""
+    from app.services.zpl import generate_zpl
+    item.quantity = 1
+    zpl = generate_zpl(item)
+    assert "^PQ" not in zpl
+    assert zpl.endswith("^XZ\n")

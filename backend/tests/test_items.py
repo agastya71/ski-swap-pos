@@ -402,3 +402,172 @@ def test_import_inherits_donate_unsold_from_intake_when_blank(client, db, active
     assert r.json()["imported"] == 1
     listed = client.get(f"/sellers/{s.id}/items", headers=headers).json()
     assert listed[0]["donate_unsold"] is True
+
+
+def _post_import(client, intake_id, headers, csv_text):
+    return client.post(
+        f"/intakes/{intake_id}/items/import",
+        files={"file": ("items.csv", csv_text.encode("utf-8"), "text/csv")},
+        headers=headers,
+    )
+
+
+def test_import_quantity_column(client, active_event, admin_token):
+    """Import supports the 12th Quantity column (blank = 1, integer >= 1)."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
+    iid = seller_r and client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers).json()["id"]
+    csv_text = (
+        "Description,Category,Brand,Type,Color,Size,Gender/Age,Year,Price,Used,Donate if Unsold,Quantity\n"
+        "Skis,Skis,Atomic,Alpine,Red,170,Men,2020,110.0,Yes,No,3\n"
+        "Gloves,Clothing,Dakine,Gloves,,,L,,25.0,Yes,No,\n"  # blank quantity -> 1
+                                                                # old 11-col row below is still valid
+    )
+    resp = _post_import(client, iid, headers, csv_text)
+    assert resp.status_code == 200
+    assert resp.json()["imported"] == 2
+    listed = client.get(f"/sellers/{seller_r.json()['id']}/items", headers=headers).json()
+    by_desc = {it["description"]: it["quantity"] for it in listed}
+    assert by_desc["Skis"] == 3
+    assert by_desc["Gloves"] == 1
+
+
+def test_import_rejects_invalid_quantity(client, active_event, admin_token):
+    """Import reports a row with a non-integer or <1 Quantity as an error."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
+    iid = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers).json()["id"]
+    csv_text = (
+        "Description,Category,Brand,Type,Color,Size,Gender/Age,Year,Price,Used,Donate if Unsold,Quantity\n"
+        "Bad qty,Skis,Atomic,Alpine,,,170,,110.0,Yes,No,2.5\n"
+        "Zero qty,Skis,Atomic,Alpine,,,170,,110.0,Yes,No,0\n"
+    )
+    resp = _post_import(client, iid, headers, csv_text)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["imported"] == 0
+    assert body["skipped"] == 2
+    assert all("Quantity" in e["reason"] for e in body["errors"])
+
+
+def test_import_keeps_old_11_column_template_working(client, active_event, admin_token):
+    """Rows from the older 11-column template (no Quantity column) still import."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
+    iid = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers).json()["id"]
+    csv_text = "Description,Category,Brand,Type,Color,Size,Gender/Age,Year,Price,Used,Donate if Unsold\n"
+    csv_text += "Skis,Skis,Atomic,Alpine,Red,170,Men,2020,110.0,Yes,No\n"
+    resp = _post_import(client, iid, headers, csv_text)
+    assert resp.status_code == 200
+    assert resp.json()["imported"] == 1
+    listed = client.get(f"/sellers/{seller_r.json()['id']}/items", headers=headers).json()
+    assert listed[0]["quantity"] == 1
+
+
+def test_import_normalizes_category_and_type_case(client, active_event, admin_token):
+    """Category/Type typed with any capitalization normalize to canonical casing;
+    unknown values are stored as typed (never rejected)."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
+    iid = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers).json()["id"]
+    csv_text = (
+        "Description,Category,Brand,Type,Color,Size,Gender/Age,Year,Price,Used,Donate if Unsold,Quantity\n"
+        "Skis,skis,Atomic,alpine ski,Red,170,Men,2020,110.0,Yes,No,\n"
+        "Jacket,clothing,Patagonia,JACKET,,,M,,60.0,Yes,No,\n"
+        "Weird,skis  special,BrandX,whatever,,,,,10.0,Yes,No,\n"
+    )
+    resp = _post_import(client, iid, headers, csv_text)
+    assert resp.status_code == 200
+    assert resp.json()["imported"] == 3
+    listed = client.get(f"/sellers/{seller_r.json()['id']}/items", headers=headers).json()
+    by_desc = {it["description"]: (it["category"], it["type"]) for it in listed}
+    assert by_desc["Skis"] == ("Skis", "Alpine Ski")
+    assert by_desc["Jacket"] == ("Clothing", "Jacket")
+    assert by_desc["Weird"] == ("skis  special", "whatever")
+
+
+def test_list_brands_filters_by_category(client, active_event, admin_token):
+    """GET /items/brands?category= returns only brands assigned to that category."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
+    intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
+    iid = intake_r.json()["id"]
+    client.post(f"/intakes/{iid}/items",
+                json={"description": "skis", "brand": "Atomic", "category": "Skis", "price": 10.0}, headers=headers)
+    client.post(f"/intakes/{iid}/items",
+                json={"description": "jacket", "brand": "Patagonia", "category": "Clothing", "price": 40.0}, headers=headers)
+    r = client.get("/items/brands?category=Skis", headers=headers)
+    assert r.status_code == 200
+    assert r.json() == ["Atomic"]
+    r_all = client.get("/items/brands", headers=headers)
+    assert sorted(r_all.json()) == ["Atomic", "Patagonia"]
+
+
+def test_import_rounds_price_up_to_whole_dollar(client, active_event, admin_token):
+    """Bulk intake rounds prices UP to the nearest whole dollar (whole-dollar
+    pricing decision): 24.0 stays 24, 24.5 → 25, 0.25 → 1."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
+    iid = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers).json()["id"]
+    csv_text = (
+        "Description,Category,Brand,Type,Color,Size,Gender/Age,Year,Price,Used,Donate if Unsold,Quantity\n"
+        "Whole,Skis,Atomic,Alpine,,,170,,24.0,Yes,No,\n"
+        "Half,Skis,Atomic,Alpine,,,170,,24.5,Yes,No,\n"
+        "Cents,Skis,Atomic,Alpine,,,170,,0.25,Yes,No,\n"
+    )
+    resp = client.post(
+        f"/intakes/{iid}/items/import",
+        files={"file": ("items.csv", csv_text.encode("utf-8"), "text/csv")},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["imported"] == 3
+    listed = client.get(f"/sellers/{seller_r.json()['id']}/items", headers=headers).json()
+    by_desc = {it["description"]: it["price"] for it in listed}
+    assert by_desc["Whole"] == 24.0
+    assert by_desc["Half"] == 25.0
+    assert by_desc["Cents"] == 1.0
+
+
+def test_import_rejects_nonfinite_and_negative_prices(client, active_event, admin_token):
+    """NaN/inf/negative prices get per-row errors instead of breaking the whole
+    file (ceil(NaN) → ValueError → 422; ceil(inf) → OverflowError → 500)."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
+    iid = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers).json()["id"]
+    csv_text = (
+        "Description,Category,Brand,Type,Color,Size,Gender/Age,Year,Price,Used,Donate if Unsold,Quantity\n"
+        "Good,Skis,Atomic,Alpine,,,170,,50.0,Yes,No,\n"
+        "Bad,Skis,Atomic,Alpine,,,170,,nan,Yes,No,\n"
+        "Negative,Skis,Atomic,Alpine,,,170,,-5.0,Yes,No,\n"
+    )
+    resp = client.post(
+        f"/intakes/{iid}/items/import",
+        files={"file": ("items.csv", csv_text.encode("utf-8"), "text/csv")},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["imported"] == 1
+    assert body["skipped"] == 2
+    reasons = " | ".join(e["reason"] for e in body["errors"])
+    assert "real number" in reasons
+    assert "≥ 0" in reasons
+    # The valid row still imported with its price untouched.
+    listed = client.get(f"/sellers/{seller_r.json()['id']}/items", headers=headers).json()
+    assert [it["price"] for it in listed] == [50.0]
+
+
+def test_import_template_has_quantity_column(client, admin_token):
+    """GET /items/import-template pins the 12-column header, incl. Quantity —
+    the parser is positional, so the template header is the contract."""
+    import io
+    import openpyxl
+    resp = client.get("/items/import-template", headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 200
+    wb = openpyxl.load_workbook(io.BytesIO(resp.content))
+    headers_row = [c.value for c in next(wb.active.iter_rows(min_row=1, max_row=1))]
+    assert headers_row == [
+        "Description", "Category", "Brand", "Type", "Color",
+        "Size", "Gender/Age", "Year", "Price", "Used", "Donate if Unsold", "Quantity",
+    ]

@@ -33,6 +33,10 @@ def generate_zpl(item) -> str:
       - Code 39 barcode, 100 dots tall
       - Seller code + price (large)
       - Description, optional size/colour line, optional extra line
+
+    For items with quantity > 1 an ``^PQ`` command emits quantity copies — the
+    "N labels per N units" decision from tester feedback (2026-08-29): the
+    seller gets one tag per unit, all sharing the same item code.
     """
     barcode      = item.barcode_39 or item.code
     seller_code  = item.seller.code if item.seller else ""
@@ -41,6 +45,11 @@ def generate_zpl(item) -> str:
     line3        = item.label_line_3 or ""
     bx           = _barcode_x(barcode)
     pw           = _PRINT_WIDTH
+    try:
+        quantity = int(getattr(item, "quantity", 1) or 1)
+    except (TypeError, ValueError):
+        quantity = 1
+    copies = f"^PQ{max(1, quantity)}\n" if quantity > 1 else ""
 
     return (
         "^XA\n"
@@ -49,6 +58,7 @@ def generate_zpl(item) -> str:
         f"^FO0,170^FB{pw},1,0,C,0^A0N,15,15^FD{description}^FS\n"
         f"^FO0,189^FB{pw},1,0,C,0^A0N,13,13^FD{line2}^FS\n"
         f"^FO0,206^FB{pw},1,0,C,0^A0N,13,13^FD{line3}^FS\n"
+        f"{copies}"
         "^XZ\n"
     )
 

@@ -52,6 +52,16 @@ def _normalize_state(v: Optional[str]) -> Optional[str]:
     return v.strip().upper()
 
 
+def _coerce_state_before_constraints(v: object) -> object:
+    """Trim + uppercase a state input *before* Pydantic applies the string
+    constraints (min/max length 2). Without this, " VT " or "vt " fail the
+    max_length=2 constraint with a 422 even though the value is harmless —
+    the "camel case" tester feedback ("allow it, don't error out")."""
+    if isinstance(v, str):
+        return _normalize_state(v)
+    return v
+
+
 class SellerCreate(BaseModel):
     """Payload for registering a new seller (consignor or vendor) in the active event."""
 
@@ -83,6 +93,11 @@ class SellerCreate(BaseModel):
     @classmethod
     def _validate_phone(cls, v: Optional[str]) -> Optional[str]:
         return _normalize_phone(v)
+
+    @field_validator("state", mode="before")
+    @classmethod
+    def _coerce_state(cls, v: object) -> object:
+        return _coerce_state_before_constraints(v)
 
     @field_validator("state")
     @classmethod
@@ -140,6 +155,11 @@ class SellerUpdate(BaseModel):
     @classmethod
     def _validate_phone(cls, v: Optional[str]) -> Optional[str]:
         return _normalize_phone(v)
+
+    @field_validator("state", mode="before")
+    @classmethod
+    def _coerce_state(cls, v: object) -> object:
+        return _coerce_state_before_constraints(v)
 
     @field_validator("state")
     @classmethod
