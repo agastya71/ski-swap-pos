@@ -67,21 +67,21 @@ def _to_csv(report: BaseModel, filename_base: str) -> Response:
                     report.items_sold, report.items_unsold, report.items_donated,
                     report.gross_sales, report.mysl_total, report.seller_total])
         w.writerow([])
-        w.writerow(["item_code", "description", "price", "sell_price", "status",
-                    "mysl_share", "seller_share", "commission_rate"])
+        w.writerow(["item_code", "description", "quantity", "remaining", "price", "sell_price",
+                    "status", "mysl_share", "seller_share", "commission_rate"])
         for li in report.line_items:
-            w.writerow([li.item_code, li.description, li.price, li.sell_price, li.status,
-                        li.mysl_share, li.seller_share, li.commission_rate])
+            w.writerow([li.item_code, li.description, li.quantity, li.remaining, li.price, li.sell_price,
+                        li.status, li.mysl_share, li.seller_share, li.commission_rate])
     elif isinstance(report, DonationsReport):
-        w.writerow(["seller_code", "item_code", "description", "price", "donation_type"])
+        w.writerow(["seller_code", "item_code", "description", "quantity", "price", "donation_type"])
         for item in report.items:
             w.writerow([item.seller_code, item.item_code, item.description,
-                        item.price, item.donation_type])
+                        item.quantity, item.price, item.donation_type])
     elif isinstance(report, UnsoldItemsReport):
-        w.writerow(["seller_code", "item_code", "description", "category", "price"])
+        w.writerow(["seller_code", "item_code", "description", "category", "quantity", "remaining", "price"])
         for item in report.items:
             w.writerow([item.seller_code, item.item_code, item.description,
-                        item.category, item.price])
+                        item.category, item.quantity, item.remaining, item.price])
     else:
         data = report.model_dump(mode="json")
         w.writerow(list(data.keys()))
@@ -111,11 +111,11 @@ def _to_md(report: BaseModel, filename_base: str) -> Response:
             f"{report.items_donated} | ${report.gross_sales:.2f} | ${report.mysl_total:.2f} | "
             f"${report.seller_total:.2f} |",
             "", "## Line Items",
-            "| Item Code | Description | Price | Sell Price | Status | MYSL | Seller | Rate |",
-            "|-----------|-------------|-------|------------|--------|-------|--------|------|",
+            "| Item Code | Description | Qty | Remaining | Price | Sell Price | Status | MYSL | Seller | Rate |",
+            "|-----------|-------------|-----|-----------|-------|------------|--------|-------|--------|------|",
         ]
         for li in report.line_items:
-            lines.append(f"| {li.item_code} | {li.description or ''} | ${li.price:.2f} | "
+            lines.append(f"| {li.item_code} | {li.description or ''} | {li.quantity:G} | {li.remaining:G} | ${li.price:.2f} | "
                          f"${li.sell_price:.2f} | {li.status} | ${li.mysl_share:.2f} | "
                          f"${li.seller_share:.2f} | {li.commission_rate:.0%} |")
     elif isinstance(report, EventRevenueReport):
@@ -143,18 +143,18 @@ def _to_md(report: BaseModel, filename_base: str) -> Response:
         ]
         for item in report.items:
             lines.append(f"| {item.seller_code} | {item.item_code} | {item.description or ''} | "
-                         f"${item.price:.2f} | {item.donation_type} |")
+                         f"{item.quantity:G} | ${item.price:.2f} | {item.donation_type} |")
     elif isinstance(report, UnsoldItemsReport):
         lines += [
             f"# Unsold Items: {report.event_name}",
             f"**Total Items:** {report.total_items}  **Total Value:** ${report.total_value:.2f}  ",
             f"**Generated:** {report.generated_at.isoformat()}", "",
-            "| Seller | Item Code | Description | Category | Price |",
-            "|--------|-----------|-------------|----------|-------|",
+            "| Seller | Item Code | Description | Category | Qty | Remaining | Price |",
+            "|--------|-----------|-------------|----------|-----|-----------|-------|",
         ]
         for item in report.items:
             lines.append(f"| {item.seller_code} | {item.item_code} | {item.description or ''} | "
-                         f"{item.category or ''} | ${item.price:.2f} |")
+                         f"{item.category or ''} | {item.quantity:G} | {item.remaining:G} | ${item.price:.2f} |")
     elif isinstance(report, EndOfDayReport):
         lines += [
             f"# End of Day: {report.event_name}",

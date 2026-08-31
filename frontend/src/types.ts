@@ -208,8 +208,10 @@ export interface Item {
   used: boolean
   /** Asking price in dollars. */
   price: number
-  /** Number of identical units (almost always 1 for swap events). */
+  /** ORIGINAL intake quantity — units entered at intake (never mutated by sales). */
   quantity: number
+  /** On-hand sellable units = quantity − units sold (non-voided); what POS can sell. */
+  remaining: number
   /** Code 39 barcode string for label printing. */
   barcode_39: string | null
   /** Second line of the printed label. */

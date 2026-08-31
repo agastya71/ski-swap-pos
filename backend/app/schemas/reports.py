@@ -11,6 +11,8 @@ class SellerPayoutLineItem(BaseModel):
 
     item_code: str = Field(description="Unique item code identifying the consigned item.")
     description: Optional[str] = Field(default=None, description="Free-text description of the item.")
+    quantity: float = Field(description="Original intake quantity of the item.")
+    remaining: float = Field(description="On-hand units still available for sale.")
     price: float = Field(description="Original asking price set by the seller.")
     sell_price: float = Field(description="Actual price at which the item was sold (per unit).")
     status: str = Field(description="Final status of the item (e.g., 'sold', 'available', 'donated').")
@@ -64,6 +66,7 @@ class DonationItem(BaseModel):
     seller_name: str = Field(description="Full name of the seller who consigned this donated item.")
     item_code: str = Field(description="Unique item code identifying the donated item.")
     description: Optional[str] = Field(default=None, description="Free-text description of the donated item.")
+    quantity: float = Field(description="Original intake quantity of the donated item.")
     price: float = Field(description="Original asking price of the donated item.")
     donation_type: str = Field(description="Reason for donation: 'proceeds' (seller donated payout) or 'unsold' (seller donated unsold item).")
 
@@ -87,6 +90,8 @@ class UnsoldItem(BaseModel):
     item_code: str = Field(description="Unique item code identifying the unsold item.")
     description: Optional[str] = Field(default=None, description="Free-text description of the unsold item.")
     category: Optional[str] = Field(default=None, description="Merchandise category of the unsold item.")
+    quantity: float = Field(description="Original intake quantity of the unsold item.")
+    remaining: float = Field(description="On-hand units not sold (all unsold items have remaining > 0).")
     price: float = Field(description="Asking price of the unsold item.")
 
 

@@ -13,8 +13,16 @@ class Item(Base):
 
     Items belong to both a seller and a specific intake session. The unique code
     is used by cashiers to look up items at the point of sale. Status tracks the
-    item's lifecycle from available through sold, donated, or returned. donate_unsold
-    mirrors the seller's election at intake time but can be overridden per item.
+    item's lifecycle from available through sold, donated, or returned.
+    donate_unsold mirrors the seller's election at intake time but can be
+    overridden per item.
+
+    Quantity model (2026-08-30):
+      - ``quantity``    — ORIGINAL intake quantity (units entered at intake;
+                          never mutated by sales or voids).
+      - ``remaining``   — on-hand sellable units: decremented by the quantity
+                          sold at checkout, restored on sale void, adjustable
+                          via the quantity-adjust endpoint.
     """
 
     __tablename__ = "item"
@@ -34,7 +42,11 @@ class Item(Base):
     year = Column(Integer)
     used = Column(Boolean, default=True)
     price = Column(Float, nullable=False)
-    quantity = Column(Float, default=1.0)
+    """Original intake quantity: units entered at intake, never mutated by sales."""
+    quantity = Column(Float, nullable=False, default=1.0)
+    """On-hand sellable units = quantity − units sold (non-voided).
+    Decremented at checkout, restored on sale void."""
+    remaining = Column(Float, nullable=False, default=1.0, server_default="1.0")
     barcode_39 = Column(String)
     label_line_2 = Column(String)
     label_line_3 = Column(String)

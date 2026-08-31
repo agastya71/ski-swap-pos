@@ -17,6 +17,7 @@ const ITEM: Item = {
   description: 'Red skis', color: null, size: '160',
   uom: null, gender_age: null, year: null,
   used: true, price: 75, quantity: 1,
+  remaining: 1,
   barcode_39: null, label_line_2: null, label_line_3: null,
   donate_unsold: false, status: 'available', label_printed: false, is_deleted: false,
   vendor_item_id: null, created_at: '2026-04-04T10:00:00',

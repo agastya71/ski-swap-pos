@@ -22,6 +22,7 @@ from datetime import date, datetime
 sys.path.insert(0, os.path.dirname(__file__))
 
 from app.database import SessionLocal, engine, Base
+from sqlalchemy import text
 from app.models.event import Event
 from app.models.user import User
 from app.models.seller import Seller
@@ -308,6 +309,7 @@ try:
             gender_age=gender_age,
             price=price,
             quantity=1,
+            remaining=1,
             used=used,
             donate_unsold=donate_unsold,
             status=status,
@@ -430,7 +432,17 @@ try:
             db.commit()
             created["sales"] += 1
 
-        print(f"  Sales: {created['sales']} created, 0 skipped")
+        # Reconcile on-hand remaining with sale history (mirrors checkout:
+        # remaining = intake quantity − non-voided sold units).
+        db.execute(text("""
+            UPDATE item SET remaining = quantity - COALESCE((
+                SELECT SUM(si.quantity) FROM sale_item si JOIN sale s ON si.sale_id = s.id
+                WHERE si.item_id = item.id AND s.is_voided = 0
+            ), 0)
+        """))
+        db.commit()
+        created["sales"] += 1
+
 
     # ── Summary ──────────────────────────────────────────────────────────────
     print("\n── Seed complete ───────────────────────────────────────────────")

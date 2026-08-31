@@ -14,7 +14,7 @@ const ITEM_A: ItemLookupResponse = {
   id: 1, intake_id: 1, seller_id: 1, code: 'A001-001',
   category: 'Skis', brand: null, type: null, description: 'Red skis',
   color: null, size: null, uom: null, gender_age: null, year: null,
-  used: true, price: 75, quantity: 1,
+  used: true, price: 75, quantity: 3, remaining: 3,
   barcode_39: null, label_line_2: null, label_line_3: null,
   donate_unsold: false, status: 'available', label_printed: false, is_deleted: false,
   vendor_item_id: null, created_at: '2026-04-04T10:00:00',
@@ -24,7 +24,7 @@ const ITEM_B: ItemLookupResponse = {
   id: 2, intake_id: 1, seller_id: 2, code: 'B001-001',
   category: 'Boots', brand: null, type: null, description: 'Blue boots',
   color: null, size: null, uom: null, gender_age: null, year: null,
-  used: true, price: 40, quantity: 1,
+  used: true, price: 40, quantity: 2, remaining: 2,
   barcode_39: null, label_line_2: null, label_line_3: null,
   donate_unsold: false, status: 'available', label_printed: false, is_deleted: false,
   vendor_item_id: null, created_at: '2026-04-04T10:00:00',
@@ -67,7 +67,7 @@ describe('Cart', () => {
   })
 
   it('quantity input is capped at the item remaining quantity', () => {
-    const multi = { ...ITEM_A, quantity: 5 }
+    const multi = { ...ITEM_A, quantity: 5, remaining: 5 }
     const onUpdate = vi.fn()
     render(<Cart lines={[line(multi, 1)]} onUpdate={onUpdate} onRemove={vi.fn()} />)
     const qtyInput = screen.getByLabelText(/quantity for A001-001/i) as HTMLInputElement

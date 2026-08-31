@@ -26,6 +26,7 @@ def _payout():
         gross_sales=20.00, mysl_total=6.00, seller_total=14.00,
         line_items=[
             SellerPayoutLineItem(item_code="ABC-001", description="Skis",
+                                 quantity=1.0, remaining=0.0,
                                  price=20.00, sell_price=20.00, status="sold", mysl_share=6.0, seller_share=14.0, commission_rate=0.30),
         ],
         generated_at=datetime.now(timezone.utc),

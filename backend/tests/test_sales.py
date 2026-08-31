@@ -94,7 +94,8 @@ def sold_item(db, intake, seller):
         seller_id=seller.id,
         code="ABC-003",
         price=10.00,
-        quantity=0.0,
+        quantity=1.0,
+        remaining=0.0,  # fully sold: nothing on hand
         status="sold",
         label_printed=True,
         created_by="admin",
@@ -476,7 +477,7 @@ def test_get_sale_from_wrong_event(client, db, cashier_token, active_event):
 def _qty_item(db, intake, seller, code, qty=5.0, price=10.00):
     from app.models.item import Item
     it = Item(intake_id=intake.id, seller_id=seller.id, code=code, price=price,
-              quantity=qty, status="available", label_printed=False, created_by="admin")
+              quantity=qty, remaining=qty, status="available", label_printed=False, created_by="admin")
     db.add(it); db.commit(); db.refresh(it)
     return it
 
@@ -492,7 +493,8 @@ def test_create_sale_partial_quantity(client, db, cashier_token, active_event, i
     assert data["sale_items"][0]["quantity"] == 3
     assert data["sale_items"][0]["extended_price"] == 30.00
     db.refresh(it)
-    assert it.quantity == 2.0          # remaining decremented
+    assert it.quantity == 5.0          # intake quantity never mutated
+    assert it.remaining == 2.0         # on-hand decremented
     assert it.status == "sold"         # status sold (partial), still sellable
 
 
@@ -513,8 +515,44 @@ def test_create_sale_last_unit_sets_quantity_zero(client, db, cashier_token, act
                     headers={"Authorization": f"Bearer {cashier_token}"})
     assert r.status_code == 201
     db.refresh(it)
-    assert it.quantity == 0.0
+    assert it.quantity == 2.0          # intake quantity unchanged
+    assert it.remaining == 0.0         # fully sold out
     assert it.status == "sold"
+
+
+def test_remaining_lifecycle_across_sales_and_voids(client, db, admin_token, cashier_token, active_event, intake, seller):
+    """Intake qty 3: sell 1 → quantity stays 3, remaining 2; void → remaining 3.
+
+    `quantity` is the original intake count and never mutates; `remaining`
+    tracks sellable on-hand units (the 2026-08-30 quantity model)."""
+    it = _qty_item(db, intake, seller, "PQ-010", qty=3.0, price=10.00)
+    r1 = client.post("/sales", json={"items": [{"item_id": it.id, "quantity": 1}], "cash_amount": 10.00},
+                     headers={"Authorization": f"Bearer {cashier_token}"})
+    assert r1.status_code == 201
+    db.refresh(it)
+    assert it.quantity == 3.0
+    assert it.remaining == 2.0
+    assert it.status == "sold"
+
+    r2 = client.post("/sales", json={"items": [{"item_id": it.id, "quantity": 2}], "cash_amount": 20.00},
+                     headers={"Authorization": f"Bearer {cashier_token}"})
+    assert r2.status_code == 201
+    db.refresh(it)
+    assert it.remaining == 0.0
+
+    # Selling exhausted stock → sold out
+    r3 = client.post("/sales", json={"items": [{"item_id": it.id, "quantity": 1}], "cash_amount": 10.00},
+                     headers={"Authorization": f"Bearer {cashier_token}"})
+    assert r3.status_code == 422
+    assert "sold out" in r3.json()["detail"]
+
+    # Void the first sale → restores the 1 unit it sold (0 + 1 = 1 on hand)
+    v = client.post(f"/sales/{r1.json()['id']}/void", headers={"Authorization": f"Bearer {admin_token}"})
+    assert v.status_code == 200
+    db.refresh(it)
+    assert it.remaining == 1.0
+    assert it.quantity == 3.0
+    assert it.status == "sold"  # second sale still non-voided
 
 
 def test_create_sale_deleted_item_404(client, db, cashier_token, active_event, intake, seller):
@@ -534,12 +572,13 @@ def test_void_restores_quantity_and_status(client, db, admin_token, cashier_toke
                     headers={"Authorization": f"Bearer {cashier_token}"})
     sale_id = r.json()["id"]
     db.refresh(it)
-    assert it.quantity == 2.0 and it.status == "sold"
+    assert it.quantity == 5.0          # intake quantity unchanged
+    assert it.remaining == 2.0 and it.status == "sold"
     v = client.post(f"/sales/{sale_id}/void",
                     headers={"Authorization": f"Bearer {admin_token}"})
     assert v.status_code == 200
     db.refresh(it)
-    assert it.quantity == 5.0          # restored
+    assert it.remaining == 5.0         # restored
     assert it.status == "available"    # no non-voided sales remain
 
 
@@ -550,13 +589,14 @@ def test_void_keeps_sold_status_when_other_sales_remain(client, db, admin_token,
     r2 = client.post("/sales", json={"items": [{"item_id": it.id, "quantity": 1}], "cash_amount": 10.00},
                      headers={"Authorization": f"Bearer {cashier_token}"})
     db.refresh(it)
-    assert it.quantity == 2.0  # 5 - 2 - 1
+    assert it.quantity == 5.0          # intake quantity unchanged
+    assert it.remaining == 2.0         # 5 - 2 - 1
     # void the second sale -> restore 1 -> remaining 3, status still sold (first sale non-voided)
     v = client.post(f"/sales/{r2.json()['id']}/void",
                     headers={"Authorization": f"Bearer {admin_token}"})
     assert v.status_code == 200
     db.refresh(it)
-    assert it.quantity == 3.0
+    assert it.remaining == 3.0         # restored 1 on void
     assert it.status == "sold"
 
 

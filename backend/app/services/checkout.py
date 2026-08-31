@@ -93,14 +93,16 @@ def create_sale_atomic(
             raise HTTPException(status_code=404, detail=f"Item {line.item_id} not found")
         if item.is_deleted:
             raise HTTPException(status_code=404, detail=f"Item {item.code} not found")
-        if item.quantity <= 0:
+        if item.is_deleted:
+            raise HTTPException(status_code=404, detail=f"Item {item.code} not found")
+        if item.remaining <= 0:
             raise HTTPException(
                 status_code=422, detail=f"Item {item.code} is sold out"
             )
-        if line.quantity > item.quantity:
+        if line.quantity > item.remaining:
             raise HTTPException(
                 status_code=422,
-                detail=f"Item {item.code} has only {int(item.quantity)} remaining",
+                detail=f"Item {item.code} has only {int(item.remaining)} remaining",
             )
         items_and_intakes.append((line, item, item.intake))
 
@@ -142,9 +144,11 @@ def create_sale_atomic(
             notes=line.notes,
             created_by=username,
         ))
-        # Partial-quantity sale: decrement on-hand; status reflects that a sale
-        # has occurred (sellable while quantity > 0, fully sold at 0).
-        item.quantity -= line.quantity
+        # Partial-quantity sale: decrement the on-hand remaining units. The
+        # intake `quantity` is never mutated, so the original units entered at
+        # intake stay accurate. Status marks that a sale has occurred (sellable
+        # while remaining > 0, fully sold at 0).
+        item.remaining -= line.quantity
         item.status = "sold"
         sale_total += extended_price
         mysl_total += mysl_share

@@ -20,7 +20,7 @@ export interface CartLine {
 export type CartLinePatch = Partial<Pick<CartLine, 'quantity' | 'sell_price' | 'notes'>>
 
 /**
- * Renders the cart as a table. The cashier can adjust quantity (1..item.quantity),
+ * Renders the cart as a table. The cashier can adjust quantity (1..item.remaining),
  * override the unit price (with a notes field for the reason), or remove a line.
  * A running total sums each line's extended price (sell_price × quantity).
  *
@@ -61,7 +61,7 @@ export function Cart({ lines, onUpdate, onRemove, readOnly = false }: {
         </thead>
         <tbody>
           {lines.map(line => {
-            const maxQty = Math.max(1, Math.floor(line.item.quantity))
+            const maxQty = Math.max(1, Math.floor(line.item.remaining))
             return (
               <tr key={line.item.id} style={{ borderBottom: '1px solid #eee' }}>
                 <td style={{ padding: '6px 8px' }}>{line.item.code}</td>

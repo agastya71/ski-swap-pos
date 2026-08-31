@@ -41,7 +41,7 @@ def available_item(db, intake, seller):
 @pytest.fixture
 def sold_item(db, intake, seller):
     it = Item(intake_id=intake.id, seller_id=seller.id, code="TST-002", price=15.00,
-              quantity=0.0, status="sold", label_printed=True, created_by="admin")
+              quantity=1.0, remaining=0.0, status="sold", label_printed=True, created_by="admin")
     db.add(it); db.commit(); db.refresh(it)
     return it
 
@@ -49,7 +49,7 @@ def sold_item(db, intake, seller):
 @pytest.fixture
 def donate_sold_item(db, donate_intake, seller):
     it = Item(intake_id=donate_intake.id, seller_id=seller.id, code="TST-003", price=30.00,
-              quantity=0.0, status="sold", label_printed=True, created_by="admin")
+              quantity=1.0, remaining=0.0, status="sold", label_printed=True, created_by="admin")
     db.add(it); db.commit(); db.refresh(it)
     return it
 
@@ -182,7 +182,7 @@ def test_donations_unsold_type(db, active_event, seller):
     i = Intake(seller_id=seller.id, donate_proceeds=False, donate_unsold=True, created_by="admin")
     db.add(i); db.commit(); db.refresh(i)
     it = Item(intake_id=i.id, seller_id=seller.id, code="DU-001", price=10.00,
-              quantity=1.0, status="available", label_printed=True,
+              quantity=1.0, remaining=1.0, status="available", label_printed=True,
               donate_unsold=True, created_by="admin")
     db.add(it); db.commit()
     report = get_donations(db, active_event.id)
