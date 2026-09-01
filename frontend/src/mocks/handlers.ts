@@ -231,6 +231,17 @@ export const handlers = [
       total_items: 1, total_value: 45, generated_at: '2026-04-04T10:00:00',
     })
   ),
+  /** GET /reports/:eventId/transactions-by-user — per-cashier transactions (empty fixture). */
+  http.get('/reports/:eventId/transactions-by-user', () =>
+    HttpResponse.json({
+      event_id: 1, event_name: 'Test Event',
+      users: [],
+      total_sales: 0, total_voided: 0,
+      gross_sales: 0, mysl_total: 0, seller_total: 0,
+      generated_at: '2026-04-04T10:00:00',
+    })
+  ),
+
   /** GET /reports/:eventId/end-of-day — returns an end-of-day summary with sales counts and payment totals. */
   http.get('/reports/:eventId/end-of-day', () =>
     HttpResponse.json({

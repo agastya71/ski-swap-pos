@@ -15,6 +15,7 @@ from pydantic import BaseModel
 
 from app.schemas.reports import (
     DonationsReport,
+    TransactionsByUserReport,
     EndOfDayReport,
     EventRevenueReport,
     SellerPayoutReport,
@@ -82,6 +83,23 @@ def _to_csv(report: BaseModel, filename_base: str) -> Response:
         for item in report.items:
             w.writerow([item.seller_code, item.item_code, item.description,
                         item.category, item.quantity, item.remaining, item.price])
+    elif isinstance(report, TransactionsByUserReport):
+        # Section 1: per-cashier summary; Section 2: one row per transaction.
+        w.writerow(["cashier", "sales", "voided", "gross_sales", "mysl_total",
+                    "seller_total", "cash_total", "check_total", "cc_total"])
+        for u in report.users:
+            w.writerow([u.cashier, u.sales_count, u.voided_count, u.gross_sales,
+                        u.mysl_total, u.seller_total, u.cash_total,
+                        u.check_total, u.cc_total])
+        w.writerow([])
+        w.writerow(["cashier", "sale_id", "date_of_sale", "items", "units",
+                    "sale_total", "mysl_total", "seller_total", "cash", "check",
+                    "cc", "is_voided"])
+        for u in report.users:
+            for t in u.transactions:
+                w.writerow([t.cashier, t.sale_id, t.date_of_sale, t.items_count,
+                            t.units_sold, t.sale_total, t.mysl_total, t.seller_total,
+                            t.cash_amount, t.check_amount, t.cc_amount, t.is_voided])
     else:
         data = report.model_dump(mode="json")
         w.writerow(list(data.keys()))
@@ -155,6 +173,57 @@ def _to_md(report: BaseModel, filename_base: str) -> Response:
         for item in report.items:
             lines.append(f"| {item.seller_code} | {item.item_code} | {item.description or ''} | "
                          f"{item.category or ''} | {item.quantity:G} | {item.remaining:G} | ${item.price:.2f} |")
+    elif isinstance(report, TransactionsByUserReport):
+        lines += [
+            f"# Transactions by User: {report.event_name}",
+            f"**Total:** {report.total_sales} sales · {report.total_voided} voided · ${report.gross_sales:.2f} gross  ",
+            f"**Generated:** {report.generated_at.isoformat()}", "",
+            "| Cashier | Sales | Voided | Gross | MYSL | Seller | Cash | Check | Card |",
+            "|---------|-------|--------|-------|------|--------|------|-------|------|",
+        ]
+        for u in report.users:
+            lines.append(
+                f"| {u.cashier} | {u.sales_count} | {u.voided_count} | ${u.gross_sales:.2f} | "
+                f"${u.mysl_total:.2f} | ${u.seller_total:.2f} | ${u.cash_total:.2f} | "
+                f"${u.check_total:.2f} | ${u.cc_total:.2f} |")
+        lines.append("")
+        for u in report.users:
+            lines.append(f"## {u.cashier}")
+            lines.append("")
+            lines.append("| Sale | Date | Items | Units | Total | MYSL | Seller | Cash | Check | Card | Voided |")
+            lines.append("|------|------|-------|-------|-------|------|--------|------|-------|------|--------|")
+            for t in u.transactions:
+                when = t.date_of_sale.isoformat() if t.date_of_sale else "—"
+                lines.append(
+                    f"| #{t.sale_id} | {when} | {t.items_count} | {t.units_sold} | ${t.sale_total:.2f} | "
+                    f"${t.mysl_total:.2f} | ${t.seller_total:.2f} | ${t.cash_amount:.2f} | "
+                    f"${t.check_amount:.2f} | ${t.cc_amount:.2f} | {t.is_voided} |")
+            lines.append("")
+    elif isinstance(report, TransactionsByUserReport):
+        pdf.cell(0, 8, _safe(f"Transactions by User: {report.event_name}"))
+        pdf.ln()
+        pdf.cell(0, 6, f"Generated: {report.generated_at.strftime('%Y-%m-%d %H:%M UTC')}")
+        pdf.ln(6)
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.cell(0, 6, "Per-User Summary", border="B")
+        pdf.ln(8)
+        pdf.set_font("Helvetica", "", 9)
+        for hdr, width in [("Cashier", 40), ("Sales", 20), ("Voided", 20), ("Gross", 28),
+                            ("MYSL", 24), ("Seller", 24), ("Cash", 20), ("Check", 18), ("Card", 16)]:
+            pdf.cell(width, 6, hdr, border=1)
+        pdf.ln()
+        for u in report.users:
+            pdf.cell(40, 6, _safe(u.cashier), border=1)
+            pdf.cell(20, 6, u.sales_count, border=1)
+            pdf.cell(20, 6, u.voided_count, border=1)
+            pdf.cell(28, 6, f"${u.gross_sales:.2f}", border=1)
+            pdf.cell(24, 6, f"${u.mysl_total:.2f}", border=1)
+            pdf.cell(24, 6, f"${u.seller_total:.2f}", border=1)
+            pdf.cell(20, 6, f"${u.cash_total:.2f}", border=1)
+            pdf.cell(18, 6, f"${u.check_total:.2f}", border=1)
+            pdf.cell(16, 6, f"${u.cc_total:.2f}", border=1)
+            pdf.ln()
+
     elif isinstance(report, EndOfDayReport):
         lines += [
             f"# End of Day: {report.event_name}",

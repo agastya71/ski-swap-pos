@@ -63,6 +63,23 @@ def get_unsold(
     return format_report(report, fmt, f"unsold_{event_id}")
 
 
+@router.get("/{event_id}/transactions-by-user")
+def get_transactions_by_user_report(
+    event_id: int,
+    fmt: str = Query("json", alias="format"),
+    db: Session = Depends(get_db),
+    _user: User = Depends(_ADMIN_ONLY),
+):
+    """Return every event transaction grouped by the user who recorded it.
+
+    Aggregates per cashier (sale.created_by): transaction listings newest-first
+    plus per-user and grand totals. Non-voided sales feed revenue aggregates;
+    voided transactions are listed flagged and counted separately.
+    """
+    report = report_svc.get_transactions_by_user(db, event_id)
+    return format_report(report, fmt, f"transactions_by_user_{event_id}")
+
+
 @router.get("/{event_id}/end-of-day")
 def get_end_of_day(
     event_id: int,

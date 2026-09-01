@@ -10,6 +10,7 @@ import type {
   DonationsReport,
   UnsoldItemsReport,
   EndOfDayReport,
+  TransactionsByUserReport,
 } from '../types'
 
 /**
@@ -67,6 +68,16 @@ export const getUnsoldItems = (eventId: number) =>
  */
 export const getEndOfDay = (eventId: number) =>
   apiFetch<EndOfDayReport>(`/reports/${eventId}/end-of-day`)
+
+/**
+ * Fetch the transactions-by-user report for an event.
+ *
+ * @param eventId - ID of the event to report on.
+ * @returns TransactionsByUserReport: per-cashier transaction listings and totals.
+ */
+export function getTransactionsByUser(eventId: number) {
+  return apiFetch<TransactionsByUserReport>(`/reports/${eventId}/transactions-by-user`)
+}
 
 /**
  * Trigger an authenticated file download (CSV, PDF, or Markdown report).

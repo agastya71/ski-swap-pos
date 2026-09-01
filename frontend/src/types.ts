@@ -677,3 +677,43 @@ export interface EndOfDayReport {
   /** ISO 8601 timestamp when this report was generated. */
   generated_at: string
 }
+
+export interface TransactionRow {
+  sale_id: number
+  cashier: string
+  date_of_sale: string | null
+  items_count: number
+  units_sold: number
+  sale_total: number
+  mysl_total: number
+  seller_total: number
+  cash_amount: number
+  check_amount: number
+  cc_amount: number
+  is_voided: boolean
+}
+
+export interface UserSalesSummary {
+  cashier: string
+  transactions: TransactionRow[]
+  sales_count: number
+  voided_count: number
+  gross_sales: number
+  mysl_total: number
+  seller_total: number
+  cash_total: number
+  check_total: number
+  cc_total: number
+}
+
+export interface TransactionsByUserReport {
+  event_id: number
+  event_name: string
+  users: UserSalesSummary[]
+  total_sales: number
+  total_voided: number
+  gross_sales: number
+  mysl_total: number
+  seller_total: number
+  generated_at: string
+}

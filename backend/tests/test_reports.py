@@ -143,6 +143,67 @@ def test_unsold_json_excludes_sold(client, admin_token, active_event, rpt_item):
     assert resp.json()["total_items"] == 0
 
 
+# ── Transactions by user ───────────────────────────────────────────────────
+
+def test_transactions_split_by_cashier_and_voided(client, db, admin_token, cashier_token, active_event, rpt_seller, rpt_intake):
+    """Two cashiers; one sale + one void sale by cashier A, one by B.
+    Voided ones are listed flagged but excluded from gross; totals match."""
+    import sqlite3
+    from app.models.item import Item
+    it = Item(intake_id=rpt_intake.id, seller_id=rpt_seller.id, code="TRX-001", price=10.00,
+              quantity=5.0, remaining=5.0, status="available", label_printed=False,
+              created_by="admin")
+    db.add(it); db.commit(); db.refresh(it)
+
+    r1 = client.post("/sales", json={"items": [{"item_id": it.id, "quantity": 1}], "cash_amount": 10.00},
+                     headers={"Authorization": f"Bearer {cashier_token}"})
+    assert r1.status_code == 201
+    r2 = client.post("/sales", json={"items": [{"item_id": it.id, "quantity": 1}], "cash_amount": 10.00},
+                     headers={"Authorization": f"Bearer {admin_token}"})
+    assert r2.status_code == 201
+    r3 = client.post("/sales", json={"items": [{"item_id": it.id, "quantity": 2}], "cash_amount": 20.00},
+                     headers={"Authorization": f"Bearer {cashier_token}"})
+    assert r3.status_code == 201
+    # void cashier-token's second sale
+    client.post(f"/sales/{r3.json()['id']}/void", headers={"Authorization": f"Bearer {admin_token}"})
+
+    resp = client.get(f"/reports/{active_event.id}/transactions-by-user",
+                      headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 200
+    data = resp.json()
+    by_user = {u["cashier"]: u for u in data["users"]}
+    # created_by is stored from the token's role name; expect two distinct users
+    assert len(data["users"]) >= 2
+    cashier_names = set(by_user.keys())
+    assert any("cashier" in n for n in cashier_names)
+    assert any("admin" in n for n in cashier_names)
+
+    # grand totals: non-voided = 2 sales × 10.00; voided 1
+    assert data["total_sales"] == 2
+    assert data["total_voided"] == 1
+    assert data["gross_sales"] == 20.00
+
+    # per-user: cashier (2 txns, one voided) → sales_count 1, gross 10
+    # every transaction listed by its user; the voided one flagged
+    all_txns = [t for u in data["users"] for t in u["transactions"]]
+    voided = [t for t in all_txns if t["is_voided"]]
+    assert len(voided) == 1
+    assert voided[0]["sale_id"] == r3.json()["id"]
+
+
+def test_transactions_by_user_csv_format(client, admin_token, active_event):
+    """/reports/{id}/transactions-by-user?format=csv returns a text CSV with both sections."""
+    resp = client.get(f"/reports/{active_event.id}/transactions-by-user?format=csv",
+                      headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 200
+    assert "text/csv" in resp.headers["content-type"]
+    chunks = resp.body_iterator if hasattr(resp, "body_iterator") else resp.stream
+    content = b"".join(chunk if isinstance(chunk, bytes) else chunk.encode() for chunk in chunks).decode()
+    assert "cashier" in content
+    assert "sale_id" in content
+    assert "is_voided" in content
+
+
 # ── End of day ────────────────────────────────────────────────────────────────
 
 def test_end_of_day_json(client, admin_token, active_event, rpt_sale):
