@@ -65,6 +65,17 @@ try:
     cur = db.cursor()
     cur.execute("PRAGMA table_info(item)")
     if any(col[1] == "remaining" for col in cur.fetchall()):
+        # Pass 1: reconstruct intake quantity (old builds decremented quantity
+        # in place, losing the original count). quantity = stored + non-voided sold.
+        cur.execute(
+            "UPDATE item SET quantity = quantity + COALESCE(("
+            "SELECT SUM(si.quantity) FROM sale_item si JOIN sale s ON si.sale_id = s.id "
+            "WHERE si.item_id = item.id AND s.is_voided = 0), 0) "
+            "WHERE quantity != quantity + COALESCE(("
+            "SELECT SUM(si.quantity) FROM sale_item si JOIN sale s ON si.sale_id = s.id "
+            "WHERE si.item_id = item.id AND s.is_voided = 0), 0)"
+        )
+        # Pass 2: re-sync remaining = quantity - non-voided sold.
         cur.execute(
             "UPDATE item SET remaining = quantity - COALESCE(("
             "SELECT SUM(si.quantity) FROM sale_item si JOIN sale s ON si.sale_id = s.id "

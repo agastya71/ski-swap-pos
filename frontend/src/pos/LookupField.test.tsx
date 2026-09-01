@@ -66,11 +66,11 @@ describe('LookupField', () => {
   })
 
   /** Verifies an alert is shown when the looked-up item has a non-available status (e.g. 'sold'). */
-  it('shows error when item is already sold', async () => {
-    server.use(http.get('/items/lookup', () => HttpResponse.json({ ...FOUND, status: 'sold' })))
+  it('shows sold-out error when item has no remaining units', async () => {
+    server.use(http.get('/items/lookup', () => HttpResponse.json({ ...FOUND, remaining: 0 })))
     render(<LookupField onFound={vi.fn()} />)
     enter('A001-001')
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/already sold/i))
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/sold out/i))
   })
 
   /** Verifies the error alert disappears as soon as the user begins typing a new code. */
@@ -186,7 +186,7 @@ describe('LookupField', () => {
 
   /** Tests for ArrowUp/Down keyboard navigation within the autocomplete dropdown. */
   describe('arrow key navigation', () => {
-    const SOLD = { ...FOUND, id: 3, code: 'A001-003', status: 'sold' as const }
+    const SOLD = { ...FOUND, id: 3, code: 'A001-003', status: 'sold' as const, remaining: 0 }
 
     beforeEach(() => { vi.useFakeTimers() })
     afterEach(() => { vi.runOnlyPendingTimers(); vi.useRealTimers() })
