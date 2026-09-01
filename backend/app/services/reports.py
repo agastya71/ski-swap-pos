@@ -431,7 +431,7 @@ def get_transactions_by_user(db: Session, event_id: int) -> TransactionsByUserRe
     for cashier, rows in grouped.items():
         live = [t for t in rows if not t.is_voided]
         voided = [t for t in rows if t.is_voided]
-        rows.sort(key=lambda t: (t.date_of_sale or datetime.min.replace(tzinfo=timezone.utc)), reverse=True)
+        rows.sort(key=lambda t: (t.date_of_sale or datetime.min, t.sale_id), reverse=True)
         users.append(UserSalesSummary(
             cashier=cashier,
             transactions=rows,

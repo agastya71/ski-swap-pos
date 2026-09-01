@@ -199,31 +199,6 @@ def _to_md(report: BaseModel, filename_base: str) -> Response:
                     f"${t.mysl_total:.2f} | ${t.seller_total:.2f} | ${t.cash_amount:.2f} | "
                     f"${t.check_amount:.2f} | ${t.cc_amount:.2f} | {t.is_voided} |")
             lines.append("")
-    elif isinstance(report, TransactionsByUserReport):
-        pdf.cell(0, 8, _safe(f"Transactions by User: {report.event_name}"))
-        pdf.ln()
-        pdf.cell(0, 6, f"Generated: {report.generated_at.strftime('%Y-%m-%d %H:%M UTC')}")
-        pdf.ln(6)
-        pdf.set_font("Helvetica", "B", 10)
-        pdf.cell(0, 6, "Per-User Summary", border="B")
-        pdf.ln(8)
-        pdf.set_font("Helvetica", "", 9)
-        for hdr, width in [("Cashier", 40), ("Sales", 20), ("Voided", 20), ("Gross", 28),
-                            ("MYSL", 24), ("Seller", 24), ("Cash", 20), ("Check", 18), ("Card", 16)]:
-            pdf.cell(width, 6, hdr, border=1)
-        pdf.ln()
-        for u in report.users:
-            pdf.cell(40, 6, _safe(u.cashier), border=1)
-            pdf.cell(20, 6, u.sales_count, border=1)
-            pdf.cell(20, 6, u.voided_count, border=1)
-            pdf.cell(28, 6, f"${u.gross_sales:.2f}", border=1)
-            pdf.cell(24, 6, f"${u.mysl_total:.2f}", border=1)
-            pdf.cell(24, 6, f"${u.seller_total:.2f}", border=1)
-            pdf.cell(20, 6, f"${u.cash_total:.2f}", border=1)
-            pdf.cell(18, 6, f"${u.check_total:.2f}", border=1)
-            pdf.cell(16, 6, f"${u.cc_total:.2f}", border=1)
-            pdf.ln()
-
     elif isinstance(report, EndOfDayReport):
         lines += [
             f"# End of Day: {report.event_name}",
@@ -382,6 +357,31 @@ def _to_pdf(report: BaseModel, filename_base: str) -> Response:
             pdf.cell(10, 6, f"{item.quantity:G}", border=1)
             pdf.cell(10, 6, f"{item.remaining:G}", border=1)
             pdf.cell(18, 6, f"${item.price:.2f}", border=1)
+            pdf.ln()
+
+    elif isinstance(report, TransactionsByUserReport):
+        pdf.cell(0, 8, _safe(f"Transactions by User: {report.event_name}"))
+        pdf.ln()
+        pdf.cell(0, 6, f"Generated: {report.generated_at.strftime('%Y-%m-%d %H:%M UTC')}")
+        pdf.ln(6)
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.cell(0, 6, "Per-User Summary", border="B")
+        pdf.ln(8)
+        pdf.set_font("Helvetica", "", 9)
+        for hdr, width in [("Cashier", 40), ("Sales", 20), ("Voided", 20), ("Gross", 28),
+                            ("MYSL", 24), ("Seller", 24), ("Cash", 20), ("Check", 18), ("Card", 16)]:
+            pdf.cell(width, 6, hdr, border=1)
+        pdf.ln()
+        for u in report.users:
+            pdf.cell(40, 6, _safe(u.cashier), border=1)
+            pdf.cell(20, 6, str(u.sales_count), border=1)
+            pdf.cell(20, 6, str(u.voided_count), border=1)
+            pdf.cell(28, 6, f"${u.gross_sales:.2f}", border=1)
+            pdf.cell(24, 6, f"${u.mysl_total:.2f}", border=1)
+            pdf.cell(24, 6, f"${u.seller_total:.2f}", border=1)
+            pdf.cell(20, 6, f"${u.cash_total:.2f}", border=1)
+            pdf.cell(18, 6, f"${u.check_total:.2f}", border=1)
+            pdf.cell(16, 6, f"${u.cc_total:.2f}", border=1)
             pdf.ln()
 
     elif isinstance(report, EndOfDayReport):

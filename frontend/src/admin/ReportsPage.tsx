@@ -258,7 +258,7 @@ export function ReportsPage({ eventId }: { eventId: number }) {
                     {u.transactions.map(t => (
                       <tr key={t.sale_id} style={{ borderBottom: '1px solid #eee', background: t.is_voided ? '#fafafa' : undefined }}>
                         <td style={{ padding: '4px 8px' }}>#{t.sale_id}</td>
-                        <td style={{ padding: '4px 8px' }}>{t.date_of_sale ? new Date(t.date_of_sale).toLocaleString() : '—'}</td>
+                        <td style={{ padding: '4px 8px' }}>{t.date_of_sale ? new Date(t.date_of_sale + 'Z').toLocaleString() : '—'}</td>
                         <td style={{ padding: '4px 8px', textAlign: 'right' }}>{t.items_count}</td>
                         <td style={{ padding: '4px 8px', textAlign: 'right' }}>{t.units_sold}</td>
                         <td style={{ padding: '4px 8px', textAlign: 'right' }}>${t.sale_total.toFixed(2)}</td>
