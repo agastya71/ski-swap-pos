@@ -7,8 +7,8 @@
  */
 
 import { useState, useEffect, type ReactNode, type FormEvent } from 'react'
-import { getEventRevenue, getDonations, getUnsoldItems, downloadFile } from '../api/reports'
-import type { EventRevenueReport, DonationsReport, UnsoldItemsReport, Seller } from '../types'
+import { getEventRevenue, getDonations, getUnsoldItems, getTransactionsByUser, downloadFile } from '../api/reports'
+import type { EventRevenueReport, DonationsReport, UnsoldItemsReport, TransactionsByUserReport, Seller } from '../types'
 import { SellerCombobox } from '../components/SellerCombobox'
 import { SellerPayoutPanel } from './SellerPayoutPanel'
 
@@ -28,17 +28,21 @@ export function ReportsPage({ eventId }: { eventId: number }) {
   // The seller whose payout is currently shown. Set on "Get Payout" submit;
   // the actual report is fetched and rendered by <SellerPayoutPanel>.
   const [payoutSeller, setPayoutSeller] = useState<Seller | null>(null)
+  const [transactions, setTransactions] = useState<TransactionsByUserReport | null>(null)
   const [open, setOpen] = useState({ revenue: false, donations: false, unsold: false })
+  const [openTransactions, setOpenTransactions] = useState(false)
 
   useEffect(() => {
     Promise.all([
       getEventRevenue(eventId).then(setRevenue),
       getDonations(eventId).then(setDonations),
       getUnsoldItems(eventId).then(setUnsold),
+      getTransactionsByUser(eventId).then(setTransactions),
     ]).catch(() => {})
   }, [eventId])
 
-  function toggle(key: 'revenue' | 'donations' | 'unsold') {
+  function toggle(key: 'revenue' | 'donations' | 'unsold' | 'users') {
+    if (key === 'users') { setOpenTransactions(prev => !prev); return }
     setOpen(prev => ({ ...prev, [key]: !prev[key] }))
   }
 
@@ -198,6 +202,76 @@ export function ReportsPage({ eventId }: { eventId: number }) {
                 </tbody>
               </table>
             )}
+          </>
+        )}
+      </section>
+
+      {/* Transactions by User */}
+      <section style={{ marginBottom: 32 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: openTransactions ? 12 : 0 }}>
+          <div
+            style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flex: 1 }}
+            onClick={() => setOpenTransactions(prev => !prev)}
+          >
+            <span style={{ color: '#1a237e', fontSize: 11, userSelect: 'none' }}>{openTransactions ? '▼' : '▶'}</span>
+            <h3 style={{ margin: 0 }}>Transactions by User</h3>
+            {!openTransactions && transactions && (
+              <span style={{ color: '#64748b', fontSize: 13 }}>
+                {transactions.users.length} user{transactions.users.length !== 1 ? 's' : ''} · {transactions.total_sales} sales · <strong>${transactions.gross_sales.toFixed(2)}</strong>
+              </span>
+            )}
+          </div>
+          <button
+            onClick={() => downloadFile(`/reports/${eventId}/transactions-by-user?format=csv`, 'transactions-by-user.csv')}
+            style={{ border: '1px solid #1a237e', color: '#1a237e', background: 'none', padding: '3px 10px', cursor: 'pointer', borderRadius: 3, fontSize: 13 }}
+          >
+            Download CSV
+          </button>
+        </div>
+        {openTransactions && (
+          <>
+            {!transactions && <p>Loading…</p>}
+            {transactions && transactions.users.length === 0 && <p>No transactions recorded yet.</p>}
+            {transactions && transactions.users.map(u => (
+              <div key={u.cashier} style={{ marginBottom: 24 }}>
+                <h4 style={{ margin: '12px 0 6px' }}>
+                  <span style={{ color: '#1a237e' }}>{u.cashier}</span>
+                  <span style={{ color: '#64748b', fontSize: 13, fontWeight: 400, marginLeft: 8 }}>
+                    {u.sales_count} sales{u.voided_count > 0 ? ` · ${u.voided_count} voided` : ''} · Gross ${u.gross_sales.toFixed(2)}
+                  </span>
+                </h4>
+                <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 8 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid #ccc' }}>
+                      <th style={{ textAlign: 'left', padding: '4px 8px' }}>Sale</th>
+                      <th style={{ textAlign: 'left', padding: '4px 8px' }}>Date</th>
+                      <th style={{ textAlign: 'right', padding: '4px 8px' }}>Items</th>
+                      <th style={{ textAlign: 'right', padding: '4px 8px' }}>Units</th>
+                      <th style={{ textAlign: 'right', padding: '4px 8px' }}>Total</th>
+                      <th style={{ textAlign: 'right', padding: '4px 8px' }}>Cash</th>
+                      <th style={{ textAlign: 'right', padding: '4px 8px' }}>Check</th>
+                      <th style={{ textAlign: 'right', padding: '4px 8px' }}>Card</th>
+                      <th style={{ textAlign: 'center', padding: '4px 8px' }}>Voided</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {u.transactions.map(t => (
+                      <tr key={t.sale_id} style={{ borderBottom: '1px solid #eee', background: t.is_voided ? '#fafafa' : undefined }}>
+                        <td style={{ padding: '4px 8px' }}>#{t.sale_id}</td>
+                        <td style={{ padding: '4px 8px' }}>{t.date_of_sale ? new Date(t.date_of_sale + 'Z').toLocaleString() : '—'}</td>
+                        <td style={{ padding: '4px 8px', textAlign: 'right' }}>{t.items_count}</td>
+                        <td style={{ padding: '4px 8px', textAlign: 'right' }}>{t.units_sold}</td>
+                        <td style={{ padding: '4px 8px', textAlign: 'right' }}>${t.sale_total.toFixed(2)}</td>
+                        <td style={{ padding: '4px 8px', textAlign: 'right' }}>${t.cash_amount.toFixed(2)}</td>
+                        <td style={{ padding: '4px 8px', textAlign: 'right' }}>${t.check_amount.toFixed(2)}</td>
+                        <td style={{ padding: '4px 8px', textAlign: 'right' }}>${t.cc_amount.toFixed(2)}</td>
+                        <td style={{ padding: '4px 8px', textAlign: 'center' }}>{t.is_voided ? '✓' : ''}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
           </>
         )}
       </section>

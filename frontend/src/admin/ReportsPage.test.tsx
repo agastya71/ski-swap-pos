@@ -74,11 +74,11 @@ describe('ReportsPage — collapsible sections', () => {
   })
 
   /** Verifies that the three CSV buttons are accessible even when all sections are collapsed. */
-  it('shows Download CSV buttons for all three sections when collapsed', async () => {
+  it('shows Download CSV buttons for all four sections when collapsed', async () => {
     render(<ReportsPage eventId={1} />)
     await waitFor(() => screen.getByRole('heading', { name: 'Event Revenue' }))
     const csvButtons = screen.getAllByRole('button', { name: /download csv/i })
-    expect(csvButtons.length).toBe(3)
+    expect(csvButtons.length).toBe(4)  // revenue, donations, unsold, transactions-by-user
   })
 
   /** Verifies that clicking an expanded header collapses the section again. */
