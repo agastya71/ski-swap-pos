@@ -97,7 +97,7 @@ export function POSPage() {
     setLines(prev => {
       const existing = prev.find(l => l.item.id === item.id)
       if (existing) {
-        const maxQty = Math.max(1, Math.floor(item.quantity))
+        const maxQty = Math.max(1, Math.floor(item.remaining))
         return prev.map(l => l.item.id === item.id
           ? { ...l, quantity: Math.min(l.quantity + 1, maxQty) }
           : l)

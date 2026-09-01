@@ -139,6 +139,7 @@ export function ItemList({ items, intakeId, onItemsChanged }: {
             <th style={{ textAlign: 'left', padding: '4px 8px' }}>Description</th>
             <th style={{ textAlign: 'right', padding: '4px 8px' }}>Price</th>
             <th style={{ textAlign: 'right', padding: '4px 8px' }}>Qty</th>
+            <th style={{ textAlign: 'right', padding: '4px 8px' }}>On Hand</th>
             <th style={{ textAlign: 'left', padding: '4px 8px' }}>Label</th>
             <th />
           </tr>
@@ -152,6 +153,7 @@ export function ItemList({ items, intakeId, onItemsChanged }: {
                 <td style={{ padding: '4px 8px' }}>{[item.brand, item.description].filter(Boolean).join(' — ') || '—'}</td>
                 <td style={{ padding: '4px 8px', textAlign: 'right' }}>${item.price.toFixed(2)}</td>
                 <td style={{ padding: '4px 8px', textAlign: 'right' }}>{item.quantity}</td>
+                <td style={{ padding: '4px 8px', textAlign: 'right' }}>{item.remaining}</td>
                 <td style={{ padding: '4px 8px' }}>{item.label_printed ? '✓ printed' : '—'}</td>
                 <td style={{ padding: '4px 8px', whiteSpace: 'nowrap' }}>
                   <button onClick={() => handlePrintOne(item.id)} style={{ marginRight: 4 }}>Print Label</button>
@@ -257,7 +259,7 @@ export function ItemList({ items, intakeId, onItemsChanged }: {
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 13 }}>
-                      <span style={{ color: '#64748b' }}>Quantity on hand: <strong>{item.quantity}</strong></span>
+                      <span style={{ color: '#64748b' }}>On hand: <strong>{item.remaining}</strong> of {item.quantity} intake{item.quantity !== 1 ? ' units' : ' unit'}</span>
                       <label style={{ color: '#64748b' }}>Adjust by:</label>
                       <input
                         type="number"

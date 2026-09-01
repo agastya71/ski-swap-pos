@@ -248,12 +248,15 @@ def test_delete_sold_item_returns_409(client, admin_token, db, item):
 def test_adjust_quantity_increase_by_difference(client, admin_token, db, intake, seller):
     from app.models.item import Item
     it = Item(intake_id=intake.id, seller_id=seller.id, code="Q-001", price=10.00,
-              quantity=5.0, status="available", label_printed=False, created_by="admin")
+              quantity=5.0, remaining=5.0, status="available", label_printed=False, created_by="admin")
     db.add(it); db.commit(); db.refresh(it)
-    # current 5, add 3 -> 8
+    # current remaining 5, add 3 -> BOTH columns corrected to 8 (the adjust
+    # endpoint corrects the consignment count, so the start.sh re-sync
+    # invariant remaining = quantity - sold survives).
     r = client.patch(f"/items/{it.id}/quantity", json={"adjustment": 3},
                      headers={"Authorization": f"Bearer {admin_token}"})
     assert r.status_code == 200
+    assert r.json()["remaining"] == 8.0
     assert r.json()["quantity"] == 8.0
 
 
@@ -261,31 +264,32 @@ def test_adjust_quantity_decrease_to_total_equals_sold_ok(client, cashier_token,
     """Reduce remaining to 0 (total == sold) is allowed."""
     from app.models.item import Item
     it = Item(intake_id=intake.id, seller_id=seller.id, code="Q-004", price=10.00,
-              quantity=5.0, status="available", label_printed=False, created_by="admin")
+              quantity=5.0, remaining=5.0, status="available", label_printed=False, created_by="admin")
     db.add(it); db.commit(); db.refresh(it)
-    # sell 3 -> remaining 2, sold 3
+    # sell 3 -> remaining 2 (intake quantity stays 5)
     client.post("/sales", json={"items": [{"item_id": it.id, "quantity": 3}], "cash_amount": 30.00},
                 headers={"Authorization": f"Bearer {cashier_token}"})
     db.refresh(it)
-    assert it.quantity == 2.0
-    # decrease remaining by 2 -> remaining 0 (total 3 == sold 3) -> allowed
+    assert it.quantity == 5.0
+    assert it.remaining == 2.0
+    # decrease remaining by 2 -> remaining 0 -> allowed
     r = client.patch(f"/items/{it.id}/quantity", json={"adjustment": -2},
                      headers={"Authorization": f"Bearer {admin_token}"})
     assert r.status_code == 200
-    assert r.json()["quantity"] == 0.0
+    assert r.json()["remaining"] == 0.0
 
 
 def test_adjust_quantity_decrease_below_zero_422(client, cashier_token, admin_token, db, active_event, intake, seller):
     """Reducing remaining below 0 (total < sold) is rejected."""
     from app.models.item import Item
     it = Item(intake_id=intake.id, seller_id=seller.id, code="Q-005", price=10.00,
-              quantity=5.0, status="available", label_printed=False, created_by="admin")
+              quantity=5.0, remaining=5.0, status="available", label_printed=False, created_by="admin")
     db.add(it); db.commit(); db.refresh(it)
     client.post("/sales", json={"items": [{"item_id": it.id, "quantity": 3}], "cash_amount": 30.00},
                 headers={"Authorization": f"Bearer {cashier_token}"})
     db.refresh(it)
-    assert it.quantity == 2.0
-    # decrease remaining by 3 -> remaining -1 (total 2 < sold 3) -> 422
+    assert it.remaining == 2.0
+    # decrease remaining by 3 -> -1 -> 422
     r = client.patch(f"/items/{it.id}/quantity", json={"adjustment": -3},
                      headers={"Authorization": f"Bearer {admin_token}"})
     assert r.status_code == 422

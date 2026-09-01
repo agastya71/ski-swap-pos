@@ -20,7 +20,7 @@ class ItemCreate(BaseModel):
     year: Optional[int] = Field(default=None, description="Model year of the item, if known.")
     used: bool = Field(default=True, description="True if the item is used/pre-owned; False if new.")
     price: float = Field(description="Asking price set by the seller in dollars.")
-    quantity: float = Field(default=1.0, description="Number of units represented by this item record (usually 1).")
+    quantity: float = Field(default=1.0, description="Number of units entered at intake; defaults to 1 when omitted.")
     barcode_39: Optional[str] = Field(default=None, description="Code 39 barcode string to print on the item label. Defaults to the auto-generated item code if omitted.")
     label_line_2: Optional[str] = Field(default=None, description="Second custom text line printed on the item label.")
     label_line_3: Optional[str] = Field(default=None, description="Third custom text line printed on the item label.")
@@ -42,7 +42,7 @@ class ItemUpdate(BaseModel):
     year: Optional[int] = Field(default=None, description="Updated model year, if changing.")
     used: Optional[bool] = Field(default=None, description="Updated condition flag, if changing.")
     price: Optional[float] = Field(default=None, description="Updated asking price in dollars, if changing.")
-    quantity: Optional[float] = Field(default=None, description="Updated quantity, if changing.")
+    remaining: Optional[float] = Field(default=None, description="Updatable via /items/{id}/quantity; not set here (sold units must not be overwritten).")
     barcode_39: Optional[str] = Field(default=None, description="Updated barcode string, if changing.")
     label_line_2: Optional[str] = Field(default=None, description="Updated second label line, if changing.")
     label_line_3: Optional[str] = Field(default=None, description="Updated third label line, if changing.")
@@ -51,12 +51,12 @@ class ItemUpdate(BaseModel):
 
 
 class ItemQuantityAdjustment(BaseModel):
-    """Payload for adjusting an item's on-hand quantity by a signed delta.
+    """Payload for adjusting an item's on-hand remaining quantity by a signed delta.
 
-    Positive values increase the quantity by the given difference (not a new
-    total). Negative values decrease it; the resulting quantity may not fall
-    below the number of units already sold (sum of non-voided sale_item
-    quantities for this item).
+    Positive values increase the remaining units by the given difference (not a
+    new total). Negative values decrease them; the resulting remaining may not
+    fall below 0 (units already sold are tracked via sale_item and cannot be
+    adjusted out of remaining).
     """
 
     adjustment: int = Field(description="Signed integer to add to (or subtract from) the current quantity.")
@@ -82,7 +82,8 @@ class ItemResponse(BaseModel):
     year: Optional[int] = Field(default=None, description="Model year of the item.")
     used: bool = Field(description="True if the item is used/pre-owned.")
     price: float = Field(description="Asking price set by the seller in dollars.")
-    quantity: float = Field(description="Number of units represented by this item record.")
+    quantity: float = Field(description="Original intake quantity: units entered at intake (never mutated by sales).")
+    remaining: float = Field(description="On-hand sellable units = quantity − units sold (non-voided sales).")
     barcode_39: Optional[str] = Field(default=None, description="Code 39 barcode string printed on the label.")
     label_line_2: Optional[str] = Field(default=None, description="Second custom text line on the item label.")
     label_line_3: Optional[str] = Field(default=None, description="Third custom text line on the item label.")

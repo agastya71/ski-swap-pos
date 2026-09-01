@@ -56,13 +56,15 @@ def void_sale(
     db: Session = Depends(get_db),
     _user: User = Depends(_ADMIN_ONLY),
 ):
-    """Void a sale and restore all its items to available status."""
+    """Void a sale and restore all its items' remaining units."""
     event = _active_event(db)
     sale = db.query(Sale).filter(Sale.id == sale_id, Sale.event_id == event.id).first()
     if not sale:
         raise HTTPException(status_code=404, detail="Sale not found")
+    if sale.is_voided:
+        raise HTTPException(status_code=409, detail="Sale already voided")
     for sale_item in sale.sale_items:
-        sale_item.item.quantity += sale_item.quantity
+        sale_item.item.remaining += sale_item.quantity
     sale.is_voided = True
     db.flush()
     # Recompute status per affected item: 'sold' if any non-voided sale_item

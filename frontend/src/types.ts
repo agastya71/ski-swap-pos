@@ -208,8 +208,10 @@ export interface Item {
   used: boolean
   /** Asking price in dollars. */
   price: number
-  /** Number of identical units (almost always 1 for swap events). */
+  /** ORIGINAL intake quantity — units entered at intake (never mutated by sales). */
   quantity: number
+  /** On-hand sellable units = quantity − units sold (non-voided); what POS can sell. */
+  remaining: number
   /** Code 39 barcode string for label printing. */
   barcode_39: string | null
   /** Second line of the printed label. */
@@ -292,8 +294,7 @@ export interface ItemUpdate {
   used?: boolean
   /** Updated asking price in dollars. */
   price?: number
-  /** Updated quantity. */
-  quantity?: number
+  /** On-hand remaining is adjusted via /items/{id}/quantity — not PATCHed here. */
   /** Updated barcode string. */
   barcode_39?: string
   /** Updated second label line. */
@@ -495,6 +496,10 @@ export interface SellerPayoutLineItem {
   item_code: string
   /** Item description; null if not provided at intake. */
   description: string | null
+  /** Original intake quantity. */
+  quantity: number
+  /** On-hand units still not sold. */
+  remaining: number
   /** Original asking price. */
   price: number
   /** Actual sell price (may differ if overridden at POS). */
@@ -583,6 +588,10 @@ export interface DonationItem {
   item_code: string
   /** Item description; null if not provided. */
   description: string | null
+  /** Original intake quantity. */
+  quantity: number
+  /** On-hand units still not sold (donated units for unsold-type donations). */
+  remaining: number
   /** Item's asking price. */
   price: number
   /** Reason for donation: "donate_unsold" (unsold item flagged at intake) or "donate_proceeds" (seller opted to donate all proceeds). */
@@ -617,6 +626,10 @@ export interface UnsoldItem {
   description: string | null
   /** Equipment category; null if not provided. */
   category: string | null
+  /** Original intake quantity. */
+  quantity: number
+  /** On-hand units still not sold. */
+  remaining: number
   /** Item's asking price. */
   price: number
 }

@@ -25,7 +25,7 @@ def rpt_intake(db, rpt_seller):
 @pytest.fixture
 def rpt_item(db, rpt_intake, rpt_seller):
     it = Item(intake_id=rpt_intake.id, seller_id=rpt_seller.id, code="RPT-001",
-              price=25.00, quantity=0.0, status="sold", label_printed=True,
+              price=25.00, quantity=1.0, remaining=0.0, status="sold", label_printed=True,
               created_by="admin")
     db.add(it); db.commit(); db.refresh(it)
     return it

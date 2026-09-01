@@ -196,6 +196,7 @@ def import_items(
             year=year_int,
             price=price_float,
             quantity=quantity,
+            remaining=quantity,
             used=used,
             donate_unsold=donate,
             created_by=username,

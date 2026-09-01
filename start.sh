@@ -53,6 +53,32 @@ if n:
     print(f"      Repaired {n} sale.date_of_sale value(s) (backfilled from created_at).")
 else:
     print("      No date_of_sale repairs needed.")
+
+# 3a-bis. Re-sync item.remaining = quantity - non-voided sold units. The
+#     quantity model (2026-08-30) keeps `quantity` as the ORIGINAL intake count
+#     and `remaining` as on-hand sellable units; sales decrement remaining, voids
+#     restore it. This repair is idempotent and self-heals any drift from items
+#     sold while an older build was running (which decremented `quantity`).
+#     Skips silently on pre-migration DBs where the column doesn't exist yet.
+n_rem = -1
+try:
+    cur = db.cursor()
+    cur.execute("PRAGMA table_info(item)")
+    if any(col[1] == "remaining" for col in cur.fetchall()):
+        cur.execute(
+            "UPDATE item SET remaining = quantity - COALESCE(("
+            "SELECT SUM(si.quantity) FROM sale_item si JOIN sale s ON si.sale_id = s.id "
+            "WHERE si.item_id = item.id AND s.is_voided = 0), 0)"
+        )
+        n_rem = cur.rowcount
+    db.commit()
+except Exception:
+    pass  # item table not present yet (fresh DB) — alembic will create it
+db.close()
+if n_rem >= 0:
+    print(f"      Re-synced item.remaining for {n_rem} row(s) (quantity model repair).")
+else:
+    print("      item table not migrated yet — skipping remaining re-sync.")
 PY
 
 # 3b. Seed demo data if the database has no active event yet. seed_demo.py is

@@ -54,7 +54,8 @@ def create_sale_atomic(
     missing, belongs to a different event, or is not in ``"available"`` status
     the entire operation is rejected before the sale is created.  On success
     the Sale totals (sale_total, mysl_total, seller_total, total_paid,
-    balance_due) are computed and all items are marked ``"sold"``.
+    balance_due) are computed, item.remaining is decremented by each sold
+    quantity, and all items are marked ``"sold"``.
 
     Args:
         db: Active SQLAlchemy database session.
@@ -72,7 +73,7 @@ def create_sale_atomic(
     Raises:
         HTTPException: 422 if the request contains duplicate item IDs.
         HTTPException: 404 if any item ID is not found within the event.
-        HTTPException: 422 if any item is not in ``"available"`` status.
+        HTTPException: 422 if any line exceeds the item's remaining quantity.
     """
     # Dedup check
     item_ids = [line.item_id for line in payload.items]
@@ -93,14 +94,16 @@ def create_sale_atomic(
             raise HTTPException(status_code=404, detail=f"Item {line.item_id} not found")
         if item.is_deleted:
             raise HTTPException(status_code=404, detail=f"Item {item.code} not found")
-        if item.quantity <= 0:
+        if item.is_deleted:
+            raise HTTPException(status_code=404, detail=f"Item {item.code} not found")
+        if item.remaining <= 0:
             raise HTTPException(
                 status_code=422, detail=f"Item {item.code} is sold out"
             )
-        if line.quantity > item.quantity:
+        if line.quantity > item.remaining:
             raise HTTPException(
                 status_code=422,
-                detail=f"Item {item.code} has only {int(item.quantity)} remaining",
+                detail=f"Item {item.code} has only {int(item.remaining)} remaining",
             )
         items_and_intakes.append((line, item, item.intake))
 
@@ -142,9 +145,11 @@ def create_sale_atomic(
             notes=line.notes,
             created_by=username,
         ))
-        # Partial-quantity sale: decrement on-hand; status reflects that a sale
-        # has occurred (sellable while quantity > 0, fully sold at 0).
-        item.quantity -= line.quantity
+        # Partial-quantity sale: decrement the on-hand remaining units. The
+        # intake `quantity` is never mutated, so the original units entered at
+        # intake stay accurate. Status marks that a sale has occurred (sellable
+        # while remaining > 0, fully sold at 0).
+        item.remaining -= line.quantity
         item.status = "sold"
         sale_total += extended_price
         mysl_total += mysl_share

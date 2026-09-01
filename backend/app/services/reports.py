@@ -129,6 +129,8 @@ def get_seller_payout(db: Session, event_id: int, seller_id: int) -> SellerPayou
         line_items.append(SellerPayoutLineItem(
             item_code=it.code,
             description=it.description,
+            quantity=it.quantity,
+            remaining=it.remaining,
             price=it.price,
             sell_price=sell_price_by_item.get(it.id, it.price),
             status=it.status,
@@ -255,7 +257,7 @@ def get_donations(db: Session, event_id: int) -> DonationsReport:
         .options(joinedload(Item.seller))
         .filter(
             Seller.event_id == event_id,
-            Item.quantity > 0,
+            Item.remaining > 0,
             Item.donate_unsold.is_(True),
             Item.is_deleted.is_(False),
         )
@@ -268,6 +270,8 @@ def get_donations(db: Session, event_id: int) -> DonationsReport:
             seller_name=f"{si.item.seller.first_name} {si.item.seller.last_name}",
             item_code=si.item.code,
             description=si.item.description,
+            quantity=si.item.quantity,
+            remaining=si.item.remaining,
             price=si.sell_price,
             donation_type="proceeds",
         )
@@ -278,6 +282,8 @@ def get_donations(db: Session, event_id: int) -> DonationsReport:
             seller_name=f"{it.seller.first_name} {it.seller.last_name}",
             item_code=it.code,
             description=it.description,
+            quantity=it.quantity,
+            remaining=it.remaining,
             price=it.price,
             donation_type="unsold",
         )
@@ -312,7 +318,7 @@ def get_unsold_items(db: Session, event_id: int) -> UnsoldItemsReport:
         db.query(Item)
         .join(Seller)
         .options(joinedload(Item.seller))
-        .filter(Seller.event_id == event_id, Item.quantity > 0,
+        .filter(Seller.event_id == event_id, Item.remaining > 0,
                 Item.is_deleted.is_(False))
         .all()
     )
@@ -323,6 +329,8 @@ def get_unsold_items(db: Session, event_id: int) -> UnsoldItemsReport:
             item_code=it.code,
             description=it.description,
             category=it.category,
+            quantity=it.quantity,
+            remaining=it.remaining,
             price=it.price,
         )
         for it in items

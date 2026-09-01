@@ -127,6 +127,9 @@ def add_item_to_intake(
         code=item_code,
         barcode_39=body.barcode_39 or item_code,
         created_by=current_user.username,
+        # Remaining starts equal to the intake quantity; defaults to 1 when the
+        # caller omits quantity (schema default).
+        remaining=body.quantity,
         **body.model_dump(exclude={"barcode_39", "donate_unsold"}),
         donate_unsold=donate_unsold,
     )
