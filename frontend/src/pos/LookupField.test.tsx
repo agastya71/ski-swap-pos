@@ -73,6 +73,17 @@ describe('LookupField', () => {
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/sold out/i))
   })
 
+  /** Verifies the PR's headline behavior: a partially-sold item (status='sold',
+   *  remaining>0) IS sellable — the old status gate would have blocked it. */
+  it('partially-sold item with remaining > 0 is sellable', async () => {
+    const partiallySold = { ...FOUND, id: 4, code: 'A001-001', status: 'sold' as const, remaining: 1, quantity: 2 }
+    server.use(http.get('/items/lookup', () => HttpResponse.json(partiallySold)))
+    const onFound = vi.fn()
+    render(<LookupField onFound={onFound} />)
+    enter('A001-001')
+    await waitFor(() => expect(onFound).toHaveBeenCalledWith(partiallySold))
+  })
+
   /** Verifies the error alert disappears as soon as the user begins typing a new code. */
   it('error clears when user starts typing again', async () => {
     server.use(

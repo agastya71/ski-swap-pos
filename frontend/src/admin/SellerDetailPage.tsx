@@ -369,7 +369,7 @@ export function SellerDetailPage({ seller: initialSeller, onBack, eventId }: {
                   }}>
                     {item.status === 'sold' && item.remaining > 0
                       ? `partially sold (${item.remaining} left)`
-                      : item.status === 'sold' && item.remaining <= 0 && item.quantity > 1
+                      : item.status === 'sold' && item.remaining <= 0
                         ? 'fully sold'
                         : item.status}
                   </span>

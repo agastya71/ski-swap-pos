@@ -48,30 +48,30 @@ n = db.execute(
     "WHERE date_of_sale IS NOT NULL AND typeof(date_of_sale) != 'text'"
 ).rowcount
 db.commit()
-db.close()
+# NOTE: db is NOT closed here — the 3a-bis block below reuses this connection.
 if n:
     print(f"      Repaired {n} sale.date_of_sale value(s) (backfilled from created_at).")
 else:
     print("      No date_of_sale repairs needed.")
 
-# 3a-bis. Re-sync item.remaining = quantity - non-voided sold units. The
-#     quantity model (2026-08-30) keeps `quantity` as the ORIGINAL intake count
-#     and `remaining` as on-hand sellable units; sales decrement remaining, voids
-#     restore it. This repair is idempotent and self-heals any drift from items
-#     sold while an older build was running (which decremented `quantity`).
+# 3a-bis. Re-sync item.quantity + item.remaining from the on-hand remaining
+#     count (the trustworthy sellable count maintained by the current model) and
+#     the non-voided sale history. Reconstructs quantity = remaining + sold so the
+#     invariant remaining = quantity - sold holds after every restart. Idempotent:
+#     the WHERE clause skips items already in sync (no-op for correct data).
 #     Skips silently on pre-migration DBs where the column doesn't exist yet.
 n_rem = -1
 try:
     cur = db.cursor()
     cur.execute("PRAGMA table_info(item)")
     if any(col[1] == "remaining" for col in cur.fetchall()):
-        # Pass 1: reconstruct intake quantity (old builds decremented quantity
-        # in place, losing the original count). quantity = stored + non-voided sold.
+        # Pass 1: reconstruct intake quantity from remaining (the actively
+        # maintained on-hand count) + non-voided sold units.
         cur.execute(
-            "UPDATE item SET quantity = quantity + COALESCE(("
+            "UPDATE item SET quantity = remaining + COALESCE(("
             "SELECT SUM(si.quantity) FROM sale_item si JOIN sale s ON si.sale_id = s.id "
             "WHERE si.item_id = item.id AND s.is_voided = 0), 0) "
-            "WHERE quantity != quantity + COALESCE(("
+            "WHERE quantity != remaining + COALESCE(("
             "SELECT SUM(si.quantity) FROM sale_item si JOIN sale s ON si.sale_id = s.id "
             "WHERE si.item_id = item.id AND s.is_voided = 0), 0)"
         )
@@ -83,11 +83,12 @@ try:
         )
         n_rem = cur.rowcount
     db.commit()
-except Exception:
-    pass  # item table not present yet (fresh DB) — alembic will create it
-db.close()
+except Exception as exc:
+    print(f"      Quantity model repair failed (non-fatal): {exc}")
+finally:
+    db.close()
 if n_rem >= 0:
-    print(f"      Re-synced item.remaining for {n_rem} row(s) (quantity model repair).")
+    print(f"      Quantity model repair: {n_rem} row(s) re-synced.")
 else:
     print("      item table not migrated yet — skipping remaining re-sync.")
 PY
