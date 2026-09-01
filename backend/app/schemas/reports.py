@@ -122,3 +122,49 @@ class EndOfDayReport(BaseModel):
     check_total: float = Field(description="Total check payments collected across all event days.")
     cc_total: float = Field(description="Total credit/debit card payments collected across all event days.")
     generated_at: datetime = Field(description="UTC timestamp when this end-of-day report was generated.")
+
+
+class TransactionRow(BaseModel):
+    """A single sale transaction, for the transactions-by-user listing."""
+
+    sale_id: int = Field(description="Unique ID of the sale.")
+    cashier: str = Field(description="Login name of the user who completed (or last actioned) this sale; stored on sale.created_by.")
+    date_of_sale: Optional[datetime] = Field(default=None, description="Full timestamp of the transaction; null if not recorded.")
+    items_count: int = Field(description="Number of line items on this sale.")
+    units_sold: int = Field(description="Total units sold across all line items on this sale.")
+    sale_total: float = Field(description="Extended price total for this sale.")
+    mysl_total: float = Field(description="MYSL commission for this sale.")
+    seller_total: float = Field(description="Seller payout for this sale.")
+    cash_amount: float = Field(description="Amount tendered in cash.")
+    check_amount: float = Field(description="Amount tendered by check.")
+    cc_amount: float = Field(description="Amount tendered by credit/debit card.")
+    is_voided: bool = Field(description="True if this sale has been voided.")
+
+
+class UserSalesSummary(BaseModel):
+    """Per-cashier aggregation of the transactions that user recorded."""
+
+    cashier: str = Field(description="Login name recorded on sale.created_by ('(unknown)' when not stored).")
+    transactions: list[TransactionRow] = Field(description="This user's transactions, newest first (voided ones flagged).")
+    sales_count: int = Field(description="Number of non-voided sales recorded by this user.")
+    voided_count: int = Field(description="Number of voided sales recorded by this user.")
+    gross_sales: float = Field(description="Sum of sale totals for non-voided sales only.")
+    mysl_total: float = Field(description="MYSL share for non-voided sales.")
+    seller_total: float = Field(description="Seller share for non-voided sales.")
+    cash_total: float = Field(description="Cash tendered on non-voided sales.")
+    check_total: float = Field(description="Check tender on non-voided sales.")
+    cc_total: float = Field(description="Card tender on non-voided sales.")
+
+
+class TransactionsByUserReport(BaseModel):
+    """Report listing every event transaction grouped by the user who recorded it."""
+
+    event_id: int = Field(description="ID of the event this report covers.")
+    event_name: str = Field(description="Name of the event.")
+    users: list[UserSalesSummary] = Field(description="One entry per cashier (sale.created_by), sorted by cashier name.")
+    total_sales: int = Field(description="Total non-voided sales across all users.")
+    total_voided: int = Field(description="Total voided sales across all users.")
+    gross_sales: float = Field(description="Total non-voided revenue across all users.")
+    mysl_total: float = Field(description="Total MYSL share across all users (non-voided).")
+    seller_total: float = Field(description="Total seller share across all users (non-voided).")
+    generated_at: datetime = Field(description="UTC timestamp when this report was generated.")

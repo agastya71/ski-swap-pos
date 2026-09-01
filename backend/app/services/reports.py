@@ -22,6 +22,9 @@ from app.schemas.reports import (
     DonationsReport,
     EndOfDayReport,
     EventRevenueReport,
+    TransactionsByUserReport,
+    TransactionRow,
+    UserSalesSummary,
     SellerPayoutLineItem,
     SellerPayoutReport,
     UnsoldItem,
@@ -375,4 +378,82 @@ def get_end_of_day(db: Session, event_id: int) -> EndOfDayReport:
         check_total=rev.check_total,
         cc_total=rev.cc_total,
         generated_at=rev.generated_at,
+    )
+
+
+def get_transactions_by_user(db: Session, event_id: int) -> TransactionsByUserReport:
+    """Build a report listing every event transaction grouped by cashier.
+
+    Transactions are the event's Sales, grouped by ``Sale.created_by`` (the
+    login of the user who recorded them). Non-voided sales feed the revenue
+    aggregates; voided sales are listed (flagged) and counted separately.
+    Users are sorted by cashier name; each user's transactions are newest
+    first. Transactions with ``created_by`` unset (legacy rows) are grouped
+    under "(unknown)".
+
+    Args:
+        db: Active SQLAlchemy database session.
+        event_id: Primary key of the event to report on.
+
+    Returns:
+        A populated ``TransactionsByUserReport`` schema instance.
+
+    Raises:
+        HTTPException: 404 if the event is not found.
+    """
+    event = _get_event_or_404(db, event_id)
+    sales = (
+        db.query(Sale)
+        .filter(Sale.event_id == event_id)
+        .options(joinedload(Sale.sale_items))
+        .all()
+    )
+
+    grouped: dict[str, list[TransactionRow]] = {}
+    for sale in sales:
+        cashier = sale.created_by if sale.created_by else "(unknown)"
+        grouped.setdefault(cashier, []).append(TransactionRow(
+            sale_id=sale.id,
+            cashier=cashier,
+            date_of_sale=sale.date_of_sale,
+            items_count=len(sale.sale_items),
+            units_sold=int(sum(si.quantity for si in sale.sale_items)),
+            sale_total=round(sale.sale_total, 2),
+            mysl_total=round(sale.mysl_total, 2),
+            seller_total=round(sale.seller_total, 2),
+            cash_amount=round(sale.cash_amount, 2),
+            check_amount=round(sale.check_amount, 2),
+            cc_amount=round(sale.cc_amount, 2),
+            is_voided=sale.is_voided,
+        ))
+
+    users: list[UserSalesSummary] = []
+    for cashier, rows in grouped.items():
+        live = [t for t in rows if not t.is_voided]
+        voided = [t for t in rows if t.is_voided]
+        rows.sort(key=lambda t: (t.date_of_sale or datetime.min, t.sale_id), reverse=True)
+        users.append(UserSalesSummary(
+            cashier=cashier,
+            transactions=rows,
+            sales_count=len(live),
+            voided_count=len(voided),
+            gross_sales=round(sum(t.sale_total for t in live), 2),
+            mysl_total=round(sum(t.mysl_total for t in live), 2),
+            seller_total=round(sum(t.seller_total for t in live), 2),
+            cash_total=round(sum(t.cash_amount for t in live), 2),
+            check_total=round(sum(t.check_amount for t in live), 2),
+            cc_total=round(sum(t.cc_amount for t in live), 2),
+        ))
+    users.sort(key=lambda u: u.cashier.lower())
+
+    return TransactionsByUserReport(
+        event_id=event_id,
+        event_name=event.name,
+        users=users,
+        total_sales=sum(u.sales_count for u in users),
+        total_voided=sum(u.voided_count for u in users),
+        gross_sales=round(sum(u.gross_sales for u in users), 2),
+        mysl_total=round(sum(u.mysl_total for u in users), 2),
+        seller_total=round(sum(u.seller_total for u in users), 2),
+        generated_at=datetime.now(timezone.utc),
     )
