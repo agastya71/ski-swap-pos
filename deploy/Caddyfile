@@ -1,0 +1,38 @@
+# Caddy reverse proxy for Ski Swap POS
+#
+# Caddy serves THREE public ports, all HTTPS, all forwarding to the FastAPI app
+# on 127.0.0.1:8001 (the app must NOT be on 8000 — Caddy owns 8000):
+#
+#   :443  → https://mysl-pos.duckdns.org            (primary, auto Let's Encrypt)
+#   :80   → redirects to :443
+#   :8000 → https://mysl-pos.duckdns.org:8000       (TLS alternate entry, same cert)
+#
+# Port 8000 is HTTPS (not plain HTTP) so the app is reachable on networks that
+# block 443 *without* exposing any plaintext traffic. Clients must use the
+# https:// scheme on 8000:  https://mysl-pos.duckdns.org:8000
+#
+# Run the app behind Caddy with:
+#     APP_HOST=127.0.0.1 APP_PORT=8001 JWT_SECRET="$(openssl rand -hex 32)" bash start.sh
+#
+# Install: see ../deploy/install-caddy.sh  (copies this file to /etc/caddy/Caddyfile)
+
+mysl-pos.duckdns.org {
+	reverse_proxy 127.0.0.1:8001
+
+	# Optional: hide the public Swagger docs from the open internet.
+	# Uncomment to require HTTP basic auth on /docs and /openapi.json.
+	# (Generate users with:  caddy hash-password  →  put hashes below)
+	#
+	# basicauth /docs/* {
+	#     admin <bcrypt-hash-here>
+	# }
+	# basicauth /openapi.json {
+	#     admin <bcrypt-hash-here>
+	# }
+}
+
+# TLS alternate entry on port 8000 (same Let's Encrypt cert as :443).
+# Use the https:// scheme:  https://mysl-pos.duckdns.org:8000
+https://mysl-pos.duckdns.org:8000 {
+	reverse_proxy 127.0.0.1:8001
+}
