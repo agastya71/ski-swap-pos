@@ -69,7 +69,7 @@ export function LookupField({ onFound }: { onFound: (item: ItemLookupResponse) =
       e.preventDefault()
       const availableIndices = results
         .map((r, i) => ({ r, i }))
-        .filter(({ r }) => r.status === 'available')
+        .filter(({ r }) => r.remaining > 0)
         .map(({ i }) => i)
 
       if (availableIndices.length === 0) return
@@ -108,8 +108,8 @@ export function LookupField({ onFound }: { onFound: (item: ItemLookupResponse) =
     try {
       // Fast path: exact match (preserves barcode scanner speed)
       const item = await lookupItem(code)
-      if (item.status !== 'available') {
-        setError(`Item ${item.code} is already ${item.status}.`)
+      if (item.remaining <= 0) {
+        setError(`Item ${item.code} is sold out (all ${item.quantity} unit${item.quantity !== 1 ? 's' : ''} sold).`)
         setValue('')
         return
       }
@@ -123,7 +123,7 @@ export function LookupField({ onFound }: { onFound: (item: ItemLookupResponse) =
           if (matches.length === 0) {
             setError(`Item not found: ${code}`)
             setValue('')
-          } else if (matches.length === 1 && matches[0].status === 'available') {
+          } else if (matches.length === 1 && matches[0].remaining > 0) {
             // Single available match — add directly
             onFound(matches[0])
             setValue('')
@@ -150,8 +150,8 @@ export function LookupField({ onFound }: { onFound: (item: ItemLookupResponse) =
     setResults(null)
     setHighlightedIndex(null)
     setValue('')
-    if (item.status !== 'available') {
-      setError(`Item ${item.code} is already ${item.status}.`)
+    if (item.remaining <= 0) {
+      setError(`Item ${item.code} is sold out (all ${item.quantity} unit${item.quantity !== 1 ? 's' : ''} sold).`)
       return
     }
     onFound(item)
@@ -197,13 +197,13 @@ export function LookupField({ onFound }: { onFound: (item: ItemLookupResponse) =
             {results.length} item{results.length !== 1 ? 's' : ''} found — click to add to cart
           </div>
           {results.map((item, index) => {
-            const isAvailable = item.status === 'available'
+            const isSellable = item.remaining > 0
             const isHighlighted = index === highlightedIndex
             return (
               <button
                 key={item.id}
-                onClick={isAvailable ? () => handleSelectResult(item) : undefined}
-                aria-disabled={!isAvailable}
+                onClick={isSellable ? () => handleSelectResult(item) : undefined}
+                aria-disabled={!isSellable}
                 style={{
                   display: 'flex',
                   width: '100%',
@@ -213,11 +213,11 @@ export function LookupField({ onFound }: { onFound: (item: ItemLookupResponse) =
                   background: isHighlighted ? HIGHLIGHT_BG : 'none',
                   border: 'none',
                   borderBottom: '1px solid #f1f5f9',
-                  cursor: isAvailable ? 'pointer' : 'default',
+                  cursor: isSellable ? 'pointer' : 'default',
                   fontSize: 14,
                   textAlign: 'left',
-                  opacity: isAvailable ? 1 : 0.45,
-                  pointerEvents: isAvailable ? 'auto' : 'none',
+                  opacity: isSellable ? 1 : 0.45,
+                  pointerEvents: isSellable ? 'auto' : 'none',
                 }}
               >
                 <span>
@@ -227,7 +227,7 @@ export function LookupField({ onFound }: { onFound: (item: ItemLookupResponse) =
                 </span>
                 <span style={{ whiteSpace: 'nowrap', marginLeft: 16 }}>
                   <strong>${item.price.toFixed(2)}</strong>
-                  {!isAvailable && (
+                  {!isSellable && (
                     <span style={{ marginLeft: 6, fontSize: 11, color: '#ef4444', fontWeight: 700, textTransform: 'uppercase' }}>
                       {item.status}
                     </span>

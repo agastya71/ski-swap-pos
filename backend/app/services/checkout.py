@@ -51,8 +51,8 @@ def create_sale_atomic(
     """Create a sale with all line items in a single atomic database transaction.
 
     Validates every requested item before any row is written.  If any item is
-    missing, belongs to a different event, or is not in ``"available"`` status
-    the entire operation is rejected before the sale is created.  On success
+    missing, deleted, or has insufficient remaining quantity the entire
+    operation is rejected before the sale is created.  On success
     the Sale totals (sale_total, mysl_total, seller_total, total_paid,
     balance_due) are computed, item.remaining is decremented by each sold
     quantity, and all items are marked ``"sold"``.
@@ -92,8 +92,6 @@ def create_sale_atomic(
         )
         if not item:
             raise HTTPException(status_code=404, detail=f"Item {line.item_id} not found")
-        if item.is_deleted:
-            raise HTTPException(status_code=404, detail=f"Item {item.code} not found")
         if item.is_deleted:
             raise HTTPException(status_code=404, detail=f"Item {item.code} not found")
         if item.remaining <= 0:

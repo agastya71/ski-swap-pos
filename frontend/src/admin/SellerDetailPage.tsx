@@ -367,7 +367,11 @@ export function SellerDetailPage({ seller: initialSeller, onBack, eventId }: {
                     fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
                     color: item.status === 'sold' ? '#16a34a' : '#64748b',
                   }}>
-                    {item.status}
+                    {item.status === 'sold' && item.remaining > 0
+                      ? `partially sold (${item.remaining} left)`
+                      : item.status === 'sold' && item.remaining <= 0
+                        ? 'fully sold'
+                        : item.status}
                   </span>
                 </td>
                 <td style={{ padding: '7px 8px' }}>
