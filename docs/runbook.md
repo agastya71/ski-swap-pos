@@ -30,6 +30,9 @@ troubleshooting. Keep this in sync with reality.
   `cd frontend && npm run build`). Caddy/the app serve this single-server; no
   separate Vite dev server is needed in normal operation.
 - **DB**: SQLite at `backend/swap.db` (gitignored via `*.db`).
+- **Backups**: `backend/swap.db` is backed up to `~/skiswap-backups/` every 6 h
+  by `scripts/backup_db.py` (user crontab). Recovery procedure and storage
+  strategy: **`docs/backup-recovery.md`**.
 
 > **Caddy owns :8000.** Never bind uvicorn to :8000 on this machine — it will
 > fail with `address already in use` and clash with Caddy's TLS listener.
