@@ -5,6 +5,7 @@ from io import BytesIO
 import openpyxl
 from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.responses import StreamingResponse
+from sqlalchemy import String, cast, or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -14,7 +15,7 @@ from app.models.intake import Intake
 from app.models.item import Item
 from app.models.seller import Seller
 from app.models.user import User
-from app.schemas.item import ItemLookupResponse, ItemQuantityAdjustment, ItemResponse, ItemUpdate
+from app.schemas.item import ItemLookupResponse, ItemQuantityAdjustment, ItemResponse, ItemSearchResult, ItemUpdate
 from app.services.zpl import generate_zpl, send_to_printer
 
 router = APIRouter(prefix="/items", tags=["items"])
@@ -126,6 +127,124 @@ def list_brands(
         query = query.filter(Item.category.ilike(category.strip()))
     return [b[0] for b in query.order_by(Item.brand).all() if b[0]]
 
+
+# ── Intake item search (all fields) ──────────────────────────────────────────
+
+_SEARCH_TEXT_COLUMNS = (
+    Item.code, Item.description, Item.category, Item.brand, Item.type,
+    Item.color, Item.size, Item.gender_age, Item.barcode_39, Item.status,
+    Seller.code, Seller.first_name, Seller.last_name, Seller.company,
+)
+_SEARCH_NUMERIC_COLUMNS = (Item.year, Item.price, Item.quantity, Item.remaining)
+
+
+def _seller_name(seller: Seller) -> str:
+    """Display name for a seller: 'First Last' for individuals, company for vendors.
+
+    getattr() is used because model attributes are untyped SQLAlchemy Columns
+    (the analyzer flags direct truthiness/iteration on them); it returns Any,
+    so runtime behavior is identical while staying analyzer-clean.
+    """
+    first = getattr(seller, "first_name", None)
+    last = getattr(seller, "last_name", None)
+    name = f"{first} {last}".strip() if (first or last) else ""
+    return name or (getattr(seller, "company", "") or "")
+
+
+def _intake_search_query(db: Session, event: Event, q: str, status: str):
+    """Query for intake items of the active event matching `q` across every
+    item, seller, and numeric (text-cast) field, optionally filtered by status."""
+    query = (
+        db.query(Item)
+        .join(Intake)
+        .join(Seller)
+        .filter(Seller.event_id == event.id, Item.is_deleted.is_(False))
+    )
+    if q:
+        like = f"%{q}%"
+        text_matches = [col.ilike(like) for col in _SEARCH_TEXT_COLUMNS]
+        text_matches += [cast(col, String).ilike(like) for col in _SEARCH_NUMERIC_COLUMNS]
+        query = query.filter(or_(*text_matches))
+    if status:
+        query = query.filter(Item.status == status.lower())
+    return query.order_by(Item.code)
+
+
+@router.get("/intake-search", response_model=list[ItemSearchResult])
+def intake_search_items(
+    q: str = "",
+    status: str = "",
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    _user: User = Depends(_INTAKE_ADMIN),
+):
+    """Search ALL intake items for the active event, across every field.
+
+    Matches (case-insensitive) on item code, description, category, brand,
+    type, color, size, gender/age, barcode, status, year, price, quantity,
+    remaining, and the seller's code/name/company. An empty `q` lists all
+    items (bounded by `limit`); `status` optionally narrows the lifecycle
+    status (available/sold/donated/returned).
+    """
+    event = db.query(Event).filter(Event.is_active == True).first()
+    if not event:
+        raise HTTPException(status_code=503, detail="No active event configured")
+    limit = min(max(limit, 1), 500)
+    items = _intake_search_query(db, event, q, status).limit(limit).all()
+    return [
+        ItemSearchResult.model_validate(
+            {**item.__dict__, "seller_code": item.seller.code, "seller_name": _seller_name(item.seller)}
+        )
+        for item in items
+    ]
+
+
+@router.get("/intake-search/export")
+def export_intake_search(
+    q: str = "",
+    status: str = "",
+    db: Session = Depends(get_db),
+    _user: User = Depends(_INTAKE_ADMIN),
+):
+    """Excel export of the current intake-item search results (same filters as
+    /items/intake-search; bounded at 10000 rows)."""
+    from datetime import datetime, timezone
+
+    event = db.query(Event).filter(Event.is_active == True).first()
+    if not event:
+        raise HTTPException(status_code=503, detail="No active event configured")
+    items = _intake_search_query(db, event, q, status).limit(10000).all()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    if ws is None:  # openpyxl stubs type .active as Optional — can't happen for a new workbook
+        raise HTTPException(status_code=500, detail="Export workbook has no active sheet")
+    ws.append([
+        "Code", "Description", "Category", "Brand", "Type", "Color",
+        "Size", "Gender/Age", "Year", "Price", "Quantity", "Remaining",
+        "Used", "Donate if Unsold", "Status", "Seller Code", "Seller Name",
+    ])
+    for item in items:
+        seller = item.seller
+        # getattr: see _seller_name — sidesteps Column-truthiness complaints.
+        ws.append([
+            item.code, item.description, item.category, item.brand, item.type,
+            item.color, item.size, item.gender_age, item.year, item.price,
+            item.quantity, item.remaining,
+            "Yes" if getattr(item, "used") else "No",
+            "Yes" if getattr(item, "donate_unsold") else "No", item.status,
+            seller.code, _seller_name(seller),
+        ])
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    filename = f"intake-items-{datetime.now(timezone.utc).strftime('%Y%m%d')}.xlsx"
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
 @router.get("/import-template")
 def download_import_template(_user: User = Depends(_INTAKE_ADMIN)):
     """Return a blank Excel template for bulk item import.
@@ -136,6 +255,8 @@ def download_import_template(_user: User = Depends(_INTAKE_ADMIN)):
     """
     wb = openpyxl.Workbook()
     ws = wb.active
+    if ws is None:  # openpyxl stubs type .active as Optional; can't happen for a new workbook
+        raise HTTPException(status_code=500, detail="Template workbook has no active sheet")
     ws.append([
         "Description", "Category", "Brand", "Type", "Color",
         "Size", "Gender/Age", "Year", "Price", "Used", "Donate if Unsold", "Quantity",
@@ -189,7 +310,7 @@ def print_item_label(
         send_to_printer(zpl)
     except OSError as e:
         raise HTTPException(status_code=503, detail=f"Printer unavailable: {e}")
-    item.label_printed = True
+    item.label_printed = True  # pyright: ignore[reportAttributeAccessIssue]
     db.commit()
     db.refresh(item)
     return item
@@ -208,11 +329,11 @@ def delete_item(
     or partially-sold items cannot be deleted.
     """
     item = _item_for_active_event(item_id, db)
-    if item.label_printed:
+    if item.label_printed:  # pyright: ignore[reportGeneralTypeIssues]
         raise HTTPException(status_code=409, detail="Cannot delete item after label has been printed")
-    if item.status != "available":
+    if item.status != "available":  # pyright: ignore[reportGeneralTypeIssues]
         raise HTTPException(status_code=409, detail="Cannot delete an item that has been sold")
-    item.is_deleted = True
+    item.is_deleted = True  # pyright: ignore[reportAttributeAccessIssue]
     db.commit()
     return Response(status_code=204)
 
@@ -233,7 +354,7 @@ def adjust_item_quantity(
     (already-sold units are tracked via sale_item and cannot be adjusted out).
     """
     item = _item_for_active_event(item_id, db)
-    new_remaining = item.remaining + body.adjustment
+    new_remaining = getattr(item, "remaining") + body.adjustment
     # item.remaining is the on-hand sellable count; floor is 0 (sold units are
     # tracked via sale_item and cannot be adjusted away).
     if new_remaining < 0:
@@ -241,8 +362,8 @@ def adjust_item_quantity(
             status_code=422,
             detail="Quantity cannot be reduced below zero (would imply fewer units than already sold)",
         )
-    item.remaining = new_remaining
-    item.quantity = item.quantity + body.adjustment
+    item.remaining = new_remaining  # pyright: ignore[reportAttributeAccessIssue]
+    item.quantity = item.quantity + body.adjustment  # pyright: ignore[reportAttributeAccessIssue]
     db.commit()
     db.refresh(item)
     return item

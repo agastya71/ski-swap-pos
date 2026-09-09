@@ -101,6 +101,15 @@ class ItemLookupResponse(ItemResponse):
     seller_code: str = Field(description="Seller code associated with this item, included for quick cashier reference.")
 
 
+class ItemSearchResult(ItemLookupResponse):
+    """Item search result for the intake item search, adding seller display info."""
+
+    seller_name: str | None = Field(
+        default=None,
+        description="Seller display name ('First Last' for individuals, company name for vendors).",
+    )
+
+
 class ImportRowError(BaseModel):
     """Describes a single skipped row from an Excel import."""
 
