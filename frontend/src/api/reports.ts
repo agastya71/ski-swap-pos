@@ -6,6 +6,7 @@
 import { apiFetch, getToken } from './client'
 import type {
   SellerPayoutReport,
+  SellersPayoutsReport,
   EventRevenueReport,
   DonationsReport,
   UnsoldItemsReport,
@@ -24,6 +25,18 @@ import type {
  */
 export const getSellerPayout = (eventId: number, sellerId: number) =>
   apiFetch<SellerPayoutReport>(`/reports/${eventId}/seller/${sellerId}`)
+
+/**
+ * Fetch payout reports for ALL sellers in an event (sorted by seller code).
+ *
+ * @param eventId - ID of the event to report on.
+ * @returns SellersPayoutsReport with per-seller detail (sales + unsold items
+ *   sections, seller info) and grand totals.
+ * @throws {ApiError} 404 if the event does not exist.
+ * @throws {ApiError} 401 if the session token is invalid.
+ */
+export const getAllSellerPayouts = (eventId: number) =>
+  apiFetch<SellersPayoutsReport>(`/reports/${eventId}/sellers-payouts`)
 
 /**
  * Fetch the aggregate revenue report for an event.

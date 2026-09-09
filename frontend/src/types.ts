@@ -496,9 +496,57 @@ export interface SaleWithItemsResponse {
 }
 
 // Reports
-/** A single item row in a seller payout report. */
-export interface SellerPayoutLineItem {
- /** Item code, e.g. "A001-003". */
+/** Seller contact and settlement details shown on the payout report. */
+export interface SellerPayoutSellerInfo {
+ /** Short seller code. */
+ seller_code: string;
+ /** Seller's full name (or company for vendors). */
+ seller_name: string;
+ /** Company name for vendor sellers. */
+ company: string | null;
+ /** True when the seller is a commercial vendor. */
+ is_vendor: boolean;
+ /** Seller's email; null if not on file. */
+ email: string | null;
+ /** Seller's phone number; null if not on file. */
+ phone: string | null;
+ /** Seller's street address. */
+ address: string | null;
+ /** Seller's city. */
+ city: string | null;
+ /** Seller's state. */
+ state: string | null;
+ /** Seller's ZIP code. */
+ zip: string | null;
+ /** Commission rate applied to this seller's sales. */
+ commission_rate: number;
+}
+
+/** A single sold-item row in the SALES section of a seller payout. */
+export interface SellerPayoutSaleLine {
+ /** Item code. */
+ item_code: string;
+ /** Item description; null if not provided at intake. */
+ description: string | null;
+ /** Timestamp of the sale transaction; null if not recorded. */
+ date_of_sale: string | null;
+ /** Units of the item sold in this transaction line. */
+ quantity_sold: number;
+ /** Sell price per unit. */
+ sell_price: number;
+ /** Quantity sold x sell price for this line. */
+ extended_price: number;
+ /** MYSL commission for this sale line. */
+ mysl_share: number;
+ /** Seller payout for this sale line. */
+ seller_share: number;
+ /** Commission rate applied to this sale line. */
+ commission_rate: number;
+}
+
+/** A single row in the UNSOLD ITEMS section of a seller payout. */
+export interface SellerPayoutUnsoldLine {
+ /** Item code. */
  item_code: string;
  /** Item description; null if not provided at intake. */
  description: string | null;
@@ -508,19 +556,19 @@ export interface SellerPayoutLineItem {
  remaining: number;
  /** Original asking price. */
  price: number;
- /** Actual sell price (may differ if overridden at POS). */
- sell_price: number;
- /** Lifecycle status of the item at time of report generation. */
+ /** Lifecycle status (available / donated / returned). */
  status: string;
- /** MYSL commission for this item (0 for non-sold items). */
+ /** True when the seller elected to donate this item if unsold. */
+ donate_unsold: boolean;
+ /** MYSL commission (always 0 for unsold items). */
  mysl_share: number;
- /** Seller payout for this item (0 for non-sold items). */
+ /** Seller payout (always 0 for unsold items). */
  seller_share: number;
- /** Commission rate applied (or that would apply) to this item. */
+ /** Commission rate that would apply if this item sold. */
  commission_rate: number;
 }
 
-/** Full payout report for a single seller, listing all their consigned items and totals. */
+/** Full payout report for a single seller with SALES and UNSOLD ITEMS sections. */
 export interface SellerPayoutReport {
  /** ID of the event this report covers. */
  event_id: number;
@@ -534,6 +582,8 @@ export interface SellerPayoutReport {
  seller_name: string;
  /** Seller's email; null if not on file. */
  seller_email: string | null;
+ /** Seller contact and settlement details. */
+ seller_info: SellerPayoutSellerInfo;
  /** Total items consigned by this seller. */
  items_consigned: number;
  /** Number of items that sold. */
@@ -548,8 +598,30 @@ export interface SellerPayoutReport {
  mysl_total: number;
  /** Amount owed to the seller after commission. */
  seller_total: number;
- /** Line-by-line breakdown of all consigned items. */
- line_items: SellerPayoutLineItem[];
+ /** SALES section: every non-voided sale line for this seller's items. */
+ sales: SellerPayoutSaleLine[];
+ /** UNSOLD ITEMS section: every item still on hand. */
+ unsold_items: SellerPayoutUnsoldLine[];
+ /** ISO 8601 timestamp when this report was generated. */
+ generated_at: string;
+}
+
+/** Payout reports for ALL sellers in an event, plus grand totals. */
+export interface SellersPayoutsReport {
+ /** ID of the event this report covers. */
+ event_id: number;
+ /** Name of the event. */
+ event_name: string;
+ /** Number of sellers included. */
+ seller_count: number;
+ /** Sum of every seller's gross sales. */
+ gross_sales_total: number;
+ /** Grand total MYSL commission. */
+ mysl_total: number;
+ /** Grand total payable to all sellers. */
+ seller_total: number;
+ /** Per-seller payout reports. */
+ sellers: SellerPayoutReport[];
  /** ISO 8601 timestamp when this report was generated. */
  generated_at: string;
 }

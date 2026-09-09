@@ -234,35 +234,36 @@ def test_end_of_day_matches_revenue(db, active_event, sale, sold_item, seller, i
 # ── per-item commission/payout/rate (Phase 7) ─────────────────────────────────
 
 def test_seller_payout_per_item_shares(db, active_event, sale):
-    """A sold item's line carries mysl_share, seller_share, and the applied rate."""
+    """A sold item's SALES row carries mysl_share, seller_share, and the applied rate."""
     from app.services.reports import get_seller_payout
     report = get_seller_payout(db, active_event.id, sale.sale_items[0].item.seller_id)
-    sold = [li for li in report.line_items if li.status == "sold"]
-    assert len(sold) == 1
-    li = sold[0]
-    assert li.mysl_share == 4.5       # 15 * 0.30
-    assert li.seller_share == 10.5    # 15 - 4.5
-    assert li.commission_rate == 0.30
+    assert len(report.sales) == 1
+    s = report.sales[0]
+    assert s.item_code == "TST-002"
+    assert s.mysl_share == 4.5       # 15 * 0.30
+    assert s.seller_share == 10.5    # 15 - 4.5
+    assert s.commission_rate == 0.30
 
 
 def test_seller_payout_non_sold_item_zero_shares(db, active_event, seller, intake, available_item):
-    """A non-sold item line shows zero shares but still carries the applicable rate."""
+    """An UNSOLD ITEMS row shows zero shares but still carries the applicable rate."""
     from app.services.reports import get_seller_payout
     report = get_seller_payout(db, active_event.id, seller.id)
-    avail = [li for li in report.line_items if li.item_code == available_item.code]
+    avail = [li for li in report.unsold_items if li.item_code == available_item.code]
     assert len(avail) == 1
     assert avail[0].mysl_share == 0.0
     assert avail[0].seller_share == 0.0
     assert avail[0].commission_rate == 0.30   # individual rate
+    assert avail[0].remaining == 1.0
 
 
 def test_seller_payout_donate_proceeds_item_full_to_mysl(db, active_event, donate_sale):
     """A sold item from a donate_proceeds intake: mysl_share = extended_price, seller 0."""
     from app.services.reports import get_seller_payout
     report = get_seller_payout(db, active_event.id, donate_sale.sale_items[0].item.seller_id)
-    li = [x for x in report.line_items if x.status == "sold"][0]
-    assert li.mysl_share == 30.0
-    assert li.seller_share == 0.0
+    s = [x for x in report.sales if x.item_code == "TST-003"][0]
+    assert s.mysl_share == 30.0
+    assert s.seller_share == 0.0
 
 
 def test_seller_payout_vendor_rate_applied(db, active_event):
@@ -291,8 +292,8 @@ def test_seller_payout_vendor_rate_applied(db, active_event):
                     sell_price=100.0, extended_price=100.0, created_by="admin"))
     db.commit()
 
-    report = get_seller_payout(db, active_event.id, vendor.id)
-    li = [x for x in report.line_items if x.status == "sold"][0]
-    assert li.commission_rate == 0.25
-    assert li.mysl_share == 25.0
-    assert li.seller_share == 75.0
+    report = get_seller_payout(db, active_event.id, vendor.id)  # pyright: ignore[reportArgumentType]
+    s = [x for x in report.sales if x.item_code == "VND-001"][0]
+    assert s.commission_rate == 0.25
+    assert s.mysl_share == 25.0
+    assert s.seller_share == 75.0

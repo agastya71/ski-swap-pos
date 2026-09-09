@@ -15,6 +15,7 @@ from pydantic import BaseModel
 
 from app.schemas.reports import (
     DonationsReport,
+    SellersPayoutsReport,
     TransactionsByUserReport,
     EndOfDayReport,
     EventRevenueReport,
@@ -61,18 +62,39 @@ def _to_csv(report: BaseModel, filename_base: str) -> Response:
     out = io.StringIO()
     w = csv.writer(out)
 
-    if isinstance(report, SellerPayoutReport):
+    if isinstance(report, SellersPayoutsReport):
         w.writerow(["seller_code", "seller_name", "items_consigned", "items_sold",
                     "items_unsold", "items_donated", "gross_sales", "mysl_total", "seller_total"])
-        w.writerow([report.seller_code, report.seller_name, report.items_consigned,
-                    report.items_sold, report.items_unsold, report.items_donated,
-                    report.gross_sales, report.mysl_total, report.seller_total])
+        for p in report.sellers:
+            w.writerow([p.seller_code, p.seller_name, p.items_consigned, p.items_sold,
+                        p.items_unsold, p.items_donated, p.gross_sales,
+                        p.mysl_total, p.seller_total])
+        w.writerow(["TOTAL", "", report.seller_count, "",
+                    "", "", report.gross_sales_total, report.mysl_total, report.seller_total])
+    elif isinstance(report, SellerPayoutReport):
+        info = report.seller_info
+        w.writerow(["seller_code", "seller_name", "company", "is_vendor", "email", "phone",
+                    "address", "city", "state", "zip", "commission_rate"])
+        w.writerow([info.seller_code, info.seller_name, info.company, info.is_vendor,
+                    info.email, info.phone, info.address, info.city, info.state,
+                    info.zip, info.commission_rate])
         w.writerow([])
-        w.writerow(["item_code", "description", "quantity", "remaining", "price", "sell_price",
-                    "status", "mysl_share", "seller_share", "commission_rate"])
-        for li in report.line_items:
-            w.writerow([li.item_code, li.description, li.quantity, li.remaining, li.price, li.sell_price,
-                        li.status, li.mysl_share, li.seller_share, li.commission_rate])
+        w.writerow(["items_consigned", "items_sold", "items_unsold", "items_donated",
+                    "gross_sales", "mysl_total", "seller_total"])
+        w.writerow([report.items_consigned, report.items_sold, report.items_unsold,
+                    report.items_donated, report.gross_sales, report.mysl_total, report.seller_total])
+        w.writerow([])
+        w.writerow(["SALES", "item_code", "description", "date_of_sale", "quantity_sold",
+                    "sell_price", "extended_price", "mysl_share", "seller_share", "commission_rate"])
+        for s in report.sales:
+            w.writerow(["SALES", s.item_code, s.description, s.date_of_sale, s.quantity_sold,
+                        s.sell_price, s.extended_price, s.mysl_share, s.seller_share, s.commission_rate])
+        w.writerow([])
+        w.writerow(["UNSOLD", "item_code", "description", "quantity", "remaining", "price",
+                    "status", "donate_unsold"])
+        for u in report.unsold_items:
+            w.writerow(["UNSOLD", u.item_code, u.description, u.quantity, u.remaining,
+                        u.price, u.status, u.donate_unsold])
     elif isinstance(report, DonationsReport):
         w.writerow(["seller_code", "item_code", "description", "quantity", "remaining", "price", "donation_type"])
         for item in report.items:
@@ -116,11 +138,29 @@ def _to_md(report: BaseModel, filename_base: str) -> Response:
     """Render a report as a downloadable Markdown response."""
     lines: list[str] = []
 
-    if isinstance(report, SellerPayoutReport):
+    if isinstance(report, SellersPayoutsReport):
+        lines += [
+            f"# Sellers Payouts: {report.event_name}",
+            f"**Sellers:** {report.seller_count}  **Gross:** ${report.gross_sales_total:.2f}  "
+            f"**MYSL:** ${report.mysl_total:.2f}  **Seller Total:** ${report.seller_total:.2f}  ",
+            f"**Generated:** {report.generated_at.isoformat()}", "",
+            "| Seller Code | Name | Consigned | Sold | Unsold | Donated | Gross | MYSL | Seller Total |",
+            "|-------------|------|-----------|------|--------|---------|-------|------|--------------|",
+        ]
+        for p in report.sellers:
+            lines.append(f"| {p.seller_code} | {p.seller_name} | {p.items_consigned} | {p.items_sold} | "
+                         f"{p.items_unsold} | {p.items_donated} | ${p.gross_sales:.2f} | "
+                         f"${p.mysl_total:.2f} | ${p.seller_total:.2f} |")
+    elif isinstance(report, SellerPayoutReport):
+        info = report.seller_info
+        contact = ", ".join(str(c) for c in [info.phone, info.email, info.address, info.city, info.state, info.zip] if c) or "—"
         lines += [
             f"# Seller Payout: {report.seller_name} ({report.seller_code})",
             f"**Event:** {report.event_name}  ",
-            f"**Generated:** {report.generated_at.isoformat()}",
+            f"**Generated:** {report.generated_at.isoformat()}  ",
+            f"**Contact:** {contact}  ",
+            f"**Type:** {'Vendor — ' + (info.company or '') if info.is_vendor else 'Individual'}  "
+            f"(commission {info.commission_rate:.0%})",
             "",
             "## Summary",
             "| Consigned | Sold | Unsold | Donated | Gross Sales | MYSL Total | Seller Total |",
@@ -128,14 +168,22 @@ def _to_md(report: BaseModel, filename_base: str) -> Response:
             f"| {report.items_consigned} | {report.items_sold} | {report.items_unsold} | "
             f"{report.items_donated} | ${report.gross_sales:.2f} | ${report.mysl_total:.2f} | "
             f"${report.seller_total:.2f} |",
-            "", "## Line Items",
-            "| Item Code | Description | Qty | Remaining | Price | Sell Price | Status | MYSL | Seller | Rate |",
-            "|-----------|-------------|-----|-----------|-------|------------|--------|-------|--------|------|",
+            "", "## Sales",
+            "| Item Code | Description | Date Sold | Qty | Sell Price | Extended | MYSL | Seller | Rate |",
+            "|-----------|-------------|-----------|-----|------------|----------|------|--------|------|",
         ]
-        for li in report.line_items:
-            lines.append(f"| {li.item_code} | {li.description or ''} | {li.quantity:G} | {li.remaining:G} | ${li.price:.2f} | "
-                         f"${li.sell_price:.2f} | {li.status} | ${li.mysl_share:.2f} | "
-                         f"${li.seller_share:.2f} | {li.commission_rate:.0%} |")
+        for s in report.sales:
+            when = s.date_of_sale.isoformat() if s.date_of_sale else "—"
+            lines.append(f"| {s.item_code} | {s.description or ''} | {when} | {s.quantity_sold:G} | "
+                         f"${s.sell_price:.2f} | ${s.extended_price:.2f} | ${s.mysl_share:.2f} | "
+                         f"${s.seller_share:.2f} | {s.commission_rate:.0%} |")
+        lines += ["", "## Unsold Items",
+                  "| Item Code | Description | Qty | Remaining | Price | Status | Donate if Unsold |",
+                  "|-----------|-------------|-----|-----------|-------|--------|------------------|",
+        ]
+        for u in report.unsold_items:
+            lines.append(f"| {u.item_code} | {u.description or ''} | {u.quantity:G} | {u.remaining:G} | "
+                         f"${u.price:.2f} | {u.status} | {u.donate_unsold} |")
     elif isinstance(report, EventRevenueReport):
         lines += [
             f"# Event Revenue: {report.event_name}",
@@ -235,10 +283,56 @@ def _to_pdf(report: BaseModel, filename_base: str) -> Response:
     pdf.ln()
     pdf.set_font("Helvetica", "", 12)
 
-    if isinstance(report, SellerPayoutReport):
+    if isinstance(report, SellersPayoutsReport):
+        pdf.cell(0, 8, _safe(f"Sellers Payouts: {report.event_name}"))
+        pdf.ln()
+        pdf.cell(0, 6, f"Sellers: {report.seller_count}  Gross: ${report.gross_sales_total:.2f}  "
+                       f"MYSL: ${report.mysl_total:.2f}  Seller Total: ${report.seller_total:.2f}")
+        pdf.ln()
+        pdf.cell(0, 6, f"Generated: {report.generated_at.strftime('%Y-%m-%d %H:%M UTC')}")
+        pdf.ln(8)
+        pdf.set_font("Helvetica", "B", 10)
+        for hdr, width in [("Seller Code", 28), ("Name", 45), ("Consigned", 22), ("Sold", 16),
+                            ("Unsold", 16), ("Donated", 16), ("Gross", 22), ("MYSL", 22), ("Payout", 22)]:
+            pdf.cell(width, 6, hdr, border=1)
+        pdf.ln()
+        pdf.set_font("Helvetica", "", 9)
+        for p in report.sellers:
+            if pdf.get_y() > 260:
+                pdf.add_page()
+                pdf.set_font("Helvetica", "B", 10)
+                for hdr, width in [("Seller Code", 28), ("Name", 45), ("Consigned", 22), ("Sold", 16),
+                                    ("Unsold", 16), ("Donated", 16), ("Gross", 22), ("MYSL", 22), ("Payout", 22)]:
+                    pdf.cell(width, 6, hdr, border=1)
+                pdf.ln()
+                pdf.set_font("Helvetica", "", 9)
+            pdf.cell(28, 6, _safe(p.seller_code), border=1)
+            pdf.cell(45, 6, _safe(p.seller_name[:32]), border=1)
+            pdf.cell(22, 6, str(p.items_consigned), border=1)
+            pdf.cell(16, 6, str(p.items_sold), border=1)
+            pdf.cell(16, 6, str(p.items_unsold), border=1)
+            pdf.cell(16, 6, str(p.items_donated), border=1)
+            pdf.cell(22, 6, f"${p.gross_sales:.2f}", border=1)
+            pdf.cell(22, 6, f"${p.mysl_total:.2f}", border=1)
+            pdf.cell(22, 6, f"${p.seller_total:.2f}", border=1)
+            pdf.ln()
+        pdf.ln(6)
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.cell(0, 6, f"Grand totals — Gross: ${report.gross_sales_total:.2f}  "
+                       f"MYSL: ${report.mysl_total:.2f}  Seller: ${report.seller_total:.2f}")
+        pdf.ln()
+
+    elif isinstance(report, SellerPayoutReport):
+        info = report.seller_info
+        contact = ", ".join(str(c) for c in [info.phone, info.email, info.address, info.city, info.state, info.zip] if c)
         pdf.cell(0, 8, _safe(f"Seller Payout: {report.seller_name} ({report.seller_code})"))
         pdf.ln()
         pdf.cell(0, 6, _safe(f"Event: {report.event_name}"))
+        pdf.ln()
+        pdf.cell(0, 6, _safe(f"Contact: {contact or '—'}"))
+        pdf.ln()
+        pdf.cell(0, 6, _safe(f"Type: {'Vendor — ' + (info.company or '') if info.is_vendor else 'Individual'} "
+                             f"(commission {info.commission_rate:.0%})"))
         pdf.ln()
         pdf.cell(0, 6, f"Generated: {report.generated_at.strftime('%Y-%m-%d %H:%M UTC')}")
         pdf.ln(8)
@@ -252,32 +346,60 @@ def _to_pdf(report: BaseModel, filename_base: str) -> Response:
             pdf.cell(45, 6, val, border=1)
         pdf.ln(10)
         pdf.set_font("Helvetica", "B", 10)
-        for hdr, width in [("Item Code", 26), ("Description", 42), ("Qty", 10),
-                            ("Rem", 10), ("Price", 16), ("Sell", 16),
-                            ("Status", 14), ("MYSL", 18), ("Seller", 18), ("Rate", 14)]:
+        pdf.cell(0, 6, "Sales")
+        pdf.ln(6)
+        for hdr, width in [("Item Code", 26), ("Description", 42), ("Date", 32),
+                            ("Qty", 10), ("Sell", 16), ("Extended", 18),
+                            ("MYSL", 18), ("Seller", 18), ("Rate", 14)]:
             pdf.cell(width, 6, hdr, border=1)
         pdf.ln()
         pdf.set_font("Helvetica", "", 9)
-        for li in report.line_items:
+        for s in report.sales:
             if pdf.get_y() > 260:
                 pdf.add_page()
                 pdf.set_font("Helvetica", "B", 10)
-                for hdr, width in [("Item Code", 28), ("Description", 50), ("Price", 20),
-                                    ("Sell", 20), ("Status", 20), ("MYSL", 22),
-                                    ("Seller", 22), ("Rate", 18)]:
+                for hdr, width in [("Item Code", 26), ("Description", 42), ("Date", 32),
+                                    ("Qty", 10), ("Sell", 16), ("Extended", 18),
+                                    ("MYSL", 18), ("Seller", 18), ("Rate", 14)]:
                     pdf.cell(width, 6, hdr, border=1)
                 pdf.ln()
                 pdf.set_font("Helvetica", "", 9)
-            pdf.cell(26, 6, _safe(li.item_code), border=1)
-            pdf.cell(42, 6, _safe((li.description or "")[:26]), border=1)
-            pdf.cell(10, 6, f"{li.quantity:G}", border=1)
-            pdf.cell(10, 6, f"{li.remaining:G}", border=1)
-            pdf.cell(16, 6, f"${li.price:.2f}", border=1)
-            pdf.cell(16, 6, f"${li.sell_price:.2f}", border=1)
-            pdf.cell(14, 6, _safe(li.status), border=1)
-            pdf.cell(18, 6, f"${li.mysl_share:.2f}", border=1)
-            pdf.cell(18, 6, f"${li.seller_share:.2f}", border=1)
-            pdf.cell(14, 6, f"{li.commission_rate:.0%}", border=1)
+            when = s.date_of_sale.strftime("%Y-%m-%d") if s.date_of_sale else "—"
+            pdf.cell(26, 6, _safe(s.item_code), border=1)
+            pdf.cell(42, 6, _safe((s.description or "")[:26]), border=1)
+            pdf.cell(32, 6, _safe(when), border=1)
+            pdf.cell(10, 6, f"{s.quantity_sold:G}", border=1)
+            pdf.cell(16, 6, f"${s.sell_price:.2f}", border=1)
+            pdf.cell(16, 6, f"${s.extended_price:.2f}", border=1)
+            pdf.cell(18, 6, f"${s.mysl_share:.2f}", border=1)
+            pdf.cell(18, 6, f"${s.seller_share:.2f}", border=1)
+            pdf.cell(14, 6, f"{s.commission_rate:.0%}", border=1)
+            pdf.ln()
+        pdf.ln(8)
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.cell(0, 6, "Unsold Items")
+        pdf.ln(6)
+        for hdr, width in [("Item Code", 26), ("Description", 50), ("Qty", 12),
+                            ("Rem", 12), ("Price", 18), ("Status", 20), ("Donate", 14)]:
+            pdf.cell(width, 6, hdr, border=1)
+        pdf.ln()
+        pdf.set_font("Helvetica", "", 9)
+        for u in report.unsold_items:
+            if pdf.get_y() > 260:
+                pdf.add_page()
+                pdf.set_font("Helvetica", "B", 10)
+                for hdr, width in [("Item Code", 26), ("Description", 50), ("Qty", 12),
+                                    ("Rem", 12), ("Price", 18), ("Status", 20), ("Donate", 14)]:
+                    pdf.cell(width, 6, hdr, border=1)
+                pdf.ln()
+                pdf.set_font("Helvetica", "", 9)
+            pdf.cell(26, 6, _safe(u.item_code), border=1)
+            pdf.cell(50, 6, _safe((u.description or "")[:32]), border=1)
+            pdf.cell(12, 6, f"{u.quantity:G}", border=1)
+            pdf.cell(12, 6, f"{u.remaining:G}", border=1)
+            pdf.cell(18, 6, f"${u.price:.2f}", border=1)
+            pdf.cell(20, 6, _safe(u.status), border=1)
+            pdf.cell(14, 6, str(u.donate_unsold), border=1)
             pdf.ln()
 
     elif isinstance(report, EventRevenueReport):

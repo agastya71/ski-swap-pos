@@ -25,8 +25,11 @@ from app.schemas.reports import (
     TransactionsByUserReport,
     TransactionRow,
     UserSalesSummary,
-    SellerPayoutLineItem,
     SellerPayoutReport,
+    SellerPayoutSaleLine,
+    SellerPayoutSellerInfo,
+    SellerPayoutUnsoldLine,
+    SellersPayoutsReport,
     UnsoldItem,
     UnsoldItemsReport,
 )
@@ -45,13 +48,126 @@ def _get_event_or_404(db: Session, event_id: int) -> Event:
     return event
 
 
+def _build_seller_payout(db: Session, event: Event, seller: Seller) -> SellerPayoutReport:
+    """Compute the payout report for one seller (shared by single + batch)."""
+    items = (
+        db.query(Item)
+        .join(Seller)
+        .filter(Item.seller_id == seller.id, Seller.event_id == event.id,
+                Item.is_deleted.is_(False))
+        .all()
+    )
+    items_sold = sum(1 for it in items if it.status == "sold")  # pyright: ignore[reportGeneralTypeIssues]
+    items_unsold = sum(1 for it in items if it.status in ("available", "returned"))
+    items_donated = sum(1 for it in items if it.status == "donated")  # pyright: ignore[reportGeneralTypeIssues]
+
+    sale_items = (
+        db.query(SaleItem)
+        .join(Sale)
+        .join(Item, SaleItem.item_id == Item.id)
+        .options(
+            joinedload(SaleItem.item)
+            .joinedload(Item.intake)
+        )
+        .filter(Item.seller_id == seller.id, Sale.is_voided.is_(False))
+        .all()
+    )
+
+    gross_sales = round(sum(si.extended_price for si in sale_items), 2)  # pyright: ignore[reportArgumentType,reportCallIssue]
+    mysl_total = 0.0
+    seller_total_amt = 0.0
+
+    rate = event.vendor_commission_rate if seller.is_vendor else event.commission_rate  # pyright: ignore[reportGeneralTypeIssues]
+
+    def _shares(extended: float, donate_proceeds: bool) -> tuple[float, float]:
+        if donate_proceeds:
+            return extended, 0.0
+        share = round(extended * rate, 2)  # pyright: ignore[reportArgumentType,reportCallIssue]
+        return share, round(extended - share, 2)
+
+    # ── SALES section: one row per non-voided sale line for this seller's items.
+    sales: list[SellerPayoutSaleLine] = []
+    for si in sale_items:
+        mysl_share, seller_share = _shares(si.extended_price, si.item.intake.donate_proceeds)  # pyright: ignore[reportArgumentType]
+        if si.item.intake.donate_proceeds:
+            mysl_total += si.extended_price
+        else:
+            mysl_total += mysl_share
+            seller_total_amt += seller_share
+        sales.append(SellerPayoutSaleLine(
+            item_code=si.item.code,
+            description=si.item.description,
+            date_of_sale=si.sale.date_of_sale,
+            quantity_sold=si.quantity,  # pyright: ignore[reportArgumentType]
+            sell_price=si.sell_price,  # pyright: ignore[reportArgumentType]
+            extended_price=si.extended_price,  # pyright: ignore[reportArgumentType]
+            mysl_share=mysl_share,
+            seller_share=seller_share,
+            commission_rate=rate,  # pyright: ignore[reportArgumentType]
+        ))
+    sales.sort(key=lambda s: (s.date_of_sale or datetime.min, s.item_code))
+
+    # ── UNSOLD ITEMS section: items still on hand (available / returned / donated).
+    unsold_items: list[SellerPayoutUnsoldLine] = []
+    for it in items:
+        if it.status == "sold":  # pyright: ignore[reportGeneralTypeIssues]
+            continue
+        unsold_items.append(SellerPayoutUnsoldLine(
+            item_code=it.code,  # pyright: ignore[reportArgumentType]
+            description=it.description,  # pyright: ignore[reportArgumentType]
+            quantity=it.quantity,  # pyright: ignore[reportArgumentType]
+            remaining=it.remaining,  # pyright: ignore[reportArgumentType]
+            price=it.price,  # pyright: ignore[reportArgumentType]
+            status=it.status,  # pyright: ignore[reportArgumentType]
+            donate_unsold=it.donate_unsold,  # pyright: ignore[reportArgumentType]
+            mysl_share=0.0,
+            seller_share=0.0,
+            commission_rate=rate,  # pyright: ignore[reportArgumentType]
+        ))
+    unsold_items.sort(key=lambda u: u.item_code)
+
+    seller_info = SellerPayoutSellerInfo(
+        seller_code=seller.code,  # pyright: ignore[reportArgumentType]
+        seller_name=f"{seller.first_name} {seller.last_name}".strip(),
+        company=seller.company,  # pyright: ignore[reportArgumentType]
+        is_vendor=seller.is_vendor,  # pyright: ignore[reportArgumentType]
+        email=seller.email,  # pyright: ignore[reportArgumentType]
+        phone=seller.phone,  # pyright: ignore[reportArgumentType]
+        address=seller.address,  # pyright: ignore[reportArgumentType]
+        city=seller.city,  # pyright: ignore[reportArgumentType]
+        state=seller.state,  # pyright: ignore[reportArgumentType]
+        zip=seller.zip,  # pyright: ignore[reportArgumentType]
+        commission_rate=rate,  # pyright: ignore[reportArgumentType]
+    )
+
+    return SellerPayoutReport(
+        event_id=event.id,  # pyright: ignore[reportArgumentType]
+        event_name=event.name,  # pyright: ignore[reportArgumentType]
+        seller_id=seller.id,  # pyright: ignore[reportArgumentType]
+        seller_code=seller.code,  # pyright: ignore[reportArgumentType]
+        seller_name=f"{seller.first_name} {seller.last_name}",
+        seller_email=seller.email,  # pyright: ignore[reportArgumentType]
+        seller_info=seller_info,
+        items_consigned=len(items),
+        items_sold=items_sold,
+        items_unsold=items_unsold,
+        items_donated=items_donated,
+        gross_sales=gross_sales,
+        mysl_total=round(mysl_total, 2),  # pyright: ignore[reportArgumentType,reportCallIssue]
+        seller_total=round(seller_total_amt, 2),
+        sales=sales,
+        unsold_items=unsold_items,
+        generated_at=_now(),
+    )
+
+
 def get_seller_payout(db: Session, event_id: int, seller_id: int) -> SellerPayoutReport:
     """Build a payout report for a single seller within an event.
 
-    Queries all items consigned by the seller and all non-voided sale items
-    to compute gross sales, MYSL commission, and the net amount owed to the
-    seller.  Items with ``donate_proceeds`` set contribute their full extended
-    price to the MYSL total and zero to the seller total.
+    The report carries two detail sections: ``sales`` (every non-voided sale
+    line for the seller's items, with prices and commission shares) and
+    ``unsold_items`` (every item still on hand, including donated and
+    returned items), plus full seller contact information.
 
     Args:
         db: Active SQLAlchemy database session.
@@ -70,93 +186,39 @@ def get_seller_payout(db: Session, event_id: int, seller_id: int) -> SellerPayou
     ).first()
     if not seller:
         raise HTTPException(status_code=404, detail="Seller not found in this event")
+    return _build_seller_payout(db, event, seller)
 
-    items = (
-        db.query(Item)
-        .join(Seller)
-        .filter(Item.seller_id == seller_id, Seller.event_id == event_id,
-                Item.is_deleted.is_(False))
+
+def get_all_seller_payouts(db: Session, event_id: int) -> SellersPayoutsReport:
+    """Build payout reports for EVERY seller in an event.
+
+    Args:
+        db: Active SQLAlchemy database session.
+        event_id: Primary key of the event to report on.
+
+    Returns:
+        A ``SellersPayoutsReport`` with one per-seller report each plus grand
+        totals, sorted by seller code.
+
+    Raises:
+        HTTPException: 404 if the event is not found.
+    """
+    event = _get_event_or_404(db, event_id)
+    sellers = (
+        db.query(Seller)
+        .filter(Seller.event_id == event_id)
+        .order_by(Seller.code)
         .all()
     )
-    items_sold = sum(1 for it in items if it.status == "sold")
-    items_unsold = sum(1 for it in items if it.status in ("available", "returned"))
-    items_donated = sum(1 for it in items if it.status == "donated")
-
-    sale_items = (
-        db.query(SaleItem)
-        .join(Sale)
-        .join(Item, SaleItem.item_id == Item.id)
-        .options(
-            joinedload(SaleItem.item)
-            .joinedload(Item.intake)
-        )
-        .filter(Item.seller_id == seller_id, Sale.is_voided.is_(False))
-        .all()
-    )
-
-    gross_sales = round(sum(si.extended_price for si in sale_items), 2)
-    mysl_total = 0.0
-    seller_total_amt = 0.0
-    for si in sale_items:
-        if si.item.intake.donate_proceeds:
-            mysl_total += si.extended_price
-        else:
-            rate = event.vendor_commission_rate if seller.is_vendor else event.commission_rate
-            mysl_share = round(si.extended_price * rate, 2)
-            mysl_total += mysl_share
-            seller_total_amt += si.extended_price - mysl_share
-
-    # Per-item aggregates for the per-line commission/payout breakdown.
-    rate = event.vendor_commission_rate if seller.is_vendor else event.commission_rate
-    sold_amount_by_item: dict[int, float] = {}
-    sell_price_by_item: dict[int, float] = {}
-    donate_proceeds_by_item: dict[int, bool] = {}
-    for si in sale_items:
-        sold_amount_by_item[si.item_id] = sold_amount_by_item.get(si.item_id, 0.0) + si.extended_price
-        sell_price_by_item[si.item_id] = si.sell_price
-        donate_proceeds_by_item[si.item_id] = si.item.intake.donate_proceeds
-
-    line_items = []
-    for it in items:
-        sold_amount = round(sold_amount_by_item.get(it.id, 0.0), 2)
-        if sold_amount > 0 and it.id in donate_proceeds_by_item:
-            if donate_proceeds_by_item[it.id]:
-                mysl_share = sold_amount
-                seller_share = 0.0
-            else:
-                mysl_share = round(sold_amount * rate, 2)
-                seller_share = round(sold_amount - mysl_share, 2)
-        else:
-            mysl_share = 0.0
-            seller_share = 0.0
-        line_items.append(SellerPayoutLineItem(
-            item_code=it.code,
-            description=it.description,
-            quantity=it.quantity,
-            remaining=it.remaining,
-            price=it.price,
-            sell_price=sell_price_by_item.get(it.id, it.price),
-            status=it.status,
-            mysl_share=mysl_share,
-            seller_share=seller_share,
-            commission_rate=rate,
-        ))
-
-    return SellerPayoutReport(
+    payouts = [_build_seller_payout(db, event, s) for s in sellers]
+    return SellersPayoutsReport(
         event_id=event_id,
-        event_name=event.name,
-        seller_id=seller_id,
-        seller_code=seller.code,
-        seller_name=f"{seller.first_name} {seller.last_name}",
-        seller_email=seller.email,
-        items_consigned=len(items),
-        items_sold=items_sold,
-        items_unsold=items_unsold,
-        items_donated=items_donated,
-        gross_sales=gross_sales,
-        mysl_total=round(mysl_total, 2),
-        seller_total=round(seller_total_amt, 2),
-        line_items=line_items,
+        event_name=event.name,  # pyright: ignore[reportArgumentType]
+        seller_count=len(payouts),
+        gross_sales_total=round(sum(p.gross_sales for p in payouts), 2),
+        mysl_total=round(sum(p.mysl_total for p in payouts), 2),
+        seller_total=round(sum(p.seller_total for p in payouts), 2),
+        sellers=payouts,
         generated_at=_now(),
     )
 
@@ -189,8 +251,8 @@ def get_event_revenue(db: Session, event_id: int) -> EventRevenueReport:
         .filter(Sale.event_id == event_id)
         .all()
     )
-    non_voided = [s for s in all_sales if not s.is_voided]
-    voided = [s for s in all_sales if s.is_voided]
+    non_voided = [s for s in all_sales if not s.is_voided]  # pyright: ignore[reportGeneralTypeIssues]
+    voided = [s for s in all_sales if s.is_voided]  # pyright: ignore[reportGeneralTypeIssues]
 
     donate_proceeds_total = 0.0
     for s in non_voided:
@@ -200,16 +262,16 @@ def get_event_revenue(db: Session, event_id: int) -> EventRevenueReport:
 
     return EventRevenueReport(
         event_id=event_id,
-        event_name=event.name,
-        event_year=event.year,
+        event_name=event.name,  # pyright: ignore[reportArgumentType]
+        event_year=event.year,  # pyright: ignore[reportArgumentType]
         total_sales=len(non_voided),
         voided_sales=len(voided),
-        gross_revenue=round(sum(s.sale_total for s in non_voided), 2),
-        mysl_total=round(sum(s.mysl_total for s in non_voided), 2),
-        seller_total=round(sum(s.seller_total for s in non_voided), 2),
-        cash_total=round(sum(s.cash_amount for s in non_voided), 2),
-        check_total=round(sum(s.check_amount for s in non_voided), 2),
-        cc_total=round(sum(s.cc_amount for s in non_voided), 2),
+        gross_revenue=round(sum(s.sale_total for s in non_voided), 2),  # pyright: ignore[reportArgumentType,reportCallIssue]
+        mysl_total=round(sum(s.mysl_total for s in non_voided), 2),  # pyright: ignore[reportArgumentType,reportCallIssue]
+        seller_total=round(sum(s.seller_total for s in non_voided), 2),  # pyright: ignore[reportArgumentType,reportCallIssue]
+        cash_total=round(sum(s.cash_amount for s in non_voided), 2),  # pyright: ignore[reportArgumentType,reportCallIssue]
+        check_total=round(sum(s.check_amount for s in non_voided), 2),  # pyright: ignore[reportArgumentType,reportCallIssue]
+        cc_total=round(sum(s.cc_amount for s in non_voided), 2),  # pyright: ignore[reportArgumentType,reportCallIssue]
         donate_proceeds_total=round(donate_proceeds_total, 2),
         generated_at=_now(),
     )
@@ -275,7 +337,7 @@ def get_donations(db: Session, event_id: int) -> DonationsReport:
             description=si.item.description,
             quantity=si.item.quantity,
             remaining=si.item.remaining,
-            price=si.sell_price,
+            price=si.sell_price,  # pyright: ignore[reportArgumentType]
             donation_type="proceeds",
         )
         for si in proceeds_sale_items
@@ -283,11 +345,11 @@ def get_donations(db: Session, event_id: int) -> DonationsReport:
         DonationItem(
             seller_code=it.seller.code,
             seller_name=f"{it.seller.first_name} {it.seller.last_name}",
-            item_code=it.code,
-            description=it.description,
-            quantity=it.quantity,
-            remaining=it.remaining,
-            price=it.price,
+            item_code=it.code,  # pyright: ignore[reportArgumentType]
+            description=it.description,  # pyright: ignore[reportArgumentType]
+            quantity=it.quantity,  # pyright: ignore[reportArgumentType]
+            remaining=it.remaining,  # pyright: ignore[reportArgumentType]
+            price=it.price,  # pyright: ignore[reportArgumentType]
             donation_type="unsold",
         )
         for it in unsold_donate
@@ -295,7 +357,7 @@ def get_donations(db: Session, event_id: int) -> DonationsReport:
 
     return DonationsReport(
         event_id=event_id,
-        event_name=event.name,
+        event_name=event.name,  # pyright: ignore[reportArgumentType]
         items=items,
         total_items=len(items),
         total_value=round(sum(i.price for i in items), 2),
@@ -329,18 +391,18 @@ def get_unsold_items(db: Session, event_id: int) -> UnsoldItemsReport:
         UnsoldItem(
             seller_code=it.seller.code,
             seller_name=f"{it.seller.first_name} {it.seller.last_name}",
-            item_code=it.code,
-            description=it.description,
-            category=it.category,
-            quantity=it.quantity,
-            remaining=it.remaining,
-            price=it.price,
+            item_code=it.code,  # pyright: ignore[reportArgumentType]
+            description=it.description,  # pyright: ignore[reportArgumentType]
+            category=it.category,  # pyright: ignore[reportArgumentType]
+            quantity=it.quantity,  # pyright: ignore[reportArgumentType]
+            remaining=it.remaining,  # pyright: ignore[reportArgumentType]
+            price=it.price,  # pyright: ignore[reportArgumentType]
         )
         for it in items
     ]
     return UnsoldItemsReport(
         event_id=event_id,
-        event_name=event.name,
+        event_name=event.name,  # pyright: ignore[reportArgumentType]
         items=unsold,
         total_items=len(unsold),
         total_value=round(sum(i.price for i in unsold), 2),
@@ -411,20 +473,26 @@ def get_transactions_by_user(db: Session, event_id: int) -> TransactionsByUserRe
 
     grouped: dict[str, list[TransactionRow]] = {}
     for sale in sales:
-        cashier = sale.created_by if sale.created_by else "(unknown)"
-        grouped.setdefault(cashier, []).append(TransactionRow(
-            sale_id=sale.id,
-            cashier=cashier,
-            date_of_sale=sale.date_of_sale,
+        cashier = sale.created_by if sale.created_by else "(unknown)"  # pyright: ignore[reportGeneralTypeIssues]
+        # int() would raise on a NaN/inf sum; quantities are always finite, so
+        # the fallback is defensive only.
+        try:
+            units_sold = int(sum(si.quantity for si in sale.sale_items))
+        except (TypeError, ValueError, OverflowError):
+            units_sold = 0
+        grouped.setdefault(cashier, []).append(TransactionRow(  # pyright: ignore[reportArgumentType]
+            sale_id=sale.id,  # pyright: ignore[reportArgumentType]
+            cashier=cashier,  # pyright: ignore[reportArgumentType]
+            date_of_sale=sale.date_of_sale,  # pyright: ignore[reportArgumentType]
             items_count=len(sale.sale_items),
-            units_sold=int(sum(si.quantity for si in sale.sale_items)),
-            sale_total=round(sale.sale_total, 2),
-            mysl_total=round(sale.mysl_total, 2),
-            seller_total=round(sale.seller_total, 2),
-            cash_amount=round(sale.cash_amount, 2),
-            check_amount=round(sale.check_amount, 2),
-            cc_amount=round(sale.cc_amount, 2),
-            is_voided=sale.is_voided,
+            units_sold=units_sold,
+            sale_total=round(sale.sale_total, 2),  # pyright: ignore[reportArgumentType,reportCallIssue]
+            mysl_total=round(sale.mysl_total, 2),  # pyright: ignore[reportArgumentType,reportCallIssue]
+            seller_total=round(sale.seller_total, 2),  # pyright: ignore[reportArgumentType,reportCallIssue]
+            cash_amount=round(sale.cash_amount, 2),  # pyright: ignore[reportArgumentType,reportCallIssue]
+            check_amount=round(sale.check_amount, 2),  # pyright: ignore[reportArgumentType,reportCallIssue]
+            cc_amount=round(sale.cc_amount, 2),  # pyright: ignore[reportArgumentType,reportCallIssue]
+            is_voided=sale.is_voided,  # pyright: ignore[reportArgumentType]
         ))
 
     users: list[UserSalesSummary] = []
@@ -448,7 +516,7 @@ def get_transactions_by_user(db: Session, event_id: int) -> TransactionsByUserRe
 
     return TransactionsByUserReport(
         event_id=event_id,
-        event_name=event.name,
+        event_name=event.name,  # pyright: ignore[reportArgumentType]
         users=users,
         total_sales=sum(u.sales_count for u in users),
         total_voided=sum(u.voided_count for u in users),

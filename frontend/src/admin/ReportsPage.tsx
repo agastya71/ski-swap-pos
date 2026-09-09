@@ -11,6 +11,7 @@ import { getEventRevenue, getDonations, getUnsoldItems, getTransactionsByUser, d
 import type { EventRevenueReport, DonationsReport, UnsoldItemsReport, TransactionsByUserReport, Seller } from '../types'
 import { SellerCombobox } from '../components/SellerCombobox'
 import { SellerPayoutPanel } from './SellerPayoutPanel'
+import { AllSellersPayouts } from './AllSellersPayouts'
 
 /** Display name for a seller, matching the rest of the app (individuals use
  *  first/last name; vendors use company; fall back to the code if neither). */
@@ -28,6 +29,8 @@ export function ReportsPage({ eventId }: { eventId: number }) {
   // The seller whose payout is currently shown. Set on "Get Payout" submit;
   // the actual report is fetched and rendered by <SellerPayoutPanel>.
   const [payoutSeller, setPayoutSeller] = useState<Seller | null>(null)
+  // Whether the "Generate All Sellers' Payouts" batch view is expanded.
+  const [generateAll, setGenerateAll] = useState(false)
   const [transactions, setTransactions] = useState<TransactionsByUserReport | null>(null)
   const [open, setOpen] = useState({ revenue: false, donations: false, unsold: false })
   const [openTransactions, setOpenTransactions] = useState(false)
@@ -280,11 +283,20 @@ export function ReportsPage({ eventId }: { eventId: number }) {
       <section style={{ marginBottom: 32 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3>Seller Payout</h3>
-          {payoutSeller && (
-            <button onClick={() => downloadFile(`/reports/${eventId}/seller/${payoutSeller.id}?format=csv`, `payout-${payoutSeller.code}.csv`)}>
-              Download CSV
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              aria-label="Generate all sellers payouts"
+              onClick={() => setGenerateAll(prev => !prev)}
+              style={{ border: '1px solid #1a237e', color: '#1a237e', background: 'none', padding: '3px 10px', cursor: 'pointer', borderRadius: 3, fontSize: 13 }}
+            >
+              {generateAll ? 'Hide' : 'Generate All Sellers’ Payouts'}
             </button>
-          )}
+            {payoutSeller && (
+              <button onClick={() => downloadFile(`/reports/${eventId}/seller/${payoutSeller.id}?format=csv`, `payout-${payoutSeller.code}.csv`)}>
+                Download CSV
+              </button>
+            )}
+          </div>
         </div>
         <form onSubmit={handlePayoutLookup} style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 16 }}>
           <div style={{ flex: 1 }}>
@@ -294,11 +306,25 @@ export function ReportsPage({ eventId }: { eventId: number }) {
           <button type="submit" disabled={!selectedSeller}>Get Payout</button>
         </form>
         {payoutSeller && (
-          <div>
+          <div style={{ marginBottom: 24 }}>
             <p><strong>{sellerDisplayName(payoutSeller)}</strong> ({payoutSeller.code})</p>
-            {/* Reuses the same payout panel as the Sellers page so the summary
-                and line-items tables are identical everywhere. */}
-            <SellerPayoutPanel eventId={eventId} sellerId={payoutSeller.id} />
+            {/* key resets the panel per seller so the loading state shows on refetch. */}
+            <SellerPayoutPanel key={payoutSeller.id} eventId={eventId} sellerId={payoutSeller.id} />
+          </div>
+        )}
+        {generateAll && (
+          <div style={{ border: '2px solid #1a237e', borderRadius: 6, padding: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <h4 style={{ margin: 0 }}>All Sellers’ Payouts</h4>
+              <button
+                aria-label="Download all sellers payouts csv"
+                onClick={() => downloadFile(`/reports/${eventId}/sellers-payouts?format=csv`, 'sellers-payouts.csv')}
+                style={{ border: '1px solid #1a237e', color: '#1a237e', background: 'none', padding: '3px 10px', cursor: 'pointer', borderRadius: 3, fontSize: 13 }}
+              >
+                Download CSV (all)
+              </button>
+            </div>
+            <AllSellersPayouts eventId={eventId} />
           </div>
         )}
       </section>

@@ -19,11 +19,24 @@ describe('SellerPayoutPanel', () => {
     expect(screen.getAllByText('$84.00')[0]).toBeInTheDocument()
   })
 
-  it('renders line items after data loads', async () => {
+  it('renders the seller information block after data loads', async () => {
+    render(<SellerPayoutPanel eventId={1} sellerId={1} />)
+    await waitFor(() => expect(screen.getByText('Jane Smith (A001)')).toBeInTheDocument())
+    expect(screen.getByText('612-555-0101')).toBeInTheDocument()
+    expect(screen.getByText(/Individual — commission 30%/i)).toBeInTheDocument()
+  })
+
+  it('renders the SALES and UNSOLD ITEMS sections after data loads', async () => {
     render(<SellerPayoutPanel eventId={1} sellerId={1} />)
     await waitFor(() => expect(screen.getByText('Atomic skis')).toBeInTheDocument())
     expect(screen.getByText('Boots')).toBeInTheDocument()
-    expect(screen.getByText('001-01')).toBeInTheDocument()
+    expect(screen.getByText('A001-1')).toBeInTheDocument()
+    expect(screen.getByText('A001-2')).toBeInTheDocument()
+    // Section headings.
+    expect(screen.getByRole('heading', { name: /sales/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /unsold items/i })).toBeInTheDocument()
+    // Unsold item carries its donate election.
+    expect(screen.getByText(/donate if unsold/i)).toBeInTheDocument()
   })
 
   it('shows error message when API fails', async () => {

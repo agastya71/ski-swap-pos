@@ -27,6 +27,25 @@ def get_seller_payout(
     return format_report(report, fmt, f"seller_payout_{event_id}_{seller_id}")
 
 
+@router.get("/{event_id}/sellers-payouts")
+def get_all_seller_payouts(
+    event_id: int,
+    fmt: str = Query("json", alias="format"),
+    db: Session = Depends(get_db),
+    _user: User = Depends(_ADMIN_ONLY),
+):
+    """Return payout reports for ALL sellers in the event (sorted by code).
+
+    Each entry carries the seller's contact information, a SALES section
+    (every non-voided sale line with prices and commission shares) and an
+    UNSOLD ITEMS section (every item still on hand). CSV/MD/PDF downloads
+    render a per-seller summary table with grand totals; JSON carries the
+    full per-seller detail.
+    """
+    report = report_svc.get_all_seller_payouts(db, event_id)
+    return format_report(report, fmt, f"sellers_payouts_{event_id}")
+
+
 @router.get("/{event_id}/revenue")
 def get_revenue(
     event_id: int,
