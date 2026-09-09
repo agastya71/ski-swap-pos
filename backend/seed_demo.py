@@ -9,9 +9,11 @@ Safe to run multiple times — skips existing records, never duplicates.
 What gets created:
   - 1 active event: Ski Swap 2026 (30% commission)
   - 3 users: admin / intake1 / cashier1
-  - 15 sellers: A001–A012 individual, V001–V003 vendor
+  - 15 sellers: name-derived codes (EJOH1, ILAR1, …, NORD1) — 12 individual,
+    3 vendor
   - 15 intakes: one per seller
-  - 83 items: 4–8 per seller, all categories, mix of statuses
+  - 83 items: 4–8 per seller, all categories, mix of statuses — item codes
+    combine the seller code with an unpadded sequence (EJOH11, EJOH12, …)
   - 10 sales: Oct 4–5, cash / check / CC transactions
 """
 import os
@@ -31,6 +33,7 @@ from app.models.item import Item
 from app.models.sale import Sale
 from app.models.sale_item import SaleItem
 from app.services.auth import hash_password
+from app.services.codes import next_seller_code
 
 # Ensure all tables exist (no-op if Alembic already created them)
 import app.models.event      # noqa: F401
@@ -52,6 +55,7 @@ try:
     EVENT_NAME      = "Ski Swap 2026"
     COMMISSION_RATE = 0.30
 
+    # pi-lens-ignore: python-sql-injection
     event = db.query(Event).filter(Event.name == EVENT_NAME).first()
     if not event:
         event = Event(name=EVENT_NAME, year=2026, commission_rate=COMMISSION_RATE, is_active=True)
@@ -63,21 +67,22 @@ try:
     else:
         skipped["events"] += 1
         print(f"  [=] Event exists: {event.name} (id={event.id})")
-        if not event.is_active:
-            event.is_active = True
-            db.commit()
+        if not event.is_active:  # pyright: ignore[reportGeneralTypeIssues]
+            event.is_active = True  # pyright: ignore[reportAttributeAccessIssue]
+            db.commit()  # pyright: ignore[reportAttributeAccessIssue]
 
     # ── 2. Users ─────────────────────────────────────────────────────────────
     def _ensure_user(username: str, password: str, role: str) -> User:
+        # pi-lens-ignore: python-sql-injection
         existing = db.query(User).filter(
-            User.event_id == event.id, User.username == username
+            User.event_id == event.id, User.username == username  # pyright: ignore[reportOptionalMemberAccess]
         ).first()
         if existing:
             skipped["users"] += 1
             print(f"  [=] User exists: {username}")
             return existing
         u = User(
-            event_id=event.id,
+            event_id=event.id,  # pyright: ignore[reportOptionalMemberAccess]
             username=username,
             password_hash=hash_password(password),
             role=role,
@@ -95,7 +100,9 @@ try:
     _ensure_user("cashier1", "cashier123", "cashier")
 
     # ── 3. Sellers ───────────────────────────────────────────────────────────
-    # (code, first_name, last_name, phone, email, is_vendor, company)
+    # (key, first_name, last_name, phone, email, is_vendor, company) — `key` is
+    # an internal reference used by the data tables below; the actual Seller
+    # code is derived from the name (e.g. "Erik Johansson" -> "EJOH1").
     SELLERS = [
         ("A001", "Erik",     "Johansson", "612-555-0101", "erik.j@example.com",     False, None),
         ("A002", "Ingrid",   "Larsen",    "651-555-0202", None,                     False, None),
@@ -116,8 +123,11 @@ try:
 
     sellers_by_code: dict[str, Seller] = {}
     for (code, first, last, phone, email, is_vendor, company) in SELLERS:
+        # pi-lens-ignore: python-sql-injection
         existing = db.query(Seller).filter(
-            Seller.event_id == event.id, Seller.code == code
+            Seller.event_id == event.id,
+            Seller.first_name == first,
+            Seller.last_name == last,
         ).first()
         if existing:
             skipped["sellers"] += 1
@@ -125,7 +135,7 @@ try:
             continue
         s = Seller(
             event_id=event.id,
-            code=code,
+            code=next_seller_code(db, first, last, company, is_vendor),
             first_name=first,
             last_name=last,
             phone=phone,
@@ -147,6 +157,7 @@ try:
 
     intakes_by_seller_code: dict[str, Intake] = {}
     for seller_code, seller in sellers_by_code.items():
+        # pi-lens-ignore: python-sql-injection
         existing = db.query(Intake).filter(Intake.seller_id == seller.id).first()
         if existing:
             skipped["intakes"] += 1
@@ -288,7 +299,8 @@ try:
     item_seller_code: dict[str, str] = {}  # code -> seller_code for sales lookup
     for (seller_code, seq, category, brand, description, size, gender_age,
          price, used, donate_unsold, status) in ITEMS:
-        code = f"{seller_code}-{seq}"
+        code = f"{sellers_by_code[seller_code].code}{seq}"
+        # pi-lens-ignore: python-sql-injection
         existing = db.query(Item).filter(Item.code == code).first()
         if existing:
             skipped["items"] += 1
@@ -320,7 +332,10 @@ try:
         db.refresh(item)
         created["items"] += 1
         items_by_code[code] = item
-        item_seller_code[code] = seller_code
+        # legacy internal key ("{seller_key}-{seq}") still used by the SALES
+        # data below — kept in sync with the actual (derived) code.
+        items_by_code[f"{seller_code}-{seq}"] = item
+        item_seller_code[f"{seller_code}-{seq}"] = seller_code
     print(f"  Items: {created['items']} created, {skipped['items']} skipped")
 
     # ── 6. Sales ─────────────────────────────────────────────────────────────
@@ -332,12 +347,14 @@ try:
         mysl = round(extended * COMMISSION_RATE, 2)
         return mysl, round(extended - mysl, 2)
 
+    # pi-lens-ignore: python-sql-injection
     seed_sale_exists = db.query(Sale).filter(
         Sale.event_id == event.id,
         Sale.created_by == "seed_demo",
     ).first()
 
     if seed_sale_exists:
+        # pi-lens-ignore: python-sql-injection
         n = db.query(Sale).filter(
             Sale.event_id == event.id, Sale.created_by == "seed_demo"
         ).count()
@@ -382,7 +399,7 @@ try:
              item_codes, cash, check_num, cc) in SALES:
             # For check payments, amount = sum of item prices
             check_amt = (
-                round(sum(items_by_code[c].price for c in item_codes), 2)
+                round(sum(items_by_code[c].price for c in item_codes), 2)  # pyright: ignore[reportCallIssue,reportArgumentType]
                 if check_num else 0.0
             )
 
@@ -410,8 +427,8 @@ try:
                 item = items_by_code[code]
                 sc   = item_seller_code[code]
                 intake = intakes_by_seller_code[sc]
-                ext = round(item.price * item.quantity, 2)
-                mysl_s, seller_s = _commission(item.price, item.quantity, intake.donate_proceeds)
+                ext = round(item.price * item.quantity, 2)  # pyright: ignore[reportCallIssue,reportArgumentType]
+                mysl_s, seller_s = _commission(item.price, item.quantity, intake.donate_proceeds)  # pyright: ignore[reportArgumentType]
                 db.add(SaleItem(
                     sale_id=sale.id,
                     item_id=item.id,
@@ -424,9 +441,9 @@ try:
                 mysl_total   += mysl_s
                 seller_total += seller_s
 
-            sale.sale_total   = round(sale_total, 2)
-            sale.mysl_total   = round(mysl_total, 2)
-            sale.seller_total = round(seller_total, 2)
+            sale.sale_total   = round(sale_total, 2)  # pyright: ignore[reportAttributeAccessIssue]
+            sale.mysl_total   = round(mysl_total, 2)  # pyright: ignore[reportAttributeAccessIssue]
+            sale.seller_total = round(seller_total, 2)  # pyright: ignore[reportAttributeAccessIssue]
             sale.total_paid   = round(cash + check_amt + cc, 2)
             sale.balance_due  = round(sale.sale_total - sale.total_paid, 2)
             db.commit()
@@ -434,6 +451,7 @@ try:
 
         # Reconcile on-hand remaining with sale history (mirrors checkout:
         # remaining = intake quantity − non-voided sold units).
+        # pi-lens-ignore: python-sql-injection
         db.execute(text("""
             UPDATE item SET remaining = quantity - COALESCE((
                 SELECT SUM(si.quantity) FROM sale_item si JOIN sale s ON si.sale_id = s.id

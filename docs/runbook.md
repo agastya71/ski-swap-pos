@@ -63,7 +63,7 @@ bash start.sh
 ### Environment overrides
 
 | Var | Default | Purpose |
-|-----|---------|---------|
+| ----- | --------- | --------- |
 | `APP_HOST` | `127.0.0.1` | uvicorn bind host. Use `0.0.0.0` for LAN-direct dev **without** Caddy. |
 | `APP_PORT` | `8001` | uvicorn port. Must stay `8001` when Caddy is in front. |
 | `JWT_SECRET` | (persisted in `backend/.jwt_secret`) | HMAC secret for JWTs. If unset, loaded from `.jwt_secret`; if that file is missing, a new secret is generated and written there (chmod 600). Set explicitly to override. |
@@ -78,6 +78,40 @@ APP_HOST=0.0.0.0 APP_PORT=8000 bash start.sh     # backend only, LAN-direct
 # (frontend hot-reload, in another terminal:)
 cd frontend && npm run dev                        # http://localhost:5173, proxies API → :8000
 ```
+
+### Run as a system daemon at boot (systemd)
+
+The app runs as a **system service** (`ski-swap-pos.service`) that starts
+automatically after a reboot and restarts itself if it exits. It runs
+`start.sh` as the repo owner, so behavior is identical to a manual run.
+
+One-time install (substitutes repo dir/user into the unit template):
+
+```bash
+sudo bash deploy/install-service.sh
+```
+
+The installer refuses to start the daemon while something is already
+listening on :8001 (a manually-started `bash start.sh`); it prints the exact
+kill + `systemctl start` handover steps in that case.
+
+Day-to-day management:
+
+```bash
+systemctl status ski-swap-pos        # is it running?
+journalctl -u ski-swap-pos -f        # live logs (uvicorn output)
+sudo systemctl restart ski-swap-pos  # pick up code changes
+sudo systemctl disable --now ski-swap-pos   # stop + disable boot start
+```
+
+- Unit source (template with `__PLACEHOLDER__`s): `deploy/ski-swap-pos.service`;
+  installed copy: `/etc/systemd/system/ski-swap-pos.service`. Re-run the
+  installer after editing the template.
+- `Restart=always` + `RestartSec=5`: the daemon recovers from crashes, failed
+  migrations, etc. `systemctl stop` always wins (no restart loop on purpose).
+- Shuts down gracefully (`KillSignal=SIGINT`) — in-flight checkouts finish.
+- Caddy is independent: it starts on its own and simply gets connection
+  refused for the few seconds before the app is up.
 
 ---
 
@@ -103,16 +137,21 @@ To re-seed from scratch: delete (or move aside) `backend/swap.db`, then
 ## 4. Known data issue: `sale.date_of_sale` stored as the year `2026`
 
 ### Symptom
+
 Any endpoint that reads `Sale` rows returned **HTTP 500** with:
+
 ```
 TypeError: fromisoformat: argument must be str
 ```
+
 (e.g. `GET /reports/{event_id}/revenue`). Re-running `seed_demo.py` on an
 already-seeded DB crashed with the same error.
 
 ### Root cause
+
 `Sale.date_of_sale` is declared as `Column(DateTime)`, but two code paths
 passed a **`date`** object instead of a **`datetime`**:
+
 - `seed_demo.py` used `date.fromisoformat(sale_date_str)`.
 - An earlier version of `app/services/checkout.py` did the same.
 
@@ -122,15 +161,18 @@ storing the bare year as the **integer `2026`**. On read-back the
 `TypeError: fromisoformat: argument must be str` (it got an `int`).
 
 ### Fix
+
 1. **`seed_demo.py`** now passes `datetime.fromisoformat(sale_date_str)`
    (`datetime.fromisoformat("2026-10-04")` → `datetime(2026,10,4,0,0)`).
 2. **`app/services/checkout.py`** already uses `datetime.now(timezone.utc)`
    (fixed before this runbook; sale id 13 confirms a valid value).
 3. **`start.sh`** runs an idempotent repair on every start:
+
    ```sql
    UPDATE sale SET date_of_sale = created_at
    WHERE date_of_sale IS NOT NULL AND typeof(date_of_sale) != 'text';
    ```
+
    This backfills any integer-year values from `created_at` (always a valid
    timestamp). It is a no-op once all rows are clean.
 
@@ -142,28 +184,31 @@ the repair step will clear it.
 ## 5. Troubleshooting
 
 | Symptom | Cause / Fix |
-|---|---|
+| --- | --- |
 | `address already in use` on start, port 8000 | Caddy owns :8000. Don't bind uvicorn to 8000. Use the default `APP_PORT=8001`. |
 | `curl http://...:8000` → `400 Client sent an HTTP request to an HTTPS server` | :8000 is HTTPS (Caddy). Use `https://...:8000`. |
 | `GET /reports/.../revenue` → 500 `fromisoformat: argument must be str` | Corrupt `sale.date_of_sale` (integer year). Run `bash start.sh` to run the repair step. |
 | Login worked but now 401 after restart | `JWT_SECRET` changed (e.g. `.jwt_secret` deleted). Re-login, or restore `.jwt_secret`. |
 | `alembic: command not found` | You're outside `backend/` or the venv isn't activated. `start.sh` handles both; if running manually: `cd backend && source .venv/bin/activate`. |
+| Daemon crash-loops (`systemctl status` shows restarts), `address already in use` on 8001 | A manually-started `bash start.sh` still holds :8001. Kill it (`ss -ltnp 'sport = :8001'`), then `sudo systemctl restart ski-swap-pos`. |
+| `systemctl status ski-swap-pos` → `failed (result: exit-limit...)` or repeated dep-install errors | Read `journalctl -u ski-swap-pos -n 100`. Common causes: no network for `uv pip install` at boot, or `uv` missing from the unit's PATH (re-run `sudo bash deploy/install-service.sh`). |
 | Blank page at `/` | `backend/static/` missing or stale. Rebuild: `cd frontend && npm run build`. |
-| Re-seed duplicates (two events, etc.) | `seed_demo.py` is idempotent, but an earlier run before the fix left a duplicate inactive event (id 2). Safe to delete manually: `delete from event where id = 2;` |
+| Re-seed duplicates (two events, etc.) | `seed_demo.py` is idempotent, but an earlier run before the fix left a duplicate inactive event (id 2). Delete it in the admin UI (Events → Delete on the inactive event) or `DELETE /events/{id}` — this cascades all of the event's data. The manual-SQL fallback: `delete from event where id = 2;` (only safe when the event has no related rows). |
 
 ---
 
 ## 6. Useful endpoints (behind Caddy or direct on :8001)
 
 | Method | Path | Notes |
-|--------|------|-------|
+| -------- | ------ | ------- |
 | POST | `/auth/login` | `{username,password}` → `{access_token}` |
-| GET  | `/events` | requires auth |
+| GET | `/events` | requires auth |
 | POST | `/events/{id}/activate` | set active event |
-| GET  | `/reports/{event_id}/revenue` | event revenue (was the canary for the date bug) |
-| GET  | `/reports/{event_id}/seller/{seller_id}` | seller payout |
+| DELETE | `/events/{id}` | admin-only. Permanently deletes an inactive event + all its data (sales, items, intakes, sellers, users). Blocked for the active event and for the event the caller belongs to. Returns per-type deleted counts. |
+| GET | `/reports/{event_id}/revenue` | event revenue (was the canary for the date bug) |
+| GET | `/reports/{event_id}/seller/{seller_id}` | seller payout |
 | POST | `/admin/backup` | ZIP backup of the DB |
-| GET  | `/docs` | Swagger UI (direct on :8001; Caddyfile has an optional basicauth block to hide it from the internet) |
+| GET | `/docs` | Swagger UI (direct on :8001; Caddyfile has an optional basicauth block to hide it from the internet) |
 
 Interactive Swagger docs: `http://localhost:8001/docs` (direct) — not exposed
 through Caddy by default.

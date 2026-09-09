@@ -3,7 +3,6 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -17,6 +16,7 @@ from app.models.user import User
 from app.schemas.intake import IntakeResponse
 from app.schemas.item import ItemResponse
 from app.schemas.seller import SellerCreate, SellerResponse, SellerUpdate
+from app.services.codes import next_seller_code
 
 router = APIRouter(prefix="/sellers", tags=["sellers"])
 
@@ -30,21 +30,6 @@ def _active_event(db: Session) -> Event:
         raise HTTPException(status_code=503, detail="No active event configured")
     return event
 
-
-def _next_seller_code(event_id: int, db: Session) -> str:
-    """Return the next sequential 3-digit zero-padded seller code for the event."""
-    max_code = (
-        db.query(func.max(Seller.code))
-        .filter(Seller.event_id == event_id)
-        .scalar()
-    )
-    if max_code is None:
-        return "001"
-    try:
-        next_num = int(max_code) + 1
-    except (ValueError, TypeError):
-        next_num = db.query(func.count(Seller.id)).filter(Seller.event_id == event_id).scalar() + 1
-    return f"{next_num:03d}"
 
 
 @router.get("", response_model=list[SellerResponse])
@@ -75,7 +60,7 @@ def create_seller(
 ):
     """Register a new seller for the active event with an auto-generated code."""
     event = _active_event(db)
-    code = _next_seller_code(event.id, db)
+    code = next_seller_code(db, body.first_name, body.last_name, body.company, body.is_vendor)
     seller = Seller(
         **body.model_dump(),
         code=code,
