@@ -29,7 +29,8 @@ def test_create_seller(client, active_event, admin_token):
     )
     assert resp.status_code == 201
     data = resp.json()
-    assert len(data["code"]) == 3
+    # Name-derived scheme: "Bob Jones" -> "BJON1" (4 name letters + suffix 1).
+    assert data["code"] == "BJON1"
     assert data["first_name"] == "Bob"
     assert data["event_id"] is not None
 
@@ -89,21 +90,21 @@ def test_cashier_cannot_create_seller(client, cashier_token):
 
 
 def test_create_seller_auto_assigns_code(client, active_event, admin_token):
-    """POST /sellers assigns a sequential 3-digit code; client need not provide one."""
+    """POST /sellers derives a name-based code; client need not provide one."""
     r = client.post(
         "/sellers",
         json=valid_seller_create(),
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert r.status_code == 201
-    assert r.json()["code"] == "001"
+    assert r.json()["code"] == "JSMI1"
 
 
 def test_create_two_sellers_increments_code(client, active_event, admin_token):
     headers = {"Authorization": f"Bearer {admin_token}"}
     client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
     r2 = client.post("/sellers", json=valid_seller_create(first_name="C", last_name="D"), headers=headers)
-    assert r2.json()["code"] == "002"
+    assert r2.json()["code"] == "CD1"
 
 
 def test_list_seller_items_empty(client, active_event, admin_token):

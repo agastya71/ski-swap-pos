@@ -62,7 +62,8 @@ def test_add_item_to_intake(client, admin_token, intake):
     )
     assert resp.status_code == 201
     data = resp.json()
-    assert data["code"].endswith("-01")
+    # New scheme: item code = seller code + unpadded sequence ("ABC" + 1 -> "ABC1").
+    assert data["code"] == "ABC1"
     assert data["price"] == 25.00
     assert data["status"] == "available"
     assert data["label_printed"] is False
@@ -270,8 +271,8 @@ def test_adjust_quantity_decrease_to_total_equals_sold_ok(client, cashier_token,
     client.post("/sales", json={"items": [{"item_id": it.id, "quantity": 3}], "cash_amount": 30.00},
                 headers={"Authorization": f"Bearer {cashier_token}"})
     db.refresh(it)
-    assert it.quantity == 5.0
-    assert it.remaining == 2.0
+    assert it.quantity == 5.0  # pyright: ignore[reportGeneralTypeIssues]
+    assert it.remaining == 2.0  # pyright: ignore[reportGeneralTypeIssues]
     # decrease remaining by 2 -> remaining 0 -> allowed
     r = client.patch(f"/items/{it.id}/quantity", json={"adjustment": -2},
                      headers={"Authorization": f"Bearer {admin_token}"})
@@ -288,7 +289,7 @@ def test_adjust_quantity_decrease_below_zero_422(client, cashier_token, admin_to
     client.post("/sales", json={"items": [{"item_id": it.id, "quantity": 3}], "cash_amount": 30.00},
                 headers={"Authorization": f"Bearer {cashier_token}"})
     db.refresh(it)
-    assert it.remaining == 2.0
+    assert it.remaining == 2.0  # pyright: ignore[reportGeneralTypeIssues]
     # decrease remaining by 3 -> -1 -> 422
     r = client.patch(f"/items/{it.id}/quantity", json={"adjustment": -3},
                      headers={"Authorization": f"Bearer {admin_token}"})
@@ -570,7 +571,9 @@ def test_import_template_has_quantity_column(client, admin_token):
     resp = client.get("/items/import-template", headers={"Authorization": f"Bearer {admin_token}"})
     assert resp.status_code == 200
     wb = openpyxl.load_workbook(io.BytesIO(resp.content))
-    headers_row = [c.value for c in next(wb.active.iter_rows(min_row=1, max_row=1))]
+    ws = wb.active
+    assert ws is not None, "template workbook has no active sheet"
+    headers_row = [c.value for c in next(ws.iter_rows(min_row=1, max_row=1))]
     assert headers_row == [
         "Description", "Category", "Brand", "Type", "Color",
         "Size", "Gender/Age", "Year", "Price", "Used", "Donate if Unsold", "Quantity",

@@ -110,7 +110,7 @@ def test_intake_user_can_create_intake(client, intake_token, seller):
 
 
 def test_add_item_auto_assigns_code(client, active_event, admin_token):
-    """POST /intakes/{id}/items auto-generates item code as {seller_code}-01."""
+    """POST /intakes/{id}/items auto-generates the item code as {seller_code}{seq}."""
     headers = {"Authorization": f"Bearer {admin_token}"}
     seller_r = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
     seller_code = seller_r.json()["code"]  # e.g. "001"
@@ -123,7 +123,7 @@ def test_add_item_auto_assigns_code(client, active_event, admin_token):
         headers=headers,
     )
     assert item_r.status_code == 201
-    assert item_r.json()["code"] == f"{seller_code}-01"
+    assert item_r.json()["code"] == f"{seller_code}1"
 
 
 def test_add_two_items_increments_code(client, active_event, admin_token):
@@ -135,7 +135,7 @@ def test_add_two_items_increments_code(client, active_event, admin_token):
 
     client.post(f"/intakes/{intake_id}/items", json={"description": "Skis", "brand": "Atomic", "price": 80.0}, headers=headers)
     r2 = client.post(f"/intakes/{intake_id}/items", json={"description": "Boots", "brand": "Rossignol", "price": 40.0}, headers=headers)
-    assert r2.json()["code"] == f"{seller_code}-02"
+    assert r2.json()["code"] == f"{seller_code}2"
 
 
 def test_import_items_from_excel(client, active_event, admin_token):
@@ -147,6 +147,7 @@ def test_import_items_from_excel(client, active_event, admin_token):
 
     wb = openpyxl.Workbook()
     ws = wb.active
+    assert ws is not None, "workbook has no active sheet"
     ws.append(["Description", "Category", "Brand", "Type", "Color", "Size", "Gender/Age", "Year", "Price", "Used", "Donate if Unsold"])
     ws.append(["Atomic skis", "Skis", "Atomic", "Alpine", "Red", "160cm", "Men", 2020, 120.0, "Yes", "No"])
     ws.append(["Ski boots", "Boots", "Salomon", "", "", "10", "", None, 50.0, "Yes", "No"])
@@ -177,6 +178,7 @@ def test_import_skips_rows_missing_price(client, active_event, admin_token):
 
     wb = openpyxl.Workbook()
     ws = wb.active
+    assert ws is not None, "workbook has no active sheet"
     ws.append(["Description", "Category", "Brand", "Type", "Color", "Size", "Gender/Age", "Year", "Price", "Used", "Donate if Unsold"])
     ws.append(["Good row", None, "Atomic", None, None, None, None, None, 30.0, "Yes", "No"])
     ws.append([None, None, None, None, None, None, None, None, None, "Yes", "No"])  # missing description AND price
@@ -219,7 +221,10 @@ def test_create_intake_no_active_event_returns_503(client, db):
     db.commit()
     db.refresh(user)
 
-    token = create_access_token(user.id, user.username, user.role, event.id)
+    # getattr: model attrs are untyped Columns; returns Any -> analyzer-clean.
+    token = create_access_token(
+        getattr(user, "id"), getattr(user, "username"), getattr(user, "role"), getattr(event, "id")
+    )
     resp = client.post(
         "/intakes",
         json={"seller_id": 1, "donate_unsold": False, "donate_proceeds": False},

@@ -30,6 +30,7 @@ from app.models.seller import Seller
 from app.schemas.item import ImportResult, ImportRowError
 from app.services.brand_match import closest_brand
 from app.services.canonical import canonicalize_category, canonicalize_type
+from app.services.codes import next_item_seq
 
 
 def parse_upload(filename: str, data: bytes) -> list[list[Any]]:
@@ -45,7 +46,10 @@ def parse_upload(filename: str, data: bytes) -> list[list[Any]]:
             wb = openpyxl.load_workbook(BytesIO(data))
         except Exception as exc:  # noqa: BLE001 - surface as a single 422
             raise ValueError("Invalid or unreadable xlsx file") from exc
-        return list(wb.active.iter_rows(min_row=2, values_only=True))
+        ws = wb.active
+        if ws is None:
+            raise ValueError("Uploaded xlsx has no readable sheet")
+        return [list(row) for row in ws.iter_rows(min_row=2, values_only=True)]
     if name.endswith(".csv") or name.endswith(".tsv"):
         delimiter = "\t" if name.endswith(".tsv") else ","
         text = data.decode("utf-8-sig", errors="replace")
@@ -90,14 +94,13 @@ def import_items(
 
     brands_pool = _existing_brands(db, seller)
 
-    prefix = f"{seller.code}-"
-    existing_codes = (
-        db.query(Item.code)
-        .join(Intake, Item.intake_id == Intake.id)
-        .filter(Intake.seller_id == seller.id, Item.code.like(f"{prefix}%"))
-        .all()
-    )
-    next_seq = max((int(r[0].rsplit("-", 1)[-1]) for r in existing_codes), default=0) + 1
+    # Item codes are globally-unique: seller code + an unpadded sequence
+    # number (e.g. "JSMI11"). The bump loop skips codes already taken by any
+    # seller (codes can be prefixes of one another); rows added below are
+    # tracked with a local counter because pending (uncommitted) rows are not
+    # visible to queries under autoflush=False.
+    prefix = f"{seller.code}"
+    seq = next_item_seq(db, seller)
 
     errors: list[ImportRowError] = []
     imported = 0
@@ -153,7 +156,11 @@ def import_items(
             errors.append(ImportRowError(row=i, reason=f"Invalid Price value: {price!r} (must be ≥ 0)"))
             skipped += 1
             continue
-        price_float = float(math.ceil(price_float))
+        # Whole-dollar pricing: round UP to the nearest dollar (decision
+        # 2026-08-29). math.ceil returns an int for finite input; the Float
+        # column coerces on flush, so no redundant float() call (which the
+        # analyzer's unchecked-throwing-call rule would flag).
+        price_float = math.ceil(price_float)
 
         # Brand closest-match: replace with an existing brand if one is close.
         brand_str = str(brand).strip()
@@ -163,7 +170,7 @@ def import_items(
         elif brand_str not in brands_pool:
             brands_pool.append(brand_str)  # later rows can match this newly-seen brand
 
-        item_code = f"{prefix}{next_seq:02d}"
+        item_code = f"{prefix}{seq}"
         used = str(used_str).strip().lower() != "no" if used_str is not None else True
         # Inherit donate_unsold from the intake when the row leaves it blank.
         if donate_str is None or str(donate_str).strip() == "":
@@ -201,7 +208,7 @@ def import_items(
             donate_unsold=donate,
             created_by=username,
         ))
-        next_seq += 1
+        seq += 1
         imported += 1
 
     db.commit()
