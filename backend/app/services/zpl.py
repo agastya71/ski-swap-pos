@@ -26,7 +26,7 @@ def _barcode_x(barcode: str) -> int:
     return max(0, (_PRINT_WIDTH - barcode_dots) // 2)
 
 
-def generate_zpl(item) -> str:
+def generate_zpl(item, copies: int | None = None) -> str:
     """Generate a ZPL II label string for the ZD421 (4", 203 dpi).
 
     Layout (all elements horizontally centered):
@@ -34,9 +34,11 @@ def generate_zpl(item) -> str:
       - Seller code + price (large)
       - Description, optional size/colour line, optional extra line
 
-    For items with quantity > 1 an ``^PQ`` command emits quantity copies — the
-    "N labels per N units" decision from tester feedback (2026-08-29): the
-    seller gets one tag per unit, all sharing the same item code.
+    Copies: with no explicit ``copies`` an ``^PQ`` command emits one tag per
+    on-hand remaining unit — the "N labels per N units" decision from tester
+    feedback (2026-08-29), so mid-event reprints only cover units still in
+    stock. With an explicit ``copies`` the ``^PQ`` emits exactly that many
+    labels (the "print a specified number of labels per item" flow).
     """
     barcode      = item.barcode_39 or item.code
     seller_code  = item.seller.code if item.seller else ""
@@ -48,10 +50,13 @@ def generate_zpl(item) -> str:
     try:
         # On-hand remaining (== intake quantity until a partial sale) —
         # reprints mid-event print labels only for units still in stock.
+        # An explicit `copies` overrides it ("print a specified number").
         quantity = int(getattr(item, "remaining", 1) or 1)
     except (TypeError, ValueError):
         quantity = 1
-    copies = f"^PQ{max(1, quantity)}\n" if quantity > 1 else ""
+    if copies is not None:
+        quantity = max(1, copies)
+    pq = f"^PQ{max(1, quantity)}\n" if quantity > 1 else ""
 
     return (
         "^XA\n"
@@ -60,7 +65,7 @@ def generate_zpl(item) -> str:
         f"^FO0,170^FB{pw},1,0,C,0^A0N,15,15^FD{description}^FS\n"
         f"^FO0,189^FB{pw},1,0,C,0^A0N,13,13^FD{line2}^FS\n"
         f"^FO0,206^FB{pw},1,0,C,0^A0N,13,13^FD{line3}^FS\n"
-        f"{copies}"
+        f"{pq}"
         "^XZ\n"
     )
 
@@ -74,14 +79,21 @@ def send_to_printer(zpl: str, printer_path: str = LABEL_PRINTER_PATH) -> None:
     if sys.platform == "darwin":
         _send_usb(zpl)
     else:
-        with open(printer_path, "wb") as f:
-            f.write(zpl.encode("utf-8"))
+        # pyusb is an optional dependency (macOS-only path); the Linux device
+        # write below is the primary path on this deployment.
+        # OSError (missing device) propagates: the label endpoints translate
+        # it into a 503 "Printer unavailable" response.
+        try:
+            with open(printer_path, "wb") as f:
+                f.write(zpl.encode("utf-8"))
+        except OSError:
+            raise
 
 
 def _send_usb(zpl: str) -> None:
     """Write ZPL directly to the Zebra USB bulk-OUT endpoint (macOS)."""
-    import usb.core
-    import usb.util
+    import usb.core  # pyright: ignore[reportMissingImports]  (optional macOS-only dep)
+    import usb.util  # pyright: ignore[reportMissingImports]
 
     dev = usb.core.find(idVendor=_ZEBRA_VID, idProduct=_ZEBRA_PID)
     if dev is None:

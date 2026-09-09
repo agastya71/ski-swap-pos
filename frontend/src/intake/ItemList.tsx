@@ -39,6 +39,9 @@ export function ItemList({ items, intakeId, onItemsChanged }: {
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [qtyAdjust, setQtyAdjust] = useState('')
   const [qtyError, setQtyError] = useState<string | null>(null)
+  // Per-row label-print counts ("print a specified number of labels per item").
+  const [printQty, setPrintQty] = useState<Record<number, string>>({})
+  const [printError, setPrintError] = useState<string | null>(null)
 
   /** Opens the edit panel for the given item, or closes it if already open. */
   function openEdit(item: Item) {
@@ -110,16 +113,37 @@ export function ItemList({ items, intakeId, onItemsChanged }: {
     }
   }
 
-  /** Prints the ZPL label for a single item and notifies the parent to refresh. */
+  /** Prints labels for every remaining unit of a single item ("all labels per item"). */
   async function handlePrintOne(id: number) {
-    await printLabel(id)
-    onItemsChanged()
+    setPrintError(null)
+    try {
+      await printLabel(id)
+      onItemsChanged()
+    } catch (err) {
+      setPrintError(err instanceof Error ? err.message : 'Print failed')
+    }
+  }
+
+  /** Prints an explicitly-specified number of labels for a single item. */
+  async function handlePrintCopies(id: number, count: number) {
+    setPrintError(null)
+    try {
+      await printLabel(id, count)
+      onItemsChanged()
+    } catch (err) {
+      setPrintError(err instanceof Error ? err.message : 'Print failed')
+    }
   }
 
   /** Prints ZPL labels for all items in the current intake and notifies the parent to refresh. */
   async function handlePrintAll() {
-    await printIntakeLabels(intakeId)
-    onItemsChanged()
+    setPrintError(null)
+    try {
+      await printIntakeLabels(intakeId)
+      onItemsChanged()
+    } catch (err) {
+      setPrintError(err instanceof Error ? err.message : 'Print failed')
+    }
   }
 
   if (items.length === 0) return <p>No items yet. Add items using the form above.</p>
@@ -127,9 +151,10 @@ export function ItemList({ items, intakeId, onItemsChanged }: {
   return (
     <div>
       {deleteError && <div role="alert" style={{ color: 'red', marginBottom: 8 }}>{deleteError}</div>}
+      {printError && <div role="alert" style={{ color: 'red', marginBottom: 8 }}>{printError}</div>}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <h4 style={{ margin: 0 }}>{items.length} item{items.length !== 1 ? 's' : ''}</h4>
-        <button onClick={handlePrintAll}>Print All Labels</button>
+        <button onClick={handlePrintAll}>Print Labels for All Items</button>
       </div>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
         <thead>
@@ -156,7 +181,31 @@ export function ItemList({ items, intakeId, onItemsChanged }: {
                 <td style={{ padding: '4px 8px', textAlign: 'right' }}>{item.remaining}</td>
                 <td style={{ padding: '4px 8px' }}>{item.label_printed ? '✓ printed' : '—'}</td>
                 <td style={{ padding: '4px 8px', whiteSpace: 'nowrap' }}>
-                  <button onClick={() => handlePrintOne(item.id)} style={{ marginRight: 4 }}>Print Label</button>
+                  {/* Print All Labels = one label per on-hand remaining unit.
+                      Print N = an explicitly-specified number of labels. */}
+                  <button
+                    aria-label={`Print all labels for ${item.code}`}
+                    onClick={() => void handlePrintOne(item.id)}
+                    style={{ marginRight: 4 }}
+                  >
+                    Print All Labels
+                  </button>
+                  <input
+                    aria-label={`Label count for ${item.code}`}
+                    type="number"
+                    min={1}
+                    value={printQty[item.id] ?? ''}
+                    onChange={(e) => setPrintQty((p) => ({ ...p, [item.id]: e.target.value }))}
+                    style={{ width: 52, marginRight: 2 }}
+                  />
+                  <button
+                    aria-label={`Print the specified number of labels for ${item.code}`}
+                    disabled={!(Number(printQty[item.id]) >= 1)}
+                    onClick={() => void handlePrintCopies(item.id, Number(printQty[item.id] ?? 0))}
+                    style={{ marginRight: 4 }}
+                  >
+                    Print
+                  </button>
                   <button onClick={() => openEdit(item)} style={{ marginRight: 4 }}>Edit</button>
                   {/* Per-row Delete (tester feedback: "Not seeing a Delete button").
                       Same soft-delete guardrails as the edit-panel Delete. */}
