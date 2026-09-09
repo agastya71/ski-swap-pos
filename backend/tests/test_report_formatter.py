@@ -4,7 +4,13 @@ import pytest
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 
-from app.schemas.reports import EndOfDayReport, SellerPayoutReport, SellerPayoutLineItem
+from app.schemas.reports import (
+    EndOfDayReport,
+    SellerPayoutReport,
+    SellerPayoutSaleLine,
+    SellerPayoutSellerInfo,
+    SellerPayoutUnsoldLine,
+)
 
 
 def _eod():
@@ -22,12 +28,25 @@ def _payout():
     return SellerPayoutReport(
         event_id=1, event_name="Test Event",
         seller_id=1, seller_code="ABC", seller_name="Jane Smith",
+        seller_email=None,
+        seller_info=SellerPayoutSellerInfo(
+            seller_code="ABC", seller_name="Jane Smith", company=None, is_vendor=False,
+            email=None, phone="612-555-0100", address=None, city=None, state=None, zip=None,
+            commission_rate=0.30,
+        ),
         items_consigned=2, items_sold=1, items_unsold=1, items_donated=0,
         gross_sales=20.00, mysl_total=6.00, seller_total=14.00,
-        line_items=[
-            SellerPayoutLineItem(item_code="ABC-001", description="Skis",
-                                 quantity=1.0, remaining=0.0,
-                                 price=20.00, sell_price=20.00, status="sold", mysl_share=6.0, seller_share=14.0, commission_rate=0.30),
+        sales=[
+            SellerPayoutSaleLine(item_code="ABC-001", description="Skis",
+                                 date_of_sale=datetime.now(timezone.utc),
+                                 quantity_sold=1.0, sell_price=20.00, extended_price=20.00,
+                                 mysl_share=6.0, seller_share=14.0, commission_rate=0.30),
+        ],
+        unsold_items=[
+            SellerPayoutUnsoldLine(item_code="ABC-002", description="Boots",
+                                   quantity=1.0, remaining=1.0, price=10.00,
+                                   status="available", donate_unsold=False,
+                                   mysl_share=0.0, seller_share=0.0, commission_rate=0.30),
         ],
         generated_at=datetime.now(timezone.utc),
     )
@@ -46,10 +65,13 @@ def test_format_csv_content_type():
     assert b"gross_revenue" in resp.body
 
 
-def test_format_csv_payout_has_line_items():
+def test_format_csv_payout_has_sales_and_unsold_sections():
     from app.services.report_formatter import format_report
     resp = format_report(_payout(), "csv", "payout_test")
     assert b"ABC-001" in resp.body
+    assert b"SALES" in resp.body
+    assert b"UNSOLD" in resp.body
+    assert b"612-555-0100" in resp.body  # seller contact info
 
 
 def test_format_md_content_type():

@@ -362,3 +362,62 @@ def test_payout_uses_vendor_rate_for_vendor_seller(
     # $100.00 * 0.25 vendor rate = $25.00 MYSL, $75.00 seller
     assert data["mysl_total"] == 25.00
     assert data["seller_total"] == 75.00
+
+
+# ── All-sellers payouts (batch) ───────────────────────────────────────────────
+
+def test_all_sellers_payouts_json(client, admin_token, active_event, rpt_sale, rpt_seller, rpt_item):
+    resp = client.get(
+        f"/reports/{active_event.id}/sellers-payouts",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["seller_count"] == 1
+    assert data["gross_sales_total"] == 25.00
+    p = data["sellers"][0]
+    assert p["seller_code"] == "RPT"
+    # Seller contact info included.
+    assert p["seller_info"]["seller_name"] == "Report Seller"
+    assert "email" in p["seller_info"]
+    # SALES + UNSOLD ITEMS sections.
+    assert len(p["sales"]) == 1
+    assert p["sales"][0]["item_code"] == rpt_item.code
+    assert p["sales"][0]["extended_price"] == 25.00
+    assert len(p["unsold_items"]) == 0
+
+
+def test_all_sellers_payouts_csv(client, admin_token, active_event, rpt_sale, rpt_seller):
+    resp = client.get(
+        f"/reports/{active_event.id}/sellers-payouts?format=csv",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    assert "text/csv" in resp.headers["content-type"]
+    assert b"RPT" in resp.content
+
+
+def test_all_sellers_payouts_includes_unsold_items(client, admin_token, active_event, rpt_seller, rpt_item, db):
+    from app.models.item import Item
+    extra = Item(intake_id=rpt_item.intake_id, seller_id=rpt_seller.id, code="RPT-02",
+                 description="Unsold boots", price=40.00, quantity=1.0, remaining=1.0,
+                 status="available", label_printed=False, created_by="admin")
+    db.add(extra)
+    db.commit()
+    resp = client.get(
+        f"/reports/{active_event.id}/sellers-payouts",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    p = resp.json()["sellers"][0]
+    assert len(p["unsold_items"]) == 1
+    assert p["unsold_items"][0]["item_code"] == "RPT-02"
+    assert p["items_consigned"] == 2
+
+
+def test_all_sellers_payouts_requires_admin(client, cashier_token, active_event):
+    resp = client.get(
+        f"/reports/{active_event.id}/sellers-payouts",
+        headers={"Authorization": f"Bearer {cashier_token}"},
+    )
+    assert resp.status_code == 403

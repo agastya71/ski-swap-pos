@@ -6,23 +6,59 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 
-class SellerPayoutLineItem(BaseModel):
-    """A single item row within a seller's payout report."""
+class SellerPayoutSellerInfo(BaseModel):
+    """Seller contact and settlement details shown on the payout report."""
+
+    seller_code: str = Field(description="Unique alphanumeric code identifying the seller.")
+    seller_name: str = Field(description="Full name of the seller (or company for vendors).")
+    company: Optional[str] = Field(default=None, description="Company name for vendor sellers.")
+    is_vendor: bool = Field(description="True when the seller is a commercial vendor.")
+    email: Optional[str] = Field(default=None, description="Seller's email address, if on file.")
+    phone: Optional[str] = Field(default=None, description="Seller's phone number, if on file.")
+    address: Optional[str] = Field(default=None, description="Seller's street address, if on file.")
+    city: Optional[str] = Field(default=None, description="Seller's city, if on file.")
+    state: Optional[str] = Field(default=None, description="Seller's state, if on file.")
+    zip: Optional[str] = Field(default=None, description="Seller's ZIP code, if on file.")
+    commission_rate: float = Field(description="Commission rate applied to this seller's sales.")
+
+
+class SellerPayoutSaleLine(BaseModel):
+    """A single sold-item row within the SALES section of a seller's payout."""
+
+    item_code: str = Field(description="Unique item code identifying the consigned item.")
+    description: Optional[str] = Field(default=None, description="Free-text description of the item.")
+    date_of_sale: Optional[datetime] = Field(default=None, description="Timestamp of the sale transaction.")
+    quantity_sold: float = Field(description="Units of the item sold in this transaction line.")
+    sell_price: float = Field(description="Actual price at which the item was sold (per unit).")
+    extended_price: float = Field(description="Quantity sold x sell price for this transaction line.")
+    mysl_share: float = Field(description="MYSL commission for this sale line.")
+    seller_share: float = Field(description="Seller payout for this sale line.")
+    commission_rate: float = Field(description="Commission rate applied to this sale line.")
+
+
+class SellerPayoutUnsoldLine(BaseModel):
+    """A single row within the UNSOLD ITEMS section of a seller's payout report."""
 
     item_code: str = Field(description="Unique item code identifying the consigned item.")
     description: Optional[str] = Field(default=None, description="Free-text description of the item.")
     quantity: float = Field(description="Original intake quantity of the item.")
     remaining: float = Field(description="On-hand units still available for sale.")
     price: float = Field(description="Original asking price set by the seller.")
-    sell_price: float = Field(description="Actual price at which the item was sold (per unit).")
-    status: str = Field(description="Final status of the item (e.g., 'sold', 'available', 'donated').")
-    mysl_share: float = Field(description="MYSL commission for this item (0 for non-sold items).")
-    seller_share: float = Field(description="Seller payout for this item (0 for non-sold items).")
-    commission_rate: float = Field(description="Commission rate applied (or that would apply) to this item.")
+    status: str = Field(description="Current status of the item (e.g., 'available', 'donated', 'returned').")
+    donate_unsold: bool = Field(description="True when the seller elected to donate this item if unsold.")
+    mysl_share: float = Field(default=0.0, description="MYSL commission for this item (always 0 for unsold items).")
+    seller_share: float = Field(default=0.0, description="Seller payout for this item (always 0 for unsold items).")
+    commission_rate: float = Field(description="Commission rate that would apply if this item sold.")
 
 
 class SellerPayoutReport(BaseModel):
-    """Complete payout summary for a single seller at the close of an event."""
+    """Complete payout summary for a single seller at the close of an event.
+
+    Structured in two detail sections: ``sales`` (every sold unit, with the
+    sale transaction line, prices, and commission shares) and
+    ``unsold_items`` (every item still on hand at close, including donated
+    and returned items).
+    """
 
     event_id: int = Field(description="ID of the event this payout report covers.")
     event_name: str = Field(description="Human-readable name of the event.")
@@ -30,6 +66,7 @@ class SellerPayoutReport(BaseModel):
     seller_code: str = Field(description="Unique alphanumeric code identifying the seller.")
     seller_name: str = Field(description="Full name of the seller.")
     seller_email: Optional[str] = Field(default=None, description="Seller's email address, if on file.")
+    seller_info: SellerPayoutSellerInfo = Field(description="Seller contact and settlement details.")
     items_consigned: int = Field(description="Total number of items the seller brought to the swap.")
     items_sold: int = Field(description="Number of the seller's items that were sold.")
     items_unsold: int = Field(description="Number of the seller's items that remain unsold.")
@@ -37,7 +74,21 @@ class SellerPayoutReport(BaseModel):
     gross_sales: float = Field(description="Total revenue generated from the seller's sold items.")
     mysl_total: float = Field(description="MYSL's commission share from this seller's sales.")
     seller_total: float = Field(description="Amount to be paid out to the seller after commission.")
-    line_items: list[SellerPayoutLineItem] = Field(description="Itemized breakdown of every consigned item and its outcome.")
+    sales: list[SellerPayoutSaleLine] = Field(description="SALES section: every non-voided sale line for this seller's items.")
+    unsold_items: list[SellerPayoutUnsoldLine] = Field(description="UNSOLD ITEMS section: every item still on hand (available, donated, or returned).")
+    generated_at: datetime = Field(description="UTC timestamp when this report was generated.")
+
+
+class SellersPayoutsReport(BaseModel):
+    """Payout reports for ALL sellers in an event, plus grand totals."""
+
+    event_id: int = Field(description="ID of the event this report covers.")
+    event_name: str = Field(description="Human-readable name of the event.")
+    seller_count: int = Field(description="Number of sellers included in this report.")
+    gross_sales_total: float = Field(description="Sum of every seller's gross sales.")
+    mysl_total: float = Field(description="Grand total MYSL commission across all sellers.")
+    seller_total: float = Field(description="Grand total payable to all sellers.")
+    sellers: list[SellerPayoutReport] = Field(description="Per-seller payout reports (one entry per seller, sorted by code).")
     generated_at: datetime = Field(description="UTC timestamp when this report was generated.")
 
 
