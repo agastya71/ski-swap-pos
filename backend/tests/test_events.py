@@ -94,3 +94,56 @@ def test_activate_event_requires_admin(client, cashier_token, active_event):
         headers={"Authorization": f"Bearer {cashier_token}"},
     )
     assert response.status_code == 403
+
+
+# ── GET /events/active ────────────────────────────────────────────────────────
+
+def test_get_active_event_any_authenticated_user(client, cashier_token, active_event):
+    """Cashiers/intake staff can read the active event (needed to display it on
+    checkout transactions and intake requests)."""
+    response = client.get("/events/active", headers={"Authorization": f"Bearer {cashier_token}"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == active_event.id
+    assert data["is_active"] is True
+    assert data["name"] == "MYSL Swap 2026"
+
+
+def test_get_active_event_intake_user(client, intake_token, active_event):
+    response = client.get("/events/active", headers={"Authorization": f"Bearer {intake_token}"})
+    assert response.status_code == 200
+    assert response.json()["id"] == active_event.id
+
+
+def test_get_active_event_none_configured(client, db):
+    """No ACTIVE event → 503 even if an inactive event exists (same contract as login)."""
+    from app.models.event import Event
+    from app.models.user import User
+    from app.services.auth import create_access_token, hash_password
+
+    event = Event(name="Dormant 2024", year=2024, is_active=False)
+    db.add(event)
+    db.flush()
+    db.add(
+        User(
+            event_id=event.id,
+            username="dormant_admin",
+            password_hash=hash_password("pw"),
+            role="admin",
+            is_active=True,
+        )
+    )
+    db.commit()
+    # Plain values: create_access_token takes ints/strs, not Column proxies.
+    user_id = db.query(User.id).filter(User.username == "dormant_admin").scalar()
+    event_id = db.query(Event.id).filter(Event.name == "Dormant 2024").scalar()
+    token = create_access_token(user_id, "dormant_admin", "admin", event_id)
+
+    response = client.get("/events/active", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 503
+    assert "no active event" in response.json()["detail"].lower()
+
+
+def test_get_active_event_requires_auth(client):
+    response = client.get("/events/active")
+    assert response.status_code == 403

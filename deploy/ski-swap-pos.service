@@ -1,0 +1,40 @@
+# Ski Swap POS — system daemon unit (template).
+#
+# Do NOT install this file by hand: the __PLACEHOLDER__ values are substituted
+# by deploy/install-service.sh, which copies it to /etc/systemd/system/.
+#
+# Install:
+#     sudo bash deploy/install-service.sh
+#
+# What it runs: repo-root start.sh (deps -> alembic -> repair/seed -> uvicorn
+# on 127.0.0.1:8001). Caddy fronts this on :443/:8000 and must already be
+# running (see deploy/install-caddy.sh). Logs go to the journal:
+#     journalctl -u ski-swap-pos -f
+
+[Unit]
+Description=Ski Swap POS (FastAPI + SPA via start.sh, uvicorn on 127.0.0.1:8001)
+Documentation=file:__REPO_DIR__/docs/runbook.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__APP_USER__
+Group=__APP_GROUP__
+WorkingDirectory=__REPO_DIR__
+# start.sh needs `uv` (~/.local/bin) and HOME for the uv cache (~/.cache/uv);
+# systemd does not run a login shell, so both are set explicitly.
+Environment=HOME=__APP_HOME__
+Environment=PATH=__APP_HOME__/.local/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin
+ExecStart=/usr/bin/bash __REPO_DIR__/start.sh
+# A POS box should never be down: restart on any exit (crash, failed dep
+# install, port hiccup) after 5s. `systemctl stop` always wins.
+Restart=always
+RestartSec=5
+# Mimic Ctrl+C so uvicorn shuts down gracefully (finish in-flight requests).
+KillSignal=SIGINT
+TimeoutStopSec=30
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
