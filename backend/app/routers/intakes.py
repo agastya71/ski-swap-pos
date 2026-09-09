@@ -16,6 +16,8 @@ from app.models.seller import Seller
 from app.models.user import User
 from app.schemas.intake import IntakeCreate, IntakeResponse, IntakeUpdate, IntakeWithItemsResponse
 from app.schemas.item import ImportResult, ImportRowError, ItemCreate, ItemResponse
+# Item codes combine the seller code with an unpadded sequence ("JSMI1" + 1 -> "JSMI11"):
+from app.services.codes import next_item_seq
 from app.services.zpl import generate_zpl, send_to_printer
 
 router = APIRouter(prefix="/intakes", tags=["intakes"])
@@ -82,26 +84,8 @@ def get_intake(
 ):
     """Return an intake session along with all its items."""
     event = _active_event(db)
-    return _get_intake_for_event(intake_id, event.id, db)
+    return _get_intake_for_event(intake_id, event.id, db)  # pyright: ignore[reportArgumentType]
 
-
-def _next_item_code(seller_id: int, seller_code: str, db: Session) -> str:
-    """Return the next sequential item code for a seller (e.g. '001-03').
-
-    Computes numeric max in Python rather than relying on SQL string ordering,
-    which is lexicographic and would break at sequence 10, 100, etc.
-    """
-    prefix = f"{seller_code}-"
-    rows = (
-        db.query(Item.code)
-        .join(Intake, Item.intake_id == Intake.id)
-        .filter(Intake.seller_id == seller_id, Item.code.like(f"{prefix}%"))
-        .all()
-    )
-    if not rows:
-        return f"{prefix}01"
-    max_seq = max(int(row[0].rsplit("-", 1)[-1]) for row in rows)
-    return f"{prefix}{max_seq + 1:02d}"
 
 
 @router.post("/{intake_id}/items", response_model=ItemResponse, status_code=201)
@@ -113,11 +97,11 @@ def add_item_to_intake(
 ):
     """Add a single item to an existing intake session with an auto-generated item code."""
     event = _active_event(db)
-    intake = _get_intake_for_event(intake_id, event.id, db)
+    intake = _get_intake_for_event(intake_id, event.id, db)  # pyright: ignore[reportArgumentType]
     seller = db.query(Seller).filter(Seller.id == intake.seller_id).first()
     if not seller:
         raise HTTPException(status_code=404, detail="Seller not found")
-    item_code = _next_item_code(intake.seller_id, seller.code, db)
+    item_code = f"{seller.code}{next_item_seq(db, seller)}"
     # donate_unsold inherits from the intake (which itself inherits from the
     # seller's default) unless explicitly set on this item.
     donate_unsold = body.donate_unsold if body.donate_unsold is not None else intake.donate_unsold
@@ -153,14 +137,14 @@ def import_items_from_excel(
     reported in the returned error list.
     """
     event = _active_event(db)
-    intake = _get_intake_for_event(intake_id, event.id, db)
+    intake = _get_intake_for_event(intake_id, event.id, db)  # pyright: ignore[reportArgumentType]
     seller = db.query(Seller).filter(Seller.id == intake.seller_id).first()
     if not seller:
         raise HTTPException(status_code=404, detail="Seller not found")
     data = file.file.read()
     try:
         from app.services.item_import import import_items as _import_items
-        return _import_items(db, intake, seller, current_user.username, file.filename, data)
+        return _import_items(db, intake, seller, current_user.username, file.filename, data)  # pyright: ignore[reportArgumentType]
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 
@@ -173,7 +157,7 @@ def print_intake_labels(
 ):
     """Print ZPL labels for all items in an intake session."""
     event = _active_event(db)
-    intake = _get_intake_for_event(intake_id, event.id, db)
+    intake = _get_intake_for_event(intake_id, event.id, db)  # pyright: ignore[reportArgumentType]
     printed = 0
     for item in intake.items:
         zpl = generate_zpl(item)
@@ -196,7 +180,7 @@ def update_intake(
 ):
     """Update metadata fields on an existing intake session."""
     event = _active_event(db)
-    intake = _get_intake_for_event(intake_id, event.id, db)
+    intake = _get_intake_for_event(intake_id, event.id, db)  # pyright: ignore[reportArgumentType]
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(intake, field, value)
     db.commit()
