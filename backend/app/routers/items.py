@@ -300,12 +300,20 @@ def update_item(
 @router.post("/{item_id}/label", response_model=ItemResponse)
 def print_item_label(
     item_id: int,
+    copies: int | None = None,
     db: Session = Depends(get_db),
     _user: User = Depends(_INTAKE_ADMIN),
 ):
-    """Send a ZPL label for the item to the configured label printer."""
+    """Send a ZPL label for the item to the configured label printer.
+
+    Optional ``copies``: print exactly that many labels (>= 1). When omitted,
+    the label prints one copy per on-hand remaining unit (the default "one
+    tag per unit" decision).
+    """
     item = _item_for_active_event(item_id, db)
-    zpl = generate_zpl(item)
+    if copies is not None and copies < 1:
+        raise HTTPException(status_code=422, detail="Copies must be at least 1")
+    zpl = generate_zpl(item, copies=copies)
     try:
         send_to_printer(zpl)
     except OSError as e:

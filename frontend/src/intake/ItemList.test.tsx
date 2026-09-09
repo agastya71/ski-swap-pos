@@ -136,21 +136,39 @@ describe('ItemList', () => {
     expect(onItemsChanged).not.toHaveBeenCalled()
   })
 
-  /** Verifies that clicking Print Label issues a POST to /items/:id/label. */
-  it('print label button calls POST /items/:id/label', async () => {
+  /** Verifies that clicking Print All Labels (per item) issues a POST to /items/:id/label. */
+  it('print all labels button (per item) calls POST /items/:id/label', async () => {
     let called = false
     server.use(http.post('/items/:id/label', () => { called = true; return new HttpResponse(null, { status: 204 }) }))
     render(<ItemList items={[ITEM]} intakeId={5} onItemsChanged={vi.fn()} />)
-    fireEvent.click(screen.getByRole('button', { name: /print label/i }))
+    fireEvent.click(screen.getByRole('button', { name: /print all labels for/i }))
     await waitFor(() => expect(called).toBe(true))
   })
 
-  /** Verifies that the Print All Labels button issues a POST to /intakes/:id/labels. */
-  it('shows Print All Labels button that calls POST /intakes/:id/labels', async () => {
+  /** Verifies that a specified label count issues a POST with ?copies=N. */
+  it('print button with a specified count calls POST /items/:id/label?copies=N', async () => {
+    let called2 = false
+    let labelUrl = ''
+    server.use(
+      http.post('/items/:id/label', ({ request }) => {
+        called2 = true
+        labelUrl = request.url
+        return new HttpResponse(null, { status: 204 })
+      }),
+    )
+    render(<ItemList items={[ITEM]} intakeId={5} onItemsChanged={vi.fn()} />)
+    fireEvent.change(screen.getByLabelText(/label count for/i), { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: /print the specified number/i }))
+    await waitFor(() => expect(called2).toBe(true))
+    expect(labelUrl).toContain('copies=3')
+  })
+
+  /** Verifies that the Print Labels for All Items button issues a POST to /intakes/:id/labels. */
+  it('shows Print Labels for All Items button that calls POST /intakes/:id/labels', async () => {
     let called = false
     server.use(http.post('/intakes/:id/labels', () => { called = true; return new HttpResponse(null, { status: 204 }) }))
     render(<ItemList items={[ITEM]} intakeId={5} onItemsChanged={vi.fn()} />)
-    fireEvent.click(screen.getByRole('button', { name: /print all labels/i }))
+    fireEvent.click(screen.getByRole('button', { name: /print labels for all items/i }))
     await waitFor(() => expect(called).toBe(true))
   })
 

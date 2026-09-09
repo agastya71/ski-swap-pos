@@ -172,3 +172,48 @@ def test_generate_zpl_no_copies_command_for_single_quantity(item):
     zpl = generate_zpl(item)
     assert "^PQ" not in zpl
     assert zpl.endswith("^XZ\n")
+
+
+# ── Explicit copies ("print a specified number of labels per item") ──────────
+
+def test_generate_zpl_explicit_copies_overrides_remaining(item):
+    from app.services.zpl import generate_zpl
+    item.remaining = 5
+    zpl = generate_zpl(item, copies=3)
+    assert "^PQ3" in zpl
+    assert "^PQ5" not in zpl
+
+
+def test_generate_zpl_copies_one_emits_no_pq_command(item):
+    from app.services.zpl import generate_zpl
+    zpl = generate_zpl(item, copies=1)
+    assert "^PQ" not in zpl
+
+
+def test_generate_zpl_default_copies_uses_remaining(item):
+    from app.services.zpl import generate_zpl
+    item.remaining = 4
+    zpl = generate_zpl(item)
+    assert "^PQ4" in zpl
+
+
+def test_print_label_with_copies_param(client, admin_token, item):
+    with patch("app.routers.items.send_to_printer") as mock_send:
+        resp = client.post(
+            f"/items/{item.id}/label?copies=3",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+    assert resp.status_code == 200
+    zpl_sent = mock_send.call_args[0][0]
+    assert "^PQ3" in zpl_sent
+    assert resp.json()["label_printed"] is True
+
+
+def test_print_label_copies_zero_returns_422(client, admin_token, item):
+    with patch("app.routers.items.send_to_printer") as mock_send:
+        resp = client.post(
+            f"/items/{item.id}/label?copies=0",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+    assert resp.status_code == 422
+    assert not mock_send.called
