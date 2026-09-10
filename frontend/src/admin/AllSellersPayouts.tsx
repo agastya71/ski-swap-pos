@@ -88,11 +88,7 @@ export function AllSellersPayouts({ eventId }: { eventId: number }) {
                             `$${report.gross_sales_total.toFixed(2)}`,
                         ],
                         [
-                            "MYSL Total (all)",
-                            `$${report.mysl_total.toFixed(2)}`,
-                        ],
-                        [
-                            "Seller Payouts (all)",
+                            "Due Seller (all)",
                             `$${report.seller_total.toFixed(2)}`,
                         ],
                     ].map(([label, val]) => (
@@ -150,9 +146,8 @@ export function AllSellersPayouts({ eventId }: { eventId: number }) {
                                     marginLeft: 8,
                                 }}
                             >
-                                Sold: {p.items_sold} · Unsold:{" "}
-                                {p.items_unsold} · Payout: $
-                                {p.seller_total.toFixed(2)}
+                                Sold: {p.items_sold} · Unsold: {p.items_unsold}{" "}
+                                · Payout: ${p.seller_total.toFixed(2)}
                             </span>
                         </h4>
                         <div style={{ display: "flex", gap: 8 }}>

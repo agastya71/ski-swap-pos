@@ -33,7 +33,7 @@ def create_sale(
 ):
     """Record a new sale transaction and mark the purchased items as sold."""
     event = _active_event(db)
-    return create_sale_atomic(db, body, event, current_user.username)
+    return create_sale_atomic(db, body, event, current_user.username)  # pyright: ignore[reportArgumentType]
 
 
 @router.get("/{sale_id}", response_model=SaleWithItemsResponse)
@@ -61,11 +61,11 @@ def void_sale(
     sale = db.query(Sale).filter(Sale.id == sale_id, Sale.event_id == event.id).first()
     if not sale:
         raise HTTPException(status_code=404, detail="Sale not found")
-    if sale.is_voided:
+    if sale.is_voided:  # pyright: ignore[reportGeneralTypeIssues]
         raise HTTPException(status_code=409, detail="Sale already voided")
     for sale_item in sale.sale_items:
         sale_item.item.remaining += sale_item.quantity
-    sale.is_voided = True
+    sale.is_voided = True  # pyright: ignore[reportAttributeAccessIssue]
     db.flush()
     # Recompute status per affected item: 'sold' if any non-voided sale_item
     # still references it, else 'available'.

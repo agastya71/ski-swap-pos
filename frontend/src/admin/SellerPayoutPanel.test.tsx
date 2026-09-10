@@ -17,7 +17,8 @@ describe("SellerPayoutPanel", () => {
     );
     expect(screen.getByText("Items Sold")).toBeInTheDocument();
     expect(screen.getByText("Gross Sales")).toBeInTheDocument();
-    expect(screen.getByText("Seller Payout")).toBeInTheDocument();
+    // "Due Seller" appears in the summary and as the SALES column heading.
+    expect(screen.getAllByText("Due Seller").length).toBeGreaterThan(0);
     expect(screen.getAllByText("$84.00")[0]).toBeInTheDocument();
   });
 
