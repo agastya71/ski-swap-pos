@@ -1,7 +1,11 @@
 """Reports router — generates end-of-event financial and inventory reports; requires admin role."""
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
+
+import io
+import zipfile
 
 from app.database import get_db
 from app.dependencies import require_roles
@@ -44,6 +48,32 @@ def get_all_seller_payouts(
     """
     report = report_svc.get_all_seller_payouts(db, event_id)
     return format_report(report, fmt, f"sellers_payouts_{event_id}")
+
+
+@router.get("/{event_id}/sellers-payouts/export-zip")
+def export_sellers_payouts_zip(
+    event_id: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(_ADMIN_ONLY),
+):
+    """Download a ZIP containing one Excel workbook and one PDF per seller.
+
+    Each seller's payout is exported as ``{seller_code}_payout.xlsx`` (three
+    sheets: Summary, Sales, Unsold Items) and ``{seller_code}_payout.pdf``,
+    so every seller's settlement can be distributed individually.
+    """
+    report = report_svc.get_all_seller_payouts(db, event_id)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for p in report.sellers:
+            base = f"{p.seller_code}_payout"
+            zf.writestr(f"{base}.xlsx", format_report(p, "xlsx", base).body)
+            zf.writestr(f"{base}.pdf", format_report(p, "pdf", base).body)
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="sellers_payouts_{event_id}.zip"'},
+    )
 
 
 @router.get("/{event_id}/revenue")
