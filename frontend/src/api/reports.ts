@@ -3,16 +3,16 @@
  * All report fetch endpoints require admin role.
  * {@link downloadFile} is a shared utility for browser file downloads.
  */
-import { apiFetch, getToken } from './client'
+import { apiFetch, getToken } from "./client";
 import type {
-  SellerPayoutReport,
-  SellersPayoutsReport,
-  EventRevenueReport,
-  DonationsReport,
-  UnsoldItemsReport,
-  EndOfDayReport,
-  TransactionsByUserReport,
-} from '../types'
+ SellerPayoutReport,
+ SellersPayoutsReport,
+ EventRevenueReport,
+ DonationsReport,
+ UnsoldItemsReport,
+ EndOfDayReport,
+ TransactionsByUserReport,
+} from "../types";
 
 /**
  * Fetch the payout report for a single seller.
@@ -24,7 +24,7 @@ import type {
  * @throws {ApiError} 401 if the session token is invalid.
  */
 export const getSellerPayout = (eventId: number, sellerId: number) =>
-  apiFetch<SellerPayoutReport>(`/reports/${eventId}/seller/${sellerId}`)
+ apiFetch<SellerPayoutReport>(`/reports/${eventId}/seller/${sellerId}`);
 
 /**
  * Fetch payout reports for ALL sellers in an event (sorted by seller code).
@@ -36,7 +36,7 @@ export const getSellerPayout = (eventId: number, sellerId: number) =>
  * @throws {ApiError} 401 if the session token is invalid.
  */
 export const getAllSellerPayouts = (eventId: number) =>
-  apiFetch<SellersPayoutsReport>(`/reports/${eventId}/sellers-payouts`)
+ apiFetch<SellersPayoutsReport>(`/reports/${eventId}/sellers-payouts`);
 
 /**
  * Fetch the aggregate revenue report for an event.
@@ -47,7 +47,7 @@ export const getAllSellerPayouts = (eventId: number) =>
  * @throws {ApiError} 401 if the session token is invalid.
  */
 export const getEventRevenue = (eventId: number) =>
-  apiFetch<EventRevenueReport>(`/reports/${eventId}/revenue`)
+ apiFetch<EventRevenueReport>(`/reports/${eventId}/revenue`);
 
 /**
  * Fetch the donations report listing all donated items for an event.
@@ -58,7 +58,7 @@ export const getEventRevenue = (eventId: number) =>
  * @throws {ApiError} 401 if the session token is invalid.
  */
 export const getDonations = (eventId: number) =>
-  apiFetch<DonationsReport>(`/reports/${eventId}/donations`)
+ apiFetch<DonationsReport>(`/reports/${eventId}/donations`);
 
 /**
  * Fetch the unsold inventory report for an event.
@@ -69,7 +69,7 @@ export const getDonations = (eventId: number) =>
  * @throws {ApiError} 401 if the session token is invalid.
  */
 export const getUnsoldItems = (eventId: number) =>
-  apiFetch<UnsoldItemsReport>(`/reports/${eventId}/unsold`)
+ apiFetch<UnsoldItemsReport>(`/reports/${eventId}/unsold`);
 
 /**
  * Fetch the end-of-day summary report for an event.
@@ -80,7 +80,7 @@ export const getUnsoldItems = (eventId: number) =>
  * @throws {ApiError} 401 if the session token is invalid.
  */
 export const getEndOfDay = (eventId: number) =>
-  apiFetch<EndOfDayReport>(`/reports/${eventId}/end-of-day`)
+ apiFetch<EndOfDayReport>(`/reports/${eventId}/end-of-day`);
 
 /**
  * Fetch the transactions-by-user report for an event.
@@ -89,7 +89,9 @@ export const getEndOfDay = (eventId: number) =>
  * @returns TransactionsByUserReport: per-cashier transaction listings and totals.
  */
 export function getTransactionsByUser(eventId: number) {
-  return apiFetch<TransactionsByUserReport>(`/reports/${eventId}/transactions-by-user`)
+ return apiFetch<TransactionsByUserReport>(
+  `/reports/${eventId}/transactions-by-user`,
+ );
 }
 
 /**
@@ -103,23 +105,23 @@ export function getTransactionsByUser(eventId: number) {
  * @throws {Error} If the server returns a non-2xx response.
  */
 export async function downloadFile(
-  path: string,
-  filename: string,
-  method: 'GET' | 'POST' = 'GET'
+ path: string,
+ filename: string,
+ method: "GET" | "POST" = "GET",
 ): Promise<void> {
-  const token = getToken()
-  const res = await fetch(path, {
-    method,
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  })
-  if (!res.ok) throw new Error(`Download failed: ${res.statusText}`)
-  const blob = await res.blob()
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
+ const token = getToken();
+ const res = await fetch(path, {
+  method,
+  headers: token ? { Authorization: `Bearer ${token}` } : {},
+ });
+ if (!res.ok) throw new Error(`Download failed: ${res.statusText}`);
+ const blob = await res.blob();
+ const url = URL.createObjectURL(blob);
+ const a = document.createElement("a");
+ a.href = url;
+ a.download = filename;
+ document.body.appendChild(a);
+ a.click();
+ document.body.removeChild(a);
+ URL.revokeObjectURL(url);
 }

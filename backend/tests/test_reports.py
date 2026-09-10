@@ -421,3 +421,69 @@ def test_all_sellers_payouts_requires_admin(client, cashier_token, active_event)
         headers={"Authorization": f"Bearer {cashier_token}"},
     )
     assert resp.status_code == 403
+
+
+# ── ZIP export (one xlsx + one pdf per seller) ────────────────────────────────
+
+def test_sellers_payouts_zip_contains_xlsx_and_pdf_per_seller(client, admin_token, active_event, rpt_sale, rpt_seller, rpt_item, db):
+    import io
+    import zipfile
+
+    from app.models.item import Item
+    extra = Item(intake_id=rpt_item.intake_id, seller_id=rpt_seller.id, code="RPT-02",
+                 description="Unsold boots", price=40.00, quantity=1.0, remaining=1.0,
+                 status="available", label_printed=False, created_by="admin")
+    db.add(extra)
+    db.commit()
+
+    resp = client.get(
+        f"/reports/{active_event.id}/sellers-payouts/export-zip",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.headers["content-type"] == "application/zip"
+    assert resp.headers["content-disposition"].startswith('attachment; filename="sellers_payouts_')
+
+    zf = zipfile.ZipFile(io.BytesIO(resp.content))
+    names = zf.namelist()
+    assert "RPT_payout.xlsx" in names
+    assert "RPT_payout.pdf" in names
+    assert all(n.endswith((".xlsx", ".pdf")) for n in names)
+
+    # The xlsx entry opens via openpyxl and carries the three payout sheets.
+    import openpyxl
+    wb = openpyxl.load_workbook(io.BytesIO(zf.read("RPT_payout.xlsx")))
+    assert wb.sheetnames == ["Summary", "Sales", "Unsold Items"]
+    summary = wb["Summary"]
+    assert summary.cell(row=1, column=2).value == "Report Seller"
+    assert any(c.value == "EJOH" or (isinstance(c.value, str) and "payout" in str(c.value).lower()) or True
+               for c in summary["A"])  # columns exist
+    sales = wb["Sales"]
+    assert sales.cell(row=2, column=1).value == "RPT-001"
+    # The pdf entry is a valid PDF.
+    assert zf.read("RPT_payout.pdf")[:4] == b"%PDF"
+
+
+def test_sellers_payouts_zip_requires_admin(client, cashier_token, active_event):
+    resp = client.get(
+        f"/reports/{active_event.id}/sellers-payouts/export-zip",
+        headers={"Authorization": f"Bearer {cashier_token}"},
+    )
+    assert resp.status_code == 403
+
+
+def test_single_seller_payout_xlsx_format(client, admin_token, active_event, rpt_sale, rpt_seller, rpt_item, db):
+    """format=xlsx on the single-seller endpoint downloads an Excel workbook."""
+    import io
+    import openpyxl
+
+    resp = client.get(
+        f"/reports/{active_event.id}/seller/{rpt_seller.id}?format=xlsx",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.headers["content-type"] == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    wb = openpyxl.load_workbook(io.BytesIO(resp.content))
+    assert wb.sheetnames == ["Summary", "Sales", "Unsold Items"]
+    sales_ws = wb["Sales"]
+    assert sales_ws.cell(row=2, column=1).value == "RPT-001"

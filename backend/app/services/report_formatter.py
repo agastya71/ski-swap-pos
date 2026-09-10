@@ -8,6 +8,8 @@ is dispatched by the public ``format_report`` entry point.
 import csv
 import io
 
+import openpyxl
+
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse, Response
 from fpdf import FPDF
@@ -23,7 +25,7 @@ from app.schemas.reports import (
     UnsoldItemsReport,
 )
 
-_VALID_FORMATS = {"json", "csv", "md", "pdf"}
+_VALID_FORMATS = {"json", "csv", "md", "pdf", "xlsx"}
 
 
 def format_report(report: BaseModel, fmt: str, filename_base: str) -> Response:
@@ -54,6 +56,8 @@ def format_report(report: BaseModel, fmt: str, filename_base: str) -> Response:
         return _to_csv(report, filename_base)
     if fmt == "md":
         return _to_md(report, filename_base)
+    if fmt == "xlsx":
+        return _to_xlsx(report, filename_base)
     return _to_pdf(report, filename_base)
 
 
@@ -531,4 +535,95 @@ def _to_pdf(report: BaseModel, filename_base: str) -> Response:
         content=bytes(pdf.output()),
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename_base}.pdf"'},
+    )
+
+
+def _payout_xlsx_bytes(report: SellerPayoutReport) -> bytes:
+    """Build an Excel workbook for one seller's payout.
+
+    Sheets: "Summary" (seller contact information + totals), "Sales" (every
+    non-voided sale line with prices and commission shares) and "Unsold
+    Items" (every item still on hand, with its donate election).
+    """
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    if ws is None:
+        raise ValueError("Workbook has no active sheet")
+    ws.title = "Summary"
+    info = report.seller_info
+    ws.append(["Seller Payout", report.seller_name, f"({report.seller_code})"])
+    ws.append([])
+    ws.append(["Event", report.event_name])
+    ws.append(["Generated", report.generated_at.strftime("%Y-%m-%d %H:%M UTC")])
+    ws.append(["Type", "Vendor — " + (info.company or "") if info.is_vendor else "Individual"])
+    ws.append(["Commission rate", info.commission_rate])
+    ws.append([])
+    for label, value in [
+        ("Phone", info.phone), ("Email", info.email), ("Address", info.address),
+        ("City", info.city), ("State", info.state), ("ZIP", info.zip),
+    ]:
+        if value:
+            ws.append([label, value])
+    ws.append([])
+    ws.append(["Items Consigned", report.items_consigned])
+    ws.append(["Items Sold", report.items_sold])
+    ws.append(["Items Unsold", report.items_unsold])
+    ws.append(["Items Donated", report.items_donated])
+    ws.append(["Gross Sales", report.gross_sales])
+    ws.append(["MYSL Total", report.mysl_total])
+    ws.append(["Seller Payout", report.seller_total])
+
+    ws_sales = wb.create_sheet("Sales")
+    ws_sales.append(["Item Code", "Description", "Date Sold", "Qty", "Sell Price",
+                     "Extended", "MYSL", "Seller", "Rate"])
+    for s in report.sales:
+        ws_sales.append([s.item_code, s.description, s.date_of_sale, s.quantity_sold,
+                         s.sell_price, s.extended_price, s.mysl_share, s.seller_share,
+                         s.commission_rate])
+    ws_sales.append([])
+    ws_sales.append(["Sales Total", "", "", "", "", round(report.gross_sales, 2),
+                     round(report.mysl_total, 2), round(report.seller_total, 2)])
+
+    ws_unsold = wb.create_sheet("Unsold Items")
+    ws_unsold.append(["Item Code", "Description", "Qty", "Remaining", "Price",
+                      "Status", "Donate if Unsold"])
+    for u in report.unsold_items:
+        ws_unsold.append([u.item_code, u.description, u.quantity, u.remaining,
+                          u.price, u.status, u.donate_unsold])
+    ws_unsold.append([])
+    ws_unsold.append(["Items on hand", len(report.unsold_items)])
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf.getvalue()
+
+
+def _to_xlsx(report: BaseModel, filename_base: str) -> Response:
+    """Render a report as a downloadable Excel (xlsx) response.
+
+    SellerPayoutReport gets a three-sheet workbook (Summary / Sales /
+    Unsold Items); other report types fall back to a single-sheet
+    header + values dump (mirroring the generic CSV branch).
+    """
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    if ws is None:
+        raise HTTPException(status_code=500, detail="Workbook has no active sheet")
+
+    if isinstance(report, SellerPayoutReport):
+        content = _payout_xlsx_bytes(report)
+    else:
+        data = report.model_dump(mode="json")
+        ws.append(list(data.keys()))
+        ws.append([str(v) for v in data.values()])
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        content = buf.getvalue()
+
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename_base}.xlsx"'},
     )
