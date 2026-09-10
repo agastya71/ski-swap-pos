@@ -352,59 +352,63 @@ def _to_pdf(report: BaseModel, filename_base: str) -> Response:
         pdf.set_font("Helvetica", "B", 10)
         pdf.cell(0, 6, "Sales")
         pdf.ln(6)
-        for hdr, width in [("Item Code", 26), ("Description", 42), ("Date", 32),
-                            ("Qty", 10), ("Sell", 16), ("Extended", 18),
-                            ("MYSL", 18), ("Seller", 18), ("Rate", 14)]:
-            pdf.cell(width, 6, hdr, border=1)
-        pdf.ln()
-        pdf.set_font("Helvetica", "", 9)
-        for s in report.sales:
+        # Shared column geometry: headers, data rows and page-break headers all
+        # render through the same width list, so they can never drift apart.
+        # Total width must stay within the printable page width (190mm on A4).
+        sales_cols = [("Item Code", 24), ("Description", 40), ("Date", 28),
+                      ("Qty", 10), ("Sell", 15), ("Total", 16),
+                      ("MYSL", 16), ("Seller", 16), ("Rate", 12)]
+
+        def _pdf_row(cells: list[str], bold: bool = False) -> None:
             if pdf.get_y() > 260:
                 pdf.add_page()
-                pdf.set_font("Helvetica", "B", 10)
-                for hdr, width in [("Item Code", 26), ("Description", 42), ("Date", 32),
-                                    ("Qty", 10), ("Sell", 16), ("Extended", 18),
-                                    ("MYSL", 18), ("Seller", 18), ("Rate", 14)]:
-                    pdf.cell(width, 6, hdr, border=1)
-                pdf.ln()
-                pdf.set_font("Helvetica", "", 9)
-            when = s.date_of_sale.strftime("%Y-%m-%d") if s.date_of_sale else "—"
-            pdf.cell(26, 6, _safe(s.item_code), border=1)
-            pdf.cell(42, 6, _safe((s.description or "")[:26]), border=1)
-            pdf.cell(32, 6, _safe(when), border=1)
-            pdf.cell(10, 6, f"{s.quantity_sold:G}", border=1)
-            pdf.cell(16, 6, f"${s.sell_price:.2f}", border=1)
-            pdf.cell(16, 6, f"${s.extended_price:.2f}", border=1)
-            pdf.cell(18, 6, f"${s.mysl_share:.2f}", border=1)
-            pdf.cell(18, 6, f"${s.seller_share:.2f}", border=1)
-            pdf.cell(14, 6, f"{s.commission_rate:.0%}", border=1)
+                _pdf_row([hdr for hdr, _ in sales_cols], bold=True)
+            pdf.set_font("Helvetica", "B" if bold else "", 10 if bold else 9)
+            for text, (_, width) in zip(cells, sales_cols):
+                pdf.cell(width, 6, text, border=1)
             pdf.ln()
+
+        _pdf_row([hdr for hdr, _ in sales_cols], bold=True)
+        for s in report.sales:
+            when = s.date_of_sale.strftime("%Y-%m-%d") if s.date_of_sale else "—"
+            _pdf_row([
+                _safe(s.item_code),
+                _safe((s.description or "")[:24]),
+                _safe(when),
+                f"{s.quantity_sold:G}",
+                f"${s.sell_price:.2f}",
+                f"${s.extended_price:.2f}",
+                f"${s.mysl_share:.2f}",
+                f"${s.seller_share:.2f}",
+                f"{s.commission_rate:.0%}",
+            ])
         pdf.ln(8)
         pdf.set_font("Helvetica", "B", 10)
         pdf.cell(0, 6, "Unsold Items")
         pdf.ln(6)
-        for hdr, width in [("Item Code", 26), ("Description", 50), ("Qty", 12),
-                            ("Rem", 12), ("Price", 18), ("Status", 20), ("Donate", 14)]:
-            pdf.cell(width, 6, hdr, border=1)
-        pdf.ln()
-        pdf.set_font("Helvetica", "", 9)
-        for u in report.unsold_items:
+        unsold_cols = [("Item Code", 24), ("Description", 44), ("Qty", 10),
+                       ("Rem", 10), ("Price", 16), ("Status", 18), ("Donate", 14)]
+
+        def _unsold_row(cells: list[str], bold: bool = False) -> None:
             if pdf.get_y() > 260:
                 pdf.add_page()
-                pdf.set_font("Helvetica", "B", 10)
-                for hdr, width in [("Item Code", 26), ("Description", 50), ("Qty", 12),
-                                    ("Rem", 12), ("Price", 18), ("Status", 20), ("Donate", 14)]:
-                    pdf.cell(width, 6, hdr, border=1)
-                pdf.ln()
-                pdf.set_font("Helvetica", "", 9)
-            pdf.cell(26, 6, _safe(u.item_code), border=1)
-            pdf.cell(50, 6, _safe((u.description or "")[:32]), border=1)
-            pdf.cell(12, 6, f"{u.quantity:G}", border=1)
-            pdf.cell(12, 6, f"{u.remaining:G}", border=1)
-            pdf.cell(18, 6, f"${u.price:.2f}", border=1)
-            pdf.cell(20, 6, _safe(u.status), border=1)
-            pdf.cell(14, 6, str(u.donate_unsold), border=1)
+                _unsold_row([hdr for hdr, _ in unsold_cols], bold=True)
+            pdf.set_font("Helvetica", "B" if bold else "", 10 if bold else 9)
+            for text, (_, width) in zip(cells, unsold_cols):
+                pdf.cell(width, 6, text, border=1)
             pdf.ln()
+
+        _unsold_row([hdr for hdr, _ in unsold_cols], bold=True)
+        for u in report.unsold_items:
+            _unsold_row([
+                _safe(u.item_code),
+                _safe((u.description or "")[:26]),
+                f"{u.quantity:G}",
+                f"{u.remaining:G}",
+                f"${u.price:.2f}",
+                _safe(u.status),
+                str(u.donate_unsold),
+            ])
 
     elif isinstance(report, EventRevenueReport):
         pdf.cell(0, 8, _safe(f"Event Revenue: {report.event_name}"))
