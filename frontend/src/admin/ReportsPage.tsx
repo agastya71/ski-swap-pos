@@ -1,9 +1,9 @@
 /**
  * Admin reports page — aggregates and displays four end-of-event reports:
- * Event Revenue, Donations, Unsold Items, and per-Seller Payout. The first
+ * Event Revenue, Donations, Unsold Items, and the per-seller Due Seller report. The first
  * three sections are collapsed by default showing only totals; clicking the
  * section heading expands the full table. Download CSV is always accessible.
- * Seller Payout section remains always visible with an ID-based lookup form.
+ * Due Seller section remains always visible with a seller-lookup form.
  */
 
 import { useState, useEffect, type ReactNode, type FormEvent } from "react";
@@ -41,7 +41,7 @@ export function ReportsPage({ eventId }: { eventId: number }) {
   // The seller whose payout is currently shown. Set on "Get Payout" submit;
   // the actual report is fetched and rendered by <SellerPayoutPanel>.
   const [payoutSeller, setPayoutSeller] = useState<Seller | null>(null);
-  // Whether the "Generate All Sellers' Payouts" batch view is expanded.
+  // Whether the Generate All Due Sellers batch view is expanded.
   const [generateAll, setGenerateAll] = useState(false);
   const [transactions, setTransactions] =
     useState<TransactionsByUserReport | null>(null);
@@ -509,7 +509,7 @@ export function ReportsPage({ eventId }: { eventId: number }) {
         )}
       </section>
 
-      {/* Seller Payout Lookup */}
+      {/* Due Seller */}
       <section style={{ marginBottom: 32 }}>
         <div
           style={{
@@ -518,10 +518,10 @@ export function ReportsPage({ eventId }: { eventId: number }) {
             alignItems: "center",
           }}
         >
-          <h3>Seller Payout</h3>
+          <h3>Due Seller</h3>
           <div style={{ display: "flex", gap: 8 }}>
             <button
-              aria-label="Generate all sellers payouts"
+              aria-label="Generate all due sellers payouts"
               onClick={() => setGenerateAll((prev) => !prev)}
               style={{
                 border: "1px solid #1a237e",
@@ -533,7 +533,7 @@ export function ReportsPage({ eventId }: { eventId: number }) {
                 fontSize: 13,
               }}
             >
-              {generateAll ? "Hide" : "Generate All Sellers’ Payouts"}
+              {generateAll ? "Hide" : "Generate All Due Sellers"}
             </button>
             {payoutSeller && (
               <button
@@ -601,9 +601,9 @@ export function ReportsPage({ eventId }: { eventId: number }) {
                 marginBottom: 8,
               }}
             >
-              <h4 style={{ margin: 0 }}>All Sellers’ Payouts</h4>
+              <h4 style={{ margin: 0 }}>All Due Sellers</h4>
               <button
-                aria-label="Download all sellers payouts csv"
+                aria-label="Download all due sellers payouts csv"
                 onClick={() =>
                   downloadFile(
                     `/reports/${eventId}/sellers-payouts?format=csv`,

@@ -131,9 +131,7 @@ describe("PaymentForm", () => {
   /** Verifies the onCancel callback is invoked exactly once when the Cancel button is clicked. */
   it("calls onCancel when Cancel is clicked", () => {
     const onCancel = vi.fn();
-    render(
-      <PaymentForm total={115} onSubmit={vi.fn()} onCancel={onCancel} />,
-    );
+    render(<PaymentForm total={115} onSubmit={vi.fn()} onCancel={onCancel} />);
     fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
     expect(onCancel).toHaveBeenCalledTimes(1);
   });

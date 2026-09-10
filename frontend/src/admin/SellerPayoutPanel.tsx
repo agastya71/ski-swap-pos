@@ -5,16 +5,9 @@ import type { SellerPayoutReport } from "../types";
 /** Contact lines shown in the seller-info block (nulls skipped at render). */
 function contactString(payout: SellerPayoutReport): string {
     const info = payout.seller_info;
-    return [
-        info.phone,
-        info.email,
-        info.address,
-        info.city,
-        info.state,
-        info.zip,
-    ]
-        .filter(Boolean)
-        .map(String)
+    // Single pass (flatMap) — collects the non-null contact lines.
+    return [info.phone, info.email, info.address, info.city, info.state, info.zip]
+        .flatMap((v) => (v ? [String(v)] : []))
         .join(", ");
 }
 
@@ -85,8 +78,7 @@ export function SellerPayoutDetails({
                         ["Items Consigned", String(payout.items_consigned)],
                         ["Items Sold", String(payout.items_sold)],
                         ["Gross Sales", `$${payout.gross_sales.toFixed(2)}`],
-                        ["MYSL Total", `$${payout.mysl_total.toFixed(2)}`],
-                        ["Seller Payout", `$${payout.seller_total.toFixed(2)}`],
+                        ["Due Seller", `$${payout.seller_total.toFixed(2)}`],
                     ].map(([label, val]) => (
                         <tr
                             key={label}
@@ -135,8 +127,7 @@ export function SellerPayoutDetails({
                                     "Qty",
                                     "Sell Price",
                                     "Extended",
-                                    "MYSL",
-                                    "Seller",
+                                    "Due Seller",
                                     "Rate",
                                 ] as const
                             ).map((h) => (
@@ -148,8 +139,7 @@ export function SellerPayoutDetails({
                                             "Qty",
                                             "Sell Price",
                                             "Extended",
-                                            "MYSL",
-                                            "Seller",
+                                            "Due Seller",
                                             "Rate",
                                         ].includes(h)
                                             ? "right"
@@ -184,9 +174,6 @@ export function SellerPayoutDetails({
                                     ${s.extended_price.toFixed(2)}
                                 </td>
                                 <td style={tdNum}>
-                                    ${s.mysl_share.toFixed(2)}
-                                </td>
-                                <td style={tdNum}>
                                     ${s.seller_share.toFixed(2)}
                                 </td>
                                 <td style={tdNum}>
@@ -205,9 +192,6 @@ export function SellerPayoutDetails({
                             </td>
                             <td style={tdNum}>
                                 ${payout.gross_sales.toFixed(2)}
-                            </td>
-                            <td style={tdNum}>
-                                ${payout.mysl_total.toFixed(2)}
                             </td>
                             <td style={tdNum}>
                                 ${payout.seller_total.toFixed(2)}
