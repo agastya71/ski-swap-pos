@@ -165,11 +165,9 @@ export function POSPage() {
         cash_amount: p.cash,
         check_amount: p.check,
         check_number: p.checkNumber || undefined,
-        cc_amount: p.square,
-        cc_transaction_id:
-          p.square > 0
-            ? p.squareToken || p.cardTransactionId || undefined
-            : undefined,
+        cc_amount: p.credit_card,
+        // No card transaction reference yet — the Square integration (pending)
+        // will capture and supply one when it lands.
         notes: p.notes || undefined,
       });
       persistSale(created);
@@ -307,8 +305,6 @@ export function POSPage() {
             )}
             <PaymentForm
               total={total}
-              squareToken={squareToken}
-              cardEnabled={SQUARE_CARD_ENABLED}
               onSubmit={handlePayment}
               onCancel={handleCancelCheckout}
             />

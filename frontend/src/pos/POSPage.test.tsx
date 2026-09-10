@@ -361,14 +361,16 @@ describe("POSPage", () => {
   });
 
   /** Verifies the Square card option is hidden from the checkout screen
-   *  (integration not complete), while cash and check remain available. */
+   *  (integration not complete) while a plain Credit Card field, cash and
+   *  check remain available. */
   it("hides the Square card option from the checkout screen", () => {
     renderPOS();
     expect(screen.queryByText(/pay by card/i)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/card \(\$\)/i)).not.toBeInTheDocument();
     expect(
       screen.queryByLabelText(/card transaction id/i),
     ).not.toBeInTheDocument();
+    // Plain credit-card tender IS available (entered manually — Square pending).
+    expect(screen.getByLabelText(/credit card/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/cash/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/check/i)).toBeInTheDocument();
   });
