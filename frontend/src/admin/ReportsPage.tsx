@@ -536,16 +536,30 @@ export function ReportsPage({ eventId }: { eventId: number }) {
               {generateAll ? "Hide" : "Generate All Due Sellers"}
             </button>
             {payoutSeller && (
-              <button
-                onClick={() =>
-                  downloadFile(
-                    `/reports/${eventId}/seller/${payoutSeller.id}?format=csv`,
-                    `payout-${payoutSeller.code}.csv`,
-                  )
-                }
-              >
-                Download CSV
-              </button>
+              <>
+                <button
+                  aria-label={`Download xlsx statement for ${payoutSeller.code}`}
+                  onClick={() =>
+                    void downloadFile(
+                      `/reports/${eventId}/seller/${payoutSeller.id}?format=xlsx`,
+                      `${payoutSeller.code}_payout.xlsx`,
+                    )
+                  }
+                >
+                  Download XLSX
+                </button>
+                <button
+                  aria-label={`Download pdf statement for ${payoutSeller.code}`}
+                  onClick={() =>
+                    void downloadFile(
+                      `/reports/${eventId}/seller/${payoutSeller.id}?format=pdf`,
+                      `${payoutSeller.code}_payout.pdf`,
+                    )
+                  }
+                >
+                  Download PDF
+                </button>
+              </>
             )}
           </div>
         </div>
