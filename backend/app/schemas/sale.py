@@ -28,7 +28,7 @@ class SaleCreate(BaseModel):
     check_amount: float = Field(default=0.0, description="Amount tendered by the buyer by check.")
     check_number: Optional[str] = Field(default=None, description="Check number for the check tender, if applicable.")
     cc_amount: float = Field(default=0.0, description="Amount tendered by the buyer by credit/debit card.")
-    cc_transaction_id: Optional[str] = Field(default=None, description="Square transaction id (or card reference) when payment is by card.")
+    cc_transaction_id: Optional[str] = Field(default=None, description="Card transaction/reference id when available (e.g., from a payment terminal); optional — manual credit-card tender does not require one.")
     items: list[SaleItemCreate] = Field(description="One or more line items included in this sale; must not be empty.")
 
     @field_validator("items")
@@ -42,8 +42,9 @@ class SaleCreate(BaseModel):
     def _validate_payment_ids(self) -> "SaleCreate":
         if self.check_amount > 0 and not (self.check_number and self.check_number.strip()):
             raise ValueError("check_number is required when check_amount > 0")
-        if self.cc_amount > 0 and not (self.cc_transaction_id and self.cc_transaction_id.strip()):
-            raise ValueError("cc_transaction_id is required when cc_amount > 0")
+        # cc_transaction_id is intentionally optional: credit-card tender is
+        # recorded manually for now; the Square integration (pending) will
+        # supply transaction ids later.
         return self
 
 

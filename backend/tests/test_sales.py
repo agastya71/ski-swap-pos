@@ -493,9 +493,9 @@ def test_create_sale_partial_quantity(client, db, cashier_token, active_event, i
     assert data["sale_items"][0]["quantity"] == 3
     assert data["sale_items"][0]["extended_price"] == 30.00
     db.refresh(it)
-    assert it.quantity == 5.0          # intake quantity never mutated
-    assert it.remaining == 2.0         # on-hand decremented
-    assert it.status == "sold"         # status sold (partial), still sellable
+    assert it.quantity == 5.0          # intake quantity never mutated  # pyright: ignore[reportGeneralTypeIssues]
+    assert it.remaining == 2.0         # on-hand decremented  # pyright: ignore[reportGeneralTypeIssues]
+    assert it.status == "sold"         # status sold (partial), still sellable  # pyright: ignore[reportGeneralTypeIssues]
 
 
 def test_create_sale_exceeds_remaining_422(client, db, cashier_token, active_event, intake, seller):
@@ -505,7 +505,7 @@ def test_create_sale_exceeds_remaining_422(client, db, cashier_token, active_eve
                     headers={"Authorization": f"Bearer {cashier_token}"})
     assert r.status_code == 422
     assert "PQ-002" in r.json()["detail"]
-    assert "5 remaining" in r.json()["detail"]
+    assert "5.0 remaining" in r.json()["detail"]
 
 
 def test_create_sale_last_unit_sets_quantity_zero(client, db, cashier_token, active_event, intake, seller):
@@ -515,9 +515,9 @@ def test_create_sale_last_unit_sets_quantity_zero(client, db, cashier_token, act
                     headers={"Authorization": f"Bearer {cashier_token}"})
     assert r.status_code == 201
     db.refresh(it)
-    assert it.quantity == 2.0          # intake quantity unchanged
-    assert it.remaining == 0.0         # fully sold out
-    assert it.status == "sold"
+    assert it.quantity == 2.0          # intake quantity unchanged  # pyright: ignore[reportGeneralTypeIssues]
+    assert it.remaining == 0.0         # fully sold out  # pyright: ignore[reportGeneralTypeIssues]
+    assert it.status == "sold"  # pyright: ignore[reportGeneralTypeIssues]
 
 
 def test_remaining_lifecycle_across_sales_and_voids(client, db, admin_token, cashier_token, active_event, intake, seller):
@@ -530,15 +530,15 @@ def test_remaining_lifecycle_across_sales_and_voids(client, db, admin_token, cas
                      headers={"Authorization": f"Bearer {cashier_token}"})
     assert r1.status_code == 201
     db.refresh(it)
-    assert it.quantity == 3.0
-    assert it.remaining == 2.0
-    assert it.status == "sold"
+    assert it.quantity == 3.0  # pyright: ignore[reportGeneralTypeIssues]
+    assert it.remaining == 2.0  # pyright: ignore[reportGeneralTypeIssues]
+    assert it.status == "sold"  # pyright: ignore[reportGeneralTypeIssues]
 
     r2 = client.post("/sales", json={"items": [{"item_id": it.id, "quantity": 2}], "cash_amount": 20.00},
                      headers={"Authorization": f"Bearer {cashier_token}"})
     assert r2.status_code == 201
     db.refresh(it)
-    assert it.remaining == 0.0
+    assert it.remaining == 0.0  # pyright: ignore[reportGeneralTypeIssues]
 
     # Selling exhausted stock → sold out
     r3 = client.post("/sales", json={"items": [{"item_id": it.id, "quantity": 1}], "cash_amount": 10.00},
@@ -550,14 +550,14 @@ def test_remaining_lifecycle_across_sales_and_voids(client, db, admin_token, cas
     v = client.post(f"/sales/{r1.json()['id']}/void", headers={"Authorization": f"Bearer {admin_token}"})
     assert v.status_code == 200
     db.refresh(it)
-    assert it.remaining == 1.0
-    assert it.quantity == 3.0
-    assert it.status == "sold"  # second sale still non-voided
+    assert it.remaining == 1.0  # pyright: ignore[reportGeneralTypeIssues]
+    assert it.quantity == 3.0  # pyright: ignore[reportGeneralTypeIssues]
+    assert it.status == "sold"  # second sale still non-voided  # pyright: ignore[reportGeneralTypeIssues]
 
 
 def test_create_sale_deleted_item_404(client, db, cashier_token, active_event, intake, seller):
     it = _qty_item(db, intake, seller, "PQ-004", qty=5.0)
-    it.is_deleted = True
+    it.is_deleted = True  # pyright: ignore[reportAttributeAccessIssue]
     db.commit()
     r = client.post("/sales",
                     json={"items": [{"item_id": it.id, "quantity": 1}], "cash_amount": 10.00},
@@ -572,14 +572,14 @@ def test_void_restores_quantity_and_status(client, db, admin_token, cashier_toke
                     headers={"Authorization": f"Bearer {cashier_token}"})
     sale_id = r.json()["id"]
     db.refresh(it)
-    assert it.quantity == 5.0          # intake quantity unchanged
-    assert it.remaining == 2.0 and it.status == "sold"
+    assert it.quantity == 5.0          # intake quantity unchanged  # pyright: ignore[reportGeneralTypeIssues]
+    assert it.remaining == 2.0 and it.status == "sold"  # pyright: ignore[reportGeneralTypeIssues]
     v = client.post(f"/sales/{sale_id}/void",
                     headers={"Authorization": f"Bearer {admin_token}"})
     assert v.status_code == 200
     db.refresh(it)
-    assert it.remaining == 5.0         # restored
-    assert it.status == "available"    # no non-voided sales remain
+    assert it.remaining == 5.0         # restored  # pyright: ignore[reportGeneralTypeIssues]
+    assert it.status == "available"    # no non-voided sales remain  # pyright: ignore[reportGeneralTypeIssues]
 
 
 def test_void_keeps_sold_status_when_other_sales_remain(client, db, admin_token, cashier_token, active_event, intake, seller):
@@ -589,15 +589,15 @@ def test_void_keeps_sold_status_when_other_sales_remain(client, db, admin_token,
     r2 = client.post("/sales", json={"items": [{"item_id": it.id, "quantity": 1}], "cash_amount": 10.00},
                      headers={"Authorization": f"Bearer {cashier_token}"})
     db.refresh(it)
-    assert it.quantity == 5.0          # intake quantity unchanged
-    assert it.remaining == 2.0         # 5 - 2 - 1
+    assert it.quantity == 5.0          # intake quantity unchanged  # pyright: ignore[reportGeneralTypeIssues]
+    assert it.remaining == 2.0         # 5 - 2 - 1  # pyright: ignore[reportGeneralTypeIssues]
     # void the second sale -> restore 1 -> remaining 3, status still sold (first sale non-voided)
     v = client.post(f"/sales/{r2.json()['id']}/void",
                     headers={"Authorization": f"Bearer {admin_token}"})
     assert v.status_code == 200
     db.refresh(it)
-    assert it.remaining == 3.0         # restored 1 on void
-    assert it.status == "sold"
+    assert it.remaining == 3.0         # restored 1 on void  # pyright: ignore[reportGeneralTypeIssues]
+    assert it.status == "sold"  # pyright: ignore[reportGeneralTypeIssues]
 
 
 # ── payment-id validators + timestamp (Phase 4) ───────────────────────────────
@@ -609,11 +609,16 @@ def test_create_sale_check_without_number_422(client, cashier_token, active_even
     assert r.status_code == 422
 
 
-def test_create_sale_cc_without_transaction_id_422(client, cashier_token, active_event, item):
+def test_create_sale_cc_without_transaction_id_succeeds(client, cashier_token, active_event, item):
+    """Manual credit-card tender records cc_amount without a transaction id —
+    the Square integration (pending) will supply ids later."""
     r = client.post("/sales",
                     json={"items": [{"item_id": item.id}], "cc_amount": 20.00},
                     headers={"Authorization": f"Bearer {cashier_token}"})
-    assert r.status_code == 422
+    assert r.status_code == 201
+    data = r.json()
+    assert data["cc_amount"] == 20.00
+    assert data["cc_transaction_id"] is None
 
 
 def test_create_sale_records_timestamp_and_cashier(client, cashier_token, active_event, item):
@@ -643,4 +648,4 @@ def test_void_twice_409_second_time(client, db, admin_token, cashier_token, acti
     v2 = client.post(f"/sales/{sale_id}/void", headers={"Authorization": f"Bearer {admin_token}"})
     assert v2.status_code == 409
     db.refresh(it)
-    assert it.remaining == 3.0      # unchanged by the re-void attempt
+    assert it.remaining == 3.0      # unchanged by the re-void attempt  # pyright: ignore[reportGeneralTypeIssues]

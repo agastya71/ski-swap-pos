@@ -1,7 +1,8 @@
 /**
- * Payment entry form — splits tender across cash, check, and (when `cardEnabled`)
- * Square card, collects the check number (when paying by check) and free-text
- * sale notes, validates that the total tendered meets the sale total, and submits.
+ * Payment entry form — splits tender across cash, check, and credit card
+ * (entered manually — the Square integration is pending), collects the check
+ * number (when paying by check) and free-text sale notes, validates that the
+ * total tendered meets the sale total, and submits.
  *
  * @module PaymentForm
  */
@@ -10,27 +11,21 @@ import { useState, type FormEvent } from "react";
 export interface PaymentSubmit {
     cash: number;
     check: number;
-    square: number;
-    squareToken: string | null;
+    /** Amount tendered by credit/debit card, entered manually. The Square
+     *  integration (pending) will capture this amount and supply a
+     *  transaction id later. */
+    credit_card: number;
     checkNumber: string | null;
-    /** Manually entered card transaction/reference id, used when the card was
-     *  processed on a physical terminal rather than captured via the Square SDK. */
-    cardTransactionId: string | null;
     notes: string | null;
 }
 
 /**
- * Collects cash, check (+ check number), and card tender. Card is captured via
- * the Square SDK (token → transaction id) or, when the card was processed on a
- * physical terminal, entered manually with a transaction id. Validates before
- * submit that: a check number is present for check payment, a card transaction
- * id is present for card payment, and the sum of tender meets the sale total —
- * all surfaced as field-level errors without a server round-trip.
+ * Collects cash, check (+ check number), and credit-card tender. Validates
+ * before submit that: a check number is present for check payment and the
+ * sum of tender meets the sale total — surfaced as field-level errors
+ * without a server round-trip.
  *
  * @param props.total - Sale total in dollars; tendered amounts must sum to at least this value.
- * @param props.squareToken - Square SDK nonce after card capture, or null.
- * @param props.cardEnabled - Whether card (Square) tender is offered. When false the
- *   card fields are hidden and card validation/amounts are skipped (cash + check only).
  * @param props.onSubmit - Callback with the full payment breakdown once validation passes.
  * @param props.onCancel - Callback invoked when the cashier clicks Cancel.
  */
@@ -38,44 +33,28 @@ export function PaymentForm({
     total,
     onSubmit,
     onCancel,
-    squareToken,
-    cardEnabled = true,
 }: {
     total: number;
     onSubmit: (payment: PaymentSubmit) => void;
     onCancel: () => void;
-    squareToken: string | null;
-    cardEnabled?: boolean;
 }) {
     const [cash, setCash] = useState("");
     const [check, setCheck] = useState("");
     const [checkNumber, setCheckNumber] = useState("");
-    const [card, setCard] = useState("");
-    const [cardId, setCardId] = useState("");
+    const [creditCard, setCreditCard] = useState("");
     const [notes, setNotes] = useState("");
     const [error, setError] = useState<string | null>(null);
 
     const cashAmt = parseFloat(cash) || 0;
     const checkAmt = parseFloat(check) || 0;
-    // With a Square token the card amount is the remaining balance (SDK capture);
-    // without one the cashier types the card amount manually (terminal payment).
-    // Card tender is 0 when the card option is disabled (integration unfinished).
-    const cardAmt = !cardEnabled
-        ? 0
-        : squareToken
-          ? Math.max(0, parseFloat((total - cashAmt - checkAmt).toFixed(2)))
-          : parseFloat(card) || 0;
-    const tendered = cashAmt + checkAmt + cardAmt;
+    const ccAmt = parseFloat(creditCard) || 0;
+    const tendered = cashAmt + checkAmt + ccAmt;
 
     function handleSubmit(e: FormEvent) {
         e.preventDefault();
         setError(null);
         if (checkAmt > 0 && !checkNumber.trim()) {
             setError("Check number is required for check payments.");
-            return;
-        }
-        if (cardAmt > 0 && !squareToken && !cardId.trim()) {
-            setError("Card transaction ID is required for card payments.");
             return;
         }
         if (tendered < total - 0.001) {
@@ -87,11 +66,8 @@ export function PaymentForm({
         onSubmit({
             cash: cashAmt,
             check: checkAmt,
-            square: cardAmt,
-            squareToken,
+            credit_card: ccAmt,
             checkNumber: checkAmt > 0 ? checkNumber.trim() || null : null,
-            cardTransactionId:
-                cardAmt > 0 && !squareToken ? cardId.trim() || null : null,
             notes: notes.trim() || null,
         });
     }
@@ -150,50 +126,23 @@ export function PaymentForm({
                     />
                 </div>
             )}
-            {!cardEnabled ? null : squareToken ? (
-                <p style={{ color: "#2e7d32" }}>
-                    ✓ Card captured via Square — ${cardAmt.toFixed(2)} will be
-                    charged.
-                </p>
-            ) : (
-                <div style={{ marginBottom: 12 }}>
-                    <div>
-                        <label
-                            htmlFor="card"
-                            style={{ display: "block", marginBottom: 4 }}
-                        >
-                            Card ($) — if charged on the Square terminal
-                        </label>
-                        <input
-                            id="card"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={card}
-                            onChange={(e) => {
-                                setCard(e.target.value);
-                                setError(null);
-                            }}
-                            style={{ padding: 8, fontSize: 16, width: 140 }}
-                        />
-                    </div>
-                    <div style={{ marginTop: 8 }}>
-                        <label
-                            htmlFor="cardId"
-                            style={{ display: "block", marginBottom: 4 }}
-                        >
-                            Card Transaction ID
-                        </label>
-                        <input
-                            id="cardId"
-                            type="text"
-                            value={cardId}
-                            onChange={(e) => setCardId(e.target.value)}
-                            style={{ padding: 8, fontSize: 16, width: 200 }}
-                        />
-                    </div>
-                </div>
-            )}
+            <div style={{ marginBottom: 12 }}>
+                <label
+                    htmlFor="creditCard"
+                    style={{ display: "block", marginBottom: 4 }}
+                >
+                    Credit Card ($)
+                </label>
+                <input
+                    id="creditCard"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={creditCard}
+                    onChange={(e) => setCreditCard(e.target.value)}
+                    style={{ padding: 8, fontSize: 16, width: 140 }}
+                />
+            </div>
             <div style={{ marginBottom: 12 }}>
                 <label
                     htmlFor="saleNotes"
