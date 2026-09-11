@@ -109,7 +109,11 @@ export function ItemForm({ intakeId, onAdded, defaultDonateUnsold = false }: {
     </div>
   )
 
-  const sizeOptions = SIZE_OPTIONS[f.type]
+  // Size options are looked up per category+type first (e.g. "Ski Boots:Classic"
+  // -> mondo sizes) so the same type name under different categories gets the
+  // right scale; unknown types fall back to a free-text size input.
+  const sizeOptions =
+    SIZE_OPTIONS[`${f.category}:${f.type}`] ?? SIZE_OPTIONS[f.type]
 
   return (
     <form onSubmit={handleSubmit}>

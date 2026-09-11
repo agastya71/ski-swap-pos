@@ -171,7 +171,7 @@ describe('ItemForm', () => {
   })
 
   /** Verifies Type options narrow to the selected category ("Types are
-   *  dependent on Category"): Skis shows Alpine Ski but not Jacket. */
+   *  dependent on Category"): Skis shows Classic/Skate/Combi but not Jacket. */
   it('narrows Type options to the selected category', () => {
     render(<ItemForm intakeId={5} onAdded={vi.fn()} />)
     const typeSelect = screen.getByLabelText(/^type$/i) as HTMLSelectElement
@@ -179,10 +179,12 @@ describe('ItemForm', () => {
     expect(Array.from(typeSelect.options).some(o => o.value === 'Jacket')).toBe(true)
     fireEvent.change(screen.getByLabelText(/category/i), { target: { value: 'Skis' } })
     const options = Array.from(typeSelect.options).map(o => o.value)
-    expect(options).toContain('Alpine Ski')
-    expect(options).toContain('Nordic/XC Ski')
-    expect(options).toContain('Skate')
     expect(options).toContain('Classic')
+    expect(options).toContain('Skate')
+    expect(options).toContain('Combi')
+    expect(options).toContain('Other')
+    expect(options).not.toContain('Alpine Ski')
+    expect(options).not.toContain('Nordic/XC Ski')
     expect(options).not.toContain('Jacket')
     expect(options).not.toContain('Ski Boot')
   })
@@ -201,8 +203,8 @@ describe('ItemForm', () => {
   it('resets type when the category changes', () => {
     render(<ItemForm intakeId={5} onAdded={vi.fn()} />)
     fireEvent.change(screen.getByLabelText(/category/i), { target: { value: 'Skis' } })
-    fireEvent.change(screen.getByLabelText(/^type$/i), { target: { value: 'Alpine Ski' } })
-    expect((screen.getByLabelText(/^type$/i) as HTMLSelectElement).value).toBe('Alpine Ski')
+    fireEvent.change(screen.getByLabelText(/^type$/i), { target: { value: 'Combi' } })
+    expect((screen.getByLabelText(/^type$/i) as HTMLSelectElement).value).toBe('Combi')
     fireEvent.change(screen.getByLabelText(/category/i), { target: { value: 'Clothing' } })
     expect((screen.getByLabelText(/^type$/i) as HTMLSelectElement).value).toBe('')
   })

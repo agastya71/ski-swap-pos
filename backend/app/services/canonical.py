@@ -25,14 +25,22 @@ ITEM_TYPES: list[str] = [
     "Nordic/XC Ski",
     "Skate",
     "Classic",
+    "Combi",
+    "Touring",
     "Ski Boot",
     "Snowboard Boot",
     "Ski Pole",
     "Helmet",
     "Goggles",
+    "Hat",
+    "Head band",
     "Jacket",
     "Pants",
+    "Ski Pants",
+    "Ski suit",
     "Base Layer",
+    "Base Layer Top",
+    "Base Layer Bottom",
     "Gloves",
     "Other",
 ]
@@ -41,13 +49,22 @@ ITEM_TYPES: list[str] = [
 #: Skis carries XC/Skate/Classic per tester request; Bindings falls back to the
 #: full type list at query time.
 CATEGORY_TYPES: dict[str, list[str]] = {
-    "Skis": ["Alpine Ski", "Nordic/XC Ski", "Skate", "Classic"],
-    "Ski Boots": ["Ski Boot"],
+    "Skis": ["Classic", "Skate", "Combi", "Other"],
+    "Ski Boots": ["Classic", "Skate", "Combi", "Touring", "Other"],
     "Ski Poles": ["Ski Pole"],
     "Snowboard": ["Snowboard"],
     "Snowboard Boots": ["Snowboard Boot"],
     "Helmet": ["Helmet"],
-    "Clothing": ["Jacket", "Pants", "Base Layer", "Gloves"],
+    "Clothing": [
+        "Base Layer Bottom",
+        "Base Layer Top",
+        "Gloves",
+        "Hat",
+        "Head band",
+        "Jacket",
+        "Ski Pants",
+        "Ski suit",
+    ],
 }
 
 #: Curated per-category brand catalog offered by the intake brand typeahead
@@ -83,6 +100,13 @@ CATEGORY_BRANDS: dict[str, list[str]] = {
         "Madshus",
         "Rossignol",
         "Salomon",
+    ],
+    "Clothing": [
+        "Daehlie",
+        "Swix",
+        "Craft",
+        "KV+",
+        "Patagonia",
     ],
 }
 
