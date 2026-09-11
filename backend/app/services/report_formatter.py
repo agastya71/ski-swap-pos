@@ -355,7 +355,7 @@ def _to_pdf(report: BaseModel, filename_base: str) -> Response:
         # Total width must stay within the printable page width (190mm on A4).
         sales_cols = [("Item Code", 24), ("Description", 40), ("Date", 28),
                       ("Qty", 10), ("Sell", 15), ("Total", 16),
-                      ("Due Seller", 16), ("Rate", 12)]
+                      ("Due Seller", 20), ("Rate", 12)]
 
         def _pdf_row(cells: list[str], bold: bool = False) -> None:
             if pdf.get_y() > 260:
