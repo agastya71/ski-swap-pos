@@ -1182,6 +1182,454 @@
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-05-10T20:38:45.625Z"
+    },
+    {
+      "id": "bug-074",
+      "timestamp": "2026-09-08T22:05:27.186Z",
+      "error_message": "Significant refactor of events.py",
+      "file": "backend/app/routers/events.py",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 6→9 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-08T22:05:27.186Z"
+    },
+    {
+      "id": "bug-075",
+      "timestamp": "2026-09-08T22:05:42.890Z",
+      "error_message": "Missing error handling in function()",
+      "file": "frontend/src/admin/EventSetup.tsx",
+      "root_cause": "Code path had no error handling — exceptions would propagate uncaught",
+      "fix": "Added try/catch block",
+      "tags": [
+        "auto-detected",
+        "error-handling",
+        "tsx"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-08T22:05:42.890Z"
+    },
+    {
+      "id": "bug-076",
+      "timestamp": "2026-09-08T22:06:30.805Z",
+      "error_message": "Significant refactor of test_events_delete.py",
+      "file": "backend/tests/test_events_delete.py",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 4→9 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-08T22:06:30.805Z"
+    },
+    {
+      "id": "bug-077",
+      "timestamp": "2026-09-08T22:07:25.201Z",
+      "error_message": "Function not marked async",
+      "file": "frontend/src/admin/EventSetup.test.tsx",
+      "root_cause": "Function uses await but wasn't declared async",
+      "fix": "Added async modifier",
+      "tags": [
+        "auto-detected",
+        "async-fix",
+        "tsx"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-08T22:07:25.201Z"
+    },
+    {
+      "id": "bug-078",
+      "timestamp": "2026-09-08T22:15:55.223Z",
+      "error_message": "Significant refactor of test_events.py",
+      "file": "backend/tests/test_events.py",
+      "root_cause": "3 lines replaced/restructured",
+      "fix": "Rewrote 5→26 lines (3 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-08T22:15:55.223Z"
+    },
+    {
+      "id": "bug-079",
+      "timestamp": "2026-09-08T22:16:46.961Z",
+      "error_message": "Missing error handling in POSPage()",
+      "file": "frontend/src/pos/POSPage.tsx",
+      "root_cause": "Code path had no error handling — exceptions would propagate uncaught",
+      "fix": "Added try/catch block",
+      "tags": [
+        "auto-detected",
+        "error-handling",
+        "tsx"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-08T22:16:46.961Z"
+    },
+    {
+      "id": "bug-080",
+      "timestamp": "2026-09-08T22:17:04.505Z",
+      "error_message": "Significant refactor of handlers.ts",
+      "file": "frontend/src/mocks/handlers.ts",
+      "root_cause": "3 lines replaced/restructured",
+      "fix": "Rewrote 5→5 lines (3 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-08T22:17:04.505Z"
+    },
+    {
+      "id": "bug-081",
+      "timestamp": "2026-09-08T22:17:17.447Z",
+      "error_message": "Missing error handling in IntakeModulePage()",
+      "file": "frontend/src/intake/IntakeModulePage.tsx",
+      "root_cause": "Code path had no error handling — exceptions would propagate uncaught",
+      "fix": "Added try/catch block",
+      "tags": [
+        "auto-detected",
+        "error-handling",
+        "tsx"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-08T22:17:17.447Z"
+    },
+    {
+      "id": "bug-082",
+      "timestamp": "2026-09-08T22:17:47.968Z",
+      "error_message": "Missing await",
+      "file": "frontend/src/intake/IntakeModulePage.test.tsx",
+      "root_cause": "Async call without await — returned Promise instead of value",
+      "fix": "Added await to async call",
+      "tags": [
+        "auto-detected",
+        "async-fix",
+        "tsx"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-08T22:17:47.968Z"
+    },
+    {
+      "id": "bug-083",
+      "timestamp": "2026-09-08T23:28:06.571Z",
+      "error_message": "Wrong operator: == should be !=",
+      "file": "scripts/generate_import_test_files.py",
+      "root_cause": "Used \"==\" instead of \"!=\"",
+      "fix": "Changed operator == → !=",
+      "tags": [
+        "auto-detected",
+        "operator-fix",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-08T23:28:06.571Z"
+    },
+    {
+      "id": "bug-084",
+      "timestamp": "2026-09-08T23:58:28.553Z",
+      "error_message": "Significant refactor of items.py",
+      "file": "backend/app/routers/items.py",
+      "root_cause": "12 lines replaced/restructured",
+      "fix": "Rewrote 38→51 lines (12 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-08T23:58:28.553Z"
+    },
+    {
+      "id": "bug-085",
+      "timestamp": "2026-09-08T23:58:43.760Z",
+      "error_message": "Wrong reference: float should be getattr",
+      "file": "backend/app/routers/items.py",
+      "root_cause": "Used \"float\" instead of \"getattr\"",
+      "fix": "Changed float → getattr",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-08T23:58:43.761Z"
+    },
+    {
+      "id": "bug-086",
+      "timestamp": "2026-09-08T23:59:09.270Z",
+      "error_message": "Wrong return value",
+      "file": "backend/app/services/item_import.py",
+      "root_cause": "Was returning: list(wb.active.iter_rows(min_row=2, values_only=Tr",
+      "fix": "Now returns: [list(row) for row in ws.iter_rows(min_row=2, valu",
+      "tags": [
+        "auto-detected",
+        "return-value",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-08T23:59:09.270Z"
+    },
+    {
+      "id": "bug-087",
+      "timestamp": "2026-09-08T23:59:49.327Z",
+      "error_message": "Missing error handling in item_import.py",
+      "file": "backend/app/services/item_import.py",
+      "root_cause": "Code path had no error handling — exceptions would propagate uncaught",
+      "fix": "Added try/catch block",
+      "tags": [
+        "auto-detected",
+        "error-handling",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-08T23:59:49.327Z"
+    },
+    {
+      "id": "bug-088",
+      "timestamp": "2026-09-09T00:05:12.848Z",
+      "error_message": "Type error",
+      "file": "frontend/src/api/items.ts",
+      "root_cause": "Missing or incorrect type annotation",
+      "fix": "Added type assertion/annotation",
+      "tags": [
+        "auto-detected",
+        "type-fix",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-09T00:05:12.848Z"
+    },
+    {
+      "id": "bug-089",
+      "timestamp": "2026-09-09T00:07:30.224Z",
+      "error_message": "CSS fix: blob",
+      "file": "frontend/src/intake/ItemSearchPage.test.tsx",
+      "root_cause": "blob: mock-url\") → mock-url\"",
+      "fix": "Changed blob: mock-url\") → mock-url\"",
+      "tags": [
+        "auto-detected",
+        "style-fix",
+        "tsx"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-09T00:07:30.224Z"
+    },
+    {
+      "id": "bug-090",
+      "timestamp": "2026-09-09T00:08:03.981Z",
+      "error_message": "Function not marked async",
+      "file": "frontend/src/intake/IntakeModulePage.test.tsx",
+      "root_cause": "Function uses await but wasn't declared async",
+      "fix": "Added async modifier",
+      "tags": [
+        "auto-detected",
+        "async-fix",
+        "tsx"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-09T00:08:03.981Z"
+    },
+    {
+      "id": "bug-091",
+      "timestamp": "2026-09-09T02:34:23.365Z",
+      "error_message": "Significant refactor of seed_demo.py",
+      "file": "backend/seed_demo.py",
+      "root_cause": "3 lines replaced/restructured",
+      "fix": "Rewrote 12→17 lines (3 removed) | Also: if not event.is_active:; event.is_active = True  # pyright: ignore[reportGe",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-09-09T02:38:39.745Z"
+    },
+    {
+      "id": "bug-092",
+      "timestamp": "2026-09-09T02:53:22.702Z",
+      "error_message": "Incorrect value in code",
+      "file": "backend/tests/test_sellers.py",
+      "root_cause": "Had \"002\"",
+      "fix": "Changed to \"CD1\"",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-09T02:53:22.702Z"
+    },
+    {
+      "id": "bug-093",
+      "timestamp": "2026-09-09T03:16:05.404Z",
+      "error_message": "Significant refactor of zpl.py",
+      "file": "backend/app/services/zpl.py",
+      "root_cause": "3 lines replaced/restructured",
+      "fix": "Rewrote 23→28 lines (3 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-09T03:16:05.404Z"
+    },
+    {
+      "id": "bug-094",
+      "timestamp": "2026-09-09T03:17:21.423Z",
+      "error_message": "Significant refactor of items.py",
+      "file": "backend/app/routers/items.py",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 17→25 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-09T03:17:21.423Z"
+    },
+    {
+      "id": "bug-095",
+      "timestamp": "2026-09-09T03:18:11.612Z",
+      "error_message": "Missing error handling in zpl.py",
+      "file": "backend/app/services/zpl.py",
+      "root_cause": "Code path had no error handling — exceptions would propagate uncaught",
+      "fix": "Added try/catch block",
+      "tags": [
+        "auto-detected",
+        "error-handling",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-09T03:18:11.612Z"
+    },
+    {
+      "id": "bug-096",
+      "timestamp": "2026-09-09T03:25:04.163Z",
+      "error_message": "Significant refactor of items.ts",
+      "file": "frontend/src/api/items.ts",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 7→13 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-09T03:25:04.163Z"
+    },
+    {
+      "id": "bug-097",
+      "timestamp": "2026-09-09T03:25:16.101Z",
+      "error_message": "Missing error handling in function()",
+      "file": "frontend/src/intake/ItemList.tsx",
+      "root_cause": "Code path had no error handling — exceptions would propagate uncaught",
+      "fix": "Added try/catch block",
+      "tags": [
+        "auto-detected",
+        "error-handling",
+        "tsx"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-09T03:25:16.101Z"
+    },
+    {
+      "id": "bug-098",
+      "timestamp": "2026-09-09T03:25:29.543Z",
+      "error_message": "Null/undefined access in ItemList.tsx",
+      "file": "frontend/src/intake/ItemList.tsx",
+      "root_cause": "Property access on potentially null/undefined value",
+      "fix": "Added null safety (optional chaining or null check)",
+      "tags": [
+        "auto-detected",
+        "null-safety",
+        "tsx"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-09T03:25:29.543Z"
+    },
+    {
+      "id": "bug-099",
+      "timestamp": "2026-09-09T03:26:06.426Z",
+      "error_message": "CSS fix: name",
+      "file": "frontend/src/intake/ItemList.test.tsx",
+      "root_cause": "name: /print all labels/i → /print labels for all items/i",
+      "fix": "Changed name: /print all labels/i → /print labels for all items/i",
+      "tags": [
+        "auto-detected",
+        "style-fix",
+        "tsx"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-09T03:26:06.426Z"
+    },
+    {
+      "id": "bug-100",
+      "timestamp": "2026-09-09T03:28:25.894Z",
+      "error_message": "Incorrect value in code",
+      "file": "backend/tests/test_zpl.py",
+      "root_cause": "Had \"/items/{item.id}?copies=0\"",
+      "fix": "Changed to \"/items/{item.id}/label?copies=0\"",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-09T03:28:25.894Z"
+    },
+    {
+      "id": "bug-101",
+      "timestamp": "2026-09-09T23:47:05.082Z",
+      "error_message": "CSS fix: marginBottom, display",
+      "file": "frontend/src/admin/ReportsPage.tsx",
+      "root_cause": "marginBottom: 32 → 24; display: 'block', fontSize: 13, marginBottom: 3 → 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8",
+      "fix": "Changed marginBottom: 32 → 24; display: 'block', fontSize: 13, marginBottom: 3 → 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8",
+      "tags": [
+        "auto-detected",
+        "style-fix",
+        "tsx"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-09T23:47:05.082Z"
     }
   ]
 }

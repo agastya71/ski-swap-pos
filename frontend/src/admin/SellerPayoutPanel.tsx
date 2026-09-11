@@ -6,7 +6,14 @@ import type { SellerPayoutReport } from "../types";
 function contactString(payout: SellerPayoutReport): string {
     const info = payout.seller_info;
     // Single pass (flatMap) — collects the non-null contact lines.
-    return [info.phone, info.email, info.address, info.city, info.state, info.zip]
+    return [
+        info.phone,
+        info.email,
+        info.address,
+        info.city,
+        info.state,
+        info.zip,
+    ]
         .flatMap((v) => (v ? [String(v)] : []))
         .join(", ");
 }
