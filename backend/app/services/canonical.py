@@ -65,6 +65,25 @@ CATEGORY_BRANDS: dict[str, list[str]] = {
         "Salomon",
         "Yoko",
     ],
+    "Ski Poles": [
+        "4KAAD",
+        "KV+",
+        "Leki",
+        "Madshus",
+        "One Way",
+        "Rossignol",
+        "Salomon",
+        "Swix",
+        "Yoko",
+    ],
+    "Ski Boots": [
+        "Alpina",
+        "Atomic",
+        "Fischer",
+        "Madshus",
+        "Rossignol",
+        "Salomon",
+    ],
 }
 
 
