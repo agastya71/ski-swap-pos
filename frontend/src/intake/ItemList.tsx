@@ -22,6 +22,18 @@ const GENDER_AGE_OPTIONS = ["Adult", "Youth", "Toddler", "Unisex"];
 
 const NAVY = "#1e3a8a";
 
+/** Button styling matching the top navigation bar buttons
+ *  (Change Password / Sign Out): white fill, navy text + border. */
+const BUTTON_STYLE = {
+  background: "#fff",
+  color: NAVY,
+  border: `1px solid ${NAVY}`,
+  padding: "5px 14px",
+  fontSize: 13,
+  fontWeight: 500,
+  borderRadius: 4,
+};
+
 /**
  * Renders a tabular list of items belonging to a single intake session.
  * Provides per-item Edit panel (description, price, brand, size, color), Print Label,
@@ -202,7 +214,9 @@ export function ItemList({
         <h4 style={{ margin: 0 }}>
           {items.length} item{items.length !== 1 ? "s" : ""}
         </h4>
-        <button onClick={handlePrintAll}>Print Labels for All Items</button>
+        <button onClick={handlePrintAll} style={BUTTON_STYLE}>
+          Print Labels for All Items
+        </button>
       </div>
       <table
         style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}
@@ -260,7 +274,7 @@ export function ItemList({
                   <button
                     aria-label={`Print all labels for ${item.code}`}
                     onClick={() => void handlePrintOne(item.id)}
-                    style={{ marginRight: 4 }}
+                    style={{ ...BUTTON_STYLE, marginRight: 4 }}
                   >
                     Print All Labels
                   </button>
@@ -283,13 +297,13 @@ export function ItemList({
                         Number(printQty[item.id] ?? 0),
                       )
                     }
-                    style={{ marginRight: 4 }}
+                    style={{ ...BUTTON_STYLE, marginRight: 4 }}
                   >
                     Print
                   </button>
                   <button
                     onClick={() => openEdit(item)}
-                    style={{ marginRight: 4 }}
+                    style={{ ...BUTTON_STYLE, marginRight: 4 }}
                   >
                     Edit
                   </button>
@@ -305,6 +319,7 @@ export function ItemList({
                           ? "Only available items can be deleted"
                           : `Delete item ${item.code}`
                     }
+                    style={BUTTON_STYLE}
                     onClick={() => {
                       if (
                         window.confirm(
@@ -580,11 +595,7 @@ export function ItemList({
                       <button
                         type="button"
                         onClick={() => handleAdjustQty(item.id)}
-                        style={{
-                          padding: "4px 12px",
-                          fontSize: 13,
-                          cursor: "pointer",
-                        }}
+                        style={BUTTON_STYLE}
                       >
                         Apply
                       </button>
@@ -613,28 +624,15 @@ export function ItemList({
                         onClick={() => handleSave(item.id)}
                         disabled={saving}
                         style={{
-                          background: NAVY,
-                          color: "#fff",
-                          border: "none",
-                          padding: "4px 12px",
+                          ...BUTTON_STYLE,
                           cursor: saving ? "default" : "pointer",
-                          borderRadius: 3,
-                          fontSize: 13,
                         }}
                       >
                         {saving ? "Saving…" : "Save"}
                       </button>
                       <button
                         onClick={() => setExpandedEditId(null)}
-                        style={{
-                          border: "1px solid #94a3b8",
-                          color: "#64748b",
-                          background: "none",
-                          padding: "4px 12px",
-                          cursor: "pointer",
-                          borderRadius: 3,
-                          fontSize: 13,
-                        }}
+                        style={BUTTON_STYLE}
                       >
                         Cancel
                       </button>
@@ -651,18 +649,8 @@ export function ItemList({
                               : ""
                         }
                         style={{
+                          ...BUTTON_STYLE,
                           marginLeft: "auto",
-                          border: "none",
-                          background: "none",
-                          color:
-                            item.label_printed || item.status !== "available"
-                              ? "#94a3b8"
-                              : "#ef4444",
-                          cursor:
-                            item.label_printed || item.status !== "available"
-                              ? "default"
-                              : "pointer",
-                          fontSize: 13,
                         }}
                       >
                         Delete

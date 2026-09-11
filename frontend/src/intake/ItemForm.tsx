@@ -4,16 +4,39 @@
  *
  * @module ItemForm
  */
-import { useState, type FormEvent } from 'react'
-import { addItem } from '../api/intakes'
-import { fetchBrands } from '../api/items'
-import { CATEGORIES, SIZE_OPTIONS, typesForCategory } from '../lib/itemSizes'
-import type { Item } from '../types'
+import { useState, type FormEvent } from "react";
+import { addItem } from "../api/intakes";
+import { fetchBrands } from "../api/items";
+import { CATEGORIES, SIZE_OPTIONS, typesForCategory } from "../lib/itemSizes";
+import type { Item } from "../types";
+
+/** Button styling matching the top navigation bar buttons
+ *  (Change Password / Sign Out): white fill, navy text + border. */
+const BUTTON_STYLE = {
+    background: "#fff",
+    color: "#1e3a8a",
+    border: "1px solid #1e3a8a",
+    padding: "5px 14px",
+    fontSize: 13,
+    fontWeight: 500,
+    borderRadius: 4,
+};
 
 const emptyForm = (donateUnsold: boolean) => ({
-  category: '', brand: '', type: '', description: '', color: '',
-  size: '', uom: '', gender_age: '', year: '', quantity: '1', used: false, price: '', donate_unsold: donateUnsold,
-})
+  category: "",
+  brand: "",
+  type: "",
+  description: "",
+  color: "",
+  size: "",
+  uom: "",
+  gender_age: "",
+  year: "",
+  quantity: "1",
+  used: false,
+  price: "",
+  donate_unsold: donateUnsold,
+});
 
 /**
  * Form component for adding a single item to an intake session.
@@ -23,59 +46,70 @@ const emptyForm = (donateUnsold: boolean) => ({
  * @param props.intakeId - ID of the intake session to which the item will be added.
  * @param props.onAdded - Callback invoked with the newly created {@link Item} on success.
  */
-export function ItemForm({ intakeId, onAdded, defaultDonateUnsold = false }: {
-  intakeId: number
-  onAdded: (item: Item) => void
+export function ItemForm({
+  intakeId,
+  onAdded,
+  defaultDonateUnsold = false,
+}: {
+  intakeId: number;
+  onAdded: (item: Item) => void;
   /** Per-item donate-unsold initial state; inherits the intake's (and seller's) preference. */
-  defaultDonateUnsold?: boolean
+  defaultDonateUnsold?: boolean;
 }) {
-  const [f, setF] = useState(() => emptyForm(defaultDonateUnsold))
-  const [error, setError] = useState<string | null>(null)
-  const [priceNote, setPriceNote] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [brandSuggestions, setBrandSuggestions] = useState<string[]>([])
+  const [f, setF] = useState(() => emptyForm(defaultDonateUnsold));
+  const [error, setError] = useState<string | null>(null);
+  const [priceNote, setPriceNote] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [brandSuggestions, setBrandSuggestions] = useState<string[]>([]);
 
   /** Brand typeahead: fetch matching existing brands (scoped to the selected
    *  category when one is chosen) as the cashier types. */
   async function handleBrandInput(value: string) {
-    set('brand', value)
-    if (value.trim().length < 1) { setBrandSuggestions([]); return }
+    set("brand", value);
+    if (value.trim().length < 1) {
+      setBrandSuggestions([]);
+      return;
+    }
     try {
-      setBrandSuggestions(await fetchBrands(value.trim(), f.category || undefined))
-    } catch { setBrandSuggestions([]) }
+      setBrandSuggestions(
+        await fetchBrands(value.trim(), f.category || undefined),
+      );
+    } catch {
+      setBrandSuggestions([]);
+    }
   }
 
   function set(k: keyof ReturnType<typeof emptyForm>, v: string | boolean) {
-    setF(prev => ({ ...prev, [k]: v }))
+    setF((prev) => ({ ...prev, [k]: v }));
   }
 
   /** Category change clears Type (and Size) so the pair stays consistent. */
   function handleCategoryChange(newCategory: string) {
-    setF(prev => ({ ...prev, category: newCategory, type: '', size: '' }))
+    setF((prev) => ({ ...prev, category: newCategory, type: "", size: "" }));
   }
 
   function handleTypeChange(newType: string) {
-    setF(prev => ({ ...prev, type: newType, size: '' }))
+    setF((prev) => ({ ...prev, type: newType, size: "" }));
   }
 
   /** Whole-dollar price entry: show a live "rounds up" note when the user
    *  types cents (same ceiling rule as bulk import; never blocks typing). */
   function handlePriceInput(value: string) {
-    set('price', value)
-    setPriceNote(null)
-    const v = parseFloat(value)
+    set("price", value);
+    setPriceNote(null);
+    const v = parseFloat(value);
     if (Number.isFinite(v) && v > 0 && !Number.isInteger(v)) {
-      setPriceNote(`Rounds up to $${Math.ceil(v)} (whole dollars only)`)
+      setPriceNote(`Rounds up to $${Math.ceil(v)} (whole dollars only)`);
     }
   }
 
   async function handleSubmit(e: FormEvent) {
-    e.preventDefault()
-    setError(null)
-    setLoading(true)
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
     // Whole-dollar pricing: round UP to the nearest dollar (same rule as bulk
     // intake import).
-    const wholePrice = Math.ceil(parseFloat(f.price))
+    const wholePrice = Math.ceil(parseFloat(f.price));
     try {
       const item = await addItem(intakeId, {
         category: f.category || undefined,
@@ -91,126 +125,280 @@ export function ItemForm({ intakeId, onAdded, defaultDonateUnsold = false }: {
         price: wholePrice,
         quantity: Math.max(1, parseInt(f.quantity) || 1),
         donate_unsold: f.donate_unsold,
-      })
-      onAdded(item)
-      setF(emptyForm(defaultDonateUnsold))
-      setPriceNote(null)
+      });
+      onAdded(item);
+      setF(emptyForm(defaultDonateUnsold));
+      setPriceNote(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add item')
+      setError(err instanceof Error ? err.message : "Failed to add item");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
-  const text = (id: keyof ReturnType<typeof emptyForm>, label: string, required = false) => (
+  const text = (
+    id: keyof ReturnType<typeof emptyForm>,
+    label: string,
+    required = false,
+  ) => (
     <div style={{ marginBottom: 8 }}>
-      <label htmlFor={id} style={{ display: 'block', fontSize: 13, marginBottom: 2 }}>{label}</label>
-      <input id={id} value={f[id] as string} onChange={e => set(id, e.target.value)} required={required} style={{ width: '100%', padding: 5, boxSizing: 'border-box' }} />
+      <label
+        htmlFor={id}
+        style={{ display: "block", fontSize: 13, marginBottom: 2 }}
+      >
+        {label}
+      </label>
+      <input
+        id={id}
+        value={f[id] as string}
+        onChange={(e) => set(id, e.target.value)}
+        required={required}
+        style={{ width: "100%", padding: 5, boxSizing: "border-box" }}
+      />
     </div>
-  )
+  );
 
   // Size options are looked up per category+type first (e.g. "Ski Boots:Classic"
   // -> mondo sizes) so the same type name under different categories gets the
   // right scale; unknown types fall back to a free-text size input.
   const sizeOptions =
-    SIZE_OPTIONS[`${f.category}:${f.type}`] ?? SIZE_OPTIONS[f.type]
+    SIZE_OPTIONS[`${f.category}:${f.type}`] ?? SIZE_OPTIONS[f.type];
 
   return (
     <form onSubmit={handleSubmit}>
       <h4>Add Item</h4>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: "0 12px",
+        }}
+      >
         <div style={{ marginBottom: 8 }}>
-          <label htmlFor="category" style={{ display: 'block', fontSize: 13, marginBottom: 2 }}>Category *</label>
-          <select id="category" value={f.category} onChange={e => handleCategoryChange(e.target.value)} required style={{ width: '100%', padding: 5 }}>
+          <label
+            htmlFor="category"
+            style={{ display: "block", fontSize: 13, marginBottom: 2 }}
+          >
+            Category *
+          </label>
+          <select
+            id="category"
+            value={f.category}
+            onChange={(e) => handleCategoryChange(e.target.value)}
+            required
+            style={{ width: "100%", padding: 5 }}
+          >
             <option value="">— select —</option>
-            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            {CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
           </select>
         </div>
         <div style={{ marginBottom: 8 }}>
-          <label htmlFor="brand" style={{ display: 'block', fontSize: 13, marginBottom: 2 }}>Brand *</label>
+          <label
+            htmlFor="brand"
+            style={{ display: "block", fontSize: 13, marginBottom: 2 }}
+          >
+            Brand *
+          </label>
           <input
             id="brand"
             list="brand-suggestions"
             value={f.brand}
-            onChange={e => handleBrandInput(e.target.value)}
+            onChange={(e) => handleBrandInput(e.target.value)}
             required
-            style={{ width: '100%', padding: 5 }}
+            style={{ width: "100%", padding: 5 }}
           />
           <datalist id="brand-suggestions">
-            {brandSuggestions.map(b => <option key={b} value={b} />)}
+            {brandSuggestions.map((b) => (
+              <option key={b} value={b} />
+            ))}
           </datalist>
         </div>
         <div style={{ marginBottom: 8 }}>
-          <label htmlFor="type" style={{ display: 'block', fontSize: 13, marginBottom: 2 }}>Type</label>
-          <select id="type" value={f.type} onChange={e => handleTypeChange(e.target.value)} style={{ width: '100%', padding: 5 }}>
+          <label
+            htmlFor="type"
+            style={{ display: "block", fontSize: 13, marginBottom: 2 }}
+          >
+            Type
+          </label>
+          <select
+            id="type"
+            value={f.type}
+            onChange={(e) => handleTypeChange(e.target.value)}
+            style={{ width: "100%", padding: 5 }}
+          >
             <option value="">— select type —</option>
-            {typesForCategory(f.category).map(t => <option key={t} value={t}>{t}</option>)}
+            {typesForCategory(f.category).map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
           </select>
         </div>
         <div style={{ marginBottom: 8 }}>
-          <label htmlFor="description" style={{ display: 'block', fontSize: 13, marginBottom: 2 }}>Description</label>
+          <label
+            htmlFor="description"
+            style={{ display: "block", fontSize: 13, marginBottom: 2 }}
+          >
+            Description
+          </label>
           <input
             id="description"
             value={f.description}
-            onChange={e => set('description', e.target.value)}
+            onChange={(e) => set("description", e.target.value)}
             maxLength={99}
-            style={{ width: '100%', padding: 5, boxSizing: 'border-box' }}
+            style={{ width: "100%", padding: 5, boxSizing: "border-box" }}
           />
-          <div style={{ textAlign: 'right', fontSize: 11, color: f.description.length >= 90 ? '#ef4444' : '#94a3b8', marginTop: 2 }}>
+          <div
+            style={{
+              textAlign: "right",
+              fontSize: 11,
+              color: f.description.length >= 90 ? "#ef4444" : "#94a3b8",
+              marginTop: 2,
+            }}
+          >
             {f.description.length} / 99
           </div>
         </div>
-        {text('color', 'Color')}
+        {text("color", "Color")}
         <div style={{ marginBottom: 8 }}>
-          <label htmlFor="size" style={{ display: 'block', fontSize: 13, marginBottom: 2 }}>Size</label>
+          <label
+            htmlFor="size"
+            style={{ display: "block", fontSize: 13, marginBottom: 2 }}
+          >
+            Size
+          </label>
           {sizeOptions ? (
-            <select id="size" value={f.size} onChange={e => set('size', e.target.value)} style={{ width: '100%', padding: 5 }}>
+            <select
+              id="size"
+              value={f.size}
+              onChange={(e) => set("size", e.target.value)}
+              style={{ width: "100%", padding: 5 }}
+            >
               <option value="">— select size —</option>
-              {sizeOptions.map(s => <option key={s} value={s}>{s}</option>)}
+              {sizeOptions.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
             </select>
           ) : (
-            <input id="size" value={f.size} onChange={e => set('size', e.target.value)} style={{ width: '100%', padding: 5, boxSizing: 'border-box' }} />
+            <input
+              id="size"
+              value={f.size}
+              onChange={(e) => set("size", e.target.value)}
+              style={{ width: "100%", padding: 5, boxSizing: "border-box" }}
+            />
           )}
         </div>
         <div style={{ marginBottom: 8 }}>
-          <label htmlFor="gender_age" style={{ display: 'block', fontSize: 13, marginBottom: 2 }}>Gender/Age</label>
-          <select id="gender_age" value={f.gender_age} onChange={e => set('gender_age', e.target.value)} style={{ width: '100%', padding: 5 }}>
+          <label
+            htmlFor="gender_age"
+            style={{ display: "block", fontSize: 13, marginBottom: 2 }}
+          >
+            Gender/Age
+          </label>
+          <select
+            id="gender_age"
+            value={f.gender_age}
+            onChange={(e) => set("gender_age", e.target.value)}
+            style={{ width: "100%", padding: 5 }}
+          >
             <option value="">— select —</option>
-            {['Adult', 'Youth', 'Toddler', 'Unisex'].map(g => <option key={g} value={g}>{g}</option>)}
+            {["Adult", "Youth", "Toddler", "Unisex"].map((g) => (
+              <option key={g} value={g}>
+                {g}
+              </option>
+            ))}
           </select>
         </div>
-        {text('year', 'Year')}
+        {text("year", "Year")}
         <div style={{ marginBottom: 8 }}>
-          <label htmlFor="quantity" style={{ display: 'block', fontSize: 13, marginBottom: 2 }}>Quantity</label>
-          <input id="quantity" type="number" min="1" step="1" value={f.quantity}
-            onChange={e => set('quantity', e.target.value)} style={{ width: '100%', padding: 5, boxSizing: 'border-box' }} />
+          <label
+            htmlFor="quantity"
+            style={{ display: "block", fontSize: 13, marginBottom: 2 }}
+          >
+            Quantity
+          </label>
+          <input
+            id="quantity"
+            type="number"
+            min="1"
+            step="1"
+            value={f.quantity}
+            onChange={(e) => set("quantity", e.target.value)}
+            style={{ width: "100%", padding: 5, boxSizing: "border-box" }}
+          />
         </div>
         <div style={{ marginBottom: 8 }}>
-          <label htmlFor="price" style={{ display: 'block', fontSize: 13, marginBottom: 2 }}>Price * (whole dollars)</label>
-          <input id="price" type="number" min="0" step="0.01" value={f.price} onChange={e => handlePriceInput(e.target.value)} required style={{ width: '100%', padding: 5, boxSizing: 'border-box' }} />
-          {priceNote && <div style={{ fontSize: 11, color: '#b45309', marginTop: 2 }}>{priceNote}</div>}
+          <label
+            htmlFor="price"
+            style={{ display: "block", fontSize: 13, marginBottom: 2 }}
+          >
+            Price * (whole dollars)
+          </label>
+          <input
+            id="price"
+            type="number"
+            min="0"
+            step="0.01"
+            value={f.price}
+            onChange={(e) => handlePriceInput(e.target.value)}
+            required
+            style={{ width: "100%", padding: 5, boxSizing: "border-box" }}
+          />
+          {priceNote && (
+            <div style={{ fontSize: 11, color: "#b45309", marginTop: 2 }}>
+              {priceNote}
+            </div>
+          )}
         </div>
       </div>
-      <div style={{ marginBottom: 10, display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+      <div
+        style={{
+          marginBottom: 10,
+          display: "flex",
+          gap: 16,
+          alignItems: "flex-start",
+        }}
+      >
         <label>
-          <input type="checkbox" checked={f.used} onChange={e => set('used', e.target.checked)} />
-          {' '}Used item
+          <input
+            type="checkbox"
+            checked={f.used}
+            onChange={(e) => set("used", e.target.checked)}
+          />{" "}
+          Used item
         </label>
         <div>
           <label>
-            <input type="checkbox" checked={f.donate_unsold} onChange={e => set('donate_unsold', e.target.checked)} />
-            {' '}Donate if unsold (overrides the intake default)
+            <input
+              type="checkbox"
+              checked={f.donate_unsold}
+              onChange={(e) => set("donate_unsold", e.target.checked)}
+            />{" "}
+            Donate if unsold (overrides the intake default)
           </label>
           {/* Inheritance visibility (tester feedback: "inherit donation permission
               from seller registration onto equipment intake — not sure this is working").
               Show the inherited value the checkbox starts from. */}
-          <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
-            Intake default: donate unsold {defaultDonateUnsold ? 'Yes' : 'No'} — inherited from the seller's registration
+          <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+            Intake default: donate unsold {defaultDonateUnsold ? "Yes" : "No"} —
+            inherited from the seller's registration
           </div>
         </div>
       </div>
-      {error && <div role="alert" style={{ color: 'red', marginBottom: 8 }}>{error}</div>}
-      <button type="submit" disabled={loading}>Add Item</button>
+      {error && (
+        <div role="alert" style={{ color: "red", marginBottom: 8 }}>
+          {error}
+        </div>
+      )}
+      <button type="submit" disabled={loading} style={BUTTON_STYLE}>
+        {loading ? "Adding…" : "Add Item"}
+      </button>
     </form>
-  )
+  );
 }
