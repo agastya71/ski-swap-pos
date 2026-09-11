@@ -173,6 +173,12 @@ export function ItemList({
   if (items.length === 0)
     return <p>No items yet. Add items using the form above.</p>;
 
+  // Column totals: full-quantity value per line (price x quantity) summed
+  // across the intake.
+  const totalUnits = items.reduce((sum, it) => sum + it.quantity, 0);
+  const totalOnHand = items.reduce((sum, it) => sum + it.remaining, 0);
+  const totalPrice = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
+
   return (
     <div>
       {deleteError && (
@@ -210,6 +216,9 @@ export function ItemList({
             </th>
             <th style={{ textAlign: "right", padding: "4px 8px" }}>Price</th>
             <th style={{ textAlign: "right", padding: "4px 8px" }}>Qty</th>
+            <th style={{ textAlign: "right", padding: "4px 8px" }}>
+              Total Price
+            </th>
             <th style={{ textAlign: "right", padding: "4px 8px" }}>On Hand</th>
             <th style={{ textAlign: "left", padding: "4px 8px" }}>Label</th>
             <th />
@@ -235,6 +244,9 @@ export function ItemList({
                 </td>
                 <td style={{ padding: "4px 8px", textAlign: "right" }}>
                   {item.quantity}
+                </td>
+                <td style={{ padding: "4px 8px", textAlign: "right" }}>
+                  ${(item.price * item.quantity).toFixed(2)}
                 </td>
                 <td style={{ padding: "4px 8px", textAlign: "right" }}>
                   {item.remaining}
@@ -661,6 +673,34 @@ export function ItemList({
               )}
             </Fragment>
           ))}
+          <tfoot>
+            <tr
+              style={{
+                borderTop: "2px solid #333",
+                fontWeight: "bold",
+                background: "#f8fafc",
+              }}
+            >
+              <td
+                colSpan={3}
+                style={{ padding: "6px 8px", textAlign: "right" }}
+              >
+                Total — {items.length} item
+                {items.length !== 1 ? "s" : ""}
+              </td>
+              <td />
+              <td style={{ padding: "6px 8px", textAlign: "right" }}>
+                {totalUnits}
+              </td>
+              <td style={{ padding: "6px 8px", textAlign: "right" }}>
+                ${totalPrice.toFixed(2)}
+              </td>
+              <td style={{ padding: "6px 8px", textAlign: "right" }}>
+                {totalOnHand}
+              </td>
+              <td colSpan={2} />
+            </tr>
+          </tfoot>
         </tbody>
       </table>
     </div>
