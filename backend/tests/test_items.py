@@ -179,37 +179,26 @@ def test_lookup_no_active_event(client, db, cashier_token):
 
 # ── Search tests ──────────────────────────────────────────────────────────────
 
-def test_search_items_by_description(client, active_event, admin_token):
-    """GET /items/search?q= matches item description."""
+def test_search_items_by_partial_code(client, active_event, admin_token):
+    """GET /items/search?q= matches the ITEM CODE (partial, case-insensitive)."""
     headers = {"Authorization": f"Bearer {admin_token}"}
     seller_r = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
     intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
-    client.post(
+    item_r = client.post(
         f"/intakes/{intake_r.json()['id']}/items",
         json={"description": "Atomic skis 160cm", "brand": "Atomic", "price": 120.0},
         headers=headers,
     )
-    r = client.get("/items/search?q=atomic", headers=headers)
+    code = item_r.json()["code"]
+    r = client.get(f"/items/search?q={code.lower()}", headers=headers)
     assert r.status_code == 200
     assert len(r.json()) == 1
-    assert "Atomic" in r.json()[0]["description"]
+    assert r.json()[0]["code"] == code
 
 
-def test_search_items_by_brand(client, active_event, admin_token):
-    headers = {"Authorization": f"Bearer {admin_token}"}
-    seller_r = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
-    intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
-    client.post(
-        f"/intakes/{intake_r.json()['id']}/items",
-        json={"brand": "Rossignol", "price": 80.0},
-        headers=headers,
-    )
-    r = client.get("/items/search?q=rossig", headers=headers)
-    assert r.status_code == 200
-    assert len(r.json()) == 1
-
-
-def test_search_items_by_seller_code(client, active_event, admin_token):
+def test_search_matches_seller_code_via_item_codes(client, active_event, admin_token):
+    """The seller code is a PREFIX of its item codes, so searching it matches
+    that seller's items through the code itself (not a seller-code field)."""
     headers = {"Authorization": f"Bearer {admin_token}"}
     seller_r = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
     seller_code = seller_r.json()["code"]
@@ -218,6 +207,21 @@ def test_search_items_by_seller_code(client, active_event, admin_token):
     r = client.get(f"/items/search?q={seller_code}", headers=headers)
     assert r.status_code == 200
     assert len(r.json()) >= 1
+
+
+def test_search_ignores_description_and_brand(client, active_event, admin_token):
+    """The checkout search matches ONLY the item code — description and brand
+    queries return no results (the full-field search lives in the intake module)."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
+    intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
+    client.post(
+        f"/intakes/{intake_r.json()['id']}/items",
+        json={"description": "Atomic skis 160cm", "brand": "Rossignol", "price": 120.0},
+        headers=headers,
+    )
+    assert client.get("/items/search?q=atomic", headers=headers).json() == []
+    assert client.get("/items/search?q=rossignol", headers=headers).json() == []
 
 
 # ── soft delete + quantity model (Phase 3) ────────────────────────────────────
