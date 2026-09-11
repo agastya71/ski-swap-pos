@@ -48,7 +48,8 @@ describe("ItemList", () => {
     render(<ItemList items={[ITEM]} intakeId={5} onItemsChanged={vi.fn()} />);
     expect(screen.getByText("A001-001")).toBeInTheDocument();
     expect(screen.getByText("Skis")).toBeInTheDocument();
-    expect(screen.getByText("$75.00")).toBeInTheDocument();
+    // Price cell + Total Price cell + footer total all show $75.00.
+    expect(screen.getAllByText("$75.00").length).toBe(3);
   });
 
   /** Verifies that an Edit button is rendered for each item row. */
@@ -268,11 +269,14 @@ it("Delete button is disabled when item has been sold", () => {
   expect(screen.getByRole("button", { name: /^delete$/i })).toBeDisabled();
 });
 
-/** Quantity column shows the on-hand quantity. */
+/** Quantity column shows the on-hand quantity (and the footer totals). */
 it("shows the on-hand quantity column", () => {
   const multi = { ...ITEM, quantity: 5 };
   render(<ItemList items={[multi]} intakeId={5} onItemsChanged={vi.fn()} />);
-  expect(screen.getByText("5")).toBeInTheDocument();
+  // Qty = 5, On Hand = 5, footer units = 5.
+  expect(screen.getAllByText("5").length).toBeGreaterThanOrEqual(2);
+  // The line Total Price and the footer sum both show 75 x 5 = $375.00.
+  expect(screen.getAllByText("$375.00").length).toBe(2);
 });
 
 /** Adjusting quantity calls PATCH /items/:id/quantity with the signed delta. */
