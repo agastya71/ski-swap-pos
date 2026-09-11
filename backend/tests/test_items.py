@@ -507,8 +507,13 @@ def test_list_brands_filters_by_category(client, active_event, admin_token):
                 json={"description": "jacket", "brand": "Patagonia", "category": "Clothing", "price": 40.0}, headers=headers)
     r = client.get("/items/brands?category=Skis", headers=headers)
     assert r.status_code == 200
-    assert r.json() == ["Atomic"]
+    # The curated Skis brand catalog is merged with the event's data brands
+    # (the DB's "Atomic" dedupes into the catalog entry; "Patagonia" is
+    # Clothing and not offered for Skis).
+    assert r.json() == ["Atomic", "Fischer", "Karhu", "Kastle", "Madshus",
+                        "Peltonen", "Rossignol", "Salomon", "Yoko"]
     r_all = client.get("/items/brands", headers=headers)
+    # Without a category filter the catalog does not apply — data brands only.
     assert sorted(r_all.json()) == ["Atomic", "Patagonia"]
 
 
