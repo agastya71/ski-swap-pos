@@ -587,3 +587,50 @@ def test_import_template_has_quantity_column(client, admin_token):
         "Description", "Category", "Brand", "Type", "Color",
         "Size", "Gender/Age", "Year", "Price", "Used", "Donate if Unsold", "Quantity",
     ]
+
+
+def test_brands_catalog_offered_for_ski_poles_even_with_no_items(client, admin_token, active_event):
+    """The curated Ski Poles catalog is offered even before any item uses the brand."""
+    r = client.get("/items/brands?category=Ski Poles", headers={"Authorization": f"Bearer {admin_token}"})
+    assert r.status_code == 200
+    assert r.json() == ["4KAAD", "KV+", "Leki", "Madshus", "One Way",
+                        "Rossignol", "Salomon", "Swix", "Yoko"]
+
+
+def test_brands_ski_poles_dedupes_case_insensitive_db_brands(client, admin_token, active_event, db, seller, intake):
+    """A data brand matching a catalog entry case-insensitively is merged into
+    the catalog casing (no near-duplicate suggestions)."""
+    from app.models.item import Item
+    it = Item(intake_id=intake.id, seller_id=seller.id, code="TST-011", price=10.0,
+              category="Ski Poles", brand="SWIX", quantity=1.0, remaining=1.0,
+              status="available", label_printed=False, created_by="admin")
+    db.add(it)
+    db.commit()
+    r = client.get("/items/brands?category=Ski Poles", headers={"Authorization": f"Bearer {admin_token}"})
+    brands = r.json()
+    assert brands.count("Swix") == 1
+    assert "SWIX" not in brands
+
+
+def test_brands_skis_catalog_does_not_leak_into_ski_poles(client, admin_token, active_event):
+    """The Skis catalog brands (e.g. Atomic) are not offered for Ski Poles."""
+    r = client.get("/items/brands?category=Ski Poles", headers={"Authorization": f"Bearer {admin_token}"})
+    brands = r.json()
+    assert "Atomic" not in brands
+    assert "Fischer" not in brands
+
+
+def test_brands_catalog_offered_for_ski_boots_even_with_no_items(client, admin_token, active_event):
+    """The curated Ski Boots catalog is offered even before any item uses the brand."""
+    r = client.get("/items/brands?category=Ski Boots", headers={"Authorization": f"Bearer {admin_token}"})
+    assert r.status_code == 200
+    assert r.json() == ["Alpina", "Atomic", "Fischer", "Madshus", "Rossignol", "Salomon"]
+
+
+def test_brands_ski_boots_does_not_leak_skis_only_brands(client, admin_token, active_event):
+    """The Skis-only catalog brands (Karhu, Kastle, Peltonen, Yoko) are not
+    offered for Ski Boots."""
+    r = client.get("/items/brands?category=Ski Boots", headers={"Authorization": f"Bearer {admin_token}"})
+    brands = r.json()
+    for brand in ("Karhu", "Kastle", "Peltonen", "Yoko", "4KAAD", "KV+", "Swix"):
+        assert brand not in brands
