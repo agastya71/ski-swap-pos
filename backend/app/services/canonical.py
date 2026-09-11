@@ -50,6 +50,23 @@ CATEGORY_TYPES: dict[str, list[str]] = {
     "Clothing": ["Jacket", "Pants", "Base Layer", "Gloves"],
 }
 
+#: Curated per-category brand catalog offered by the intake brand typeahead
+#: even before any item uses the brand (merged with the brands already present
+#: in the event's data). Keys mirror the CATEGORIES vocabulary.
+CATEGORY_BRANDS: dict[str, list[str]] = {
+    "Skis": [
+        "Atomic",
+        "Fischer",
+        "Karhu",
+        "Kastle",
+        "Madshus",
+        "Peltonen",
+        "Rossignol",
+        "Salomon",
+        "Yoko",
+    ],
+}
+
 
 def canonical_of(value: str, vocab: list[str]) -> str | None:
     """Return the canonical (correctly-cased) vocab entry matching ``value``

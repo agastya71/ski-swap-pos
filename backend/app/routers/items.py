@@ -16,6 +16,7 @@ from app.models.item import Item
 from app.models.seller import Seller
 from app.models.user import User
 from app.schemas.item import ItemLookupResponse, ItemQuantityAdjustment, ItemResponse, ItemSearchResult, ItemUpdate
+from app.services.canonical import CATEGORY_BRANDS
 from app.services.zpl import generate_zpl, send_to_printer
 
 router = APIRouter(prefix="/items", tags=["items"])
@@ -125,7 +126,33 @@ def list_brands(
         query = query.filter(Item.brand.ilike(f"%{q.strip()}%"))
     if category.strip():
         query = query.filter(Item.category.ilike(category.strip()))
-    return [b[0] for b in query.order_by(Item.brand).all() if b[0]]
+
+    db_brands = [b[0] for b in query.order_by(Item.brand).all() if b[0]]
+
+    # Merge the curated per-category catalog so the typeahead offers known
+    # brands even before any item uses them (matched case-insensitively on
+    # the requested category, q-filtered, deduped against the data).
+    merged: list[str] = []
+    seen_lower: set[str] = set()
+    if category.strip():
+        cat_key = category.strip().lower()
+        catalog = next(
+            (brands for key, brands in CATEGORY_BRANDS.items() if key.lower() == cat_key),
+            [],
+        )
+        for brand in catalog:
+            probe = brand.lower()
+            if q.strip() and q.strip().lower() not in probe:
+                continue
+            if probe not in seen_lower:
+                merged.append(brand)
+                seen_lower.add(probe)
+    for brand in db_brands:
+        probe = brand.lower()
+        if probe not in seen_lower:
+            merged.append(brand)
+            seen_lower.add(probe)
+    return sorted(merged, key=str.lower)
 
 
 # ── Intake item search (all fields) ──────────────────────────────────────────
