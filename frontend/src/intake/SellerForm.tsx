@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { BUTTON_STYLE } from "../lib/buttons";
 import { createSeller } from '../api/sellers'
 import { US_STATES } from '../lib/usStates'
 import type { Seller } from '../types'
@@ -131,8 +132,12 @@ export function SellerForm({ onCreated, onCancel }: {
       </fieldset>
       {error && <div role="alert" style={{ color: 'red', marginBottom: 10 }}>{error}</div>}
       <div style={{ display: 'flex', gap: 8 }}>
-        <button type="submit" disabled={loading}>Register</button>
-        <button type="button" onClick={onCancel}>Cancel</button>
+        <button type="submit" disabled={loading} style={BUTTON_STYLE}>
+          Register
+        </button>
+        <button type="button" onClick={onCancel} style={BUTTON_STYLE}>
+          Cancel
+        </button>
       </div>
     </form>
   )

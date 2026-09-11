@@ -6,6 +6,7 @@
  * @module IntakePage
  */
 import { useState, useCallback } from 'react'
+import { BUTTON_STYLE } from "../lib/buttons";
 import { getIntake, getSellerIntakes } from '../api/intakes'
 import { SellerSearch } from './SellerSearch'
 import { SellerForm } from './SellerForm'
@@ -203,7 +204,12 @@ export function IntakePage() {
                       <td style={{ padding: '6px 8px' }}>{i.donate_unsold ? 'Yes' : 'No'}</td>
                       <td style={{ padding: '6px 8px' }}>{i.donate_proceeds ? 'Yes' : 'No'}</td>
                       <td style={{ padding: '6px 8px' }}>
-                        <button onClick={() => handlePickExistingIntake(i.id)}>Continue</button>
+                        <button
+                          onClick={() => handlePickExistingIntake(i.id)}
+                          style={BUTTON_STYLE}
+                        >
+                          Continue
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -215,7 +221,7 @@ export function IntakePage() {
           )}
           <button
             onClick={() => setStep('intake')}
-            style={{ padding: '10px 24px', background: '#1a237e', color: 'white', border: 'none', cursor: 'pointer', borderRadius: 3 }}
+            style={BUTTON_STYLE}
           >
             + New Intake
           </button>
