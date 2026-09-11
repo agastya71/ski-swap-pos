@@ -374,4 +374,14 @@ describe("POSPage", () => {
     expect(screen.getByLabelText(/cash/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/check/i)).toBeInTheDocument();
   });
+
+  /** Verifies the Documentation section links to the served guide files. */
+  it("shows Documentation links to the user guide", () => {
+    renderPOS();
+    const pdf = screen.getByText(/user guide \(pdf\)/i);
+    expect(pdf).toHaveAttribute("href", "/docs/user-guide.pdf");
+    expect(pdf).toHaveAttribute("target", "_blank");
+    const md = screen.getByText(/user guide \(markdown\)/i);
+    expect(md).toHaveAttribute("href", "/docs/user-guide.md");
+  });
 });
