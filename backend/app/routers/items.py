@@ -69,7 +69,11 @@ def search_items(
     db: Session = Depends(get_db),
     _user: User = Depends(_CASHIER_ADMIN),
 ):
-    """Search items by partial match on code, description, category, brand, or seller code."""
+    """Search items by partial match on the ITEM CODE only (checkout flow).
+
+    Deliberately narrower than the intake full-field search: at checkout the
+    cashier looks up items by their code/barcode, not by description or brand.
+    """
     event = db.query(Event).filter(Event.is_active == True).first()
     if not event:
         raise HTTPException(status_code=503, detail="No active event configured")
@@ -79,11 +83,7 @@ def search_items(
         .join(Intake)
         .join(Seller)
         .filter(
-            (Item.code.ilike(like))
-            | (Item.description.ilike(like))
-            | (Item.category.ilike(like))
-            | (Item.brand.ilike(like))
-            | (Seller.code.ilike(like)),
+            (Item.code.ilike(like)),
             Seller.event_id == event.id,
             Item.is_deleted.is_(False),
         )
