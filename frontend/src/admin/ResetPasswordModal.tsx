@@ -6,12 +6,11 @@
  * @module ResetPasswordModal
  */
 import { useState, type FormEvent } from 'react'
+import { BUTTON_STYLE } from "../lib/buttons";
 import { resetUserPassword } from '../api/users'
 import { generatePassword } from '../api/auth'
 import { validatePassword, PASSWORD_MIN_LENGTH } from '../lib/passwordPolicy'
 import type { User } from '../types'
-
-const NAVY = '#1e3a8a'
 
 /**
  * @param props.user - The user whose password is being reset.
@@ -66,7 +65,7 @@ export function ResetPasswordModal({ user, onClose }: { user: User; onClose: () 
           <div style={{ display: 'flex', gap: 6 }}>
             <input id="resetNewPassword" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required
               minLength={PASSWORD_MIN_LENGTH} style={{ flex: 1, padding: 8, boxSizing: 'border-box' }} />
-            <button type="button" onClick={fillSuggested} title="Suggest a compliant password" style={{ padding: '8px 12px' }}>Suggest</button>
+            <button type="button" onClick={fillSuggested} title="Suggest a compliant password" style={BUTTON_STYLE}>Suggest</button>
           </div>
         </div>
         <div style={{ marginBottom: 10 }}>
@@ -81,9 +80,8 @@ export function ResetPasswordModal({ user, onClose }: { user: User; onClose: () 
         </ul>
         {error && <div role="alert" style={{ color: '#ef4444', marginBottom: 10 }}>{error}</div>}
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button type="button" onClick={onClose} style={{ padding: '8px 16px' }}>Cancel</button>
-          <button type="submit" disabled={loading}
-            style={{ padding: '8px 16px', background: NAVY, color: '#fff', border: 'none', cursor: loading ? 'default' : 'pointer' }}>
+          <button type="button" onClick={onClose} style={BUTTON_STYLE}>Cancel</button>
+          <button type="submit" disabled={loading} style={BUTTON_STYLE}>
             {loading ? 'Saving…' : 'Reset Password'}
           </button>
         </div>

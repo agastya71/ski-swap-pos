@@ -3,6 +3,7 @@
  * the returned JWT in AuthContext on success.
  */
 import { useState, type FormEvent } from 'react'
+import { BUTTON_STYLE } from "../lib/buttons";
 import { login } from '../api/auth'
 import { useAuth } from './AuthContext'
 
@@ -120,15 +121,8 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
               type="submit"
               disabled={loading}
               style={{
+                ...BUTTON_STYLE,
                 width: '100%',
-                padding: '11px',
-                background: NAVY,
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: 4,
-                fontSize: 15,
-                fontWeight: 700,
-                letterSpacing: '0.01em',
               }}
             >
               Sign In

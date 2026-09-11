@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, type FormEvent } from "react";
+import { BUTTON_STYLE } from "../lib/buttons";
 import {
   getEvents,
   createEvent,
@@ -120,16 +121,15 @@ export function EventSetup() {
               <td style={{ padding: "6px 8px" }}>
                 {!ev.is_active && (
                   <>
-                    <button onClick={() => handleActivate(ev.id)}>
+                    <button
+                      onClick={() => handleActivate(ev.id)}
+                      style={BUTTON_STYLE}
+                    >
                       Activate
                     </button>{" "}
                     <button
                       onClick={() => void handleDelete(ev)}
-                      style={{
-                        color: "white",
-                        background: "#c0392b",
-                        borderColor: "#c0392b",
-                      }}
+                      style={BUTTON_STYLE}
                     >
                       Delete
                     </button>
@@ -220,7 +220,7 @@ export function EventSetup() {
             style={{ width: "100%", padding: 6, boxSizing: "border-box" }}
           />
         </div>
-        <button type="submit" disabled={loading}>
+        <button type="submit" disabled={loading} style={BUTTON_STYLE}>
           Create Event
         </button>
       </form>

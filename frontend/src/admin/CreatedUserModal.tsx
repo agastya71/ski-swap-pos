@@ -6,8 +6,7 @@
  * @module CreatedUserModal
  */
 import { useState } from 'react'
-
-const NAVY = '#1e3a8a'
+import { BUTTON_STYLE } from "../lib/buttons";
 
 /**
  * @param props.username - The newly created user's login name.
@@ -80,14 +79,14 @@ export function CreatedUserModal({
         <div style={rowStyle}>
           <span style={{ fontSize: 13, width: 80 }}>Username</span>
           <div style={valueBox}>{username}</div>
-          <button type="button" onClick={() => copy('user', username)} style={{ padding: '6px 10px' }}>
+          <button type="button" onClick={() => copy('user', username)} style={BUTTON_STYLE}>
             {copied === 'user' ? 'Copied' : 'Copy'}
           </button>
         </div>
         <div style={rowStyle}>
           <span style={{ fontSize: 13, width: 80 }}>Password</span>
           <div style={valueBox}>{password}</div>
-          <button type="button" onClick={() => copy('pw', password)} style={{ padding: '6px 10px' }}>
+          <button type="button" onClick={() => copy('pw', password)} style={BUTTON_STYLE}>
             {copied === 'pw' ? 'Copied' : 'Copy'}
           </button>
         </div>
@@ -95,8 +94,7 @@ export function CreatedUserModal({
           <div role="alert" style={{ color: '#ef4444', fontSize: 12, marginBottom: 8 }}>{copyError}</div>
         )}
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
-          <button type="button" onClick={onClose}
-            style={{ padding: '8px 16px', background: NAVY, color: '#fff', border: 'none', cursor: 'pointer' }}>
+          <button type="button" onClick={onClose} style={BUTTON_STYLE}>
             Dismiss
           </button>
         </div>

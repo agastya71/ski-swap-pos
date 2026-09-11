@@ -14,25 +14,14 @@ import {
   printLabel,
   updateItem,
 } from "../api/items";
+import { BUTTON_STYLE } from "../lib/buttons";
 import { printIntakeLabels } from "../api/intakes";
 import { ITEM_TYPES, SIZE_OPTIONS } from "../lib/itemSizes";
 import type { Item, ItemUpdate } from "../types";
 
 const GENDER_AGE_OPTIONS = ["Adult", "Youth", "Toddler", "Unisex"];
 
-const NAVY = "#1e3a8a";
 
-/** Button styling matching the top navigation bar buttons
- *  (Change Password / Sign Out): white fill, navy text + border. */
-const BUTTON_STYLE = {
-  background: "#fff",
-  color: NAVY,
-  border: `1px solid ${NAVY}`,
-  padding: "5px 14px",
-  fontSize: 13,
-  fontWeight: 500,
-  borderRadius: 4,
-};
 
 /**
  * Renders a tabular list of items belonging to a single intake session.

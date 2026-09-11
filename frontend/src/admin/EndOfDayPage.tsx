@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect } from 'react'
+import { BUTTON_STYLE } from "../lib/buttons";
 import { getEndOfDay, downloadFile } from '../api/reports'
 import type { EndOfDayReport } from '../types'
 
@@ -55,7 +56,7 @@ export function EndOfDayPage({ eventId }: { eventId: number }) {
                   <button
                     key={fmt}
                     onClick={() => downloadFile(`/reports/${eventId}/end-of-day?format=${fmt}`, `end_of_day_${eventId}.${fmt}`)}
-                    style={{ padding: '8px 16px', background: '#1a237e', color: 'white', border: 'none', cursor: 'pointer' }}
+                    style={BUTTON_STYLE}
                   >
                     {label}
                   </button>
@@ -73,7 +74,7 @@ export function EndOfDayPage({ eventId }: { eventId: number }) {
         </p>
         <button
           onClick={() => downloadFile('/admin/backup', 'ski-swap-backup.zip', 'POST')}
-          style={{ padding: '8px 16px', background: '#1a237e', color: 'white', border: 'none', cursor: 'pointer' }}
+          style={BUTTON_STYLE}
         >
           Download Backup
         </button>

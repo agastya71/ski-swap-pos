@@ -1,4 +1,5 @@
 import { useState, useEffect, Fragment } from 'react'
+import { BUTTON_STYLE } from "../lib/buttons";
 import { searchSellers } from '../api/sellers'
 import { SellerForm } from '../intake/SellerForm'
 import { SellerPayoutPanel } from './SellerPayoutPanel'
@@ -41,7 +42,7 @@ export function SellerListPage({ onSelectSeller, eventId }: {
         <h3 style={{ margin: 0 }}>Sellers</h3>
         <button
           onClick={() => setShowCreate(true)}
-          style={{ background: NAVY, color: '#fff', border: 'none', padding: '6px 14px', cursor: 'pointer', borderRadius: 4 }}
+          style={BUTTON_STYLE}
         >
           Register New Seller
         </button>
@@ -72,13 +73,13 @@ export function SellerListPage({ onSelectSeller, eventId }: {
                   <div style={{ display: 'flex', gap: 4 }}>
                     <button
                       onClick={() => onSelectSeller(s)}
-                      style={{ border: `1px solid ${NAVY}`, color: NAVY, background: 'none', padding: '3px 10px', cursor: 'pointer', borderRadius: 3 }}
+                      style={BUTTON_STYLE}
                     >
                       View →
                     </button>
                     <button
                       onClick={() => setExpandedPayoutId(prev => prev === s.id ? null : s.id)}
-                      style={{ border: `1px solid ${NAVY}`, color: NAVY, background: 'none', padding: '3px 10px', cursor: 'pointer', borderRadius: 3 }}
+                      style={BUTTON_STYLE}
                     >
                       Payout
                     </button>
