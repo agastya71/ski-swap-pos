@@ -7,6 +7,7 @@
  * @module PaymentForm
  */
 import { useState, type FormEvent } from "react";
+import { BUTTON_STYLE } from "../lib/buttons";
 
 export interface PaymentSubmit {
     cash: number;
@@ -172,21 +173,14 @@ export function PaymentForm({
                 <button
                     type="submit"
                     disabled={total <= 0}
-                    style={{
-                        padding: "10px 24px",
-                        fontSize: 16,
-                        background: "#1a237e",
-                        color: "white",
-                        border: "none",
-                        cursor: total > 0 ? "pointer" : "default",
-                    }}
+                    style={BUTTON_STYLE}
                 >
                     Complete Sale
                 </button>
                 <button
                     type="button"
                     onClick={onCancel}
-                    style={{ padding: "10px 24px", fontSize: 16 }}
+                    style={BUTTON_STYLE}
                 >
                     Cancel
                 </button>

@@ -10,17 +10,7 @@ import { fetchBrands } from "../api/items";
 import { CATEGORIES, SIZE_OPTIONS, typesForCategory } from "../lib/itemSizes";
 import type { Item } from "../types";
 
-/** Button styling matching the top navigation bar buttons
- *  (Change Password / Sign Out): white fill, navy text + border. */
-const BUTTON_STYLE = {
-    background: "#fff",
-    color: "#1e3a8a",
-    border: "1px solid #1e3a8a",
-    padding: "5px 14px",
-    fontSize: 13,
-    fontWeight: 500,
-    borderRadius: 4,
-};
+import { BUTTON_STYLE } from "../lib/buttons";
 
 const emptyForm = (donateUnsold: boolean) => ({
   category: "",

@@ -16,6 +16,7 @@
  * @module POSPage
  */
 import { useEffect, useState } from "react";
+import { BUTTON_STYLE } from "../lib/buttons";
 import { createSale } from "../api/sales";
 import { getActiveEvent } from "../api/events";
 import { LookupField } from "./LookupField";
@@ -257,16 +258,7 @@ export function POSPage() {
           </div>
           <button
             onClick={handleNewTransaction}
-            style={{
-              marginTop: 12,
-              padding: "12px 32px",
-              fontSize: 16,
-              background: "#1a237e",
-              color: "white",
-              border: "none",
-              cursor: "pointer",
-              borderRadius: 3,
-            }}
+            style={{ ...BUTTON_STYLE, marginTop: 12 }}
           >
             New Transaction
           </button>

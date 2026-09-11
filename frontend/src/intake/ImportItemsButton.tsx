@@ -10,11 +10,10 @@
  * @module ImportItemsButton
  */
 import { useRef, useState, type ChangeEvent } from 'react'
+import { BUTTON_STYLE } from "../lib/buttons";
 import { importItems } from '../api/intakes'
 import { downloadImportTemplate } from '../api/items'
 import type { ImportResult } from '../types'
-
-const NAVY = '#1e3a8a'
 
 /**
  * @param props.intakeId - ID of the intake session to import items into.
@@ -58,7 +57,7 @@ export function ImportItemsButton({ intakeId, onImported }: {
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          style={{ border: `1px solid ${NAVY}`, color: NAVY, background: 'none', padding: '4px 10px', cursor: 'pointer', borderRadius: 3, fontSize: 13 }}
+          style={BUTTON_STYLE}
         >
           Import Items
         </button>
@@ -66,7 +65,7 @@ export function ImportItemsButton({ intakeId, onImported }: {
           type="button"
           onClick={handleDownloadTemplate}
           title="Download the blank .xlsx bulk-import template to fill out"
-          style={{ border: `1px solid ${NAVY}`, color: NAVY, background: 'none', padding: '4px 10px', cursor: 'pointer', borderRadius: 3, fontSize: 13 }}
+          style={BUTTON_STYLE}
         >
           Download Template
         </button>

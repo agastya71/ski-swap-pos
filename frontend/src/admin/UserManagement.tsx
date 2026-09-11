@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, type FormEvent } from 'react'
+import { BUTTON_STYLE } from "../lib/buttons";
 import { getUsers, createUser, deactivateUser } from '../api/users'
 import { generatePassword } from '../api/auth'
 import { ResetPasswordModal } from './ResetPasswordModal'
@@ -93,9 +94,16 @@ export function UserManagement() {
               <td style={{ padding: '6px 8px' }}>{u.role}</td>
               <td style={{ padding: '6px 8px' }}>{u.is_active ? 'Active' : <em>Inactive</em>}</td>
               <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>
-                <button onClick={() => setResetTarget(u)} style={{ marginRight: 6 }}>Reset Password</button>
+                <button
+                  onClick={() => setResetTarget(u)}
+                  style={{ ...BUTTON_STYLE, marginRight: 6 }}
+                >
+                  Reset Password
+                </button>
                 {u.is_active && (
-                  <button onClick={() => handleDeactivate(u.id)}>Deactivate</button>
+                  <button onClick={() => handleDeactivate(u.id)} style={BUTTON_STYLE}>
+                    Deactivate
+                  </button>
                 )}
               </td>
             </tr>
@@ -125,7 +133,9 @@ export function UserManagement() {
             <option value="admin">Admin</option>
           </select>
         </div>
-        <button type="submit" disabled={loading}>Create User</button>
+        <button type="submit" disabled={loading} style={BUTTON_STYLE}>
+          Create User
+        </button>
       </form>
       {error && <div role="alert" style={{ color: 'red', marginTop: 8 }}>{error}</div>}
       {resetTarget && <ResetPasswordModal user={resetTarget} onClose={() => setResetTarget(null)} />}
