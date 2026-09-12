@@ -177,11 +177,7 @@ export function PaymentForm({
                 >
                     Complete Sale
                 </button>
-                <button
-                    type="button"
-                    onClick={onCancel}
-                    style={BUTTON_STYLE}
-                >
+                <button type="button" onClick={onCancel} style={BUTTON_STYLE}>
                     Cancel
                 </button>
             </div>

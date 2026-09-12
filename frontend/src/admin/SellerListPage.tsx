@@ -1,76 +1,120 @@
-import { useState, useEffect, Fragment } from 'react'
+import { useState, useEffect, Fragment } from "react";
 import { BUTTON_STYLE } from "../lib/buttons";
-import { searchSellers } from '../api/sellers'
-import { SellerForm } from '../intake/SellerForm'
-import { SellerPayoutPanel } from './SellerPayoutPanel'
-import type { Seller } from '../types'
+import { searchSellers } from "../api/sellers";
+import { SellerForm } from "../intake/SellerForm";
+import { SellerPayoutPanel } from "./SellerPayoutPanel";
+import type { Seller } from "../types";
 
-const NAVY = '#1e3a8a'
+const NAVY = "#1e3a8a";
 
 /**
  * Admin seller list page — debounced search, tabular display, drill-in navigation.
  * Each row has View (navigate to detail) and Payout (inline payout panel) actions.
  */
-export function SellerListPage({ onSelectSeller, eventId }: {
-  onSelectSeller: (seller: Seller) => void
-  eventId: number
+export function SellerListPage({
+  onSelectSeller,
+  eventId,
+}: {
+  onSelectSeller: (seller: Seller) => void;
+  eventId: number;
 }) {
-  const [query, setQuery] = useState('')
-  const [sellers, setSellers] = useState<Seller[]>([])
-  const [showCreate, setShowCreate] = useState(false)
-  const [expandedPayoutId, setExpandedPayoutId] = useState<number | null>(null)
+  const [query, setQuery] = useState("");
+  const [sellers, setSellers] = useState<Seller[]>([]);
+  const [showCreate, setShowCreate] = useState(false);
+  const [expandedPayoutId, setExpandedPayoutId] = useState<number | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      searchSellers(query).then(setSellers).catch(() => {})
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [query])
+      searchSellers(query)
+        .then(setSellers)
+        .catch(() => {});
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   function handleCreated(seller: Seller) {
-    setShowCreate(false)
-    setSellers(prev => [...prev, seller].sort((a, b) => a.code.localeCompare(b.code)))
+    setShowCreate(false);
+    setSellers((prev) =>
+      [...prev, seller].sort((a, b) => a.code.localeCompare(b.code)),
+    );
   }
 
   if (showCreate) {
-    return <SellerForm onCreated={handleCreated} onCancel={() => setShowCreate(false)} />
+    return (
+      <SellerForm
+        onCreated={handleCreated}
+        onCancel={() => setShowCreate(false)}
+      />
+    );
   }
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 12,
+        }}
+      >
         <h3 style={{ margin: 0 }}>Sellers</h3>
-        <button
-          onClick={() => setShowCreate(true)}
-          style={BUTTON_STYLE}
-        >
+        <button onClick={() => setShowCreate(true)} style={BUTTON_STYLE}>
           Register New Seller
         </button>
       </div>
       <input
         value={query}
-        onChange={e => setQuery(e.target.value)}
+        onChange={(e) => setQuery(e.target.value)}
         placeholder="Search by name or code..."
-        style={{ width: '100%', padding: '8px 10px', marginBottom: 12, border: `1px solid ${NAVY}`, borderRadius: 4, boxSizing: 'border-box' }}
+        style={{
+          width: "100%",
+          padding: "8px 10px",
+          marginBottom: 12,
+          border: `1px solid ${NAVY}`,
+          borderRadius: 4,
+          boxSizing: "border-box",
+        }}
       />
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
-          <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
-            {['Code', 'Name', 'Phone', 'Email', ''].map(h => (
-              <th key={h} style={{ textAlign: 'left', padding: '6px 10px', fontSize: 13 }}>{h}</th>
+          <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
+            {["Code", "Name", "Phone", "Email", ""].map((h) => (
+              <th
+                key={h}
+                style={{ textAlign: "left", padding: "6px 10px", fontSize: 13 }}
+              >
+                {h}
+              </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {sellers.map(s => (
+          {sellers.map((s) => (
             <Fragment key={s.id}>
-              <tr style={{ borderBottom: expandedPayoutId === s.id ? 'none' : '1px solid #f1f5f9' }}>
-                <td style={{ padding: '8px 10px', fontWeight: 600, color: NAVY }}>{s.code}</td>
-                <td style={{ padding: '8px 10px' }}>{s.first_name} {s.last_name}{s.company ? ` (${s.company})` : ''}</td>
-                <td style={{ padding: '8px 10px', color: '#64748b' }}>{s.phone ?? '—'}</td>
-                <td style={{ padding: '8px 10px', color: '#64748b' }}>{s.email ?? '—'}</td>
-                <td style={{ padding: '8px 10px' }}>
-                  <div style={{ display: 'flex', gap: 4 }}>
+              <tr
+                style={{
+                  borderBottom:
+                    expandedPayoutId === s.id ? "none" : "1px solid #f1f5f9",
+                }}
+              >
+                <td
+                  style={{ padding: "8px 10px", fontWeight: 600, color: NAVY }}
+                >
+                  {s.code}
+                </td>
+                <td style={{ padding: "8px 10px" }}>
+                  {s.first_name} {s.last_name}
+                  {s.company ? ` (${s.company})` : ""}
+                </td>
+                <td style={{ padding: "8px 10px", color: "#64748b" }}>
+                  {s.phone ?? "—"}
+                </td>
+                <td style={{ padding: "8px 10px", color: "#64748b" }}>
+                  {s.email ?? "—"}
+                </td>
+                <td style={{ padding: "8px 10px" }}>
+                  <div style={{ display: "flex", gap: 4 }}>
                     <button
                       onClick={() => onSelectSeller(s)}
                       style={BUTTON_STYLE}
@@ -78,7 +122,11 @@ export function SellerListPage({ onSelectSeller, eventId }: {
                       View →
                     </button>
                     <button
-                      onClick={() => setExpandedPayoutId(prev => prev === s.id ? null : s.id)}
+                      onClick={() =>
+                        setExpandedPayoutId((prev) =>
+                          prev === s.id ? null : s.id,
+                        )
+                      }
                       style={BUTTON_STYLE}
                     >
                       Payout
@@ -88,8 +136,23 @@ export function SellerListPage({ onSelectSeller, eventId }: {
               </tr>
               {expandedPayoutId === s.id && (
                 <tr>
-                  <td colSpan={5} style={{ padding: '8px 16px 16px', background: '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
-                    <strong style={{ fontSize: 13, display: 'block', marginBottom: 8 }}>Seller Payout</strong>
+                  <td
+                    colSpan={5}
+                    style={{
+                      padding: "8px 16px 16px",
+                      background: "#f8fafc",
+                      borderBottom: "1px solid #f1f5f9",
+                    }}
+                  >
+                    <strong
+                      style={{
+                        fontSize: 13,
+                        display: "block",
+                        marginBottom: 8,
+                      }}
+                    >
+                      Seller Payout
+                    </strong>
                     <SellerPayoutPanel eventId={eventId} sellerId={s.id} />
                   </td>
                 </tr>
@@ -97,10 +160,17 @@ export function SellerListPage({ onSelectSeller, eventId }: {
             </Fragment>
           ))}
           {sellers.length === 0 && (
-            <tr><td colSpan={5} style={{ padding: 16, textAlign: 'center', color: '#94a3b8' }}>No sellers found</td></tr>
+            <tr>
+              <td
+                colSpan={5}
+                style={{ padding: 16, textAlign: "center", color: "#94a3b8" }}
+              >
+                No sellers found
+              </td>
+            </tr>
           )}
         </tbody>
       </table>
     </div>
-  )
+  );
 }
