@@ -393,8 +393,7 @@ export const handlers = [
                 }
                 return HttpResponse.json({
                         needs_review: true,
-                        reason:
-                                "One existing seller matches the worksheet name exactly — confirm it is the same person, or record a new seller.",
+                        reason: "One existing seller matches the worksheet name exactly — confirm it is the same person, or record a new seller.",
                         worksheet_name: "Jane Smith",
                         worksheet_email: null,
                         worksheet_phone: null,

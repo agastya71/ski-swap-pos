@@ -4,11 +4,11 @@
  */
 import { apiFetch, getToken } from "./client";
 import type {
-  Item,
-  ItemUpdate,
-  ItemLookupResponse,
-  ItemSearchResult,
-  WorksheetImportResponse,
+ Item,
+ ItemUpdate,
+ ItemLookupResponse,
+ ItemSearchResult,
+ WorksheetImportResponse,
 } from "../types";
 
 /**
@@ -27,34 +27,34 @@ import type {
  * @throws {ApiError} 401 if the session token is invalid.
  */
 export async function importWorksheet(
-  file: File,
-  opts?: { sellerCode?: string; forceNew?: boolean },
+ file: File,
+ opts?: { sellerCode?: string; forceNew?: boolean },
 ): Promise<WorksheetImportResponse> {
-  const form = new FormData();
-  form.append("file", file);
-  const params = new URLSearchParams();
-  if (opts?.sellerCode) params.set("seller_code", opts.sellerCode);
-  if (opts?.forceNew) params.set("force_new", "true");
-  const qs = params.toString();
-  // Use raw fetch — apiFetch serialises JSON; multipart requires FormData.
-  const token = getToken();
-  const res = await fetch(`/items/import-worksheet${qs ? `?${qs}` : ""}`, {
-    method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: form,
-  });
-  if (!res.ok) {
-    // Surface the backend's validation detail (e.g. invalid confirmation).
-    let detail: string | null = null;
-    try {
-      const body = await res.json();
-      detail = body?.detail ?? null;
-    } catch {
-      /* non-JSON error body — fall back to statusText */
-    }
-    throw new Error(detail || `Worksheet import failed: ${res.statusText}`);
+ const form = new FormData();
+ form.append("file", file);
+ const params = new URLSearchParams();
+ if (opts?.sellerCode) params.set("seller_code", opts.sellerCode);
+ if (opts?.forceNew) params.set("force_new", "true");
+ const qs = params.toString();
+ // Use raw fetch — apiFetch serialises JSON; multipart requires FormData.
+ const token = getToken();
+ const res = await fetch(`/items/import-worksheet${qs ? `?${qs}` : ""}`, {
+  method: "POST",
+  headers: token ? { Authorization: `Bearer ${token}` } : {},
+  body: form,
+ });
+ if (!res.ok) {
+  // Surface the backend's validation detail (e.g. invalid confirmation).
+  let detail: string | null = null;
+  try {
+   const body = await res.json();
+   detail = body?.detail ?? null;
+  } catch {
+   /* non-JSON error body — fall back to statusText */
   }
-  return res.json();
+  throw new Error(detail || `Worksheet import failed: ${res.statusText}`);
+ }
+ return res.json();
 }
 
 /**
@@ -77,10 +77,10 @@ export const getItem = (id: number) => apiFetch<Item>(`/items/${id}`);
  * @throws {ApiError} 401 if the session token is invalid.
  */
 export const updateItem = (id: number, data: ItemUpdate) =>
-  apiFetch<Item>(`/items/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify(data),
-  });
+ apiFetch<Item>(`/items/${id}`, {
+  method: "PATCH",
+  body: JSON.stringify(data),
+ });
 
 /**
  * Permanently delete an item record.
@@ -92,7 +92,7 @@ export const updateItem = (id: number, data: ItemUpdate) =>
  * @throws {ApiError} 401 if the session token is invalid.
  */
 export const deleteItem = (id: number) =>
-  apiFetch<void>(`/items/${id}`, { method: "DELETE" });
+ apiFetch<void>(`/items/${id}`, { method: "DELETE" });
 
 /**
  * Adjust an item's on-hand quantity by a signed delta.
@@ -108,10 +108,10 @@ export const deleteItem = (id: number) =>
  * @throws {ApiError} 404 if no item with the given ID exists.
  */
 export const adjustItemQuantity = (id: number, adjustment: number) =>
-  apiFetch<Item>(`/items/${id}/quantity`, {
-    method: "PATCH",
-    body: JSON.stringify({ adjustment }),
-  });
+ apiFetch<Item>(`/items/${id}/quantity`, {
+  method: "PATCH",
+  body: JSON.stringify({ adjustment }),
+ });
 
 /**
  * Fetch distinct brand names for the active event, optionally filtered by prefix.
@@ -131,9 +131,9 @@ export const adjustItemQuantity = (id: number, adjustment: number) =>
  * @throws {ApiError} 401 if the session token is invalid.
  */
 export const fetchBrands = (q: string, category?: string) => {
-  const params = new URLSearchParams({ q });
-  if (category) params.set("category", category);
-  return apiFetch<string[]>(`/items/brands?${params.toString()}`);
+ const params = new URLSearchParams({ q });
+ if (category) params.set("category", category);
+ return apiFetch<string[]>(`/items/brands?${params.toString()}`);
 };
 
 /**
@@ -150,17 +150,17 @@ export const fetchBrands = (q: string, category?: string) => {
  * @throws {ApiError} 401 if the session token is invalid.
  */
 export const printLabel = (
-  id: number,
-  copies?: number,
-  codeAsText?: boolean,
+ id: number,
+ copies?: number,
+ codeAsText?: boolean,
 ) => {
-  const params = new URLSearchParams();
-  if (copies) params.set("copies", String(copies));
-  if (codeAsText) params.set("code_as_text", "true");
-  const qs = params.toString();
-  return apiFetch<Item>(`/items/${id}/label${qs ? `?${qs}` : ""}`, {
-    method: "POST",
-  });
+ const params = new URLSearchParams();
+ if (copies) params.set("copies", String(copies));
+ if (codeAsText) params.set("code_as_text", "true");
+ const qs = params.toString();
+ return apiFetch<Item>(`/items/${id}/label${qs ? `?${qs}` : ""}`, {
+  method: "POST",
+ });
 };
 
 /**
@@ -172,9 +172,7 @@ export const printLabel = (
  * @throws {ApiError} 401 if the session token is invalid.
  */
 export const lookupItem = (code: string) =>
-  apiFetch<ItemLookupResponse>(
-    `/items/lookup?code=${encodeURIComponent(code)}`,
-  );
+ apiFetch<ItemLookupResponse>(`/items/lookup?code=${encodeURIComponent(code)}`);
 
 /**
  * Partial-match item search — autocomplete path for manual code entry.
@@ -185,7 +183,7 @@ export const lookupItem = (code: string) =>
  * @throws {ApiError} 401 if the session token is invalid.
  */
 export const searchItems = (q: string) =>
-  apiFetch<ItemLookupResponse[]>(`/items/search?q=${encodeURIComponent(q)}`);
+ apiFetch<ItemLookupResponse[]>(`/items/search?q=${encodeURIComponent(q)}`);
 
 /**
  * Trigger a download of the blank Excel import template.
@@ -193,27 +191,27 @@ export const searchItems = (q: string) =>
  * @throws {Error} if the request fails or the server returns a non-OK status.
  */
 export function downloadImportTemplate(): Promise<void> {
-  const token = getToken();
-  return fetch("/items/import-template", {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+ const token = getToken();
+ return fetch("/items/import-template", {
+  headers: token ? { Authorization: `Bearer ${token}` } : {},
+ })
+  .then(async (r) => {
+   if (!r.ok) throw new Error(`Template download failed: ${r.statusText}`);
+   const buf = await r.arrayBuffer();
+   return new Blob([buf], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+   });
   })
-    .then(async (r) => {
-      if (!r.ok) throw new Error(`Template download failed: ${r.statusText}`);
-      const buf = await r.arrayBuffer();
-      return new Blob([buf], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      });
-    })
-    .then((blob) => {
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "import-template.xlsx";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
-    });
+  .then((blob) => {
+   const url = URL.createObjectURL(blob);
+   const link = document.createElement("a");
+   link.href = url;
+   link.download = "import-template.xlsx";
+   document.body.appendChild(link);
+   link.click();
+   document.body.removeChild(link);
+   setTimeout(() => URL.revokeObjectURL(url), 5000);
+  });
 }
 
 /**
@@ -228,11 +226,11 @@ export function downloadImportTemplate(): Promise<void> {
  * @throws {ApiError} 401 if the session token is invalid; 403 for cashier role.
  */
 export const searchIntakeItems = (q: string, status = "") => {
-  const params = new URLSearchParams({ q });
-  if (status) params.set("status", status);
-  return apiFetch<ItemSearchResult[]>(
-    `/items/intake-search?${params.toString()}`,
-  );
+ const params = new URLSearchParams({ q });
+ if (status) params.set("status", status);
+ return apiFetch<ItemSearchResult[]>(
+  `/items/intake-search?${params.toString()}`,
+ );
 };
 
 /**
@@ -246,31 +244,31 @@ export const searchIntakeItems = (q: string, status = "") => {
  * @throws {Error} if the request fails or the server returns a non-OK status.
  */
 export function exportIntakeSearch(
-  q: string,
-  status = "",
-  filename?: string,
+ q: string,
+ status = "",
+ filename?: string,
 ): Promise<void> {
-  const token = getToken();
-  const params = new URLSearchParams({ q });
-  if (status) params.set("status", status);
-  return fetch(`/items/intake-search/export?${params.toString()}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+ const token = getToken();
+ const params = new URLSearchParams({ q });
+ if (status) params.set("status", status);
+ return fetch(`/items/intake-search/export?${params.toString()}`, {
+  headers: token ? { Authorization: `Bearer ${token}` } : {},
+ })
+  .then(async (r) => {
+   if (!r.ok) throw new Error(`Export download failed: ${r.statusText}`);
+   const buf = await r.arrayBuffer();
+   return new Blob([buf], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+   });
   })
-    .then(async (r) => {
-      if (!r.ok) throw new Error(`Export download failed: ${r.statusText}`);
-      const buf = await r.arrayBuffer();
-      return new Blob([buf], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      });
-    })
-    .then((blob) => {
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename || "intake-items-export.xlsx";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
-    });
+  .then((blob) => {
+   const url = URL.createObjectURL(blob);
+   const link = document.createElement("a");
+   link.href = url;
+   link.download = filename || "intake-items-export.xlsx";
+   document.body.appendChild(link);
+   link.click();
+   document.body.removeChild(link);
+   setTimeout(() => URL.revokeObjectURL(url), 5000);
+  });
 }

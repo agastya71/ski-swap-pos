@@ -177,14 +177,26 @@ export function IntakeModulePage() {
         >
           <strong>⚠ Possible duplicate seller — your decision needed</strong>
           <div style={{ marginTop: 6, fontSize: 13 }}>
-            Worksheet seller: <strong>{pendingReview.worksheet_name ?? "(unnamed)"}</strong>
-            {pendingReview.worksheet_email && <> · email: {pendingReview.worksheet_email}</>}
-            {pendingReview.worksheet_phone && <> · phone: {pendingReview.worksheet_phone}</>}
+            Worksheet seller:{" "}
+            <strong>{pendingReview.worksheet_name ?? "(unnamed)"}</strong>
+            {pendingReview.worksheet_email && (
+              <> · email: {pendingReview.worksheet_email}</>
+            )}
+            {pendingReview.worksheet_phone && (
+              <> · phone: {pendingReview.worksheet_phone}</>
+            )}
           </div>
           <div style={{ marginTop: 4, fontSize: 13, color: "#92400e" }}>
             Why flagged: {pendingReview.reason}
           </div>
-          <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+          <div
+            style={{
+              marginTop: 10,
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+            }}
+          >
             {pendingReview.candidates.map((c) => (
               <div
                 key={c.code}
@@ -210,7 +222,8 @@ export function IntakeModulePage() {
                 <button
                   onClick={() => {
                     const file = pendingFileRef.current;
-                    if (file) void handleWorksheetChosen(file, { sellerCode: c.code });
+                    if (file)
+                      void handleWorksheetChosen(file, { sellerCode: c.code });
                   }}
                   disabled={importing}
                   style={{

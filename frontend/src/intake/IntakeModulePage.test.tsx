@@ -356,7 +356,8 @@ describe("IntakeModulePage — Import Seller Worksheet (functional)", () => {
       http.post("/items/import-worksheet", () =>
         HttpResponse.json(
           {
-            detail: "Seller info is missing from the worksheet (fill in Last / First in the seller block).",
+            detail:
+              "Seller info is missing from the worksheet (fill in Last / First in the seller block).",
           },
           { status: 422 },
         ),
