@@ -1,14 +1,15 @@
 /**
  * Application shell layout — renders the brand nav bar with the MYSL logo,
- * role-aware navigation links (Intake, Checkout, Admin), the signed-in username
- * and role badge, a Sign Out button, and a footer. Wraps each page's content in a
+ * role-aware navigation links (Intake, Checkout, Admin, Documentation), the
+ * signed-in username and role badge, a Sign Out button, and a footer. Wraps each
+ * page's content in a
  * full-height flex container.
  */
 import { useState, type ReactNode } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { ChangePasswordModal } from '../auth/ChangePasswordModal'
 
-type Page = 'intake' | 'pos' | 'admin'
+type Page = 'intake' | 'pos' | 'admin' | 'docs'
 
 const NAVY  = '#1e3a8a'
 const BLUE  = '#2563eb'
@@ -100,6 +101,8 @@ export function Layout({ children, page, onNavigate }: {
           {role === 'admin' && (
             <NavLink label="Admin" active={page === 'admin'} onClick={() => onNavigate('admin')} />
           )}
+          {/* Documentation is available to every signed-in user. */}
+          <NavLink label="Documentation" active={page === 'docs'} onClick={() => onNavigate('docs')} />
         </nav>
 
         {/* User info + Sign Out */}

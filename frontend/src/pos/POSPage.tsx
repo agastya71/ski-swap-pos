@@ -309,38 +309,6 @@ export function POSPage() {
           {error}
         </div>
       )}
-
-      {/* Documentation — links to the repo docs served by the backend. */}
-      <div
-        style={{
-          marginTop: 24,
-          padding: 12,
-          border: "1px solid #e2e8f0",
-          borderRadius: 6,
-          background: "#f8fafc",
-          fontSize: 13,
-        }}
-      >
-        <strong>Documentation</strong>
-        <div style={{ marginTop: 4, display: "flex", gap: 16 }}>
-          <a
-            href="/docs/user-guide.pdf"
-            target="_blank"
-            rel="noreferrer"
-            style={{ color: "#1a237e" }}
-          >
-            User Guide (PDF)
-          </a>
-          <a
-            href="/docs/user-guide.md"
-            target="_blank"
-            rel="noreferrer"
-            style={{ color: "#1a237e" }}
-          >
-            User Guide (Markdown)
-          </a>
-        </div>
-      </div>
     </div>
   );
 }

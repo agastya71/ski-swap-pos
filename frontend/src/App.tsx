@@ -11,8 +11,9 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { IntakeModulePage } from './intake/IntakeModulePage'
 import { POSPage } from './pos/POSPage'
 import { AdminPage } from './admin/AdminPage'
+import { DocumentationPage } from './docs/DocumentationPage'
 
-type Page = 'intake' | 'pos' | 'admin'
+type Page = 'intake' | 'pos' | 'admin' | 'docs'
 
 /** Returns the default landing page for a given user role. */
 function defaultPage(role: string): Page {
@@ -44,6 +45,9 @@ function AppInner() {
       )}
       {activePage === 'admin' && (
         <ProtectedRoute roles={['admin']}><AdminPage /></ProtectedRoute>
+      )}
+      {activePage === 'docs' && (
+        <ProtectedRoute roles={['admin', 'cashier', 'intake']}><DocumentationPage /></ProtectedRoute>
       )}
     </Layout>
   )
