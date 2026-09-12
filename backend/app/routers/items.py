@@ -3,7 +3,7 @@
 from io import BytesIO
 
 import openpyxl
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy import String, cast, or_
 from sqlalchemy.orm import Session
@@ -15,7 +15,14 @@ from app.models.intake import Intake
 from app.models.item import Item
 from app.models.seller import Seller
 from app.models.user import User
-from app.schemas.item import ItemLookupResponse, ItemQuantityAdjustment, ItemResponse, ItemSearchResult, ItemUpdate
+from app.schemas.item import (
+    ItemLookupResponse,
+    ItemQuantityAdjustment,
+    ItemResponse,
+    ItemSearchResult,
+    ItemUpdate,
+    WorksheetImportResult,
+)
 from app.services.canonical import CATEGORY_BRANDS
 from app.services.zpl import generate_zpl, send_to_printer
 
@@ -276,14 +283,24 @@ def export_intake_search(
 def download_import_template(_user: User = Depends(_INTAKE_ADMIN)):
     """Return a blank Excel template for bulk item import.
 
-    Columns: Description, Category, Brand, Type, Color, Size, Gender/Age, Year,
-    Price, Used, Donate if Unsold, Quantity. Quantity (blank = 1) represents
-    how many identical units one row covers.
+    Enriched layout (2026-09-12): a seller-info block (Last, First, Address,
+    City, State, Zip, Phone, Email — values in column B) followed by the item
+    table. Importing this template via POST /items/import-worksheet
+    finds-or-creates the seller (deduplicated by name/email/phone), reuses or
+    creates the seller's intake, and imports the item rows below the header.
+    The plain layout (item header only) remains valid for the per-intake
+    import endpoint: Description, Category, Brand, Type, Color, Size,
+    Gender/Age, Year, Price, Used, Donate if Unsold, Quantity. Quantity
+    (blank = 1) represents how many identical units one row covers.
     """
     wb = openpyxl.Workbook()
     ws = wb.active
     if ws is None:  # openpyxl stubs type .active as Optional; can't happen for a new workbook
         raise HTTPException(status_code=500, detail="Template workbook has no active sheet")
+    ws.append(["Seller Info (finds or creates the seller — fill in column B):", None])
+    for label in ["Last", "First", "Address", "City", "State", "Zip", "Phone", "Email"]:
+        ws.append([label, None])
+    ws.append([None])
     ws.append([
         "Description", "Category", "Brand", "Type", "Color",
         "Size", "Gender/Age", "Year", "Price", "Used", "Donate if Unsold", "Quantity",
@@ -296,6 +313,31 @@ def download_import_template(_user: User = Depends(_INTAKE_ADMIN)):
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=import-template.xlsx"},
     )
+
+
+@router.post("/import-worksheet", response_model=WorksheetImportResult)
+def import_seller_worksheet(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(_INTAKE_ADMIN),
+):
+    """Import a seller worksheet: a seller-info block above the item table.
+
+    Finds or creates the seller (deduplicated by name, then email/phone),
+    reuses or creates the seller's intake session, and imports the item rows
+    with the same validation as the per-intake import. Ambiguous seller names
+    (multiple matches without contact info) are rejected with the candidate
+    seller codes instead of silently creating a duplicate.
+    """
+    event = db.query(Event).filter(Event.is_active == True).first()
+    if not event:
+        raise HTTPException(status_code=503, detail="No active event configured")
+    data = file.file.read()
+    try:
+        from app.services.item_import import import_items_with_seller as _impl
+        return _impl(db, event, current_user.username, file.filename, data)  # pyright: ignore[reportArgumentType]
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
 
 
 @router.get("/{item_id}", response_model=ItemResponse)

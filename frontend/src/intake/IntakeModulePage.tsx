@@ -1,12 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { IntakePage } from "./IntakePage";
 import { ItemSearchPage } from "./ItemSearchPage";
 import { SellerListPage } from "../admin/SellerListPage";
 import { SellerDetailPage } from "../admin/SellerDetailPage";
-import { downloadImportTemplate } from "../api/items";
+import { downloadImportTemplate, importWorksheet } from "../api/items";
 import { getActiveEvent } from "../api/events";
 import { useAuth } from "../auth/AuthContext";
-import type { Seller } from "../types";
+import type { Seller, WorksheetImportResult } from "../types";
 
 type IntakeTab = "intake" | "sellers" | "search";
 
@@ -23,11 +23,38 @@ export function IntakeModulePage() {
   // The event name labels every intake request. Non-critical: if it can't be
   // fetched, the header renders without it.
   const [eventName, setEventName] = useState<string | null>(null);
+  // Seller worksheet import (enriched template: seller block + item table).
+  const worksheetInputRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<WorksheetImportResult | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
   useEffect(() => {
     getActiveEvent()
       .then((e) => setEventName(e.name))
       .catch(() => {});
   }, []);
+
+  /** Opens the worksheet file picker. */
+  function handlePickWorksheet() {
+    setImportResult(null);
+    setImportError(null);
+    worksheetInputRef.current?.click();
+  }
+
+  /** Uploads the chosen worksheet and shows the seller/import summary. */
+  async function handleWorksheetChosen(file: File) {
+    setImporting(true);
+    setImportError(null);
+    try {
+      const result = await importWorksheet(file);
+      setImportResult(result);
+    } catch (err) {
+      setImportResult(null);
+      setImportError(err instanceof Error ? err.message : "Worksheet import failed");
+    } finally {
+      setImporting(false);
+    }
+  }
 
   const tabBtn = (t: IntakeTab, label: string) => (
     <button
@@ -64,21 +91,80 @@ export function IntakeModulePage() {
           {tabBtn("search", "Search")}
         </div>
         {eventName && <strong style={{ fontSize: 16 }}>{eventName}</strong>}
-        <button
-          onClick={() => downloadImportTemplate()}
+        <div style={{ display: "flex", gap: 8 }}>
+          {/* Import a seller worksheet: creates/matches the seller, then the items. */}
+          <button
+            onClick={handlePickWorksheet}
+            disabled={importing}
+            style={{
+              border: "1px solid #1a237e",
+              color: "#1a237e",
+              background: "none",
+              padding: "4px 10px",
+              cursor: importing ? "wait" : "pointer",
+              borderRadius: 3,
+              fontSize: 13,
+            }}
+          >
+            {importing ? "Importing…" : "Import Seller Worksheet"}
+          </button>
+          <input
+            ref={worksheetInputRef}
+            type="file"
+            accept=".xlsx,.csv,.tsv"
+            style={{ display: "none" }}
+            aria-label="Choose seller worksheet file"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void handleWorksheetChosen(file);
+              e.target.value = "";
+            }}
+          />
+          <button
+            onClick={() => downloadImportTemplate()}
+            style={{
+              border: "1px solid #1a237e",
+              color: "#1a237e",
+              background: "none",
+              padding: "4px 10px",
+              cursor: "pointer",
+              borderRadius: 3,
+              fontSize: 13,
+            }}
+          >
+            Download Template
+          </button>
+        </div>
+      </div>
+      {(importResult || importError) && (
+        <div
+          role="status"
           style={{
-            border: "1px solid #1a237e",
-            color: "#1a237e",
-            background: "none",
-            padding: "4px 10px",
-            cursor: "pointer",
-            borderRadius: 3,
+            margin: "0 0 16px",
+            padding: 10,
+            border: importError ? "1px solid #fca5a5" : "1px solid #86efac",
+            borderRadius: 6,
+            background: importError ? "#fef2f2" : "#f0fdf4",
             fontSize: 13,
           }}
         >
-          Download Template
-        </button>
-      </div>
+          {importError ? (
+            <span style={{ color: "#b91c1c" }}>{importError}</span>
+          ) : (
+            importResult && (
+              <span>
+                <strong>{importResult.seller_name}</strong> ({importResult.seller_code}) —{" "}
+                {importResult.seller_created
+                  ? "new seller created"
+                  : `existing seller matched by ${importResult.seller_matched_by}`} {" "}
+                · {importResult.intake_created ? "new intake" : "existing intake"} ·{" "}
+                {importResult.imported} item(s) imported
+                {importResult.skipped > 0 && `, ${importResult.skipped} row(s) skipped`}
+              </span>
+            )
+          )}
+        </div>
+      )}
       {tab === "intake" && <IntakePage />}
       {tab === "search" && <ItemSearchPage />}
       {tab === "sellers" &&

@@ -8,7 +8,42 @@ import type {
    ItemUpdate,
    ItemLookupResponse,
    ItemSearchResult,
+   WorksheetImportResult,
 } from "../types";
+
+/**
+ * Import a seller worksheet (seller-info block + item table) for the active
+ * event. Finds or creates the seller (deduplicated by name/email/phone),
+ * reuses or creates the seller's intake, and imports the item rows.
+ *
+ * @param file - The .xlsx worksheet using the enriched import template.
+ * @returns Worksheet summary: seller created/matched, intake, item counts, errors.
+ * @throws {ApiError} 422 if the seller block is missing/ambiguous or rows are invalid.
+ * @throws {ApiError} 401 if the session token is invalid.
+ */
+export async function importWorksheet(file: File): Promise<WorksheetImportResult> {
+   const form = new FormData();
+   form.append("file", file);
+   // Use raw fetch — apiFetch serialises JSON; multipart requires FormData.
+   const token = getToken();
+   const res = await fetch("/items/import-worksheet", {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+   });
+   if (!res.ok) {
+      // Surface the backend's validation detail (e.g. ambiguous-seller guidance).
+      let detail: string | null = null;
+      try {
+         const body = await res.json();
+         detail = body?.detail ?? null;
+      } catch {
+         /* non-JSON error body — fall back to statusText */
+      }
+      throw new Error(detail || `Worksheet import failed: ${res.statusText}`);
+   }
+   return res.json();
+}
 
 /**
  * Fetch a single item by primary key.

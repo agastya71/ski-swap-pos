@@ -123,3 +123,27 @@ class ImportResult(BaseModel):
     imported: int = Field(description="Number of items successfully created.")
     skipped: int = Field(description="Number of rows skipped due to validation errors.")
     errors: list[ImportRowError] = Field(description="Details of each skipped row.")
+
+
+class WorksheetImportResult(BaseModel):
+    """Summary returned after importing a seller worksheet (seller block + items)."""
+
+    seller_code: str = Field(description="Code of the matched or newly created seller.")
+    seller_name: str = Field(description="Display name of the seller ('First Last').")
+    seller_created: bool = Field(
+        description="True when no existing seller matched and a new one was created."
+    )
+    seller_matched_by: str | None = Field(
+        default=None,
+        description=(
+            "How an existing seller was identified: 'name', 'email', or 'phone'. "
+            "None when the seller was newly created."
+        ),
+    )
+    intake_id: int = Field(description="Intake session the items were imported into.")
+    intake_created: bool = Field(
+        description="True when a new intake session was created for the seller."
+    )
+    imported: int = Field(description="Number of items successfully created.")
+    skipped: int = Field(description="Number of item rows skipped due to validation errors.")
+    errors: list[ImportRowError] = Field(description="Details of each skipped row.")

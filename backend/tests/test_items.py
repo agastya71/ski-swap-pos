@@ -573,8 +573,9 @@ def test_import_rejects_nonfinite_and_negative_prices(client, active_event, admi
 
 
 def test_import_template_has_quantity_column(client, admin_token):
-    """GET /items/import-template pins the 12-column header, incl. Quantity —
-    the parser is positional, so the template header is the contract."""
+    """GET /items/import-template pins the 12-column item header, incl. Quantity —
+    the parser is positional, so the template header is the contract. The
+    enriched template places it below the seller-info block."""
     import io
     import openpyxl
     resp = client.get("/items/import-template", headers={"Authorization": f"Bearer {admin_token}"})
@@ -582,7 +583,12 @@ def test_import_template_has_quantity_column(client, admin_token):
     wb = openpyxl.load_workbook(io.BytesIO(resp.content))
     ws = wb.active
     assert ws is not None, "template workbook has no active sheet"
-    headers_row = [c.value for c in next(ws.iter_rows(min_row=1, max_row=1))]
+    headers_row = None
+    for row in ws.iter_rows(min_row=1, max_row=ws.max_row):
+        if row[0].value == "Description":
+            headers_row = [c.value for c in row]
+            break
+    assert headers_row is not None, "item header row missing from template"
     assert headers_row == [
         "Description", "Category", "Brand", "Type", "Color",
         "Size", "Gender/Age", "Year", "Price", "Used", "Donate if Unsold", "Quantity",
@@ -634,3 +640,219 @@ def test_brands_ski_boots_does_not_leak_skis_only_brands(client, admin_token, ac
     brands = r.json()
     for brand in ("Karhu", "Kastle", "Peltonen", "Yoko", "4KAAD", "KV+", "Swix"):
         assert brand not in brands
+
+
+# ── Seller worksheet import (enriched template: seller block + items) ─────────────────
+
+
+def _worksheet_bytes(
+    first: str | None = "Jane",
+    last: str | None = "Smith",
+    email=None,
+    phone=None,
+    item_rows=None,
+) -> bytes:
+    """Build an enriched-template worksheet (seller block + item table)."""
+    import io
+
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    assert ws is not None  # openpyxl stubs .active as Optional; always set on a new workbook
+    ws.append(["Seller Info:"])
+    for row_no, label in enumerate(
+        ["Last", "First", "Address", "City", "State", "Zip", "Phone", "Email"], start=2
+    ):
+        ws.append([label])
+        if row_no == 2 and last:
+            ws.cell(row=row_no, column=2, value=last)
+        if row_no == 3 and first:
+            ws.cell(row=row_no, column=2, value=first)
+        if row_no == 8 and phone:
+            ws.cell(row=row_no, column=2, value=phone)
+        if row_no == 9 and email:
+            ws.cell(row=row_no, column=2, value=email)
+    ws.append([])  # blank separator row
+    ws.append([
+        "Description", "Category", "Brand", "Type", "Color",
+        "Size", "Gender/Age", "Year", "Price", "Used", "Donate if Unsold", "Quantity",
+    ])
+    for row in (
+        item_rows
+        if item_rows is not None
+        else [["Skis", "Skis", "Atomic", "Alpine", "Red", "170", "Men", "2020", 110, "Yes", "No", 1]]
+    ):
+        ws.append(row)
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def test_import_template_includes_seller_block(client, admin_token):
+    """The downloadable template now carries the seller-info block above the item header."""
+    import io
+
+    import openpyxl
+
+    r = client.get("/items/import-template", headers={"Authorization": f"Bearer {admin_token}"})
+    assert r.status_code == 200
+    wb = openpyxl.load_workbook(io.BytesIO(r.content))
+    ws = wb.active
+    assert ws is not None  # openpyxl stubs .active as Optional; the template always has a sheet
+    assert ws["A2"].value == "Last"
+    assert ws["A3"].value == "First"
+    assert ws["A9"].value == "Email"
+    header_row = 11
+    header = [ws.cell(row=header_row, column=c).value for c in range(1, 13)]
+    assert header[0] == "Description"
+    assert header[-1] == "Quantity"
+
+
+def test_import_worksheet_creates_new_seller_and_intake(client, active_event, admin_token):
+    """A worksheet for an unknown seller creates the seller + intake, then the items."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    data = _worksheet_bytes(
+        first="Nora", last="Nakamura", email="nora@example.org", phone="6125550000"
+    )
+    r = client.post(
+        "/items/import-worksheet",
+        files={"file": ("worksheet.xlsx", data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["seller_created"] is True
+    assert body["seller_matched_by"] is None
+    assert body["intake_created"] is True
+    assert body["imported"] == 1
+    assert body["skipped"] == 0
+    sellers = client.get("/sellers", headers=headers).json()
+    created = next(s for s in sellers if s["code"] == body["seller_code"])
+    assert created["first_name"] == "Nora"
+    assert created["last_name"] == "Nakamura"
+    assert created["email"] == "nora@example.org"
+    items = client.get(f"/intakes/{body['intake_id']}", headers=headers).json()["items"]
+    assert len(items) == 1
+    assert items[0]["description"] == "Skis"
+
+
+def test_import_worksheet_reuses_existing_seller_by_name(client, active_event, admin_token):
+    """A worksheet for an existing seller reuses them — no duplicate seller records."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json=valid_seller_create(first_name="Jane", last_name="Smith"), headers=headers)
+    intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
+    data = _worksheet_bytes(first="Jane", last="Smith")
+    r = client.post(
+        "/items/import-worksheet",
+        files={"file": ("worksheet.xlsx", data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["seller_created"] is False
+    assert body["seller_matched_by"] == "name"
+    assert body["seller_code"] == seller_r.json()["code"]
+    assert body["intake_created"] is False
+    assert body["intake_id"] == intake_r.json()["id"]
+    assert body["imported"] == 1
+    sellers = client.get("/sellers", headers=headers).json()
+    assert sum(1 for s in sellers if s["last_name"] == "Smith" and s["first_name"] == "Jane") == 1
+
+
+def test_import_worksheet_disambiguates_by_email(client, active_event, admin_token):
+    """Two same-name sellers are disambiguated by the worksheet email."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    client.post(
+        "/sellers",
+        json=valid_seller_create(first_name="Jane", last_name="Smith", email="jane.a@example.org"),
+        headers=headers,
+    )
+    second = client.post(
+        "/sellers",
+        json=valid_seller_create(first_name="Jane", last_name="Smith", email="jane.b@example.org"),
+        headers=headers,
+    )
+    data = _worksheet_bytes(first="Jane", last="Smith", email="jane.b@example.org")
+    r = client.post(
+        "/items/import-worksheet",
+        files={"file": ("worksheet.xlsx", data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["seller_created"] is False
+    assert body["seller_matched_by"] == "email"
+    assert body["seller_code"] == second.json()["code"]
+
+
+def test_import_worksheet_ambiguous_name_returns_422(client, active_event, admin_token):
+    """Two same-name sellers without contact info reject with candidate codes
+    instead of silently creating a duplicate."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    client.post("/sellers", json=valid_seller_create(first_name="Jane", last_name="Smith"), headers=headers)
+    client.post(
+        "/sellers",
+        json=valid_seller_create(first_name="Jane", last_name="Smith", phone="6125559999"),
+        headers=headers,
+    )
+    data = _worksheet_bytes(first="Jane", last="Smith")
+    r = client.post(
+        "/items/import-worksheet",
+        files={"file": ("worksheet.xlsx", data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=headers,
+    )
+    assert r.status_code == 422
+    detail = r.json()["detail"]
+    assert "Multiple sellers named" in detail
+    assert "codes:" in detail
+
+
+def test_import_worksheet_matches_by_email_when_name_unknown(client, active_event, admin_token):
+    """A misspelled name but matching email reuses the existing seller."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    existing = client.post(
+        "/sellers",
+        json=valid_seller_create(first_name="Bob", last_name="Jones", email="shared@example.org"),
+        headers=headers,
+    )
+    data = _worksheet_bytes(first="Robert", last="Jones", email="shared@example.org")
+    r = client.post(
+        "/items/import-worksheet",
+        files={"file": ("worksheet.xlsx", data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["seller_created"] is False
+    assert body["seller_matched_by"] == "email"
+    assert body["seller_code"] == existing.json()["code"]
+    assert body["imported"] == 1
+
+
+def test_import_worksheet_requires_seller_info(client, active_event, admin_token):
+    """An enriched worksheet with a blank seller block is rejected with guidance."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    data = _worksheet_bytes(first=None, last=None)
+    r = client.post(
+        "/items/import-worksheet",
+        files={"file": ("worksheet.xlsx", data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=headers,
+    )
+    assert r.status_code == 422
+    assert "Seller info is missing" in r.json()["detail"]
+
+
+def test_import_worksheet_rejects_legacy_layout(client, active_event, admin_token):
+    """The legacy header-only template belongs to the per-intake import —
+    the worksheet endpoint rejects it with guidance."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    csv_text = "Description,Category,Brand,Type,Color,Size,Gender/Age,Year,Price,Used,Donate if Unsold\n"
+    csv_text += "Skis,Skis,Atomic,Alpine,Red,170,Men,2020,110.0,Yes,No\n"
+    r = client.post(
+        "/items/import-worksheet",
+        files={"file": ("legacy.csv", csv_text.encode("utf-8"), "text/csv")},
+        headers=headers,
+    )
+    assert r.status_code == 422
+    assert "No seller info block" in r.json()["detail"]
