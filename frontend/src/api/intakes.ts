@@ -2,8 +2,16 @@
  * Intakes API — create and manage seller intake sessions and add items.
  * Requires admin or intake role.
  */
-import { apiFetch, getToken } from './client'
-import type { Intake, IntakeWithItems, IntakeCreate, IntakeUpdate, Item, ItemCreate, ImportResult } from '../types'
+import { apiFetch, getToken } from "./client";
+import type {
+ Intake,
+ IntakeWithItems,
+ IntakeCreate,
+ IntakeUpdate,
+ Item,
+ ItemCreate,
+ ImportResult,
+} from "../types";
 
 /**
  * Fetch all intake sessions for a given seller in the active event.
@@ -13,7 +21,7 @@ import type { Intake, IntakeWithItems, IntakeCreate, IntakeUpdate, Item, ItemCre
  * @throws {ApiError} 401 if the session token is invalid.
  */
 export const getSellerIntakes = (sellerId: number) =>
-  apiFetch<Intake[]>(`/sellers/${sellerId}/intakes`)
+ apiFetch<Intake[]>(`/sellers/${sellerId}/intakes`);
 
 /**
  * Create a new intake session for a seller.
@@ -24,7 +32,7 @@ export const getSellerIntakes = (sellerId: number) =>
  * @throws {ApiError} 401 if the session token is invalid.
  */
 export const createIntake = (data: IntakeCreate) =>
-  apiFetch<Intake>('/intakes', { method: 'POST', body: JSON.stringify(data) })
+ apiFetch<Intake>("/intakes", { method: "POST", body: JSON.stringify(data) });
 
 /**
  * Fetch a single intake session with all its items eagerly loaded.
@@ -35,7 +43,7 @@ export const createIntake = (data: IntakeCreate) =>
  * @throws {ApiError} 401 if the session token is invalid.
  */
 export const getIntake = (id: number) =>
-  apiFetch<IntakeWithItems>(`/intakes/${id}`)
+ apiFetch<IntakeWithItems>(`/intakes/${id}`);
 
 /**
  * Update an intake session's donation flags or received date.
@@ -47,7 +55,10 @@ export const getIntake = (id: number) =>
  * @throws {ApiError} 401 if the session token is invalid.
  */
 export const updateIntake = (id: number, data: IntakeUpdate) =>
-  apiFetch<Intake>(`/intakes/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+ apiFetch<Intake>(`/intakes/${id}`, {
+  method: "PATCH",
+  body: JSON.stringify(data),
+ });
 
 /**
  * Add a new item to an existing intake session.
@@ -60,7 +71,10 @@ export const updateIntake = (id: number, data: IntakeUpdate) =>
  * @throws {ApiError} 401 if the session token is invalid.
  */
 export const addItem = (intakeId: number, data: ItemCreate) =>
-  apiFetch<Item>(`/intakes/${intakeId}/items`, { method: 'POST', body: JSON.stringify(data) })
+ apiFetch<Item>(`/intakes/${intakeId}/items`, {
+  method: "POST",
+  body: JSON.stringify(data),
+ });
 
 /**
  * Send all unprinted item labels in an intake session to the ZPL label printer.
@@ -73,7 +87,10 @@ export const addItem = (intakeId: number, data: ItemCreate) =>
  * @throws {ApiError} 401 if the session token is invalid.
  */
 export const printIntakeLabels = (intakeId: number, codeAsText?: boolean) =>
-  apiFetch<{ intake_id: number; printed: number }>(`/intakes/${intakeId}/labels${codeAsText ? '?code_as_text=true' : ''}`, { method: 'POST' })
+ apiFetch<{ intake_id: number; printed: number }>(
+  `/intakes/${intakeId}/labels${codeAsText ? "?code_as_text=true" : ""}`,
+  { method: "POST" },
+ );
 
 /**
  * Bulk-import items into an intake session from an Excel file.
@@ -82,16 +99,19 @@ export const printIntakeLabels = (intakeId: number, codeAsText?: boolean) =>
  * @param file - The .xlsx file using the standard import template.
  * @returns Import summary with counts and any row-level errors.
  */
-export async function importItems(intakeId: number, file: File): Promise<ImportResult> {
-  const form = new FormData()
-  form.append('file', file)
-  // Use raw fetch — apiFetch serialises JSON; multipart requires FormData
-  const token = getToken()
-  const res = await fetch(`/intakes/${intakeId}/items/import`, {
-    method: 'POST',
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: form,
-  })
-  if (!res.ok) throw new Error(`Import failed: ${res.statusText}`)
-  return res.json() as Promise<ImportResult>
+export async function importItems(
+ intakeId: number,
+ file: File,
+): Promise<ImportResult> {
+ const form = new FormData();
+ form.append("file", file);
+ // Use raw fetch — apiFetch serialises JSON; multipart requires FormData
+ const token = getToken();
+ const res = await fetch(`/intakes/${intakeId}/items/import`, {
+  method: "POST",
+  headers: token ? { Authorization: `Bearer ${token}` } : {},
+  body: form,
+ });
+ if (!res.ok) throw new Error(`Import failed: ${res.statusText}`);
+ return res.json() as Promise<ImportResult>;
 }

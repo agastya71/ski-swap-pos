@@ -681,10 +681,7 @@ export function ItemList({
               background: "#f8fafc",
             }}
           >
-            <td
-              colSpan={3}
-              style={{ padding: "6px 8px", textAlign: "right" }}
-            >
+            <td colSpan={3} style={{ padding: "6px 8px", textAlign: "right" }}>
               Total — {items.length} item
               {items.length !== 1 ? "s" : ""}
             </td>
