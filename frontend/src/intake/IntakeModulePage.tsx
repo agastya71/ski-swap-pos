@@ -26,7 +26,8 @@ export function IntakeModulePage() {
   // Seller worksheet import (enriched template: seller block + item table).
   const worksheetInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState<WorksheetImportResult | null>(null);
+  const [importResult, setImportResult] =
+    useState<WorksheetImportResult | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   useEffect(() => {
     getActiveEvent()
@@ -50,7 +51,9 @@ export function IntakeModulePage() {
       setImportResult(result);
     } catch (err) {
       setImportResult(null);
-      setImportError(err instanceof Error ? err.message : "Worksheet import failed");
+      setImportError(
+        err instanceof Error ? err.message : "Worksheet import failed",
+      );
     } finally {
       setImporting(false);
     }
@@ -153,13 +156,16 @@ export function IntakeModulePage() {
           ) : (
             importResult && (
               <span>
-                <strong>{importResult.seller_name}</strong> ({importResult.seller_code}) —{" "}
+                <strong>{importResult.seller_name}</strong> (
+                {importResult.seller_code}) —{" "}
                 {importResult.seller_created
                   ? "new seller created"
-                  : `existing seller matched by ${importResult.seller_matched_by}`} {" "}
-                · {importResult.intake_created ? "new intake" : "existing intake"} ·{" "}
-                {importResult.imported} item(s) imported
-                {importResult.skipped > 0 && `, ${importResult.skipped} row(s) skipped`}
+                  : `existing seller matched by ${importResult.seller_matched_by}`}{" "}
+                ·{" "}
+                {importResult.intake_created ? "new intake" : "existing intake"}{" "}
+                · {importResult.imported} item(s) imported
+                {importResult.skipped > 0 &&
+                  `, ${importResult.skipped} row(s) skipped`}
               </span>
             )
           )}
