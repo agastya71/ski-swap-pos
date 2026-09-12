@@ -58,6 +58,9 @@ export function ItemList({
   // Per-row label-print counts ("print a specified number of labels per item").
   const [printQty, setPrintQty] = useState<Record<number, string>>({});
   const [printError, setPrintError] = useState<string | null>(null);
+  // Print the item code as text instead of a barcode (applies to every label
+  // printed from this list: per-item and bulk).
+  const [codeAsText, setCodeAsText] = useState(false);
 
   /** Opens the edit panel for the given item, or closes it if already open. */
   function openEdit(item: Item) {
@@ -140,7 +143,7 @@ export function ItemList({
   async function handlePrintOne(id: number) {
     setPrintError(null);
     try {
-      await printLabel(id);
+      await printLabel(id, undefined, codeAsText);
       onItemsChanged();
     } catch (err) {
       setPrintError(err instanceof Error ? err.message : "Print failed");
@@ -151,7 +154,7 @@ export function ItemList({
   async function handlePrintCopies(id: number, count: number) {
     setPrintError(null);
     try {
-      await printLabel(id, count);
+      await printLabel(id, count, codeAsText);
       onItemsChanged();
     } catch (err) {
       setPrintError(err instanceof Error ? err.message : "Print failed");
@@ -162,7 +165,7 @@ export function ItemList({
   async function handlePrintAll() {
     setPrintError(null);
     try {
-      await printIntakeLabels(intakeId);
+      await printIntakeLabels(intakeId, codeAsText);
       onItemsChanged();
     } catch (err) {
       setPrintError(err instanceof Error ? err.message : "Print failed");
@@ -201,9 +204,30 @@ export function ItemList({
         <h4 style={{ margin: 0 }}>
           {items.length} item{items.length !== 1 ? "s" : ""}
         </h4>
-        <button onClick={handlePrintAll} style={BUTTON_STYLE}>
-          Print Labels for All Items
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {/* Print the item code as text instead of a barcode — applies to
+              every label printed from this list (per-item and bulk). */}
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 13,
+              whiteSpace: "nowrap",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={codeAsText}
+              onChange={(e) => setCodeAsText(e.target.checked)}
+              aria-label="Print item code as text instead of barcode"
+            />
+            Code as text (no barcode)
+          </label>
+          <button onClick={handlePrintAll} style={BUTTON_STYLE}>
+            Print Labels for All Items
+          </button>
+        </div>
       </div>
       <table
         style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}

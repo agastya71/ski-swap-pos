@@ -254,6 +254,79 @@ describe("ItemList", () => {
     await waitFor(() => expect(called).toBe(true));
   });
 
+  /** Verifies the code-as-text checkbox adds ?code_as_text=true to per-item prints. */
+  it("code-as-text checkbox sends code_as_text=true on per-item prints", async () => {
+    let labelUrl = "";
+    server.use(
+      http.post("/items/:id/label", ({ request }) => {
+        labelUrl = request.url;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    render(<ItemList items={[ITEM]} intakeId={5} onItemsChanged={vi.fn()} />);
+    fireEvent.click(screen.getByLabelText(/print item code as text/i));
+    fireEvent.click(
+      screen.getByRole("button", { name: /print all labels for/i }),
+    );
+    await waitFor(() => expect(labelUrl).toContain("code_as_text=true"));
+    expect(labelUrl).not.toContain("copies=");
+  });
+
+  /** Verifies code-as-text combines with an explicit copies count. */
+  it("code-as-text checkbox keeps ?copies=N on specified-count prints", async () => {
+    let labelUrl = "";
+    server.use(
+      http.post("/items/:id/label", ({ request }) => {
+        labelUrl = request.url;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    render(<ItemList items={[ITEM]} intakeId={5} onItemsChanged={vi.fn()} />);
+    fireEvent.click(screen.getByLabelText(/print item code as text/i));
+    fireEvent.change(screen.getByLabelText(/label count for/i), {
+      target: { value: "3" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: /print the specified number/i }),
+    );
+    await waitFor(() => expect(labelUrl).toContain("copies=3"));
+    expect(labelUrl).toContain("code_as_text=true");
+  });
+
+  /** Verifies code-as-text applies to the bulk intake label print too. */
+  it("code-as-text checkbox sends code_as_text=true on Print Labels for All Items", async () => {
+    let labelsUrl = "";
+    server.use(
+      http.post("/intakes/:id/labels", ({ request }) => {
+        labelsUrl = request.url;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    render(<ItemList items={[ITEM]} intakeId={5} onItemsChanged={vi.fn()} />);
+    fireEvent.click(screen.getByLabelText(/print item code as text/i));
+    fireEvent.click(
+      screen.getByRole("button", { name: /print labels for all items/i }),
+    );
+    await waitFor(() => expect(labelsUrl).toContain("code_as_text=true"));
+  });
+
+  /** Verifies the default (unchecked) print URL has no code_as_text param. */
+  it("default prints send no code_as_text param", async () => {
+    let labelUrl = "";
+    server.use(
+      http.post("/items/:id/label", ({ request }) => {
+        labelUrl = request.url;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    render(<ItemList items={[ITEM]} intakeId={5} onItemsChanged={vi.fn()} />);
+    fireEvent.click(
+      screen.getByRole("button", { name: /print all labels for/i }),
+    );
+    await waitFor(() => expect(labelUrl).toContain("/label"));
+    expect(labelUrl).not.toContain("code_as_text");
+  });
+
   /** Verifies that the empty-state paragraph is shown when the items array is empty. */
   it("shows empty message when no items", () => {
     render(<ItemList items={[]} intakeId={5} onItemsChanged={vi.fn()} />);
