@@ -26,11 +26,12 @@ def _barcode_x(barcode: str) -> int:
     return max(0, (_PRINT_WIDTH - barcode_dots) // 2)
 
 
-def generate_zpl(item, copies: int | None = None) -> str:
+def generate_zpl(item, copies: int | None = None, code_as_text: bool = False) -> str:
     """Generate a ZPL II label string for the ZD421 (4", 203 dpi).
 
     Layout (all elements horizontally centered):
-      - Code 39 barcode, 100 dots tall
+      - Item identifier: Code 39 barcode, 100 dots tall (default) — or the
+        item code as large human-readable text when ``code_as_text`` is set
       - Seller code + price (large)
       - Description, optional size/colour line, optional extra line
 
@@ -39,14 +40,24 @@ def generate_zpl(item, copies: int | None = None) -> str:
     feedback (2026-08-29), so mid-event reprints only cover units still in
     stock. With an explicit ``copies`` the ``^PQ`` emits exactly that many
     labels (the "print a specified number of labels per item" flow).
+
+    ``code_as_text``: render the item code as text instead of a barcode
+    (option added 2026-09-12). The remaining details are unchanged.
     """
     barcode      = item.barcode_39 or item.code
     seller_code  = item.seller.code if item.seller else ""
     description  = (item.description or "")[:30]
     line2        = item.label_line_2 or ""
     line3        = item.label_line_3 or ""
-    bx           = _barcode_x(barcode)
     pw           = _PRINT_WIDTH
+    # Identifier block: barcode (default) or large text item code. The text
+    # block replaces the barcode's 100-dot band (y 5–105) so the seller line
+    # at y=138 keeps its position in both modes.
+    if code_as_text:
+        code_block = f"^FO0,20^FB{pw},1,0,C,0^A0N,60,60^FD{item.code}^FS\n"
+    else:
+        bx         = _barcode_x(barcode)
+        code_block = f"^FO{bx},5^BCN,100,Y,N,N^FD{barcode}^FS\n"
     try:
         # On-hand remaining (== intake quantity until a partial sale) —
         # reprints mid-event print labels only for units still in stock.
@@ -60,7 +71,7 @@ def generate_zpl(item, copies: int | None = None) -> str:
 
     return (
         "^XA\n"
-        f"^FO{bx},5^BCN,100,Y,N,N^FD{barcode}^FS\n"
+        f"{code_block}"
         f"^FO0,138^FB{pw},1,0,C,0^A0N,28,28^FD{seller_code}  ${item.price:.2f}^FS\n"
         f"^FO0,170^FB{pw},1,0,C,0^A0N,15,15^FD{description}^FS\n"
         f"^FO0,189^FB{pw},1,0,C,0^A0N,13,13^FD{line2}^FS\n"

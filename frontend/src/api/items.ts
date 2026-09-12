@@ -90,20 +90,27 @@ export const fetchBrands = (q: string, category?: string) => {
 };
 
 /**
- * Send a ZPL barcode label for one item to the label printer.
+ * Send a ZPL label for one item to the label printer.
  *
  * @param id - Primary key of the item whose label should be printed.
  * @param copies - Optional explicit number of labels to print. When omitted,
  *   the label prints one copy per on-hand remaining unit (one tag per unit).
+ * @param codeAsText - When true, the item code prints as large text instead
+ *   of a barcode (`?code_as_text=true`); details are otherwise unchanged.
  * @returns The updated Item record with `label_printed: true`.
  * @throws {ApiError} 404 if no item with the given ID exists.
  * @throws {ApiError} 422 if `copies` is provided and less than 1.
  * @throws {ApiError} 401 if the session token is invalid.
  */
-export const printLabel = (id: number, copies?: number) =>
-    apiFetch<Item>(`/items/${id}/label${copies ? `?copies=${copies}` : ""}`, {
+export const printLabel = (id: number, copies?: number, codeAsText?: boolean) => {
+    const params = new URLSearchParams();
+    if (copies) params.set("copies", String(copies));
+    if (codeAsText) params.set("code_as_text", "true");
+    const qs = params.toString();
+    return apiFetch<Item>(`/items/${id}/label${qs ? `?${qs}` : ""}`, {
         method: "POST",
     });
+};
 
 /**
  * Exact-match item lookup by code — the fast path for barcode scanners.

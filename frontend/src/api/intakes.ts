@@ -66,12 +66,14 @@ export const addItem = (intakeId: number, data: ItemCreate) =>
  * Send all unprinted item labels in an intake session to the ZPL label printer.
  *
  * @param intakeId - Primary key of the intake whose labels should be printed.
+ * @param codeAsText - When true, each item's code prints as large text instead
+ *   of a barcode (`?code_as_text=true`).
  * @returns Object with `intake_id` and `printed` count of labels sent to the printer.
  * @throws {ApiError} 404 if the referenced intake does not exist.
  * @throws {ApiError} 401 if the session token is invalid.
  */
-export const printIntakeLabels = (intakeId: number) =>
-  apiFetch<{ intake_id: number; printed: number }>(`/intakes/${intakeId}/labels`, { method: 'POST' })
+export const printIntakeLabels = (intakeId: number, codeAsText?: boolean) =>
+  apiFetch<{ intake_id: number; printed: number }>(`/intakes/${intakeId}/labels${codeAsText ? '?code_as_text=true' : ''}`, { method: 'POST' })
 
 /**
  * Bulk-import items into an intake session from an Excel file.

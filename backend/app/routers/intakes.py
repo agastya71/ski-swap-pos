@@ -152,15 +152,20 @@ def import_items_from_excel(
 @router.post("/{intake_id}/labels")
 def print_intake_labels(
     intake_id: int,
+    code_as_text: bool = False,
     db: Session = Depends(get_db),
     _user: User = Depends(_INTAKE_ADMIN),
 ):
-    """Print ZPL labels for all items in an intake session."""
+    """Print ZPL labels for all items in an intake session.
+
+    Optional ``code_as_text``: render each item's code as large text instead
+    of a barcode.
+    """
     event = _active_event(db)
     intake = _get_intake_for_event(intake_id, event.id, db)  # pyright: ignore[reportArgumentType]
     printed = 0
     for item in intake.items:
-        zpl = generate_zpl(item)
+        zpl = generate_zpl(item, code_as_text=code_as_text)
         try:
             send_to_printer(zpl)
         except OSError as e:

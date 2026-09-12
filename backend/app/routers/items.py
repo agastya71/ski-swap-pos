@@ -328,6 +328,7 @@ def update_item(
 def print_item_label(
     item_id: int,
     copies: int | None = None,
+    code_as_text: bool = False,
     db: Session = Depends(get_db),
     _user: User = Depends(_INTAKE_ADMIN),
 ):
@@ -336,11 +337,14 @@ def print_item_label(
     Optional ``copies``: print exactly that many labels (>= 1). When omitted,
     the label prints one copy per on-hand remaining unit (the default "one
     tag per unit" decision).
+
+    Optional ``code_as_text``: render the item code as large text instead of
+    a barcode (details otherwise unchanged).
     """
     item = _item_for_active_event(item_id, db)
     if copies is not None and copies < 1:
         raise HTTPException(status_code=422, detail="Copies must be at least 1")
-    zpl = generate_zpl(item, copies=copies)
+    zpl = generate_zpl(item, copies=copies, code_as_text=code_as_text)
     try:
         send_to_printer(zpl)
     except OSError as e:

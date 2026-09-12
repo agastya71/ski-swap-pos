@@ -217,3 +217,58 @@ def test_print_label_copies_zero_returns_422(client, admin_token, item):
         )
     assert resp.status_code == 422
     assert not mock_send.called
+
+
+def test_generate_zpl_code_as_text_replaces_barcode(item):
+    """code_as_text renders the item code as large text instead of a barcode."""
+    from app.services.zpl import generate_zpl
+    zpl = generate_zpl(item, code_as_text=True)
+    assert "^BCN" not in zpl
+    assert "^A0N,60,60" in zpl
+    assert "ABC-001" in zpl
+
+
+def test_generate_zpl_code_as_text_keeps_item_details(item):
+    """Text-code mode keeps the seller code, price, and detail lines."""
+    from app.services.zpl import generate_zpl
+    zpl = generate_zpl(item, code_as_text=True)
+    assert "25.00" in zpl
+    assert "Size 8" in zpl
+    assert "Adult" in zpl
+    assert zpl.strip().startswith("^XA")
+    assert zpl.strip().endswith("^XZ")
+
+
+def test_generate_zpl_code_as_text_respects_copies(item):
+    """Explicit copies still works together with text-code mode."""
+    from app.services.zpl import generate_zpl
+    zpl = generate_zpl(item, copies=3, code_as_text=True)
+    assert "^PQ3\n^XZ" in zpl
+    assert "^BCN" not in zpl
+
+
+def test_print_single_label_code_as_text(client, admin_token, item):
+    """?code_as_text=true sends a text-code label (no barcode) for the item."""
+    with patch("app.routers.items.send_to_printer") as mock_send:
+        resp = client.post(
+            f"/items/{item.id}/label?code_as_text=true",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+    assert resp.status_code == 200
+    zpl = mock_send.call_args.args[0]
+    assert "^BCN" not in zpl
+    assert "ABC-001" in zpl
+
+
+def test_print_batch_labels_code_as_text(client, admin_token, intake, item):
+    """?code_as_text=true applies to every label in the intake batch."""
+    with patch("app.routers.intakes.send_to_printer") as mock_send:
+        resp = client.post(
+            f"/intakes/{intake.id}/labels?code_as_text=true",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+    assert resp.status_code == 200
+    assert resp.json()["printed"] == 1
+    for call in mock_send.call_args_list:
+        assert "^BCN" not in call.args[0]
+        assert "ABC-001" in call.args[0]
