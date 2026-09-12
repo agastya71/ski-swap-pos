@@ -33,12 +33,17 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
         )
         .first()
     )
-    password_ok = verify_password(body.password, user.password_hash if user else _DUMMY_HASH)
+    password_ok = verify_password(
+        body.password,
+        user.password_hash if user else _DUMMY_HASH,  # pyright: ignore[reportArgumentType]
+    )
     if not user or not password_ok:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    token = create_access_token(user.id, user.username, user.role, user.event_id)
-    return TokenResponse(access_token=token, role=user.role, event_id=user.event_id)
+    # Column attrs are runtime scalars (untyped Column declarations) — the
+    # argument-type flags are static-analysis artifacts of that idiom.
+    token = create_access_token(user.id, user.username, user.role, user.event_id)  # pyright: ignore[reportArgumentType]
+    return TokenResponse(access_token=token, role=user.role, event_id=user.event_id)  # pyright: ignore[reportArgumentType]
 
 
 @router.get("/me")
@@ -69,10 +74,10 @@ def change_password(
     password is complexity-checked by the schema validator. Returns 200 on
     success; 401 if the old password is wrong.
     """
-    if not verify_password(body.old_password, current_user.password_hash):
+    if not verify_password(body.old_password, current_user.password_hash):  # pyright: ignore[reportArgumentType]
         raise HTTPException(status_code=401, detail="Current password is incorrect")
     if body.old_password == body.new_password:
         raise HTTPException(status_code=422, detail="New password must differ from the current password")
-    current_user.password_hash = hash_password(body.new_password)
+    current_user.password_hash = hash_password(body.new_password)  # pyright: ignore[reportAttributeAccessIssue]
     db.commit()
     return {"ok": True}

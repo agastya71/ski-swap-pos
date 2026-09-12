@@ -1,4 +1,5 @@
 import os
+import sys
 
 
 def _env_int(name: str, default: int) -> int:
@@ -7,6 +8,52 @@ def _env_int(name: str, default: int) -> int:
         return int(os.getenv(name, str(default)))
     except (TypeError, ValueError):
         return default
+
+
+PLATFORM_KEY = (
+    "darwin"
+    if sys.platform == "darwin"
+    else "windows"
+    if sys.platform.startswith("win")
+    else "linux"
+)
+
+# Per-OS label-printer presets — transport + defaults selected by the OS the
+# app runs on. Host-specific values are overridden by env vars:
+# LABEL_TRANSPORT ("usb" | "device" | "cups" | "auto"), LABEL_PRINTER_PATH,
+# LABEL_PRINTER_QUEUE.
+PRINTER_OS_PRESETS: dict[str, dict[str, str]] = {
+    # systemd daemon deployment: raw device node first, then the CUPS queue
+    # (byte-for-byte ZPL passthrough; the queue must be created raw via
+    # "sudo lpadmin -p <name> -E -m raw -v usb://Zebra...").
+    "linux": {
+        "transport": "auto",
+        "device": "/dev/usb/lp0",
+        "cups_queue": "ZTC-ZD421-203dpi-ZPL",
+    },
+    # macOS: direct USB write via pyusb (VID/PID-matched Zebra);
+    # requires pyusb in the venv.
+    "darwin": {
+        "transport": "usb",
+    },
+    # Windows: no winspool/IPP path implemented — label endpoints return 503
+    # with a clear message.
+    "windows": {
+        "transport": "unsupported",
+    },
+}
+
+# Optional explicit transport override ("usb" | "device" | "cups" | "auto");
+# empty = use the OS preset.
+LABEL_TRANSPORT: str = os.getenv("LABEL_TRANSPORT", "")
+
+_LABEL_PRESET = PRINTER_OS_PRESETS[PLATFORM_KEY]
+LABEL_PRINTER_PATH: str = os.getenv("LABEL_PRINTER_PATH", "") or _LABEL_PRESET.get(
+    "device", ""
+)
+LABEL_PRINTER_QUEUE: str = os.getenv("LABEL_PRINTER_QUEUE", "") or _LABEL_PRESET.get(
+    "cups_queue", ""
+)
 
 
 DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./swap.db")

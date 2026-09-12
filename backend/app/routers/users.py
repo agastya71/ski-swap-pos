@@ -76,7 +76,7 @@ def deactivate_user(
     user = db.query(User).filter(User.id == user_id, User.event_id == event.id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    user.is_active = False
+    user.is_active = False  # pyright: ignore[reportAttributeAccessIssue]
     db.commit()
     db.refresh(user)
     return user
@@ -100,6 +100,6 @@ def reset_user_password(
     user = db.query(User).filter(User.id == user_id, User.event_id == event.id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    user.password_hash = hash_password(body.new_password)
+    user.password_hash = hash_password(body.new_password)  # pyright: ignore[reportAttributeAccessIssue]
     db.commit()
     return {"ok": True}
