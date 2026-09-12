@@ -272,3 +272,60 @@ def test_print_batch_labels_code_as_text(client, admin_token, intake, item):
     for call in mock_send.call_args_list:
         assert "^BCN" not in call.args[0]
         assert "ABC-001" in call.args[0]
+
+
+# ── Explicit format commands + printer delivery (ZD421 findings 2026-09-12) ──
+
+
+def test_generate_zpl_emits_explicit_format_commands(item):
+    """^MD/^LL/^LS/^PW/^CI0 are emitted on every label — the ZD421 prints
+    BLANK without them (its stored settings), measured on the live printer."""
+    from app.services.zpl import generate_zpl
+    zpl = generate_zpl(item)
+    assert "^MD20" in zpl
+    assert "^LL190" in zpl
+    assert "^LS115" in zpl
+    assert "^PW600" in zpl
+    assert "^CI0" in zpl
+
+
+def test_generate_zpl_code_as_text_also_carries_format_commands(item):
+    from app.services.zpl import generate_zpl
+    zpl = generate_zpl(item, code_as_text=True)
+    assert "^PW600" in zpl
+    assert "^MD20" in zpl
+    assert "^BCN" not in zpl
+
+
+def test_send_to_printer_writes_device_without_cups(tmp_path):
+    """A writable device path is used directly — no CUPS call."""
+    from app.services import zpl
+    target = tmp_path / "lp0"
+    target.write_bytes(b"")
+    with patch("app.services.zpl.subprocess.run") as mock_run:
+        zpl.send_to_printer("^XA^XZ\n", printer_path=str(target))
+    assert not mock_run.called
+    assert target.read_bytes() == b"^XA^XZ\n"
+
+
+def test_send_to_printer_falls_back_to_cups(tmp_path):
+    """Missing device → the CUPS queue receives the ZPL via `lp -o raw`."""
+    from app.services import zpl
+    # parent dir does not exist → open() raises FileNotFoundError like a real
+    # missing device node
+    missing = str(tmp_path / "no-such-dir" / "lp0")
+    with patch("app.services.zpl.subprocess.run") as mock_run:
+        mock_run.return_value.returncode = 0
+        zpl.send_to_printer("^XA^XZ\n", printer_path=missing)
+    assert mock_run.called
+    assert mock_run.call_args.args[0][:4] == ["lp", "-d", "ZTC-ZD421-203dpi-ZPL", "-o"]
+    assert mock_run.call_args.kwargs["input"] == b"^XA^XZ\n"
+
+
+def test_send_to_printer_cups_unavailable_raises_oserror(tmp_path):
+    """Device missing AND CUPS unavailable → OSError (endpoints map to 503)."""
+    from app.services import zpl
+    missing = str(tmp_path / "no-such-dir" / "lp0")
+    with patch("app.services.zpl.subprocess.run", side_effect=FileNotFoundError("no lp")):
+        with pytest.raises(OSError, match="Label printer unavailable"):
+            zpl.send_to_printer("^XA^XZ\n", printer_path=missing)

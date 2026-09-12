@@ -1,14 +1,31 @@
 """ZPL label generation and printing service.
 
-Generates ZPL II label strings for Zebra ZD421 (4" × 203 dpi) and sends
-them via direct USB (pyusb) or a Linux device path.
+Generates ZPL II label strings for the Zebra ZD421 (203 dpi) and sends them
+via direct USB (pyusb) or a Linux device path, with a CUPS `lp` fallback —
+the live deployment's ZD421 is owned by the CUPS queue ``ZTC-ZD421-203dpi-ZPL``
+(no raw ``/dev/usb/lp*`` node exists).
+
+Label geometry/darkness are configurable (``LABEL_WIDTH_DOTS``,
+``LABEL_LENGTH_DOTS``, ``LABEL_LEFT_SHIFT_DOTS``, ``LABEL_DARKNESS``) and are
+emitted explicitly on every label (^PW/^LL/^LS/^MD): the ZD421's stored
+settings produced blank output — labels only print with these commands set
+(measured 2026-09-12: media ≈ 3" × 1", origin ~120 dots left of media).
 """
 
+import logging
+import subprocess
 import sys
 
-from app.config import LABEL_PRINTER_PATH
+from app.config import (
+    LABEL_DARKNESS,
+    LABEL_LEFT_SHIFT_DOTS,
+    LABEL_LENGTH_DOTS,
+    LABEL_PRINTER_PATH,
+    LABEL_PRINTER_QUEUE,
+    LABEL_WIDTH_DOTS,
+)
 
-_PRINT_WIDTH = 812   # dots — ZD421 at 203 dpi, 4" stock
+_PRINT_WIDTH = LABEL_WIDTH_DOTS  # dots at 203 dpi (measured ≈ 3" stock → 600)
 _ZEBRA_VID   = 0x0A5F
 _ZEBRA_PID   = 0x0185
 
@@ -71,6 +88,11 @@ def generate_zpl(item, copies: int | None = None, code_as_text: bool = False) ->
 
     return (
         "^XA\n"
+        f"^MD{max(0, min(30, LABEL_DARKNESS))}\n"
+        f"^LL{LABEL_LENGTH_DOTS}\n"
+        f"^LS{LABEL_LEFT_SHIFT_DOTS}\n"
+        f"^PW{pw}\n"
+        "^CI0\n"
         f"{code_block}"
         f"^FO0,138^FB{pw},1,0,C,0^A0N,28,28^FD{seller_code}  ${item.price:.2f}^FS\n"
         f"^FO0,170^FB{pw},1,0,C,0^A0N,15,15^FD{description}^FS\n"
@@ -85,20 +107,43 @@ def send_to_printer(zpl: str, printer_path: str = LABEL_PRINTER_PATH) -> None:
     """Send ZPL to the printer.
 
     On macOS: writes directly to the Zebra USB endpoint via pyusb.
-    On Linux: writes raw bytes to the device path (e.g. /dev/usb/lp0).
+    On Linux: writes raw bytes to the device path (e.g. /dev/usb/lp0); when
+    the device is unavailable (this deployment's ZD421 is owned by the CUPS
+    queue ``ZTC-ZD421-203dpi-ZPL`` — no raw /dev node), falls back to the
+    CUPS queue via ``lp -o raw``, which passes ZPL through byte-for-byte.
     """
     if sys.platform == "darwin":
         _send_usb(zpl)
     else:
         # pyusb is an optional dependency (macOS-only path); the Linux device
         # write below is the primary path on this deployment.
-        # OSError (missing device) propagates: the label endpoints translate
-        # it into a 503 "Printer unavailable" response.
         try:
             with open(printer_path, "wb") as f:
                 f.write(zpl.encode("utf-8"))
-        except OSError:
-            raise
+            return
+        except OSError as exc:
+            # Device missing/unavailable — fall through to the CUPS queue.
+            logging.getLogger(__name__).debug(
+                "Label device '%s' unavailable (%s) — sending via CUPS queue '%s'",
+                printer_path,
+                exc,
+                LABEL_PRINTER_QUEUE,
+            )
+        try:
+            proc = subprocess.run(
+                ["lp", "-d", LABEL_PRINTER_QUEUE, "-o", "raw"],
+                input=zpl.encode("utf-8"),
+                capture_output=True,
+                timeout=30,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise OSError(
+                f"Label printer unavailable: device '{printer_path}' not writable "
+                f"and CUPS queue '{LABEL_PRINTER_QUEUE}' failed ({exc})"
+            ) from exc
+        if proc.returncode != 0:
+            detail = (proc.stderr or proc.stdout).decode(errors="replace").strip()
+            raise OSError(f"CUPS print to '{LABEL_PRINTER_QUEUE}' failed: {detail}")
 
 
 def _send_usb(zpl: str) -> None:
