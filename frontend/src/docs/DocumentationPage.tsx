@@ -20,7 +20,8 @@ export function DocumentationPage() {
       >
         <strong>Documentation</strong>
         <div style={{ marginTop: 4, color: "#475569" }}>
-          Guides and reference material for the Ski Swap POS (opens in a new tab).
+          Guides and reference material for the Ski Swap POS (opens in a new
+          tab).
         </div>
         <div style={{ marginTop: 8, display: "flex", gap: 16 }}>
           <a
