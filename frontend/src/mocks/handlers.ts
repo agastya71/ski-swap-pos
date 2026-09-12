@@ -355,20 +355,61 @@ export const handlers = [
         /** POST /items/:id/label — marks an item label as printed, returns the updated ITEM fixture. */
         http.post("/items/:id/label", () => HttpResponse.json(ITEM)),
 
-        /** POST /items/import-worksheet — seller worksheet import; returns a worksheet summary. */
-        http.post("/items/import-worksheet", () =>
-                HttpResponse.json({
-                        seller_code: "JSMI1",
-                        seller_name: "Jane Smith",
-                        seller_created: false,
-                        seller_matched_by: "name",
-                        intake_id: 1,
-                        intake_created: false,
-                        imported: 5,
-                        skipped: 0,
-                        errors: [],
-                }),
-        ),
+        /** POST /items/import-worksheet — seller worksheet import. Default: the
+         * dedup review flow — the seller looks like an existing one, so the
+         * response is a SellerMatchReview; the intake user confirms by
+         * re-submitting with ?seller_code=… (final summary) or ?force_new=true. */
+        http.post("/items/import-worksheet", ({ request }) => {
+                // URLSearchParams never throws — new URL() trips the
+                // unchecked-throwing-call rule (established handlers pattern).
+                const [rawQuery] = request.url.split("?").slice(-1);
+                const search = new URLSearchParams(rawQuery ?? "");
+                const sellerCode = search.get("seller_code");
+                if (sellerCode) {
+                        return HttpResponse.json({
+                                seller_code: sellerCode,
+                                seller_name: "Jane Smith",
+                                seller_created: false,
+                                seller_matched_by: "user selection",
+                                intake_id: 1,
+                                intake_created: false,
+                                imported: 5,
+                                skipped: 0,
+                                errors: [],
+                        });
+                }
+                if (search.get("force_new")) {
+                        return HttpResponse.json({
+                                seller_code: "PGUN2",
+                                seller_name: "Jane Smith",
+                                seller_created: true,
+                                seller_matched_by: null,
+                                intake_id: 9,
+                                intake_created: true,
+                                imported: 5,
+                                skipped: 0,
+                                errors: [],
+                        });
+                }
+                return HttpResponse.json({
+                        needs_review: true,
+                        reason:
+                                "One existing seller matches the worksheet name exactly — confirm it is the same person, or record a new seller.",
+                        worksheet_name: "Jane Smith",
+                        worksheet_email: null,
+                        worksheet_phone: null,
+                        candidates: [
+                                {
+                                        code: "JSMI1",
+                                        name: "Jane Smith",
+                                        email: "jane@example.org",
+                                        phone: "612-555-0101",
+                                        existing_intakes: 1,
+                                        match_reason: "Exact name match",
+                                },
+                        ],
+                });
+        }),
 
         /** POST /sales — creates a new sale transaction, returns the SALE fixture. */
         http.post("/sales", () => HttpResponse.json(SALE)),

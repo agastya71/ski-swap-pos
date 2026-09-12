@@ -195,13 +195,141 @@ describe("IntakeModulePage — Import Seller Worksheet (functional)", () => {
     ).toBeInTheDocument();
   });
 
+  /** Verifies the dedup review flow: a possible duplicate shows the candidate
+   * comparison (name, contact, why flagged) and the user confirms reuse. */
+  it("shows the duplicate review and confirms reuse with ?seller_code", async () => {
+    setToken(ADMIN_TOKEN);
+    const postedUrls: string[] = [];
+    server.use(
+      http.post("/items/import-worksheet", ({ request }) => {
+        postedUrls.push(request.url);
+        const [rawQuery] = request.url.split("?").slice(-1);
+        const search = new URLSearchParams(rawQuery ?? "");
+        if (search.get("seller_code")) {
+          return HttpResponse.json({
+            seller_code: search.get("seller_code"),
+            seller_name: "Jane Smith",
+            seller_created: false,
+            seller_matched_by: "user selection",
+            intake_id: 1,
+            intake_created: false,
+            imported: 5,
+            skipped: 0,
+            errors: [],
+          });
+        }
+        return HttpResponse.json({
+          needs_review: true,
+          reason:
+            "One existing seller matches the worksheet name exactly — confirm it is the same person, or record a new seller.",
+          worksheet_name: "Jane Smith",
+          worksheet_email: null,
+          worksheet_phone: null,
+          candidates: [
+            {
+              code: "JSMI1",
+              name: "Jane Smith",
+              email: "jane@example.org",
+              phone: "612-555-0101",
+              existing_intakes: 1,
+              match_reason: "Exact name match",
+            },
+          ],
+        });
+      }),
+    );
+    renderPage();
+    fireEvent.change(screen.getByLabelText(/choose seller worksheet file/i), {
+      target: { files: [new File(["x"], "worksheet.xlsx")] },
+    });
+
+    // Step 1 — review panel with the candidate and why it was flagged.
+    const review = await screen.findByRole("dialog", {
+      name: /possible duplicate seller review/i,
+    });
+    expect(review).toHaveTextContent(/Jane Smith/);
+    expect(review).toHaveTextContent(/exact name match/i);
+    expect(review).toHaveTextContent(/why flagged/i);
+    expect(review).toHaveTextContent(/1 existing intake/i);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+
+    // Step 2 — intake user confirms it is the same seller.
+    fireEvent.click(
+      screen.getByRole("button", { name: /same seller — use JSMI1/i }),
+    );
+    const banner = await screen.findByRole("status");
+    expect(banner).toHaveTextContent(/matched by user selection/i);
+    expect(banner).toHaveTextContent(/5 item\(s\) imported/i);
+    expect(postedUrls).toHaveLength(2);
+    expect(postedUrls[1]).toContain("seller_code=JSMI1");
+  });
+
+  /** Verifies the review panel's 'create as new seller' decision re-submits
+   * with force_new and shows the created summary. */
+  it("review panel 'create as new seller' re-submits with ?force_new=true", async () => {
+    setToken(ADMIN_TOKEN);
+    const postedUrls: string[] = [];
+    server.use(
+      http.post("/items/import-worksheet", ({ request }) => {
+        postedUrls.push(request.url);
+        const [rawQuery] = request.url.split("?").slice(-1);
+        const search = new URLSearchParams(rawQuery ?? "");
+        if (search.get("force_new")) {
+          return HttpResponse.json({
+            seller_code: "PGUN2",
+            seller_name: "Jane Smith",
+            seller_created: true,
+            seller_matched_by: null,
+            intake_id: 9,
+            intake_created: true,
+            imported: 5,
+            skipped: 0,
+            errors: [],
+          });
+        }
+        return HttpResponse.json({
+          needs_review: true,
+          reason:
+            "One existing seller matches the worksheet name exactly — confirm it is the same person, or record a new seller.",
+          worksheet_name: "Jane Smith",
+          worksheet_email: null,
+          worksheet_phone: null,
+          candidates: [
+            {
+              code: "JSMI1",
+              name: "Jane Smith",
+              email: "jane@example.org",
+              phone: "612-555-0101",
+              existing_intakes: 1,
+              match_reason: "Exact name match",
+            },
+          ],
+        });
+      }),
+    );
+    renderPage();
+    fireEvent.change(screen.getByLabelText(/choose seller worksheet file/i), {
+      target: { files: [new File(["x"], "worksheet.xlsx")] },
+    });
+    await screen.findByRole("dialog", {
+      name: /possible duplicate seller review/i,
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: /no — create as new seller/i }),
+    );
+    const banner = await screen.findByRole("status");
+    expect(banner).toHaveTextContent(/new seller created/i);
+    expect(postedUrls[1]).toContain("force_new=true");
+  });
+
+  /** Verifies the no-candidate happy path imports immediately (no review). */
   it("shows the seller/import summary after a successful import", async () => {
     setToken(ADMIN_TOKEN);
     server.use(
       http.post("/items/import-worksheet", () =>
         HttpResponse.json({
-          seller_code: "JSMI1",
-          seller_name: "Jane Smith",
+          seller_code: "KNOR1",
+          seller_name: "Nora Nakamura",
           seller_created: true,
           seller_matched_by: null,
           intake_id: 7,
@@ -218,7 +346,7 @@ describe("IntakeModulePage — Import Seller Worksheet (functional)", () => {
     });
     const banner = await screen.findByRole("status");
     expect(banner).toHaveTextContent(/new seller created/i);
-    expect(banner).toHaveTextContent(/Jane Smith/);
+    expect(banner).toHaveTextContent(/Nora Nakamura/);
     expect(banner).toHaveTextContent(/5 item\(s\) imported/i);
   });
 
@@ -228,8 +356,7 @@ describe("IntakeModulePage — Import Seller Worksheet (functional)", () => {
       http.post("/items/import-worksheet", () =>
         HttpResponse.json(
           {
-            detail:
-              'Multiple sellers named "Jane Smith" already exist (codes: JSMI1, JSMI2).',
+            detail: "Seller info is missing from the worksheet (fill in Last / First in the seller block).",
           },
           { status: 422 },
         ),
@@ -240,7 +367,6 @@ describe("IntakeModulePage — Import Seller Worksheet (functional)", () => {
       target: { files: [new File(["x"], "worksheet.xlsx")] },
     });
     const banner = await screen.findByRole("status");
-    expect(banner).toHaveTextContent(/multiple sellers named/i);
-    expect(banner).toHaveTextContent(/JSMI2/);
+    expect(banner).toHaveTextContent(/seller info is missing/i);
   });
 });

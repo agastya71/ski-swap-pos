@@ -6,7 +6,11 @@ import { SellerDetailPage } from "../admin/SellerDetailPage";
 import { downloadImportTemplate, importWorksheet } from "../api/items";
 import { getActiveEvent } from "../api/events";
 import { useAuth } from "../auth/AuthContext";
-import type { Seller, WorksheetImportResult } from "../types";
+import type {
+  Seller,
+  SellerMatchReview,
+  WorksheetImportResult,
+} from "../types";
 
 type IntakeTab = "intake" | "sellers" | "search";
 
@@ -29,6 +33,12 @@ export function IntakeModulePage() {
   const [importResult, setImportResult] =
     useState<WorksheetImportResult | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  // Dedup review: the backend surfaces possible duplicates instead of
+  // importing; the kept File is re-submitted with the user's decision.
+  const [pendingReview, setPendingReview] = useState<SellerMatchReview | null>(
+    null,
+  );
+  const pendingFileRef = useRef<File | null>(null);
   useEffect(() => {
     getActiveEvent()
       .then((e) => setEventName(e.name))
@@ -39,16 +49,30 @@ export function IntakeModulePage() {
   function handlePickWorksheet() {
     setImportResult(null);
     setImportError(null);
+    setPendingReview(null);
+    pendingFileRef.current = null;
     worksheetInputRef.current?.click();
   }
 
-  /** Uploads the chosen worksheet and shows the seller/import summary. */
-  async function handleWorksheetChosen(file: File) {
+  /** Uploads the chosen worksheet and either shows the dedup review (the
+   * intake user decides duplicate vs new record) or the import summary. */
+  async function handleWorksheetChosen(
+    file: File,
+    opts?: { sellerCode?: string; forceNew?: boolean },
+  ) {
     setImporting(true);
     setImportError(null);
+    setImportResult(null);
     try {
-      const result = await importWorksheet(file);
-      setImportResult(result);
+      const result = await importWorksheet(file, opts);
+      if ("needs_review" in result) {
+        pendingFileRef.current = file;
+        setPendingReview(result);
+      } else {
+        setPendingReview(null);
+        pendingFileRef.current = null;
+        setImportResult(result);
+      }
     } catch (err) {
       setImportResult(null);
       setImportError(
@@ -139,6 +163,96 @@ export function IntakeModulePage() {
           </button>
         </div>
       </div>
+      {pendingReview && (
+        <div
+          role="dialog"
+          aria-label="Possible duplicate seller review"
+          style={{
+            margin: "0 0 16px",
+            padding: 12,
+            border: "1px solid #f59e0b",
+            borderRadius: 6,
+            background: "#fffbeb",
+          }}
+        >
+          <strong>⚠ Possible duplicate seller — your decision needed</strong>
+          <div style={{ marginTop: 6, fontSize: 13 }}>
+            Worksheet seller: <strong>{pendingReview.worksheet_name ?? "(unnamed)"}</strong>
+            {pendingReview.worksheet_email && <> · email: {pendingReview.worksheet_email}</>}
+            {pendingReview.worksheet_phone && <> · phone: {pendingReview.worksheet_phone}</>}
+          </div>
+          <div style={{ marginTop: 4, fontSize: 13, color: "#92400e" }}>
+            Why flagged: {pendingReview.reason}
+          </div>
+          <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+            {pendingReview.candidates.map((c) => (
+              <div
+                key={c.code}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 12,
+                  border: "1px solid #fde68a",
+                  borderRadius: 4,
+                  padding: "6px 8px",
+                  background: "white",
+                }}
+              >
+                <div style={{ fontSize: 13 }}>
+                  <strong>{c.code}</strong> {c.name ?? "(no name)"}
+                  {c.email && <> · {c.email}</>}
+                  {c.phone && <> · {c.phone}</>}
+                  <div style={{ color: "#64748b" }}>
+                    {c.match_reason} · {c.existing_intakes} existing intake(s)
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    const file = pendingFileRef.current;
+                    if (file) void handleWorksheetChosen(file, { sellerCode: c.code });
+                  }}
+                  disabled={importing}
+                  style={{
+                    background: "white",
+                    color: "#1a237e",
+                    border: "1px solid #1a237e",
+                    padding: "4px 10px",
+                    fontSize: 13,
+                    borderRadius: 4,
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Same seller — use {c.code}
+                </button>
+              </div>
+            ))}
+          </div>
+          <div style={{ marginTop: 8, fontSize: 13 }}>
+            Not a duplicate? Record the worksheet as a new seller instead.
+          </div>
+          <button
+            onClick={() => {
+              const file = pendingFileRef.current;
+              if (file) void handleWorksheetChosen(file, { forceNew: true });
+            }}
+            disabled={importing}
+            style={{
+              background: "white",
+              color: "#1a237e",
+              border: "1px solid #1a237e",
+              padding: "4px 10px",
+              fontSize: 13,
+              borderRadius: 4,
+              cursor: "pointer",
+              marginTop: 4,
+            }}
+          >
+            No — create as new seller
+          </button>
+        </div>
+      )}
       {(importResult || importError) && (
         <div
           role="status"

@@ -8,33 +8,43 @@ import type {
   ItemUpdate,
   ItemLookupResponse,
   ItemSearchResult,
-  WorksheetImportResult,
+  WorksheetImportResponse,
 } from "../types";
 
 /**
  * Import a seller worksheet (seller-info block + item table) for the active
- * event. Finds or creates the seller (deduplicated by name/email/phone),
- * reuses or creates the seller's intake, and imports the item rows.
+ * event. Dedup is human-in-the-loop: when existing sellers look like
+ * duplicates of the worksheet seller, the response is a `SellerMatchReview`
+ * listing candidates with the reason each was surfaced — re-submit the same
+ * file with `sellerCode` (reuse) or `forceNew` (record a new seller). With no
+ * candidates the seller is created and the response is the final summary.
  *
  * @param file - The .xlsx worksheet using the enriched import template.
- * @returns Worksheet summary: seller created/matched, intake, item counts, errors.
- * @throws {ApiError} 422 if the seller block is missing/ambiguous or rows are invalid.
+ * @param opts - Confirmation options for the dedup review flow.
+ * @returns Either the review payload (needs_review) or the final summary.
+ * @throws {ApiError} 422 if the seller block is missing or invalid, or the
+ *   confirmation options are inconsistent.
  * @throws {ApiError} 401 if the session token is invalid.
  */
 export async function importWorksheet(
   file: File,
-): Promise<WorksheetImportResult> {
+  opts?: { sellerCode?: string; forceNew?: boolean },
+): Promise<WorksheetImportResponse> {
   const form = new FormData();
   form.append("file", file);
+  const params = new URLSearchParams();
+  if (opts?.sellerCode) params.set("seller_code", opts.sellerCode);
+  if (opts?.forceNew) params.set("force_new", "true");
+  const qs = params.toString();
   // Use raw fetch — apiFetch serialises JSON; multipart requires FormData.
   const token = getToken();
-  const res = await fetch("/items/import-worksheet", {
+  const res = await fetch(`/items/import-worksheet${qs ? `?${qs}` : ""}`, {
     method: "POST",
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: form,
   });
   if (!res.ok) {
-    // Surface the backend's validation detail (e.g. ambiguous-seller guidance).
+    // Surface the backend's validation detail (e.g. invalid confirmation).
     let detail: string | null = null;
     try {
       const body = await res.json();
