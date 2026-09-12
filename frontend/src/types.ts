@@ -327,6 +327,28 @@ export interface ImportRowError {
  reason: string;
 }
 
+/** Summary returned after importing a seller worksheet (seller block + items). */
+export interface WorksheetImportResult {
+ /** Code of the matched or newly created seller. */
+ seller_code: string;
+ /** Display name of the seller ('First Last'). */
+ seller_name: string;
+ /** True when no existing seller matched and a new one was created. */
+ seller_created: boolean;
+ /** How an existing seller was identified: 'name', 'email', or 'phone'; null when created. */
+ seller_matched_by: string | null;
+ /** Intake session the items were imported into. */
+ intake_id: number;
+ /** True when a new intake session was created for the seller. */
+ intake_created: boolean;
+ /** Number of items successfully created. */
+ imported: number;
+ /** Number of item rows skipped due to validation errors. */
+ skipped: number;
+ /** Details of each skipped row. */
+ errors: ImportRowError[];
+}
+
 /** Summary returned after a bulk Excel item import. */
 export interface ImportResult {
  /** Number of items successfully created. */

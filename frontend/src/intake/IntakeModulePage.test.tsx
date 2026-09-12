@@ -181,3 +181,66 @@ describe("IntakeModulePage — Download Template button (functional)", () => {
     );
   });
 });
+
+describe("IntakeModulePage — Import Seller Worksheet (functional)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    setToken(null);
+  });
+
+  it("is always visible in the tab bar", () => {
+    renderPage();
+    expect(
+      screen.getByRole("button", { name: /import seller worksheet/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the seller/import summary after a successful import", async () => {
+    setToken(ADMIN_TOKEN);
+    server.use(
+      http.post("/items/import-worksheet", () =>
+        HttpResponse.json({
+          seller_code: "JSMI1",
+          seller_name: "Jane Smith",
+          seller_created: true,
+          seller_matched_by: null,
+          intake_id: 7,
+          intake_created: true,
+          imported: 5,
+          skipped: 0,
+          errors: [],
+        }),
+      ),
+    );
+    renderPage();
+    fireEvent.change(screen.getByLabelText(/choose seller worksheet file/i), {
+      target: { files: [new File(["x"], "worksheet.xlsx")] },
+    });
+    const banner = await screen.findByRole("status");
+    expect(banner).toHaveTextContent(/new seller created/i);
+    expect(banner).toHaveTextContent(/Jane Smith/);
+    expect(banner).toHaveTextContent(/5 item\(s\) imported/i);
+  });
+
+  it("surfaces the backend validation detail when the import fails", async () => {
+    setToken(ADMIN_TOKEN);
+    server.use(
+      http.post("/items/import-worksheet", () =>
+        HttpResponse.json(
+          {
+            detail:
+              'Multiple sellers named "Jane Smith" already exist (codes: JSMI1, JSMI2).',
+          },
+          { status: 422 },
+        ),
+      ),
+    );
+    renderPage();
+    fireEvent.change(screen.getByLabelText(/choose seller worksheet file/i), {
+      target: { files: [new File(["x"], "worksheet.xlsx")] },
+    });
+    const banner = await screen.findByRole("status");
+    expect(banner).toHaveTextContent(/multiple sellers named/i);
+    expect(banner).toHaveTextContent(/JSMI2/);
+  });
+});

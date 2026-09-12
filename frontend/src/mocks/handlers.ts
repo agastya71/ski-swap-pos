@@ -355,6 +355,21 @@ export const handlers = [
         /** POST /items/:id/label — marks an item label as printed, returns the updated ITEM fixture. */
         http.post("/items/:id/label", () => HttpResponse.json(ITEM)),
 
+        /** POST /items/import-worksheet — seller worksheet import; returns a worksheet summary. */
+        http.post("/items/import-worksheet", () =>
+                HttpResponse.json({
+                        seller_code: "JSMI1",
+                        seller_name: "Jane Smith",
+                        seller_created: false,
+                        seller_matched_by: "name",
+                        intake_id: 1,
+                        intake_created: false,
+                        imported: 5,
+                        skipped: 0,
+                        errors: [],
+                }),
+        ),
+
         /** POST /sales — creates a new sale transaction, returns the SALE fixture. */
         http.post("/sales", () => HttpResponse.json(SALE)),
         /** GET /sales/:id — fetches a sale by ID, returns the SALE fixture. */

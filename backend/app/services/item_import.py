@@ -16,6 +16,7 @@ Category and Type are case-insensitively normalized to the canonical casing
 """
 
 import csv
+import datetime
 import io
 import math
 from io import BytesIO
@@ -27,10 +28,10 @@ from sqlalchemy.orm import Session
 from app.models.intake import Intake
 from app.models.item import Item
 from app.models.seller import Seller
-from app.schemas.item import ImportResult, ImportRowError
+from app.schemas.item import ImportResult, ImportRowError, WorksheetImportResult
 from app.services.brand_match import closest_brand
 from app.services.canonical import canonicalize_category, canonicalize_type
-from app.services.codes import next_item_seq
+from app.services.codes import next_item_seq, next_seller_code
 
 
 def parse_upload(filename: str, data: bytes) -> list[list[Any]]:
@@ -78,20 +79,19 @@ def _existing_brands(db: Session, seller: Seller) -> list[str]:
     return [r[0] for r in rows if r[0]]
 
 
-def import_items(
+def _import_rows(
     db: Session,
     intake: Intake,
     seller: Seller,
     username: str,
-    filename: str,
-    data: bytes,
+    rows: list[list[Any]],
+    first_row_no: int,
 ) -> ImportResult:
-    """Import items from an uploaded template into the given intake session."""
-    try:
-        rows = parse_upload(filename, data)
-    except ValueError as exc:
-        raise exc
+    """Create item rows from parsed data rows (shared by both import flows).
 
+    ``first_row_no`` is the sheet row number of the first data row, used for
+    per-row error reporting.
+    """
     brands_pool = _existing_brands(db, seller)
 
     # Item codes are globally-unique: seller code + an unpadded sequence
@@ -106,7 +106,7 @@ def import_items(
     imported = 0
     skipped = 0
 
-    for i, row in enumerate(rows, start=2):  # row 1 is the header
+    for i, row in enumerate(rows, start=first_row_no):  # header row(s) above
         padded = (list(row) + [None] * 12)[:12]
         (
             description, category, brand, type_, color, size, gender_age,
@@ -213,3 +213,233 @@ def import_items(
 
     db.commit()
     return ImportResult(imported=imported, skipped=skipped, errors=errors)
+
+
+def import_items(
+    db: Session,
+    intake: Intake,
+    seller: Seller,
+    username: str,
+    filename: str,
+    data: bytes,
+) -> ImportResult:
+    """Import items from an uploaded template into the given intake session.
+
+    Legacy/standard layout: the item header is the first row and data starts
+    on row 2. The seller is fixed by the intake. For worksheets that carry a
+    seller-info block (Last / First / ... rows above the item header), use
+    ``import_items_with_seller`` instead.
+    """
+    try:
+        rows = parse_upload(filename, data)
+    except ValueError as exc:
+        raise exc
+    return _import_rows(db, intake, seller, username, rows, first_row_no=2)
+
+
+# ── Seller worksheet import (seller-info block + item table) ─────────────────
+
+_SELLER_LABELS = ("last", "first", "address", "city", "state", "zip", "phone", "email")
+
+
+def _norm(value: Any) -> str:
+    """Case- and whitespace-insensitive normalization for match comparisons."""
+    if value is None:
+        return ""
+    return " ".join(str(value).split()).strip().casefold()
+
+
+def _digits(value: Any) -> str:
+    """Digits-only comparison key for phone numbers."""
+    if value is None:
+        return ""
+    return "".join(ch for ch in str(value) if ch.isdigit())
+
+
+def _cell(row: list[Any], col: int) -> Any:
+    return row[col] if len(row) > col else None
+
+
+def _find_seller_block(rows: list[list[Any]]) -> tuple[dict[str, str | None], int] | None:
+    """Locate the enriched-template seller block (added 2026-09-12).
+
+    Layout: consecutive rows whose column A reads Last, First, Address, City,
+    State, Zip, Phone, Email (values in column B), followed by the item table
+    header (first cell 'Description'). Returns the seller info dict and the
+    item-header row index, or None when the file is the legacy layout (item
+    header in the first row, no seller block).
+    """
+    limit = min(10, len(rows))
+    for idx in range(limit):
+        if _norm(_cell(rows[idx], 0)) != "last":
+            continue
+        if idx + 1 >= len(rows) or _norm(_cell(rows[idx + 1], 0)) != "first":
+            continue
+        info: dict[str, str | None] = {}
+        for j, label in enumerate(_SELLER_LABELS):
+            raw = _cell(rows[idx + j], 1) if idx + j < len(rows) else None
+            text = str(raw).strip() if raw is not None and str(raw).strip() != "" else None
+            info[label] = text
+        for k in range(idx + len(_SELLER_LABELS), len(rows)):
+            if _norm(_cell(rows[k], 0)) == "description":
+                return info, k
+        raise ValueError("Template item header row (Description, ...) not found below the seller block")
+    return None
+
+
+def _resolve_seller(db: Session, event, info: dict[str, str | None]) -> tuple[Seller, str | None, bool]:
+    """Find or create the seller described by the worksheet seller block.
+
+    Dedup verification (reduce duplicate seller records):
+      1. Exact name match (case/whitespace-insensitive First + Last) within the
+         active event — a single match reuses that seller.
+      2. Multiple same-name matches are disambiguated by Email or Phone
+         (case-insensitive / digits-only) when the worksheet provides one.
+      3. Zero name matches fall back to a contact-only match (email, then
+         phone) so a re-submitted worksheet with a misspelled name reuses the
+         existing seller instead of creating a duplicate.
+      4. Otherwise a new seller is created (code via ``next_seller_code``).
+
+    Raises ValueError when the seller block is empty or the name is ambiguous
+    without contact info (candidate codes are listed in the message).
+    Returns (seller, matched_by, created).
+    """
+    first = info.get("first")
+    last = info.get("last")
+    if not first and not last:
+        raise ValueError(
+            "Seller info is missing from the worksheet (fill in Last / First in the seller block), "
+            "or use the per-intake import with the plain template."
+        )
+    sellers = db.query(Seller).filter(Seller.event_id == event.id).all()
+    email = info.get("email")
+    phone = info.get("phone")
+
+    def _by_contact(candidates: list[Seller]) -> tuple[Seller | None, str | None]:
+        if email:
+            matches = [
+                s for s in candidates if s.email is not None and _norm(s.email) == _norm(email)
+            ]
+            if len(matches) == 1:
+                return matches[0], "email"
+        if phone:
+            pdigits = _digits(phone)
+            matches = [
+                s for s in candidates if s.phone is not None and _digits(s.phone) == pdigits
+            ]
+            if len(matches) == 1:
+                return matches[0], "phone"
+        return None, None
+
+    name_matches = [
+        s
+        for s in sellers
+        if _norm(s.first_name) == _norm(first) and _norm(s.last_name) == _norm(last)
+    ]
+    if len(name_matches) == 1:
+        return name_matches[0], "name", False
+    if len(name_matches) > 1:
+        seller, by = _by_contact(name_matches)
+        if seller is not None:
+            return seller, by, False
+        codes = ", ".join(sorted(str(s.code) for s in name_matches))
+        raise ValueError(
+            f'Multiple sellers named "{first or ""} {last or ""}" already exist (codes: {codes}). '
+            "Add the seller's Email or Phone to the worksheet to pick the right one, "
+            "or register the seller manually first."
+        )
+    # No name match — strong-identifier dedup before creating a new seller.
+    seller, by = _by_contact(sellers)
+    if seller is not None:
+        return seller, by, False
+    new_seller = Seller(
+        event_id=event.id,
+        code=next_seller_code(db, first, last, None, False),
+        first_name=first,
+        last_name=last,
+        address=info.get("address"),
+        city=info.get("city"),
+        state=info.get("state"),
+        zip=info.get("zip"),
+        phone=info.get("phone"),
+        email=info.get("email"),
+        is_vendor=False,
+    )
+    db.add(new_seller)
+    db.flush()
+    return new_seller, None, True
+
+
+def _resolve_intake(db: Session, seller: Seller) -> tuple[Intake, bool]:
+    """Reuse the seller's most recent intake in the event, or create one.
+
+    Reusing avoids duplicate intake sessions when the same seller submits
+    another worksheet later.
+    """
+    existing = (
+        db.query(Intake)
+        .filter(Intake.seller_id == seller.id)
+        .order_by(Intake.id.desc())
+        .first()
+    )
+    if existing is not None:
+        return existing, False
+    intake = Intake(
+        seller_id=seller.id,
+        date_entered=datetime.date.today(),
+        donate_unsold=False,
+        donate_proceeds=False,
+    )
+    db.add(intake)
+    db.flush()
+    return intake, True
+
+
+def import_items_with_seller(
+    db: Session,
+    event,
+    username: str,
+    filename: str,
+    data: bytes,
+) -> WorksheetImportResult:
+    """Import a seller worksheet: seller-info block + item table (2026-09-12).
+
+    Finds or creates the seller (deduplicated — see ``_resolve_seller``),
+    reuses or creates the seller's intake session, then imports the item rows
+    below the header with the exact same semantics as the per-intake import.
+    """
+    try:
+        rows = parse_upload(filename, data)
+    except ValueError as exc:
+        raise exc
+    block = _find_seller_block(rows)
+    if block is None:
+        raise ValueError(
+            "No seller info block found in the worksheet (expected rows starting with Last / First "
+            "above the item header). Use the per-intake import for the plain 12-column template."
+        )
+    info, header_idx = block
+    seller, matched_by, created = _resolve_seller(db, event, info)
+    intake, intake_created = _resolve_intake(db, seller)
+    result = _import_rows(db, intake, seller, username, rows[header_idx + 1:], first_row_no=header_idx + 2)
+    seller_name = " ".join(
+        part
+        for part in (
+            info.get("first") or (str(seller.first_name) if seller.first_name is not None else ""),
+            info.get("last") or (str(seller.last_name) if seller.last_name is not None else ""),
+        )
+        if part
+    )
+    return WorksheetImportResult.model_validate(
+        {
+            "seller_code": seller.code,
+            "seller_name": seller_name,
+            "seller_created": created,
+            "seller_matched_by": matched_by,
+            "intake_id": intake.id,
+            "intake_created": intake_created,
+            "imported": result.imported,
+            "skipped": result.skipped,
+            "errors": result.errors,
+        }
+    )
