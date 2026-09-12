@@ -9,12 +9,12 @@
 export const NAVY = "#1e3a8a";
 
 export const BUTTON_STYLE = {
-    background: "#fff",
-    color: NAVY,
-    border: `1px solid ${NAVY}`,
-    padding: "5px 14px",
-    fontSize: 13,
-    fontWeight: 500,
-    borderRadius: 4,
-    cursor: "pointer",
+   background: "#fff",
+   color: NAVY,
+   border: `1px solid ${NAVY}`,
+   padding: "5px 14px",
+   fontSize: 13,
+   fontWeight: 500,
+   borderRadius: 4,
+   cursor: "pointer",
 } as const;

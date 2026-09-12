@@ -5,18 +5,18 @@
  *
  * @module IntakePage
  */
-import { useState, useCallback } from 'react'
+import { useState, useCallback } from "react";
 import { BUTTON_STYLE } from "../lib/buttons";
-import { getIntake, getSellerIntakes } from '../api/intakes'
-import { SellerSearch } from './SellerSearch'
-import { SellerForm } from './SellerForm'
-import { IntakeForm } from './IntakeForm'
-import { ItemForm } from './ItemForm'
-import { ItemList } from './ItemList'
-import { ImportItemsButton } from './ImportItemsButton'
-import type { Seller, Intake, Item } from '../types'
+import { getIntake, getSellerIntakes } from "../api/intakes";
+import { SellerSearch } from "./SellerSearch";
+import { SellerForm } from "./SellerForm";
+import { IntakeForm } from "./IntakeForm";
+import { ItemForm } from "./ItemForm";
+import { ItemList } from "./ItemList";
+import { ImportItemsButton } from "./ImportItemsButton";
+import type { Seller, Intake, Item } from "../types";
 
-type Step = 'search' | 'register' | 'select-intake' | 'intake' | 'items'
+type Step = "search" | "register" | "select-intake" | "intake" | "items";
 
 /**
  * Navigation breadcrumb displayed at the top of the intake workflow.
@@ -28,42 +28,80 @@ type Step = 'search' | 'register' | 'select-intake' | 'intake' | 'items'
  * @param props.onGoToSearch - Callback invoked when the user clicks the root "Intake" link.
  * @param props.onGoToSelectIntake - Callback invoked when the user clicks the seller name link.
  */
-function Breadcrumb({ step, seller, intake, onGoToSearch, onGoToSelectIntake }: {
-  step: Step
-  seller: Seller | null
-  intake: Intake | null
-  onGoToSearch: () => void
-  onGoToSelectIntake: () => void
+function Breadcrumb({
+  step,
+  seller,
+  intake,
+  onGoToSearch,
+  onGoToSelectIntake,
+}: {
+  step: Step;
+  seller: Seller | null;
+  intake: Intake | null;
+  onGoToSearch: () => void;
+  onGoToSelectIntake: () => void;
 }) {
   const linkStyle: React.CSSProperties = {
-    background: 'none', border: 'none', cursor: 'pointer',
-    color: '#1a237e', padding: 0, fontSize: 13, textDecoration: 'underline',
-  }
-  const sep = <span style={{ margin: '0 6px', color: '#999' }}>&rsaquo;</span>
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    color: "#1a237e",
+    padding: 0,
+    fontSize: 13,
+    textDecoration: "underline",
+  };
+  const sep = <span style={{ margin: "0 6px", color: "#999" }}>&rsaquo;</span>;
 
   return (
-    <nav aria-label="breadcrumb" style={{ fontSize: 13, marginBottom: 16, color: '#666' }}>
-      {step === 'search'
-        ? <span style={{ color: '#333', fontWeight: 600 }}>Intake</span>
-        : <button style={linkStyle} onClick={onGoToSearch}>Intake</button>
-      }
+    <nav
+      aria-label="breadcrumb"
+      style={{ fontSize: 13, marginBottom: 16, color: "#666" }}
+    >
+      {step === "search" ? (
+        <span style={{ color: "#333", fontWeight: 600 }}>Intake</span>
+      ) : (
+        <button style={linkStyle} onClick={onGoToSearch}>
+          Intake
+        </button>
+      )}
 
-      {step === 'register' && <>{sep}<span style={{ color: '#333' }}>Register New Seller</span></>}
-
-      {seller && (step === 'select-intake' || step === 'intake' || step === 'items') && (
+      {step === "register" && (
         <>
           {sep}
-          {(step === 'intake' || step === 'items')
-            ? <button style={linkStyle} onClick={onGoToSelectIntake}>{seller.first_name} {seller.last_name} ({seller.code})</button>
-            : <span style={{ color: '#333' }}>{seller.first_name} {seller.last_name} ({seller.code})</span>
-          }
+          <span style={{ color: "#333" }}>Register New Seller</span>
         </>
       )}
 
-      {step === 'intake' && <>{sep}<span style={{ color: '#333' }}>New Intake</span></>}
-      {step === 'items' && intake && <>{sep}<span style={{ color: '#333' }}>Intake #{intake.id}</span></>}
+      {seller &&
+        (step === "select-intake" || step === "intake" || step === "items") && (
+          <>
+            {sep}
+            {step === "intake" || step === "items" ? (
+              <button style={linkStyle} onClick={onGoToSelectIntake}>
+                {seller.first_name} {seller.last_name} ({seller.code})
+              </button>
+            ) : (
+              <span style={{ color: "#333" }}>
+                {seller.first_name} {seller.last_name} ({seller.code})
+              </span>
+            )}
+          </>
+        )}
+
+      {step === "intake" && (
+        <>
+          {sep}
+          <span style={{ color: "#333" }}>New Intake</span>
+        </>
+      )}
+      {step === "items" && intake && (
+        <>
+          {sep}
+          <span style={{ color: "#333" }}>Intake #{intake.id}</span>
+        </>
+      )}
     </nav>
-  )
+  );
 }
 
 /**
@@ -72,85 +110,94 @@ function Breadcrumb({ step, seller, intake, onGoToSearch, onGoToSelectIntake }: 
  * and renders the appropriate child component for each step.
  */
 export function IntakePage() {
-  const [step, setStep] = useState<Step>('search')
-  const [seller, setSeller] = useState<Seller | null>(null)
-  const [intake, setIntake] = useState<Intake | null>(null)
-  const [items, setItems] = useState<Item[]>([])
-  const [sellerIntakes, setSellerIntakes] = useState<Intake[]>([])
-  const [loadingIntakes, setLoadingIntakes] = useState(false)
-  const [pickError, setPickError] = useState<string | null>(null)
+  const [step, setStep] = useState<Step>("search");
+  const [seller, setSeller] = useState<Seller | null>(null);
+  const [intake, setIntake] = useState<Intake | null>(null);
+  const [items, setItems] = useState<Item[]>([]);
+  const [sellerIntakes, setSellerIntakes] = useState<Intake[]>([]);
+  const [loadingIntakes, setLoadingIntakes] = useState(false);
+  const [pickError, setPickError] = useState<string | null>(null);
 
   /** Re-fetches the item list for the current intake from the API and updates local state. */
   const refreshItems = useCallback(async () => {
-    if (!intake) return
-    const fresh = await getIntake(intake.id)
-    setItems(fresh.items)
-  }, [intake])
+    if (!intake) return;
+    const fresh = await getIntake(intake.id);
+    setItems(fresh.items);
+  }, [intake]);
 
   /** Loads all existing intakes for the given seller and advances to the select-intake step. */
   async function goToSelectIntake(s: Seller) {
-    setSeller(s)
-    setStep('select-intake')
-    setLoadingIntakes(true)
-    setPickError(null)
+    setSeller(s);
+    setStep("select-intake");
+    setLoadingIntakes(true);
+    setPickError(null);
     try {
-      const intakes = await getSellerIntakes(s.id)
-      setSellerIntakes(intakes)
+      const intakes = await getSellerIntakes(s.id);
+      setSellerIntakes(intakes);
     } catch {
-      setSellerIntakes([])
+      setSellerIntakes([]);
     } finally {
-      setLoadingIntakes(false)
+      setLoadingIntakes(false);
     }
   }
 
   /** Handles a seller chosen from the search results by advancing to intake selection. */
-  function handleSellerSelected(s: Seller) { goToSelectIntake(s) }
+  function handleSellerSelected(s: Seller) {
+    goToSelectIntake(s);
+  }
 
   /** Handles a newly registered seller by advancing to intake selection. */
-  function handleSellerCreated(s: Seller) { goToSelectIntake(s) }
+  function handleSellerCreated(s: Seller) {
+    goToSelectIntake(s);
+  }
 
   /** Loads the chosen existing intake and advances to the item-entry step. */
   async function handlePickExistingIntake(intakeId: number) {
-    setPickError(null)
+    setPickError(null);
     try {
-      const full = await getIntake(intakeId)
-      setIntake(full)
-      setItems(full.items)
-      setStep('items')
+      const full = await getIntake(intakeId);
+      setIntake(full);
+      setItems(full.items);
+      setStep("items");
     } catch {
-      setPickError('Failed to load intake. Please try again.')
+      setPickError("Failed to load intake. Please try again.");
     }
   }
 
   /** Handles a newly created intake by storing it and advancing to the item-entry step. */
   function handleIntakeCreated(i: Intake) {
-    setIntake(i)
-    setItems([])
-    setStep('items')
-    getIntake(i.id).then(full => setItems(full.items)).catch(() => {})
+    setIntake(i);
+    setItems([]);
+    setStep("items");
+    getIntake(i.id)
+      .then((full) => setItems(full.items))
+      .catch(() => {});
   }
 
   /** Resets all state and returns to the initial seller-search step. */
   function handleGoToSearch() {
-    setSeller(null)
-    setIntake(null)
-    setItems([])
-    setSellerIntakes([])
-    setPickError(null)
-    setStep('search')
+    setSeller(null);
+    setIntake(null);
+    setItems([]);
+    setSellerIntakes([]);
+    setPickError(null);
+    setStep("search");
   }
 
   /** Returns to the select-intake step for the current seller, or to search if no seller is set. */
   function handleGoToSelectIntake() {
-    if (!seller) { handleGoToSearch(); return }
-    setIntake(null)
-    setItems([])
-    goToSelectIntake(seller)
+    if (!seller) {
+      handleGoToSearch();
+      return;
+    }
+    setIntake(null);
+    setItems([]);
+    goToSelectIntake(seller);
   }
 
   /** Appends a newly added item to the local item list without a full re-fetch. */
   function handleItemAdded(item: Item) {
-    setItems(prev => [...prev, item])
+    setItems((prev) => [...prev, item]);
   }
 
   return (
@@ -164,46 +211,85 @@ export function IntakePage() {
         onGoToSelectIntake={handleGoToSelectIntake}
       />
 
-      {step === 'search' && (
-        <SellerSearch onSelect={handleSellerSelected} onCreateNew={() => setStep('register')} />
+      {step === "search" && (
+        <SellerSearch
+          onSelect={handleSellerSelected}
+          onCreateNew={() => setStep("register")}
+        />
       )}
 
-      {step === 'register' && (
-        <SellerForm onCreated={handleSellerCreated} onCancel={() => setStep('search')} />
+      {step === "register" && (
+        <SellerForm
+          onCreated={handleSellerCreated}
+          onCancel={() => setStep("search")}
+        />
       )}
 
-      {step === 'select-intake' && seller && (
+      {step === "select-intake" && seller && (
         <div>
           <h3 style={{ marginTop: 0 }}>
             {seller.first_name} {seller.last_name}
-            <span style={{ fontSize: 14, fontWeight: 400, marginLeft: 8, color: '#666' }}>({seller.code})</span>
+            <span
+              style={{
+                fontSize: 14,
+                fontWeight: 400,
+                marginLeft: 8,
+                color: "#666",
+              }}
+            >
+              ({seller.code})
+            </span>
           </h3>
-          {pickError && <div role="alert" style={{ color: 'red', marginBottom: 8 }}>{pickError}</div>}
+          {pickError && (
+            <div role="alert" style={{ color: "red", marginBottom: 8 }}>
+              {pickError}
+            </div>
+          )}
           {loadingIntakes ? (
             <p>Loading previous intakes…</p>
           ) : sellerIntakes.length > 0 ? (
             <>
-              <p style={{ fontWeight: 500, marginBottom: 8 }}>Previous intakes — click Continue to add more items:</p>
-              <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16 }}>
+              <p style={{ fontWeight: 500, marginBottom: 8 }}>
+                Previous intakes — click Continue to add more items:
+              </p>
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  marginBottom: 16,
+                }}
+              >
                 <thead>
-                  <tr style={{ textAlign: 'left', borderBottom: '2px solid #ccc', fontSize: 13 }}>
-                    <th style={{ padding: '4px 8px' }}>Intake #</th>
-                    <th style={{ padding: '4px 8px' }}>Date</th>
-                    <th style={{ padding: '4px 8px' }}>Intake by</th>
-                    <th style={{ padding: '4px 8px' }}>Donate Unsold</th>
-                    <th style={{ padding: '4px 8px' }}>Donate Proceeds</th>
+                  <tr
+                    style={{
+                      textAlign: "left",
+                      borderBottom: "2px solid #ccc",
+                      fontSize: 13,
+                    }}
+                  >
+                    <th style={{ padding: "4px 8px" }}>Intake #</th>
+                    <th style={{ padding: "4px 8px" }}>Date</th>
+                    <th style={{ padding: "4px 8px" }}>Intake by</th>
+                    <th style={{ padding: "4px 8px" }}>Donate Unsold</th>
+                    <th style={{ padding: "4px 8px" }}>Donate Proceeds</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {sellerIntakes.map(i => (
-                    <tr key={i.id} style={{ borderBottom: '1px solid #eee' }}>
-                      <td style={{ padding: '6px 8px' }}>#{i.id}</td>
-                      <td style={{ padding: '6px 8px' }}>{i.date_entered}</td>
-                      <td style={{ padding: '6px 8px' }}>{i.created_by ?? '—'}</td>
-                      <td style={{ padding: '6px 8px' }}>{i.donate_unsold ? 'Yes' : 'No'}</td>
-                      <td style={{ padding: '6px 8px' }}>{i.donate_proceeds ? 'Yes' : 'No'}</td>
-                      <td style={{ padding: '6px 8px' }}>
+                  {sellerIntakes.map((i) => (
+                    <tr key={i.id} style={{ borderBottom: "1px solid #eee" }}>
+                      <td style={{ padding: "6px 8px" }}>#{i.id}</td>
+                      <td style={{ padding: "6px 8px" }}>{i.date_entered}</td>
+                      <td style={{ padding: "6px 8px" }}>
+                        {i.created_by ?? "—"}
+                      </td>
+                      <td style={{ padding: "6px 8px" }}>
+                        {i.donate_unsold ? "Yes" : "No"}
+                      </td>
+                      <td style={{ padding: "6px 8px" }}>
+                        {i.donate_proceeds ? "Yes" : "No"}
+                      </td>
+                      <td style={{ padding: "6px 8px" }}>
                         <button
                           onClick={() => handlePickExistingIntake(i.id)}
                           style={BUTTON_STYLE}
@@ -217,38 +303,45 @@ export function IntakePage() {
               </table>
             </>
           ) : (
-            <p style={{ color: '#666' }}>No previous intakes for this seller.</p>
+            <p style={{ color: "#666" }}>
+              No previous intakes for this seller.
+            </p>
           )}
-          <button
-            onClick={() => setStep('intake')}
-            style={BUTTON_STYLE}
-          >
+          <button onClick={() => setStep("intake")} style={BUTTON_STYLE}>
             + New Intake
           </button>
         </div>
       )}
 
-      {step === 'intake' && seller && (
+      {step === "intake" && seller && (
         <IntakeForm seller={seller} onCreated={handleIntakeCreated} />
       )}
 
-      {step === 'items' && intake && (
+      {step === "items" && intake && (
         <div>
-          <p style={{ color: '#666', fontSize: 13, margin: '0 0 8px' }}>
-            Intake #{intake.id} · recorded by <strong>{intake.created_by ?? '—'}</strong>
+          <p style={{ color: "#666", fontSize: 13, margin: "0 0 8px" }}>
+            Intake #{intake.id} · recorded by{" "}
+            <strong>{intake.created_by ?? "—"}</strong>
           </p>
           <ItemForm
             intakeId={intake.id}
             onAdded={handleItemAdded}
             defaultDonateUnsold={intake.donate_unsold}
           />
-          <div style={{ margin: '12px 0' }}>
-            <ImportItemsButton intakeId={intake.id} onImported={() => refreshItems()} />
+          <div style={{ margin: "12px 0" }}>
+            <ImportItemsButton
+              intakeId={intake.id}
+              onImported={() => refreshItems()}
+            />
           </div>
-          <hr style={{ margin: '16px 0' }} />
-          <ItemList items={items} intakeId={intake.id} onItemsChanged={refreshItems} />
+          <hr style={{ margin: "16px 0" }} />
+          <ItemList
+            items={items}
+            intakeId={intake.id}
+            onItemsChanged={refreshItems}
+          />
         </div>
       )}
     </div>
-  )
+  );
 }

@@ -5,87 +5,172 @@
  *
  * @module ResetPasswordModal
  */
-import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from "react";
 import { BUTTON_STYLE } from "../lib/buttons";
-import { resetUserPassword } from '../api/users'
-import { generatePassword } from '../api/auth'
-import { validatePassword, PASSWORD_MIN_LENGTH } from '../lib/passwordPolicy'
-import type { User } from '../types'
+import { resetUserPassword } from "../api/users";
+import { generatePassword } from "../api/auth";
+import { validatePassword, PASSWORD_MIN_LENGTH } from "../lib/passwordPolicy";
+import type { User } from "../types";
 
 /**
  * @param props.user - The user whose password is being reset.
  * @param props.onClose - Callback invoked on dismiss or success.
  */
-export function ResetPasswordModal({ user, onClose }: { user: User; onClose: () => void }) {
-  const [newPassword, setNewPassword] = useState('')
-  const [confirm, setConfirm] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+export function ResetPasswordModal({
+  user,
+  onClose,
+}: {
+  user: User;
+  onClose: () => void;
+}) {
+  const [newPassword, setNewPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const policy = validatePassword(newPassword)
-  const confirmMismatch = confirm.length > 0 && newPassword !== confirm
+  const policy = validatePassword(newPassword);
+  const confirmMismatch = confirm.length > 0 && newPassword !== confirm;
 
   /** Prefill both fields with a compliant suggested password; the admin can
    *  accept it as-is or edit before submitting. */
   async function fillSuggested() {
     try {
-      const pw = await generatePassword()
-      setNewPassword(pw)
-      setConfirm(pw)
+      const pw = await generatePassword();
+      setNewPassword(pw);
+      setConfirm(pw);
     } catch {
       // ignore — admin can still type a password manually
     }
   }
 
   async function handleSubmit(e: FormEvent) {
-    e.preventDefault()
-    setError(null)
-    if (!policy.ok) { setError('New password does not meet the requirements.'); return }
-    if (newPassword !== confirm) { setError('Password and confirmation do not match.'); return }
-    setLoading(true)
+    e.preventDefault();
+    setError(null);
+    if (!policy.ok) {
+      setError("New password does not meet the requirements.");
+      return;
+    }
+    if (newPassword !== confirm) {
+      setError("Password and confirmation do not match.");
+      return;
+    }
+    setLoading(true);
     try {
-      await resetUserPassword(user.id, newPassword)
-      onClose()
+      await resetUserPassword(user.id, newPassword);
+      onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Reset failed')
+      setError(err instanceof Error ? err.message : "Reset failed");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   return (
-    <div role="dialog" aria-label={`Reset password for ${user.username}`} style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex',
-      alignItems: 'center', justifyContent: 'center', zIndex: 50,
-    }}>
-      <form onSubmit={handleSubmit} style={{ background: '#fff', borderRadius: 6, padding: 24, width: 360, boxSizing: 'border-box' }}>
+    <div
+      role="dialog"
+      aria-label={`Reset password for ${user.username}`}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.4)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 50,
+      }}
+    >
+      <form
+        onSubmit={handleSubmit}
+        style={{
+          background: "#fff",
+          borderRadius: 6,
+          padding: 24,
+          width: 360,
+          boxSizing: "border-box",
+        }}
+      >
         <h3 style={{ marginTop: 0 }}>Reset Password — {user.username}</h3>
         <div style={{ marginBottom: 10 }}>
-          <label htmlFor="resetNewPassword" style={{ display: 'block', fontSize: 13, marginBottom: 3 }}>New Password</label>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <input id="resetNewPassword" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required
-              minLength={PASSWORD_MIN_LENGTH} style={{ flex: 1, padding: 8, boxSizing: 'border-box' }} />
-            <button type="button" onClick={fillSuggested} title="Suggest a compliant password" style={BUTTON_STYLE}>Suggest</button>
+          <label
+            htmlFor="resetNewPassword"
+            style={{ display: "block", fontSize: 13, marginBottom: 3 }}
+          >
+            New Password
+          </label>
+          <div style={{ display: "flex", gap: 6 }}>
+            <input
+              id="resetNewPassword"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              required
+              minLength={PASSWORD_MIN_LENGTH}
+              style={{ flex: 1, padding: 8, boxSizing: "border-box" }}
+            />
+            <button
+              type="button"
+              onClick={fillSuggested}
+              title="Suggest a compliant password"
+              style={BUTTON_STYLE}
+            >
+              Suggest
+            </button>
           </div>
         </div>
         <div style={{ marginBottom: 10 }}>
-          <label htmlFor="resetConfirmPassword" style={{ display: 'block', fontSize: 13, marginBottom: 3 }}>Confirm New Password</label>
-          <input id="resetConfirmPassword" type="password" value={confirm} onChange={e => setConfirm(e.target.value)} required
-            style={{ width: '100%', padding: 8, boxSizing: 'border-box' }} />
-          {confirmMismatch && <div style={{ color: '#ef4444', fontSize: 12, marginTop: 4 }}>Passwords do not match.</div>}
+          <label
+            htmlFor="resetConfirmPassword"
+            style={{ display: "block", fontSize: 13, marginBottom: 3 }}
+          >
+            Confirm New Password
+          </label>
+          <input
+            id="resetConfirmPassword"
+            type="password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            required
+            style={{ width: "100%", padding: 8, boxSizing: "border-box" }}
+          />
+          {confirmMismatch && (
+            <div style={{ color: "#ef4444", fontSize: 12, marginTop: 4 }}>
+              Passwords do not match.
+            </div>
+          )}
         </div>
-        <ul style={{ fontSize: 12, color: '#64748b', margin: '0 0 12px', paddingLeft: 20 }}>
-          {policy.errors.map(req => <li key={req} style={{ color: '#ef4444' }}>{req}</li>)}
-          {policy.ok && newPassword.length > 0 && <li style={{ color: '#16a34a' }}>Password meets all requirements.</li>}
+        <ul
+          style={{
+            fontSize: 12,
+            color: "#64748b",
+            margin: "0 0 12px",
+            paddingLeft: 20,
+          }}
+        >
+          {policy.errors.map((req) => (
+            <li key={req} style={{ color: "#ef4444" }}>
+              {req}
+            </li>
+          ))}
+          {policy.ok && newPassword.length > 0 && (
+            <li style={{ color: "#16a34a" }}>
+              Password meets all requirements.
+            </li>
+          )}
         </ul>
-        {error && <div role="alert" style={{ color: '#ef4444', marginBottom: 10 }}>{error}</div>}
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button type="button" onClick={onClose} style={BUTTON_STYLE}>Cancel</button>
+        {error && (
+          <div role="alert" style={{ color: "#ef4444", marginBottom: 10 }}>
+            {error}
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button type="button" onClick={onClose} style={BUTTON_STYLE}>
+            Cancel
+          </button>
           <button type="submit" disabled={loading} style={BUTTON_STYLE}>
-            {loading ? 'Saving…' : 'Reset Password'}
+            {loading ? "Saving…" : "Reset Password"}
           </button>
         </div>
       </form>
     </div>
-  )
+  );
 }

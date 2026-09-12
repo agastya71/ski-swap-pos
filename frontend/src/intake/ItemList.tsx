@@ -21,8 +21,6 @@ import type { Item, ItemUpdate } from "../types";
 
 const GENDER_AGE_OPTIONS = ["Adult", "Youth", "Toddler", "Unisex"];
 
-
-
 /**
  * Renders a tabular list of items belonging to a single intake session.
  * Provides per-item Edit panel (description, price, brand, size, color), Print Label,
@@ -650,35 +648,35 @@ export function ItemList({
               )}
             </Fragment>
           ))}
-          <tfoot>
-            <tr
-              style={{
-                borderTop: "2px solid #333",
-                fontWeight: "bold",
-                background: "#f8fafc",
-              }}
-            >
-              <td
-                colSpan={3}
-                style={{ padding: "6px 8px", textAlign: "right" }}
-              >
-                Total — {items.length} item
-                {items.length !== 1 ? "s" : ""}
-              </td>
-              <td />
-              <td style={{ padding: "6px 8px", textAlign: "right" }}>
-                {totalUnits}
-              </td>
-              <td style={{ padding: "6px 8px", textAlign: "right" }}>
-                ${totalPrice.toFixed(2)}
-              </td>
-              <td style={{ padding: "6px 8px", textAlign: "right" }}>
-                {totalOnHand}
-              </td>
-              <td colSpan={2} />
-            </tr>
-          </tfoot>
         </tbody>
+        <tfoot>
+          <tr
+            style={{
+              borderTop: "2px solid #333",
+              fontWeight: "bold",
+              background: "#f8fafc",
+            }}
+          >
+            <td
+              colSpan={3}
+              style={{ padding: "6px 8px", textAlign: "right" }}
+            >
+              Total — {items.length} item
+              {items.length !== 1 ? "s" : ""}
+            </td>
+            <td />
+            <td style={{ padding: "6px 8px", textAlign: "right" }}>
+              {totalUnits}
+            </td>
+            <td style={{ padding: "6px 8px", textAlign: "right" }}>
+              ${totalPrice.toFixed(2)}
+            </td>
+            <td style={{ padding: "6px 8px", textAlign: "right" }}>
+              {totalOnHand}
+            </td>
+            <td colSpan={2} />
+          </tr>
+        </tfoot>
       </table>
     </div>
   );
