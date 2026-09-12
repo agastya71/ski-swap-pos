@@ -28,7 +28,12 @@ from sqlalchemy.orm import Session
 from app.models.intake import Intake
 from app.models.item import Item
 from app.models.seller import Seller
-from app.schemas.item import ImportResult, ImportRowError, WorksheetImportResult
+from app.schemas.item import (
+    ImportResult,
+    ImportRowError,
+    SellerMatchReview,
+    WorksheetImportResult,
+)
 from app.services.brand_match import closest_brand
 from app.services.canonical import canonicalize_category, canonicalize_type
 from app.services.codes import next_item_seq, next_seller_code
@@ -287,76 +292,97 @@ def _find_seller_block(rows: list[list[Any]]) -> tuple[dict[str, str | None], in
     return None
 
 
-def _resolve_seller(db: Session, event, info: dict[str, str | None]) -> tuple[Seller, str | None, bool]:
-    """Find or create the seller described by the worksheet seller block.
+def _seller_display_name(seller: Seller) -> str | None:
+    """'First Last' for individuals; company name fallback for vendors."""
+    parts = [
+        str(v).strip()
+        for v in (seller.first_name, seller.last_name)
+        if v is not None and str(v).strip() != ""
+    ]
+    if parts:
+        return " ".join(parts)
+    return str(seller.company) if seller.company is not None else None
 
-    Dedup verification (reduce duplicate seller records):
-      1. Exact name match (case/whitespace-insensitive First + Last) within the
-         active event — a single match reuses that seller.
-      2. Multiple same-name matches are disambiguated by Email or Phone
-         (case-insensitive / digits-only) when the worksheet provides one.
-      3. Zero name matches fall back to a contact-only match (email, then
-         phone) so a re-submitted worksheet with a misspelled name reuses the
-         existing seller instead of creating a duplicate.
-      4. Otherwise a new seller is created (code via ``next_seller_code``).
 
-    Raises ValueError when the seller block is empty or the name is ambiguous
-    without contact info (candidate codes are listed in the message).
-    Returns (seller, matched_by, created).
+def _find_seller_candidates(
+    db: Session, event, info: dict[str, str | None]
+) -> tuple[list[tuple[Seller, str]], str]:
+    """Find existing sellers that look like duplicates of the worksheet seller.
+
+    Dedup verification — every plausible duplicate is surfaced for the intake
+    user to judge (human-in-the-loop, added 2026-09-12); the caller never
+    auto-picks:
+      1. Name matches (case/whitespace-insensitive First + Last) within the
+         active event — one or many.
+      2. Zero name matches fall back to contact-only candidates (email first,
+         then phone) so a re-submitted worksheet with a misspelled name still
+         flags the existing seller.
+    Returns ([(seller, reason), ...], overall_reason).
     """
     first = info.get("first")
     last = info.get("last")
-    if not first and not last:
-        raise ValueError(
-            "Seller info is missing from the worksheet (fill in Last / First in the seller block), "
-            "or use the per-intake import with the plain template."
-        )
     sellers = db.query(Seller).filter(Seller.event_id == event.id).all()
     email = info.get("email")
     phone = info.get("phone")
 
-    def _by_contact(candidates: list[Seller]) -> tuple[Seller | None, str | None]:
-        if email:
-            matches = [
-                s for s in candidates if s.email is not None and _norm(s.email) == _norm(email)
-            ]
-            if len(matches) == 1:
-                return matches[0], "email"
-        if phone:
-            pdigits = _digits(phone)
-            matches = [
-                s for s in candidates if s.phone is not None and _digits(s.phone) == pdigits
-            ]
-            if len(matches) == 1:
-                return matches[0], "phone"
-        return None, None
+    def _email_matches(s: Seller) -> bool:
+        return email is not None and s.email is not None and _norm(s.email) == _norm(email)
+
+    def _phone_matches(s: Seller) -> bool:
+        return phone is not None and s.phone is not None and _digits(s.phone) == _digits(phone)
 
     name_matches = [
         s
         for s in sellers
         if _norm(s.first_name) == _norm(first) and _norm(s.last_name) == _norm(last)
     ]
-    if len(name_matches) == 1:
-        return name_matches[0], "name", False
-    if len(name_matches) > 1:
-        seller, by = _by_contact(name_matches)
-        if seller is not None:
-            return seller, by, False
-        codes = ", ".join(sorted(str(s.code) for s in name_matches))
-        raise ValueError(
-            f'Multiple sellers named "{first or ""} {last or ""}" already exist (codes: {codes}). '
-            "Add the seller's Email or Phone to the worksheet to pick the right one, "
-            "or register the seller manually first."
+    if name_matches:
+        candidates: list[tuple[Seller, str]] = []
+        for s in name_matches:
+            reason = "Exact name match"
+            if _email_matches(s):
+                reason += "; email matches the worksheet"
+            elif _phone_matches(s):
+                reason += "; phone matches the worksheet"
+            candidates.append((s, reason))
+        overall = (
+            "One existing seller matches the worksheet name exactly — confirm it is the same "
+            "person, or record a new seller."
+            if len(name_matches) == 1
+            else f"{len(name_matches)} existing sellers share this name — pick the right one, "
+            "or record a new seller."
         )
-    # No name match — strong-identifier dedup before creating a new seller.
-    seller, by = _by_contact(sellers)
-    if seller is not None:
-        return seller, by, False
+        return candidates, overall
+    email_candidates = [s for s in sellers if _email_matches(s)]
+    if email_candidates:
+        return (
+            [
+                (s, "Email matches the worksheet (name does not match)")
+                for s in email_candidates
+            ],
+            "No name match — the worksheet email identifies existing seller(s). Confirm the "
+            "seller, or record a new one.",
+        )
+    phone_candidates = [s for s in sellers if _phone_matches(s)]
+    if phone_candidates:
+        return (
+            [
+                (s, "Phone matches the worksheet (name does not match)")
+                for s in phone_candidates
+            ],
+            "No name match — the worksheet phone identifies existing seller(s). Confirm the "
+            "seller, or record a new one.",
+        )
+    return [], ""
+
+
+def _create_seller_from_block(db: Session, event, info: dict[str, str | None]) -> Seller:
+    """Create a new seller from the worksheet seller block (code via ``next_seller_code``)."""
     new_seller = Seller(
         event_id=event.id,
-        code=next_seller_code(db, first, last, None, False),
-        first_name=first,
-        last_name=last,
+        code=next_seller_code(db, info.get("first"), info.get("last"), None, False),
+        first_name=info.get("first"),
+        last_name=info.get("last"),
         address=info.get("address"),
         city=info.get("city"),
         state=info.get("state"),
@@ -367,7 +393,7 @@ def _resolve_seller(db: Session, event, info: dict[str, str | None]) -> tuple[Se
     )
     db.add(new_seller)
     db.flush()
-    return new_seller, None, True
+    return new_seller
 
 
 def _resolve_intake(db: Session, seller: Seller) -> tuple[Intake, bool]:
@@ -401,13 +427,25 @@ def import_items_with_seller(
     username: str,
     filename: str,
     data: bytes,
-) -> WorksheetImportResult:
+    seller_code: str | None = None,
+    force_new: bool = False,
+) -> WorksheetImportResult | SellerMatchReview:
     """Import a seller worksheet: seller-info block + item table (2026-09-12).
 
-    Finds or creates the seller (deduplicated — see ``_resolve_seller``),
-    reuses or creates the seller's intake session, then imports the item rows
-    below the header with the exact same semantics as the per-intake import.
+    Dedup is human-in-the-loop: when existing sellers look like duplicates of
+    the worksheet seller (name or contact match), a ``SellerMatchReview`` is
+    returned listing each candidate with the reason it was surfaced — nothing
+    is imported. The intake user then re-submits with ``seller_code`` ("same
+    seller — reuse it") or ``force_new`` ("genuinely a new record"). With no
+    candidates the seller is created and the items import immediately.
+
+    ``seller_code``: reuse exactly that seller (must exist in the event).
+    ``force_new``: create a new seller from the worksheet block even when a
+    duplicate-looking seller exists — an explicit user decision. The two
+    parameters are mutually exclusive.
     """
+    if seller_code and force_new:
+        raise ValueError("Pass either seller_code or force_new, not both.")
     try:
         rows = parse_upload(filename, data)
     except ValueError as exc:
@@ -419,7 +457,60 @@ def import_items_with_seller(
             "above the item header). Use the per-intake import for the plain 12-column template."
         )
     info, header_idx = block
-    seller, matched_by, created = _resolve_seller(db, event, info)
+    if not info.get("first") and not info.get("last"):
+        raise ValueError(
+            "Seller info is missing from the worksheet (fill in Last / First in the seller block), "
+            "or use the per-intake import with the plain template."
+        )
+
+    matched_by: str | None
+    if seller_code is not None:
+        seller = (
+            db.query(Seller)
+            .filter(Seller.code == str(seller_code), Seller.event_id == event.id)
+            .first()
+        )
+        if seller is None:
+            raise ValueError(f"Seller code {seller_code} not found in the active event.")
+        matched_by = "user selection"
+        created = False
+    elif force_new:
+        seller = _create_seller_from_block(db, event, info)
+        matched_by = None
+        created = True
+    else:
+        candidates, reason = _find_seller_candidates(db, event, info)
+        if candidates:
+            review_candidates = []
+            for cand, cand_reason in candidates:
+                review_candidates.append(
+                    {
+                        "code": str(cand.code),
+                        "name": _seller_display_name(cand),
+                        "email": str(cand.email) if cand.email is not None else None,
+                        "phone": str(cand.phone) if cand.phone is not None else None,
+                        "existing_intakes": db.query(Intake)
+                        .filter(Intake.seller_id == cand.id)
+                        .count(),
+                        "match_reason": cand_reason,
+                    }
+                )
+            return SellerMatchReview.model_validate(
+                {
+                    "needs_review": True,
+                    "reason": reason,
+                    "worksheet_name": " ".join(
+                        part for part in (info.get("first"), info.get("last")) if part
+                    )
+                    or None,
+                    "worksheet_email": info.get("email"),
+                    "worksheet_phone": info.get("phone"),
+                    "candidates": review_candidates,
+                }
+            )
+        seller = _create_seller_from_block(db, event, info)
+        matched_by = None
+        created = True
     intake, intake_created = _resolve_intake(db, seller)
     result = _import_rows(db, intake, seller, username, rows[header_idx + 1:], first_row_no=header_idx + 2)
     seller_name = " ".join(

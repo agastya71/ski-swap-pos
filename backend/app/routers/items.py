@@ -21,6 +21,7 @@ from app.schemas.item import (
     ItemResponse,
     ItemSearchResult,
     ItemUpdate,
+    SellerMatchReview,
     WorksheetImportResult,
 )
 from app.services.canonical import CATEGORY_BRANDS
@@ -315,19 +316,22 @@ def download_import_template(_user: User = Depends(_INTAKE_ADMIN)):
     )
 
 
-@router.post("/import-worksheet", response_model=WorksheetImportResult)
+@router.post("/import-worksheet", response_model=WorksheetImportResult | SellerMatchReview)
 def import_seller_worksheet(
     file: UploadFile = File(...),
+    seller_code: str | None = None,
+    force_new: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(_INTAKE_ADMIN),
 ):
     """Import a seller worksheet: a seller-info block above the item table.
 
-    Finds or creates the seller (deduplicated by name, then email/phone),
-    reuses or creates the seller's intake session, and imports the item rows
-    with the same validation as the per-intake import. Ambiguous seller names
-    (multiple matches without contact info) are rejected with the candidate
-    seller codes instead of silently creating a duplicate.
+    When existing sellers look like duplicates of the worksheet seller (name
+    or contact match), returns a ``SellerMatchReview`` listing each candidate
+    with the reason it was surfaced — the intake user decides. Re-submit the
+    same file with ``seller_code`` to reuse that seller, or ``force_new`` to
+    record a new one. With no candidates the seller is created and the items
+    import immediately, returning a ``WorksheetImportResult``.
     """
     event = db.query(Event).filter(Event.is_active == True).first()
     if not event:
@@ -335,7 +339,7 @@ def import_seller_worksheet(
     data = file.file.read()
     try:
         from app.services.item_import import import_items_with_seller as _impl
-        return _impl(db, event, current_user.username, file.filename, data)  # pyright: ignore[reportArgumentType]
+        return _impl(db, event, current_user.username, file.filename, data, seller_code=seller_code, force_new=force_new)  # pyright: ignore[reportArgumentType]
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
 

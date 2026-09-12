@@ -738,21 +738,45 @@ def test_import_worksheet_creates_new_seller_and_intake(client, active_event, ad
 
 
 def test_import_worksheet_reuses_existing_seller_by_name(client, active_event, admin_token):
-    """A worksheet for an existing seller reuses them — no duplicate seller records."""
+    """A worksheet for an existing seller first returns a review with the
+    candidate + why it was surfaced; the intake user confirms reuse."""
     headers = {"Authorization": f"Bearer {admin_token}"}
     seller_r = client.post("/sellers", json=valid_seller_create(first_name="Jane", last_name="Smith"), headers=headers)
     intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
+    code = seller_r.json()["code"]
     data = _worksheet_bytes(first="Jane", last="Smith")
+
+    # Step 1 — potential duplicate: review payload, nothing imported yet.
     r = client.post(
         "/items/import-worksheet",
         files={"file": ("worksheet.xlsx", data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
         headers=headers,
     )
     assert r.status_code == 200
+    review = r.json()
+    assert review["needs_review"] is True
+    assert review["worksheet_name"] == "Jane Smith"
+    assert review["reason"].startswith("One existing seller matches the worksheet name")
+    assert len(review["candidates"]) == 1
+    cand = review["candidates"][0]
+    assert cand["code"] == code
+    assert cand["name"] == "Jane Smith"
+    assert "Exact name match" in cand["match_reason"]
+    assert cand["existing_intakes"] == 1
+    assert client.get(f"/intakes/{intake_r.json()['id']}", headers=headers).json()["items"] == []
+
+    # Step 2 — intake user confirms it is the same seller: reuse by code.
+    r = client.post(
+        "/items/import-worksheet?seller_code=" + code,
+        files={"file": ("worksheet.xlsx", data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=headers,
+    )
+    assert r.status_code == 200
     body = r.json()
+    assert "needs_review" not in body
     assert body["seller_created"] is False
-    assert body["seller_matched_by"] == "name"
-    assert body["seller_code"] == seller_r.json()["code"]
+    assert body["seller_matched_by"] == "user selection"
+    assert body["seller_code"] == code
     assert body["intake_created"] is False
     assert body["intake_id"] == intake_r.json()["id"]
     assert body["imported"] == 1
@@ -761,9 +785,10 @@ def test_import_worksheet_reuses_existing_seller_by_name(client, active_event, a
 
 
 def test_import_worksheet_disambiguates_by_email(client, active_event, admin_token):
-    """Two same-name sellers are disambiguated by the worksheet email."""
+    """Two same-name sellers: the review lists both, flagging the one whose
+    email matches the worksheet; the intake user confirms that candidate."""
     headers = {"Authorization": f"Bearer {admin_token}"}
-    client.post(
+    first_r = client.post(
         "/sellers",
         json=valid_seller_create(first_name="Jane", last_name="Smith", email="jane.a@example.org"),
         headers=headers,
@@ -780,15 +805,27 @@ def test_import_worksheet_disambiguates_by_email(client, active_event, admin_tok
         headers=headers,
     )
     assert r.status_code == 200
+    review = r.json()
+    assert review["needs_review"] is True
+    assert len(review["candidates"]) == 2
+    flagged = {c["code"]: c for c in review["candidates"]}
+    assert "email matches the worksheet" in flagged[second.json()["code"]]["match_reason"]
+    r = client.post(
+        "/items/import-worksheet?seller_code=" + second.json()["code"],
+        files={"file": ("worksheet.xlsx", data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=headers,
+    )
+    assert r.status_code == 200
     body = r.json()
-    assert body["seller_created"] is False
-    assert body["seller_matched_by"] == "email"
     assert body["seller_code"] == second.json()["code"]
+    assert body["seller_created"] is False
+    assert body["imported"] == 1
 
 
-def test_import_worksheet_ambiguous_name_returns_422(client, active_event, admin_token):
-    """Two same-name sellers without contact info reject with candidate codes
-    instead of silently creating a duplicate."""
+def test_import_worksheet_ambiguous_name_offers_review(client, active_event, admin_token):
+    """Two same-name sellers without contact info: the review presents both
+    candidates with the shared-name reason — the user decides, nothing is
+    silently created."""
     headers = {"Authorization": f"Bearer {admin_token}"}
     client.post("/sellers", json=valid_seller_create(first_name="Jane", last_name="Smith"), headers=headers)
     client.post(
@@ -802,14 +839,17 @@ def test_import_worksheet_ambiguous_name_returns_422(client, active_event, admin
         files={"file": ("worksheet.xlsx", data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
         headers=headers,
     )
-    assert r.status_code == 422
-    detail = r.json()["detail"]
-    assert "Multiple sellers named" in detail
-    assert "codes:" in detail
+    assert r.status_code == 200
+    review = r.json()
+    assert review["needs_review"] is True
+    assert len(review["candidates"]) == 2
+    assert all("Exact name match" in c["match_reason"] for c in review["candidates"])
+    assert "share this name" in review["reason"]
 
 
 def test_import_worksheet_matches_by_email_when_name_unknown(client, active_event, admin_token):
-    """A misspelled name but matching email reuses the existing seller."""
+    """A misspelled name but matching email: the review flags the contact-only
+    match with the reason; confirming reuses the existing seller."""
     headers = {"Authorization": f"Bearer {admin_token}"}
     existing = client.post(
         "/sellers",
@@ -823,11 +863,73 @@ def test_import_worksheet_matches_by_email_when_name_unknown(client, active_even
         headers=headers,
     )
     assert r.status_code == 200
+    review = r.json()
+    assert review["needs_review"] is True
+    assert review["worksheet_name"] == "Robert Jones"
+    assert len(review["candidates"]) == 1
+    cand = review["candidates"][0]
+    assert cand["code"] == existing.json()["code"]
+    assert cand["name"] == "Bob Jones"
+    assert cand["match_reason"] == "Email matches the worksheet (name does not match)"
+    r = client.post(
+        "/items/import-worksheet?seller_code=" + existing.json()["code"],
+        files={"file": ("worksheet.xlsx", data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=headers,
+    )
+    assert r.status_code == 200
     body = r.json()
     assert body["seller_created"] is False
-    assert body["seller_matched_by"] == "email"
     assert body["seller_code"] == existing.json()["code"]
     assert body["imported"] == 1
+
+
+def test_import_worksheet_force_new_creates_new_record(client, active_event, admin_token):
+    """force_new is the intake user's explicit 'not a duplicate' decision —
+    a new seller is recorded even though a same-name seller exists."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    client.post("/sellers", json=valid_seller_create(first_name="Jane", last_name="Smith"), headers=headers)
+    data = _worksheet_bytes(first="Jane", last="Smith", email="other.jane@example.org")
+    r = client.post(
+        "/items/import-worksheet?force_new=true",
+        files={"file": ("worksheet.xlsx", data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["seller_created"] is True
+    assert body["seller_matched_by"] is None
+    assert body["seller_name"] == "Jane Smith"
+    assert body["imported"] == 1
+    sellers = client.get("/sellers", headers=headers).json()
+    janes = [s for s in sellers if s["last_name"] == "Smith" and s["first_name"] == "Jane"]
+    assert len(janes) == 2
+    assert {s["email"] for s in janes} == {None, "other.jane@example.org"}
+
+
+def test_import_worksheet_confirm_unknown_code_returns_422(client, active_event, admin_token):
+    """Confirming with a seller code that does not exist in the event fails."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    data = _worksheet_bytes(first="Nora", last="Nakamura")
+    r = client.post(
+        "/items/import-worksheet?seller_code=ZZZ9",
+        files={"file": ("worksheet.xlsx", data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=headers,
+    )
+    assert r.status_code == 422
+    assert "not found in the active event" in r.json()["detail"]
+
+
+def test_import_worksheet_confirm_params_mutually_exclusive(client, active_event, admin_token):
+    """seller_code and force_new cannot be combined."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    data = _worksheet_bytes(first="Nora", last="Nakamura")
+    r = client.post(
+        "/items/import-worksheet?seller_code=AOLS1&force_new=true",
+        files={"file": ("worksheet.xlsx", data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=headers,
+    )
+    assert r.status_code == 422
+    assert "not both" in r.json()["detail"]
 
 
 def test_import_worksheet_requires_seller_info(client, active_event, admin_token):

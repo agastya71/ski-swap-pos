@@ -349,6 +349,43 @@ export interface WorksheetImportResult {
  errors: ImportRowError[];
 }
 
+/** An existing seller that looks like a duplicate of the worksheet seller. */
+export interface SellerCandidate {
+ /** Seller code, e.g. 'JSMI1'. */
+ code: string;
+ /** Display name ('First Last'), null for vendors without a name. */
+ name: string | null;
+ /** Stored email address. */
+ email: string | null;
+ /** Stored phone number. */
+ phone: string | null;
+ /** Intake sessions the seller already has in the active event. */
+ existing_intakes: number;
+ /** Why this seller was surfaced as a possible duplicate. */
+ match_reason: string;
+}
+
+/** Review payload returned instead of importing when the worksheet seller
+ * looks like a duplicate of an existing seller — the intake user decides. */
+export interface SellerMatchReview {
+ /** Always true; distinguishes this payload from WorksheetImportResult. */
+ needs_review: true;
+ /** Overall explanation of why candidates were surfaced. */
+ reason: string;
+ /** Seller name as entered in the worksheet block. */
+ worksheet_name: string | null;
+ /** Email as entered in the worksheet block. */
+ worksheet_email: string | null;
+ /** Phone as entered in the worksheet block. */
+ worksheet_phone: string | null;
+ /** Existing sellers that look like possible duplicates, with per-candidate reasons. */
+ candidates: SellerCandidate[];
+}
+
+/** The worksheet import endpoint returns either the review payload or the
+ * final import summary. */
+export type WorksheetImportResponse = WorksheetImportResult | SellerMatchReview;
+
 /** Summary returned after a bulk Excel item import. */
 export interface ImportResult {
  /** Number of items successfully created. */

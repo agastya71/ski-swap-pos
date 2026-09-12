@@ -1852,6 +1852,134 @@
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-09-12T13:42:06.828Z"
+    },
+    {
+      "id": "bug-116",
+      "timestamp": "2026-09-12T14:04:52.300Z",
+      "error_message": "Significant refactor of item_import.py",
+      "file": "backend/app/services/item_import.py",
+      "root_cause": "51 lines replaced/restructured",
+      "fix": "Rewrote 108→194 lines (51 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-12T14:04:52.300Z"
+    },
+    {
+      "id": "bug-117",
+      "timestamp": "2026-09-12T14:05:51.789Z",
+      "error_message": "Significant refactor of test_items.py",
+      "file": "backend/tests/test_items.py",
+      "root_cause": "13 lines replaced/restructured",
+      "fix": "Rewrote 85→187 lines (13 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-12T14:05:51.789Z"
+    },
+    {
+      "id": "bug-118",
+      "timestamp": "2026-09-12T14:06:40.398Z",
+      "error_message": "Type error",
+      "file": "frontend/src/types.ts",
+      "root_cause": "Missing or incorrect type annotation",
+      "fix": "Added type assertion/annotation",
+      "tags": [
+        "auto-detected",
+        "type-fix",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-12T14:06:40.398Z"
+    },
+    {
+      "id": "bug-119",
+      "timestamp": "2026-09-12T14:06:40.421Z",
+      "error_message": "Significant refactor of items.ts",
+      "file": "frontend/src/api/items.ts",
+      "root_cause": "8 lines replaced/restructured",
+      "fix": "Rewrote 43→53 lines (8 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-12T14:06:40.421Z"
+    },
+    {
+      "id": "bug-120",
+      "timestamp": "2026-09-12T14:07:01.973Z",
+      "error_message": "Null/undefined access in IntakeModulePage.tsx",
+      "file": "frontend/src/intake/IntakeModulePage.tsx",
+      "root_cause": "Property access on potentially null/undefined value",
+      "fix": "Added null safety (optional chaining or null check) | Also: {pendingReview && (; <div",
+      "tags": [
+        "auto-detected",
+        "null-safety",
+        "tsx"
+      ],
+      "related_bugs": [],
+      "occurrences": 2,
+      "last_seen": "2026-09-12T14:08:08.629Z"
+    },
+    {
+      "id": "bug-121",
+      "timestamp": "2026-09-12T14:08:30.404Z",
+      "error_message": "Significant refactor of handlers.ts",
+      "file": "frontend/src/mocks/handlers.ts",
+      "root_cause": "6 lines replaced/restructured",
+      "fix": "Rewrote 14→51 lines (6 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-12T14:08:30.404Z"
+    },
+    {
+      "id": "bug-122",
+      "timestamp": "2026-09-12T14:08:44.859Z",
+      "error_message": "Null/undefined access in handlers.ts",
+      "file": "frontend/src/mocks/handlers.ts",
+      "root_cause": "Property access on potentially null/undefined value",
+      "fix": "Added null safety (optional chaining or null check)",
+      "tags": [
+        "auto-detected",
+        "null-safety",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-12T14:08:44.859Z"
+    },
+    {
+      "id": "bug-123",
+      "timestamp": "2026-09-12T14:09:16.714Z",
+      "error_message": "Null/undefined access in IntakeModulePage.test.tsx",
+      "file": "frontend/src/intake/IntakeModulePage.test.tsx",
+      "root_cause": "Property access on potentially null/undefined value",
+      "fix": "Added null safety (optional chaining or null check)",
+      "tags": [
+        "auto-detected",
+        "null-safety",
+        "tsx"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-12T14:09:16.714Z"
     }
   ]
 }

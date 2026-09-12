@@ -147,3 +147,41 @@ class WorksheetImportResult(BaseModel):
     imported: int = Field(description="Number of items successfully created.")
     skipped: int = Field(description="Number of item rows skipped due to validation errors.")
     errors: list[ImportRowError] = Field(description="Details of each skipped row.")
+
+
+class SellerCandidate(BaseModel):
+    """An existing seller that looks like a duplicate of the worksheet seller."""
+
+    code: str = Field(description="Seller code, e.g. 'JSMI1'.")
+    name: str | None = Field(description="Display name ('First Last'), None for vendors without a name.")
+    email: str | None = Field(description="Stored email address.")
+    phone: str | None = Field(description="Stored phone number.")
+    existing_intakes: int = Field(
+        description="Intake sessions the seller already has in the active event."
+    )
+    match_reason: str = Field(
+        description=(
+            "Why this seller was surfaced as a possible duplicate, e.g. "
+            "'Exact name match' or 'Email matches worksheet (name does not match)'."
+        )
+    )
+
+
+class SellerMatchReview(BaseModel):
+    """Review payload returned instead of importing when the worksheet seller
+    looks like a duplicate of an existing seller — the intake user decides.
+    """
+
+    needs_review: bool = Field(
+        default=True,
+        description="Always true; distinguishes this payload from WorksheetImportResult.",
+    )
+    reason: str = Field(
+        description="Overall explanation of why candidates were surfaced."
+    )
+    worksheet_name: str | None = Field(description="Seller name as entered in the worksheet block.")
+    worksheet_email: str | None = Field(description="Email as entered in the worksheet block.")
+    worksheet_phone: str | None = Field(description="Phone as entered in the worksheet block.")
+    candidates: list[SellerCandidate] = Field(
+        description="Existing sellers that look like possible duplicates, with per-candidate reasons."
+    )
