@@ -67,14 +67,15 @@ def generate_zpl(item, copies: int | None = None, code_as_text: bool = False) ->
     line2        = item.label_line_2 or ""
     line3        = item.label_line_3 or ""
     pw           = _PRINT_WIDTH
-    # Identifier block: barcode (default) or large text item code. The text
-    # block replaces the barcode's 100-dot band (y 5–105) so the seller line
-    # at y=138 keeps its position in both modes.
+    # Identifier block: barcode (default) or large text item code. Compact
+    # vertical layout: everything fits inside ^LL190 with bottom margin —
+    # earlier y positions (seller at 138, line3 at 206) clipped on the
+    # measured ≈1" stock (2026-09-12 print test).
     if code_as_text:
-        code_block = f"^FO0,20^FB{pw},1,0,C,0^A0N,60,60^FD{item.code}^FS\n"
+        code_block = f"^FO0,8^FB{pw},1,0,C,0^A0N,50,50^FD{item.code}^FS\n"
     else:
         bx         = _barcode_x(barcode)
-        code_block = f"^FO{bx},5^BCN,100,Y,N,N^FD{barcode}^FS\n"
+        code_block = f"^FO{bx},5^BCN,75,Y,N,N^FD{barcode}^FS\n"
     try:
         # On-hand remaining (== intake quantity until a partial sale) —
         # reprints mid-event print labels only for units still in stock.
@@ -94,10 +95,10 @@ def generate_zpl(item, copies: int | None = None, code_as_text: bool = False) ->
         f"^PW{pw}\n"
         "^CI0\n"
         f"{code_block}"
-        f"^FO0,138^FB{pw},1,0,C,0^A0N,28,28^FD{seller_code}  ${item.price:.2f}^FS\n"
-        f"^FO0,170^FB{pw},1,0,C,0^A0N,15,15^FD{description}^FS\n"
-        f"^FO0,189^FB{pw},1,0,C,0^A0N,13,13^FD{line2}^FS\n"
-        f"^FO0,206^FB{pw},1,0,C,0^A0N,13,13^FD{line3}^FS\n"
+        f"^FO0,90^FB{pw},1,0,C,0^A0N,26,26^FD{seller_code}  ${item.price:.2f}^FS\n"
+        f"^FO0,120^FB{pw},1,0,C,0^A0N,14,14^FD{description}^FS\n"
+        f"^FO0,136^FB{pw},1,0,C,0^A0N,12,12^FD{line2}^FS\n"
+        f"^FO0,150^FB{pw},1,0,C,0^A0N,12,12^FD{line3}^FS\n"
         f"{pq}"
         "^XZ\n"
     )

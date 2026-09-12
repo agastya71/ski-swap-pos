@@ -224,7 +224,7 @@ def test_generate_zpl_code_as_text_replaces_barcode(item):
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item, code_as_text=True)
     assert "^BCN" not in zpl
-    assert "^A0N,60,60" in zpl
+    assert "^A0N,50,50" in zpl
     assert "ABC-001" in zpl
 
 
