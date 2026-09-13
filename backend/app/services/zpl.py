@@ -88,12 +88,15 @@ def generate_zpl(
     bx           = _barcode_x(barcode, right)  # right-flush identifier origin
     # Top band: price top-left, identifier (barcode / large text) top-right.
     if code_as_text:
-        code_block = f"^FT{origin},5^FB{content_w},1,0,R,0^A0N,50,50^FD{item.code}^FS\n"
+        code_block = f"^FT{origin},55^FB{content_w},1,0,R,0^A0N,50,50^FD{item.code}^FS\n"
     else:
-        code_block = f"^FO{bx},5^BCN,75,Y,N,N^FD{barcode}^FS\n"
+        code_block = f"^FO{bx},5^BCN,70,N,N,N^FD{barcode}^FS\n"
     # Event name: centered on its own row below the identifier band — in-band
     # placement would collide with the barcode for 7+ char codes (the gap is
     # ~119 dots; the name needs ~156 at 22pt). 24pt keeps it legible.
+    hr_block = (
+        f"^FT{origin},98^FB{content_w},1,0,R,0^A0N,22,22^FD{barcode}^FS\n"
+    )
     event_block = ""
     if event_name:
         event_block = (
@@ -116,8 +119,9 @@ def generate_zpl(
         f"^LL{LABEL_LENGTH_DOTS}\n"
         f"^PW{right}\n"
         "^CI0\n"
-        f"^FT{origin},35^A0N,30,30^FD${item.price:.2f}^FS\n"
+        f"^FT{origin},38^A0N,30,30^FD${item.price:.2f}^FS\n"
         f"{code_block}"
+        f"{hr_block}"
         f"{event_block}"
         f"^FT{origin},144^A0N,24,24^FD{seller_code}^FS\n"
         f"^FT{origin},162^A0N,16,16^FD{description}^FS\n"

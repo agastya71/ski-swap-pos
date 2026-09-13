@@ -69,7 +69,7 @@ LABEL_PRINTER_QUEUE: str = os.getenv("LABEL_PRINTER_QUEUE", "ZTC-ZD421-203dpi-ZP
 # set explicitly on every label; ^FT-positioned text ignores ^LS, so the
 # left origin is baked into each field's x coordinate instead.
 LABEL_LEFT_ORIGIN_DOTS: int = _env_int("LABEL_LEFT_ORIGIN_DOTS", 280)
-LABEL_RIGHT_EDGE_DOTS: int = _env_int("LABEL_RIGHT_EDGE_DOTS", 820)
-LABEL_LENGTH_DOTS: int = _env_int("LABEL_LENGTH_DOTS", 190)
+LABEL_RIGHT_EDGE_DOTS: int = _env_int("LABEL_RIGHT_EDGE_DOTS", 850)
+LABEL_LENGTH_DOTS: int = _env_int("LABEL_LENGTH_DOTS", 203)  # media ≈ 2" tall (blank space below the content in every test print)
 LABEL_DARKNESS: int = _env_int("LABEL_DARKNESS", 20)
 BACKUP_DIR: str = os.getenv("BACKUP_DIR", "backups")

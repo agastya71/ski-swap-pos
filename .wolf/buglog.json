@@ -2060,6 +2060,54 @@
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-09-12T20:22:08.322Z"
+    },
+    {
+      "id": "bug-129",
+      "timestamp": "2026-09-13T03:10:21.526Z",
+      "error_message": "Significant refactor of database.py",
+      "file": "backend/app/database.py",
+      "root_cause": "2 lines replaced/restructured",
+      "fix": "Rewrote 6→29 lines (2 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-13T03:10:21.526Z"
+    },
+    {
+      "id": "bug-130",
+      "timestamp": "2026-09-13T18:14:02.357Z",
+      "error_message": "Wrong reference: 600 should be 625",
+      "file": "backend/app/config.py",
+      "root_cause": "Used \"600\" instead of \"625\"",
+      "fix": "Changed 600 → 625",
+      "tags": [
+        "auto-detected",
+        "wrong-reference",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-13T18:14:02.357Z"
+    },
+    {
+      "id": "bug-131",
+      "timestamp": "2026-09-13T22:19:52.629Z",
+      "error_message": "Significant refactor of config.py",
+      "file": "backend/app/config.py",
+      "root_cause": "5 lines replaced/restructured",
+      "fix": "Rewrote 7→10 lines (5 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-13T22:19:52.629Z"
     }
   ]
 }
