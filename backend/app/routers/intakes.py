@@ -165,7 +165,7 @@ def print_intake_labels(
     intake = _get_intake_for_event(intake_id, event.id, db)  # pyright: ignore[reportArgumentType]
     printed = 0
     for item in intake.items:
-        zpl = generate_zpl(item, code_as_text=code_as_text)
+        zpl = generate_zpl(item, code_as_text=code_as_text, event_name=str(event.name))
         try:
             send_to_printer(zpl)
         except OSError as e:

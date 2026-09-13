@@ -390,7 +390,13 @@ def print_item_label(
     item = _item_for_active_event(item_id, db)
     if copies is not None and copies < 1:
         raise HTTPException(status_code=422, detail="Copies must be at least 1")
-    zpl = generate_zpl(item, copies=copies, code_as_text=code_as_text)
+    event = db.query(Event).filter(Event.is_active == True).first()
+    zpl = generate_zpl(
+        item,
+        copies=copies,
+        code_as_text=code_as_text,
+        event_name=str(event.name) if event else None,
+    )
     try:
         send_to_printer(zpl)
     except OSError as e:

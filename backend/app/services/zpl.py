@@ -30,27 +30,39 @@ _ZEBRA_VID   = 0x0A5F
 _ZEBRA_PID   = 0x0185
 
 
-def _barcode_x(barcode: str) -> int:
-    """Return the x origin (dots) that centers a Code 39 barcode on the label.
+def _barcode_x(barcode: str, pw: int) -> int:
+    """Return the x origin (dots) that RIGHT-aligns the barcode on the label.
 
-    Code 39 geometry at default module width (2 dots, ratio 3.0):
+    Code 128 geometry at default module width (2 dots, ratio 3.0):
       - each symbol (including start/stop): 30 dots
       - inter-character gap: 2 dots
       - quiet zones (10× narrow bar): 20 dots each side
     """
     n_symbols    = len(barcode) + 2          # data chars + start + stop
     barcode_dots = n_symbols * 30 + (n_symbols - 1) * 2 + 40  # +40 quiet zones
-    return max(0, (_PRINT_WIDTH - barcode_dots) // 2)
+    return max(0, pw - barcode_dots)
 
 
-def generate_zpl(item, copies: int | None = None, code_as_text: bool = False) -> str:
-    """Generate a ZPL II label string for the ZD421 (4", 203 dpi).
+def generate_zpl(
+    item,
+    copies: int | None = None,
+    code_as_text: bool = False,
+    event_name: str | None = None,
+) -> str:
+    """Generate a ZPL II label string for the ZD421 (203 dpi).
 
-    Layout (all elements horizontally centered):
-      - Item identifier: Code 39 barcode, 100 dots tall (default) — or the
-        item code as large human-readable text when ``code_as_text`` is set
-      - Seller code + price (large)
-      - Description, optional size/colour line, optional extra line
+    Layout (2026-09-13, matched to the reference label IMG_6581.jpg):
+      - Top band: price top-left, event name centered between price and
+        identifier, item identifier top-right — Code 128 barcode (default)
+        or the item code as large right-aligned text when ``code_as_text``
+        is set (same position as the barcode; the barcode also prints its
+        human-readable code below)
+      - User id (seller code) below the price
+      - Description, optional size/colour line + optional extra line below,
+        left-justified
+    Text fields use ``^FT`` (field top): for scalable fonts ``^FO`` positions
+    at the BASELINE, which clipped the tops of the price/ID (print test
+    2026-09-13).
 
     Copies: with no explicit ``copies`` an ``^PQ`` command emits one tag per
     on-hand remaining unit — the "N labels per N units" decision from tester
@@ -59,7 +71,8 @@ def generate_zpl(item, copies: int | None = None, code_as_text: bool = False) ->
     labels (the "print a specified number of labels per item" flow).
 
     ``code_as_text``: render the item code as text instead of a barcode
-    (option added 2026-09-12). The remaining details are unchanged.
+    (option added 2026-09-12). ``event_name``: printed between the price and
+    the identifier (added 2026-09-12; omitted when not provided).
     """
     barcode      = item.barcode_39 or item.code
     seller_code  = item.seller.code if item.seller else ""
@@ -67,15 +80,30 @@ def generate_zpl(item, copies: int | None = None, code_as_text: bool = False) ->
     line2        = item.label_line_2 or ""
     line3        = item.label_line_3 or ""
     pw           = _PRINT_WIDTH
-    # Identifier block: barcode (default) or large text item code. Compact
-    # vertical layout: everything fits inside ^LL190 with bottom margin —
-    # earlier y positions (seller at 138, line3 at 206) clipped on the
-    # measured ≈1" stock (2026-09-12 print test).
+    bx           = _barcode_x(barcode, pw)  # right-aligned origin (harmless in text mode)
+    # Top band: price top-left, identifier (barcode / large text) top-right.
     if code_as_text:
-        code_block = f"^FO0,8^FB{pw},1,0,C,0^A0N,50,50^FD{item.code}^FS\n"
+        code_block = f"^FT0,5^FB{pw},1,0,R,0^A0N,50,50^FD{item.code}^FS\n"
     else:
-        bx         = _barcode_x(barcode)
         code_block = f"^FO{bx},5^BCN,75,Y,N,N^FD{barcode}^FS\n"
+    # Event name: centered in the gap between the price (~95 dots wide) and
+    # the barcode start; if the gap cannot fit it (very long codes), fall
+    # back to its own centered row below the band.
+    event_block = ""
+    if event_name:
+        price_end  = 95
+        event_font = 22
+        gap        = (bx - price_end) if not code_as_text else (pw - 110)
+        event_w    = len(event_name) * 12
+        if gap >= event_w + 10:
+            event_block = (
+                f"^FT{price_end},8^FB{gap},1,0,C,0^A0N,{event_font},{event_font}"
+                f"^FD{event_name}^FS\n"
+            )
+        else:
+            event_block = (
+                f"^FT0,85^FB{pw},1,0,C,0^A0N,20,20^FD{event_name}^FS\n"
+            )
     try:
         # On-hand remaining (== intake quantity until a partial sale) —
         # reprints mid-event print labels only for units still in stock.
@@ -94,11 +122,13 @@ def generate_zpl(item, copies: int | None = None, code_as_text: bool = False) ->
         f"^LS{LABEL_LEFT_SHIFT_DOTS}\n"
         f"^PW{pw}\n"
         "^CI0\n"
+        f"^FT0,5^A0N,30,30^FD${item.price:.2f}^FS\n"
         f"{code_block}"
-        f"^FO0,90^FB{pw},1,0,C,0^A0N,26,26^FD{seller_code}  ${item.price:.2f}^FS\n"
-        f"^FO0,120^FB{pw},1,0,C,0^A0N,14,14^FD{description}^FS\n"
-        f"^FO0,136^FB{pw},1,0,C,0^A0N,12,12^FD{line2}^FS\n"
-        f"^FO0,150^FB{pw},1,0,C,0^A0N,12,12^FD{line3}^FS\n"
+        f"{event_block}"
+        f"^FT0,42^A0N,24,24^FD{seller_code}^FS\n"
+        f"^FT0,72^A0N,14,14^FD{description}^FS\n"
+        f"^FT0,92^A0N,13,13^FD{line2}^FS\n"
+        f"^FT0,112^A0N,13,13^FD{line3}^FS\n"
         f"{pq}"
         "^XZ\n"
     )

@@ -65,8 +65,8 @@ LABEL_PRINTER_QUEUE: str = os.getenv("LABEL_PRINTER_QUEUE", "ZTC-ZD421-203dpi-ZP
 # Label geometry/darkness (dots at 203 dpi) — measured on the live ZD421
 # 2026-09-12 (media ≈ 3" × 1", origin ~120 dots left of media). The printer
 # prints BLANK unless ^PW/^LL/^LS/^MD are set explicitly on every label.
-LABEL_WIDTH_DOTS: int = _env_int("LABEL_WIDTH_DOTS", 600)
+LABEL_WIDTH_DOTS: int = _env_int("LABEL_WIDTH_DOTS", 595)
 LABEL_LENGTH_DOTS: int = _env_int("LABEL_LENGTH_DOTS", 190)
-LABEL_LEFT_SHIFT_DOTS: int = _env_int("LABEL_LEFT_SHIFT_DOTS", 115)
+LABEL_LEFT_SHIFT_DOTS: int = _env_int("LABEL_LEFT_SHIFT_DOTS", 145)
 LABEL_DARKNESS: int = _env_int("LABEL_DARKNESS", 20)
 BACKUP_DIR: str = os.getenv("BACKUP_DIR", "backups")
