@@ -3,7 +3,7 @@
 import io
 import json
 import logging
-import shutil
+import sqlite3
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -74,8 +74,20 @@ def backup_database(
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
             if ":memory:" not in str(config.DATABASE_URL):
+                # SQLite backup API (not shutil.copy): with WAL enabled, copying
+                # the raw file can miss commits sitting in the -wal file — the
+                # backup API produces a consistent snapshot even while the
+                # server is writing.
                 db_copy_path = backup_dir / f"{base_name}.db"
-                shutil.copy2(db_file, db_copy_path)
+                src = sqlite3.connect(str(db_file))
+                try:
+                    dst = sqlite3.connect(str(db_copy_path))
+                    try:
+                        src.backup(dst)
+                    finally:
+                        dst.close()
+                finally:
+                    src.close()
                 zf.write(db_copy_path, f"{base_name}.db")
             zf.write(json_path, f"{base_name}.json")
 

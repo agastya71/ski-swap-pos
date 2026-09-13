@@ -19,9 +19,14 @@ def get_current_user(
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
+    try:
+        user_id = int(payload["sub"])
+    except (KeyError, TypeError, ValueError):
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
     user = (
         db.query(User)
-        .filter(User.id == int(payload["sub"]), User.is_active == True)
+        .filter(User.id == user_id, User.is_active == True)
         .first()
     )
     if not user:
