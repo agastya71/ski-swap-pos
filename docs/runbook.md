@@ -8,7 +8,7 @@ troubleshooting. Keep this in sync with reality.
 
 ## 1. Architecture (this machine)
 
-```
+```text
                        HTTPS
   browser ───────────────────────►  Caddy  ──reverse_proxy──►  FastAPI (uvicorn)
   (LAN stations)        :443         (root)        127.0.0.1:8001   │
@@ -75,8 +75,9 @@ across restarts; deleting it forces everyone to re-login.
 
 ```bash
 APP_HOST=0.0.0.0 APP_PORT=8000 bash start.sh     # backend only, LAN-direct
+```bash
 # (frontend hot-reload, in another terminal:)
-cd frontend && npm run dev                        # http://localhost:5173, proxies API → :8000
+```cd frontend && npm run dev                        # http://localhost:5173, proxies API → :8000
 ```
 
 ### Run as a system daemon at boot (systemd)
@@ -123,11 +124,11 @@ exists. It creates:
 - 1 active event: **Ski Swap 2026** (30% commission)
 - 3 users, 15 sellers (12 individual + 3 vendor), 15 intakes, 83 items, 10 sales
 
-| Username  | Password     | Role    | Tabs visible             |
-|-----------|-------------|---------|--------------------------|
-| `admin`   | `admin123`  | admin   | Intake, POS, Admin       |
-| `intake1` | `intake123`  | intake  | Intake                   |
-| `cashier1`| `cashier123`| cashier | POS                      |
+| Username   | Password     | Role    | Tabs visible             |
+| ---------- | ------------ | ------- | ------------------------ |
+| `admin`    | `admin123`   | admin   | Intake, POS, Admin       |
+| `intake1`  | `intake123`  | intake  | Intake                   |
+| `cashier1` | `cashier123` | cashier | POS                      |
 
 To re-seed from scratch: delete (or move aside) `backend/swap.db`, then
 `bash start.sh` (migrations + seed run automatically).
@@ -140,7 +141,7 @@ To re-seed from scratch: delete (or move aside) `backend/swap.db`, then
 
 Any endpoint that reads `Sale` rows returned **HTTP 500** with:
 
-```
+```text
 TypeError: fromisoformat: argument must be str
 ```
 
@@ -212,3 +213,75 @@ the repair step will clear it.
 
 Interactive Swagger docs: `http://localhost:8001/docs` (direct) — not exposed
 through Caddy by default.
+
+---
+
+## 7. Label printer (Zebra ZD421, ZPL)
+
+The label printer is a **Zebra ZD421-203dpi ZPL** (USB). The app generates ZPL
+in `app/services/zpl.py` and delivers it with `send_to_printer`, which picks
+the transport from **per-OS presets** (`PRINTER_OS_PRESETS` in
+`app/config.py`), optionally overridden by `LABEL_TRANSPORT`
+(`usb` | `device` | `cups` | `auto`).
+
+### Linux (and variants — Debian/Ubuntu, Fedora/RHEL, Arch, …)
+
+- Default preset `transport: auto` — raw device write first
+  (`LABEL_PRINTER_PATH`, default `/dev/usb/lp0`), then the CUPS queue
+  (`LABEL_PRINTER_QUEUE`, default `ZTC-ZD421-203dpi-ZPL`) via
+  `lp -d <queue> -o raw` (byte-for-byte ZPL passthrough).
+- The CUPS queue must be **raw** — a driver-backed queue mangles ZPL (this
+  host initially had an HP DesignJet PPD on the Zebra queue → blank feeds):
+
+  ```bash
+  sudo lpadmin -p ZTC-ZD421-203dpi-ZPL -E -m raw \
+    -v 'usb://Zebra%20Technologies/ZTC%20ZD421-203dpi%20ZPL?serial=D8N231601489'
+  ```
+
+  (`lpinfo -v` lists the exact USB URI on your host.) CUPS prints a
+  "Raw queues are deprecated" warning — non-blocking today.
+- The systemd unit's PATH includes `/usr/bin` (where `lp` lives), so the CUPS
+  fallback works inside the daemon.
+- A raw device node (`/dev/usb/lp0`) only exists while the `usblp` module
+  holds the device; when CUPS claims it the node disappears — which is why
+  the CUPS fallback exists.
+
+### macOS
+
+- Preset `transport: usb` — direct USB write via pyusb (VID/PID `0a5f:0185`).
+  Requires `pyusb` in the venv (`uv pip install pyusb`; it is NOT in
+  `requirements.txt` by default) and libusb (`brew install libusb`). If
+  pyusb is missing, label endpoints return 503 with "pyusb is required".
+
+### Windows
+
+- Preset `transport: unsupported` — no winspool/IPP path is implemented;
+  label endpoints return 503 "Label printing is not supported on windows".
+  (If ever needed: add a winspool path to `send_to_printer`, printing via
+  the Windows spooler with the Zebra installed as a raw/ZPL port.)
+
+### Per-host env overrides (no code changes)
+
+| Variable                | Default (linux preset)   | Notes                                        |
+| ----------------------- | ------------------------ | -------------------------------------------- |
+| `LABEL_TRANSPORT`       | *(OS preset)*            | force `usb` / `device` / `cups` / `auto`     |
+| `LABEL_PRINTER_PATH`    | `/dev/usb/lp0`           | raw device node; tried first in `auto`       |
+| `LABEL_PRINTER_QUEUE`   | `ZTC-ZD421-203dpi-ZPL`   | CUPS queue name (host-specific)              |
+| `LABEL_WIDTH_DOTS`      | `600`                    | measured: ≈3" media                          |
+| `LABEL_LENGTH_DOTS`     | `190`                    | measured: ≈1" media                          |
+| `LABEL_LEFT_SHIFT_DOTS` | `115`                    | origin sits ~120 dots left of media edge     |
+| `LABEL_DARKNESS`        | `20`                     | 0–30                                         |
+
+Geometry/darkness are **media- and printer-specific, not OS-specific** — the
+same values apply on any OS with this printer and stock.
+
+### Troubleshooting: labels feed but print blank
+
+1. The queue is not **raw** — a driver-backed queue (this host had an HP
+   DesignJet PPD on the Zebra queue) mangles ZPL → blank feeds. Check:
+   `lpoptions -p <queue>` (HP\* options = wrong driver).
+2. Older builds sent ZPL **without** explicit `^PW/^LL/^LS/^MD/^CI0` — the
+   ZD421 prints blank unless these are set on every label (fixed in PR #88).
+3. LEDs (the ZD421 has no display): green diamond = ready; lit PAUSE =
+   paused (press the Pause button or send `~PS` + `~JC` to recalibrate); red
+   NETWORK = the unused Ethernet interface (irrelevant to USB printing).

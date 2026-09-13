@@ -10,7 +10,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
-from sqlalchemy import func, inspect as sa_inspect, text
+from sqlalchemy import MetaData, Table, func, inspect as sa_inspect, select
 from sqlalchemy.orm import Session
 
 import app.config as config
@@ -56,10 +56,15 @@ def backup_database(
     json_path = backup_dir / f"{base_name}.json"
     inspector = sa_inspect(engine)
     all_data: dict = {}
+    metadata = MetaData()
     with engine.connect() as conn:
         for table_name in inspector.get_table_names():
-            result = conn.execute(text(f'SELECT * FROM "{table_name}"'))
-            all_data[table_name] = [dict(row._mapping) for row in result.fetchall()]
+            # Reflection + typed select() — no dynamic SQL string interpolation
+            # (the avoid-sqlalchemy-text sink rule; table names come from the
+            # DB's own schema, never user input).
+            table = Table(table_name, metadata, autoload_with=conn)
+            result = conn.execute(select(table))
+            all_data[table_name] = [dict(row) for row in result.mappings().fetchall()]
     json_path.write_text(json.dumps(all_data, default=_json_default, indent=2))
 
     # Build ZIP (SQLite file copy skipped for :memory: databases)
