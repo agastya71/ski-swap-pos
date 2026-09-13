@@ -284,15 +284,15 @@ def test_generate_zpl_emits_explicit_format_commands(item):
     zpl = generate_zpl(item)
     assert "^MD20" in zpl
     assert "^LL190" in zpl
-    assert "^LS145" in zpl
-    assert "^PW595" in zpl
+    assert "^LS" not in zpl  # ^FT fields ignore the label shift — the origin is baked into x
+    assert "^PW820" in zpl
     assert "^CI0" in zpl
 
 
 def test_generate_zpl_code_as_text_also_carries_format_commands(item):
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item, code_as_text=True)
-    assert "^PW595" in zpl
+    assert "^PW820" in zpl
     assert "^MD20" in zpl
     assert "^BCN" not in zpl
 
@@ -340,8 +340,8 @@ def test_generate_zpl_price_top_left_and_identifier_top_right(item):
     right-aligned origin is 625 - (9*30 + 8*2 + 40) = 299 dots."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item)
-    assert "^FT0,5^A0N,30,30^FD$25.00^FS" in zpl
-    assert "^FO269,5^BCN,75,Y,N,N^FDABC-001^FS" in zpl
+    assert "^FT280,35^A0N,30,30^FD$25.00^FS" in zpl
+    assert "^FO494,5^BCN,75,Y,N,N^FDABC-001^FS" in zpl
 
 
 def test_generate_zpl_user_id_below_price(item):
@@ -349,15 +349,16 @@ def test_generate_zpl_user_id_below_price(item):
     anchored via ^FT."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item)
-    assert "^FT0,42^A0N,24,24^FDABC^FS" in zpl
+    assert "^FT280,144^A0N,24,24^FDABC^FS" in zpl
 
 
 def test_generate_zpl_prints_event_name(item):
-    """The event name is centered between the price and the identifier in the
-    top band when provided (gap 95..299 for a 7-char code)."""
+    """The event name prints centered on its own row between the identifier
+    band and the info block (in-band placement would collide with the
+    barcode for 7+ char codes)."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item, event_name="Ski Swap 2026")
-    assert "^FT95,8^FB174,1,0,C,0^A0N,22,22^FDSki Swap 2026^FS" in zpl
+    assert "^FT280,118^FB540,1,0,C,0^A0N,22,22^FDSki Swap 2026^FS" in zpl
 
 
 def test_generate_zpl_text_mode_code_top_right(item):
@@ -365,6 +366,6 @@ def test_generate_zpl_text_mode_code_top_right(item):
     aligned via ^FB) with the same event/price/user-id arrangement."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item, code_as_text=True, event_name="Ski Swap 2026")
-    assert "^FT0,5^FB595,1,0,R,0^A0N,50,50^FDABC-001^FS" in zpl
+    assert "^FT280,5^FB540,1,0,R,0^A0N,50,50^FDABC-001^FS" in zpl
     assert "^FDSki Swap 2026^FS" in zpl
     assert "^BCN" not in zpl
