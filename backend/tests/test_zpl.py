@@ -283,16 +283,16 @@ def test_generate_zpl_emits_explicit_format_commands(item):
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item)
     assert "^MD20" in zpl
-    assert "^LL190" in zpl
-    assert "^LS115" in zpl
-    assert "^PW600" in zpl
+    assert "^LL203" in zpl
+    assert "^LS" not in zpl  # ^FT fields ignore the label shift — the origin is baked into x
+    assert "^PW850" in zpl
     assert "^CI0" in zpl
 
 
 def test_generate_zpl_code_as_text_also_carries_format_commands(item):
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item, code_as_text=True)
-    assert "^PW600" in zpl
+    assert "^PW850" in zpl
     assert "^MD20" in zpl
     assert "^BCN" not in zpl
 
@@ -329,3 +329,43 @@ def test_send_to_printer_cups_unavailable_raises_oserror(tmp_path):
     with patch("app.services.zpl.subprocess.run", side_effect=FileNotFoundError("no lp")):
         with pytest.raises(OSError, match="Label printer unavailable"):
             zpl.send_to_printer("^XA^XZ\n", printer_path=missing)
+
+
+# ── Layout: price top-left, identifier top-right, event name between ─────────
+
+
+def test_generate_zpl_price_top_left_and_identifier_top_right(item):
+    """Price prints top-left (^FT top-anchored); the barcode is right-aligned
+    (user-requested arrangement, 2026-09-12; width 625). For a 7-char code the
+    right-aligned origin is 625 - (9*30 + 8*2 + 40) = 299 dots."""
+    from app.services.zpl import generate_zpl
+    zpl = generate_zpl(item)
+    assert "^FT280,38^A0N,30,30^FD$25.00^FS" in zpl
+    assert "^FO524,5^BCN,70,N,N,N^FDABC-001^FS" in zpl
+
+
+def test_generate_zpl_user_id_below_price(item):
+    """The user id (seller code) prints below the price on the left, top-
+    anchored via ^FT."""
+    from app.services.zpl import generate_zpl
+    zpl = generate_zpl(item)
+    assert "^FT280,144^A0N,24,24^FDABC^FS" in zpl
+
+
+def test_generate_zpl_prints_event_name(item):
+    """The event name prints centered on its own row between the identifier
+    band and the info block (in-band placement would collide with the
+    barcode for 7+ char codes)."""
+    from app.services.zpl import generate_zpl
+    zpl = generate_zpl(item, event_name="Ski Swap 2026")
+    assert "^FT280,118^FB570,1,0,C,0^A0N,22,22^FDSki Swap 2026^FS" in zpl
+
+
+def test_generate_zpl_text_mode_code_top_right(item):
+    """Text-mode item code sits in the barcode's place (top-right, right-
+    aligned via ^FB) with the same event/price/user-id arrangement."""
+    from app.services.zpl import generate_zpl
+    zpl = generate_zpl(item, code_as_text=True, event_name="Ski Swap 2026")
+    assert "^FT280,55^FB570,1,0,R,0^A0N,50,50^FDABC-001^FS" in zpl
+    assert "^FDSki Swap 2026^FS" in zpl
+    assert "^BCN" not in zpl

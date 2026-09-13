@@ -5,11 +5,13 @@ via direct USB (pyusb) or a Linux device path, with a CUPS `lp` fallback —
 the live deployment's ZD421 is owned by the CUPS queue ``ZTC-ZD421-203dpi-ZPL``
 (no raw ``/dev/usb/lp*`` node exists).
 
-Label geometry/darkness are configurable (``LABEL_WIDTH_DOTS``,
-``LABEL_LENGTH_DOTS``, ``LABEL_LEFT_SHIFT_DOTS``, ``LABEL_DARKNESS``) and are
-emitted explicitly on every label (^PW/^LL/^LS/^MD): the ZD421's stored
-settings produced blank output — labels only print with these commands set
-(measured 2026-09-12: media ≈ 3" × 1", origin ~120 dots left of media).
+Label geometry is measured and explicit (2026-09-13 calibration): the media
+window in ``^FT`` coordinates spans ``LABEL_LEFT_ORIGIN_DOTS`` (≈ 280) to
+``LABEL_RIGHT_EDGE_DOTS`` (≈ 820) — the media start position under the
+printhead moved print-to-print until gap-tracking mode (^MNY) + media
+calibration (~JC) were applied. Text fields use ``^FT`` (field top), and
+``^LS`` is NOT used: ^FT-positioned fields ignore the label shift, so the
+left origin is baked into every x coordinate instead.
 """
 
 import logging
@@ -18,39 +20,52 @@ import sys
 
 from app.config import (
     LABEL_DARKNESS,
-    LABEL_LEFT_SHIFT_DOTS,
     LABEL_LENGTH_DOTS,
+    LABEL_LEFT_ORIGIN_DOTS,
     LABEL_PRINTER_PATH,
     LABEL_PRINTER_QUEUE,
-    LABEL_WIDTH_DOTS,
+    LABEL_RIGHT_EDGE_DOTS,
 )
 
-_PRINT_WIDTH = LABEL_WIDTH_DOTS  # dots at 203 dpi (measured ≈ 3" stock → 600)
+_CONTENT_WIDTH = LABEL_RIGHT_EDGE_DOTS - LABEL_LEFT_ORIGIN_DOTS  # ≈ 540 dots
 _ZEBRA_VID   = 0x0A5F
 _ZEBRA_PID   = 0x0185
 
 
-def _barcode_x(barcode: str) -> int:
-    """Return the x origin (dots) that centers a Code 39 barcode on the label.
+def _barcode_x(barcode: str, right: int) -> int:
+    """Return the x origin (dots) that RIGHT-aligns the barcode at the
+    content right edge (``right``).
 
-    Code 39 geometry at default module width (2 dots, ratio 3.0):
+    Code 128 geometry at default module width (2 dots, ratio 3.0):
       - each symbol (including start/stop): 30 dots
       - inter-character gap: 2 dots
       - quiet zones (10× narrow bar): 20 dots each side
     """
     n_symbols    = len(barcode) + 2          # data chars + start + stop
     barcode_dots = n_symbols * 30 + (n_symbols - 1) * 2 + 40  # +40 quiet zones
-    return max(0, (_PRINT_WIDTH - barcode_dots) // 2)
+    return max(0, right - barcode_dots)
 
 
-def generate_zpl(item, copies: int | None = None, code_as_text: bool = False) -> str:
-    """Generate a ZPL II label string for the ZD421 (4", 203 dpi).
+def generate_zpl(
+    item,
+    copies: int | None = None,
+    code_as_text: bool = False,
+    event_name: str | None = None,
+) -> str:
+    """Generate a ZPL II label string for the ZD421 (203 dpi).
 
-    Layout (all elements horizontally centered):
-      - Item identifier: Code 39 barcode, 100 dots tall (default) — or the
-        item code as large human-readable text when ``code_as_text`` is set
-      - Seller code + price (large)
-      - Description, optional size/colour line, optional extra line
+    Layout (2026-09-13, matched to the reference label IMG_6581.jpg):
+      - Top band: price top-left, event name centered between price and
+        identifier, item identifier top-right — Code 128 barcode (default)
+        or the item code as large right-aligned text when ``code_as_text``
+        is set (same position as the barcode; the barcode also prints its
+        human-readable code below)
+      - User id (seller code) below the price
+      - Description, optional size/colour line + optional extra line below,
+        left-justified
+    Text fields use ``^FT`` (field top): for scalable fonts ``^FO`` positions
+    at the BASELINE, which clipped the tops of the price/ID (print test
+    2026-09-13).
 
     Copies: with no explicit ``copies`` an ``^PQ`` command emits one tag per
     on-hand remaining unit — the "N labels per N units" decision from tester
@@ -59,23 +74,34 @@ def generate_zpl(item, copies: int | None = None, code_as_text: bool = False) ->
     labels (the "print a specified number of labels per item" flow).
 
     ``code_as_text``: render the item code as text instead of a barcode
-    (option added 2026-09-12). The remaining details are unchanged.
+    (option added 2026-09-12). ``event_name``: printed between the price and
+    the identifier (added 2026-09-12; omitted when not provided).
     """
     barcode      = item.barcode_39 or item.code
     seller_code  = item.seller.code if item.seller else ""
     description  = (item.description or "")[:30]
     line2        = item.label_line_2 or ""
     line3        = item.label_line_3 or ""
-    pw           = _PRINT_WIDTH
-    # Identifier block: barcode (default) or large text item code. Compact
-    # vertical layout: everything fits inside ^LL190 with bottom margin —
-    # earlier y positions (seller at 138, line3 at 206) clipped on the
-    # measured ≈1" stock (2026-09-12 print test).
+    origin       = LABEL_LEFT_ORIGIN_DOTS
+    right        = LABEL_RIGHT_EDGE_DOTS
+    content_w    = right - origin
+    bx           = _barcode_x(barcode, right)  # right-flush identifier origin
+    # Top band: price top-left, identifier (barcode / large text) top-right.
     if code_as_text:
-        code_block = f"^FO0,8^FB{pw},1,0,C,0^A0N,50,50^FD{item.code}^FS\n"
+        code_block = f"^FT{origin},55^FB{content_w},1,0,R,0^A0N,50,50^FD{item.code}^FS\n"
     else:
-        bx         = _barcode_x(barcode)
-        code_block = f"^FO{bx},5^BCN,75,Y,N,N^FD{barcode}^FS\n"
+        code_block = f"^FO{bx},5^BCN,70,N,N,N^FD{barcode}^FS\n"
+    # Event name: centered on its own row below the identifier band — in-band
+    # placement would collide with the barcode for 7+ char codes (the gap is
+    # ~119 dots; the name needs ~156 at 22pt). 24pt keeps it legible.
+    hr_block = (
+        f"^FT{origin},98^FB{content_w},1,0,R,0^A0N,22,22^FD{barcode}^FS\n"
+    )
+    event_block = ""
+    if event_name:
+        event_block = (
+            f"^FT{origin},118^FB{content_w},1,0,C,0^A0N,22,22^FD{event_name}^FS\n"
+        )
     try:
         # On-hand remaining (== intake quantity until a partial sale) —
         # reprints mid-event print labels only for units still in stock.
@@ -91,14 +117,16 @@ def generate_zpl(item, copies: int | None = None, code_as_text: bool = False) ->
         "^XA\n"
         f"^MD{max(0, min(30, LABEL_DARKNESS))}\n"
         f"^LL{LABEL_LENGTH_DOTS}\n"
-        f"^LS{LABEL_LEFT_SHIFT_DOTS}\n"
-        f"^PW{pw}\n"
+        f"^PW{right}\n"
         "^CI0\n"
+        f"^FT{origin},38^A0N,30,30^FD${item.price:.2f}^FS\n"
         f"{code_block}"
-        f"^FO0,90^FB{pw},1,0,C,0^A0N,26,26^FD{seller_code}  ${item.price:.2f}^FS\n"
-        f"^FO0,120^FB{pw},1,0,C,0^A0N,14,14^FD{description}^FS\n"
-        f"^FO0,136^FB{pw},1,0,C,0^A0N,12,12^FD{line2}^FS\n"
-        f"^FO0,150^FB{pw},1,0,C,0^A0N,12,12^FD{line3}^FS\n"
+        f"{hr_block}"
+        f"{event_block}"
+        f"^FT{origin},144^A0N,24,24^FD{seller_code}^FS\n"
+        f"^FT{origin},162^A0N,16,16^FD{description}^FS\n"
+        f"^FT{origin},176^A0N,14,14^FD{line2}^FS\n"
+        f"^FT{origin},188^A0N,14,14^FD{line3}^FS\n"
         f"{pq}"
         "^XZ\n"
     )
