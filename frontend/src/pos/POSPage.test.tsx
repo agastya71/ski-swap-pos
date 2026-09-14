@@ -375,3 +375,28 @@ describe("POSPage", () => {
     expect(screen.getByLabelText(/check/i)).toBeInTheDocument();
   });
 });
+
+/** Reproduction: add an item, remove it, scan a different item — the removed
+ *  item must not re-appear in the cart (the user-reported bug). */
+it("removed item does not re-appear when the next item is scanned", async () => {
+  lookupReturns(ITEM_A);
+  renderPOS();
+  scan("A001-001");
+  await waitFor(() =>
+    expect(screen.getByText("A001-001")).toBeInTheDocument(),
+  );
+  fireEvent.click(screen.getByRole("button", { name: /remove A001-001/i }));
+  expect(screen.getByText(/cart is empty/i)).toBeInTheDocument();
+
+  lookupReturns(ITEM_MULTI);
+  scan("A001-002");
+  await waitFor(() =>
+    expect(screen.getByText("A001-002")).toBeInTheDocument(),
+  );
+  expect(screen.queryByText("A001-001")).not.toBeInTheDocument();
+  // localStorage must reflect the removal too — a reload must not restore it
+  const stored = JSON.parse(localStorage.getItem("pos_cart") ?? "[]");
+  expect(stored.map((l: { item: { code: string } }) => l.item.code)).toEqual([
+    "A001-002",
+  ]);
+});
