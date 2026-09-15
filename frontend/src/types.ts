@@ -772,6 +772,8 @@ export interface UnsoldItem {
  remaining: number;
  /** Item's asking price. */
  price: number;
+ /** Whether the consignor elected to donate this item if unsold. */
+ donate_unsold: boolean;
 }
 
 /** Report of all unsold (available or returned) items for an event. */

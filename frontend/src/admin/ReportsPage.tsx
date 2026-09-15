@@ -291,6 +291,9 @@ export function ReportsPage({ eventId }: { eventId: number }) {
                     <th style={{ textAlign: "right", padding: "4px 8px" }}>
                       Price
                     </th>
+                    <th style={{ textAlign: "left", padding: "4px 8px" }}>
+                      Donate
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -322,6 +325,9 @@ export function ReportsPage({ eventId }: { eventId: number }) {
                       </td>
                       <td style={{ padding: "4px 8px", textAlign: "right" }}>
                         ${item.price.toFixed(2)}
+                      </td>
+                      <td style={{ padding: "4px 8px" }}>
+                        {item.donate_unsold ? "Yes" : "No"}
                       </td>
                     </tr>
                   ))}

@@ -93,3 +93,33 @@ def test_format_invalid_raises_422():
     with pytest.raises(HTTPException) as exc:
         format_report(_eod(), "xml", "eod_test")
     assert exc.value.status_code == 422
+
+
+def test_format_unsold_report_donate_column():
+    """The dedicated unsold report carries the per-item donate election."""
+    import io
+
+    from pypdf import PdfReader
+
+    from app.schemas.reports import UnsoldItem, UnsoldItemsReport
+    from app.services.report_formatter import format_report
+
+    report = UnsoldItemsReport(
+        event_id=1, event_name="Swap 2026",
+        items=[
+            UnsoldItem(seller_code="DU", seller_name="Donate Tester",
+                       item_code="DU-001", description="Skis", category="Skis",
+                       quantity=1.0, remaining=1.0, price=10.0, donate_unsold=True),
+        ],
+        total_items=1, total_value=10.0,
+        generated_at=datetime.now(timezone.utc),
+    )
+    csv = format_report(report, "csv", "unsold_donate")
+    assert b"donate" in csv.body
+    assert b"Yes" in csv.body
+    md = format_report(report, "md", "unsold_donate")
+    assert b"| Donate |" in md.body
+    pdf = format_report(report, "pdf", "unsold_donate")
+    assert pdf.media_type == "application/pdf"
+    text = "".join(page.extract_text() for page in PdfReader(io.BytesIO(pdf.body)).pages)
+    assert "Donate" in text and "Yes" in text

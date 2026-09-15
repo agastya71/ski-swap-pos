@@ -366,7 +366,7 @@ def get_donations(db: Session, event_id: int) -> DonationsReport:
 
 
 def get_unsold_items(db: Session, event_id: int) -> UnsoldItemsReport:
-    """Build a report of all items still in ``"available"`` status for an event.
+    """Build a report of all on-hand items (remaining > 0, not deleted) for an event.
 
     Args:
         db: Active SQLAlchemy database session.
@@ -397,6 +397,7 @@ def get_unsold_items(db: Session, event_id: int) -> UnsoldItemsReport:
             quantity=it.quantity,  # pyright: ignore[reportArgumentType]
             remaining=it.remaining,  # pyright: ignore[reportArgumentType]
             price=it.price,  # pyright: ignore[reportArgumentType]
+            donate_unsold=it.donate_unsold,  # pyright: ignore[reportArgumentType]
         )
         for it in items
     ]

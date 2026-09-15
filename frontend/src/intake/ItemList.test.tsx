@@ -352,6 +352,45 @@ it("shows the on-hand quantity column", () => {
   expect(screen.getAllByText("$375.00").length).toBe(2);
 });
 
+/** Verifies the Donate column renders each item's donate-unsold election. */
+it("shows the donate flag per line item", () => {
+  const donated: Item = {
+    ...ITEM,
+    id: 2,
+    code: "A001-002",
+    donate_unsold: true,
+  };
+  render(
+    <ItemList items={[ITEM, donated]} intakeId={5} onItemsChanged={vi.fn()} />,
+  );
+  expect(
+    screen.getByRole("checkbox", { name: "Donate if unsold for A001-001" }),
+  ).not.toBeChecked();
+  expect(
+    screen.getByRole("checkbox", { name: "Donate if unsold for A001-002" }),
+  ).toBeChecked();
+});
+
+/** Verifies the inline donate toggle PATCHes donate_unsold immediately and refreshes. */
+it("toggling donate PATCHes donate_unsold and refreshes", async () => {
+  let capturedBody: Record<string, unknown> | null = null;
+  server.use(
+    http.patch("/items/:id", async ({ request }) => {
+      capturedBody = (await request.json()) as Record<string, unknown>;
+      return HttpResponse.json({ ...ITEM, donate_unsold: true });
+    }),
+  );
+  const onItemsChanged = vi.fn();
+  render(
+    <ItemList items={[ITEM]} intakeId={5} onItemsChanged={onItemsChanged} />,
+  );
+  fireEvent.click(
+    screen.getByRole("checkbox", { name: "Donate if unsold for A001-001" }),
+  );
+  await waitFor(() => expect(onItemsChanged).toHaveBeenCalledTimes(1));
+  expect(capturedBody).toMatchObject({ donate_unsold: true });
+});
+
 /** Adjusting quantity calls PATCH /items/:id/quantity with the signed delta. */
 it("Adjust quantity calls PATCH /items/:id/quantity and refreshes", async () => {
   let captured: { adjustment?: number } = {};
