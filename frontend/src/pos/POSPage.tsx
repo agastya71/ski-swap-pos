@@ -17,7 +17,7 @@
  */
 import { useEffect, useState } from "react";
 import { BUTTON_STYLE } from "../lib/buttons";
-import { createSale } from "../api/sales";
+import { createSale, fetchMySales } from "../api/sales";
 import { getActiveEvent } from "../api/events";
 import { LookupField } from "./LookupField";
 import { Cart, type CartLine } from "./Cart";
@@ -97,6 +97,39 @@ export function POSPage() {
       .then((e) => setEventName(e.name))
       .catch(() => {});
   }, []);
+
+  // My Transactions — the cashier's own sales, read-only (loaded on demand).
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historySales, setHistorySales] = useState<SaleWithItemsResponse[]>([]);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [expandedSaleId, setExpandedSaleId] = useState<number | null>(null);
+
+  /** Loads the cashier's transaction history (once per session open). */
+  async function handleToggleHistory() {
+    setHistoryOpen((o) => {
+      const next = !o;
+      if (next && !historyLoaded && !historyLoading) {
+        setHistoryLoading(true);
+        setHistoryError(null);
+        fetchMySales()
+          .then((sales) => {
+            setHistorySales(sales);
+            setHistoryLoaded(true);
+          })
+          .catch((err) =>
+            setHistoryError(
+              err instanceof Error
+                ? err.message
+                : "Failed to load transactions",
+            ),
+          )
+          .finally(() => setHistoryLoading(false));
+      }
+      return next;
+    });
+  }
 
   /** Sets the completed sale and persists it so a reload restores the receipt,
    *  not an editable cart of sold items. null clears the persisted copy. */
@@ -301,6 +334,175 @@ export function POSPage() {
               onCancel={handleCancelCheckout}
             />
           </div>
+        </div>
+      )}
+
+      {/* My Transactions — the cashier's own sales, read-only. */}
+      {!sale && (
+        <div style={{ marginTop: 24 }}>
+          <button
+            onClick={handleToggleHistory}
+            aria-expanded={historyOpen}
+            style={BUTTON_STYLE}
+          >
+            {historyOpen ? "Hide My Transactions" : "My Transactions"}
+          </button>
+          {historyOpen && (
+            <div style={{ marginTop: 12 }}>
+              {historyLoading && (
+                <p style={{ color: "#888", fontStyle: "italic" }}>
+                  Loading transactions…
+                </p>
+              )}
+              {historyError && (
+                <p role="alert" style={{ color: "red" }}>
+                  {historyError}
+                </p>
+              )}
+              {!historyLoading &&
+                !historyError &&
+                historySales.length === 0 && (
+                  <p style={{ color: "#888", fontStyle: "italic" }}>
+                    No transactions recorded yet.
+                  </p>
+                )}
+              {historySales.map((s) => (
+                <div
+                  key={s.id}
+                  style={{
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 6,
+                    marginBottom: 8,
+                    padding: 10,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      cursor: "pointer",
+                    }}
+                    onClick={() =>
+                      setExpandedSaleId((cur) => (cur === s.id ? null : s.id))
+                    }
+                    role="button"
+                    aria-expanded={expandedSaleId === s.id}
+                    aria-label={`transaction ${s.id} details`}
+                  >
+                    <span style={{ fontWeight: 600 }}>
+                      Sale #{s.id}
+                      {s.is_voided ? " — VOIDED" : ""}
+                    </span>
+                    <span>
+                      {s.sale_items.length} item(s) · ${s.sale_total.toFixed(2)}
+                    </span>
+                  </div>
+                  {expandedSaleId === s.id && (
+                    <div style={{ marginTop: 8, fontSize: 13 }}>
+                      <div>
+                        Date:{" "}
+                        {s.date_of_sale
+                          ? new Date(s.date_of_sale).toLocaleString()
+                          : "—"}
+                      </div>
+                      <div style={{ marginTop: 4 }}>
+                        Payment: cash ${s.cash_amount.toFixed(2)} · check $
+                        {s.check_amount.toFixed(2)} · card $
+                        {s.cc_amount.toFixed(2)}
+                      </div>
+                      <table
+                        style={{
+                          width: "100%",
+                          borderCollapse: "collapse",
+                          marginTop: 6,
+                        }}
+                      >
+                        <thead>
+                          <tr
+                            style={{
+                              borderBottom: "1px solid #ccc",
+                            }}
+                          >
+                            <th
+                              style={{
+                                textAlign: "left",
+                                padding: "2px 6px",
+                              }}
+                            >
+                              Code
+                            </th>
+                            <th
+                              style={{
+                                textAlign: "right",
+                                padding: "2px 6px",
+                              }}
+                            >
+                              Qty
+                            </th>
+                            <th
+                              style={{
+                                textAlign: "right",
+                                padding: "2px 6px",
+                              }}
+                            >
+                              Unit Price
+                            </th>
+                            <th
+                              style={{
+                                textAlign: "right",
+                                padding: "2px 6px",
+                              }}
+                            >
+                              Extended
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {s.sale_items.map((si) => (
+                            <tr
+                              key={si.id}
+                              style={{
+                                borderBottom: "1px solid #eee",
+                              }}
+                            >
+                              <td style={{ padding: "4px 6px" }}>
+                                {si.item_code ?? "—"}
+                              </td>
+                              <td
+                                style={{
+                                  padding: "4px 6px",
+                                  textAlign: "right",
+                                }}
+                              >
+                                {si.quantity}
+                              </td>
+                              <td
+                                style={{
+                                  padding: "4px 6px",
+                                  textAlign: "right",
+                                }}
+                              >
+                                ${si.sell_price.toFixed(2)}
+                              </td>
+                              <td
+                                style={{
+                                  padding: "4px 6px",
+                                  textAlign: "right",
+                                }}
+                              >
+                                ${si.extended_price.toFixed(2)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

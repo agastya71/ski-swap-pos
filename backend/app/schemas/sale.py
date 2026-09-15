@@ -61,6 +61,7 @@ class SaleItemResponse(BaseModel):
     sell_price: float = Field(description="Per-unit price at which the item was sold.")
     extended_price: float = Field(description="Total price for this line (sell_price * quantity).")
     notes: Optional[str] = Field(default=None, description="Cashier notes specific to this line item.")
+    item_code: Optional[str] = Field(default=None, description="Item code (denormalized for read-only receipt/report display).")
     created_at: datetime.datetime = Field(description="UTC timestamp when this line item record was created.")
 
 
