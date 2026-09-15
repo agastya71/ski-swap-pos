@@ -164,7 +164,33 @@ def update_seller(
     )
     if not seller:
         raise HTTPException(status_code=404, detail="Seller not found")
-    for field, value in body.model_dump(exclude_unset=True).items():
+    changes = body.model_dump(exclude_unset=True)
+    # Cross-field contract (same rules as SellerCreate), evaluated against the
+    # RESULTING record: the patch wins when a field is present, the existing
+    # value otherwise. Enforced here because SellerUpdate alone cannot see the
+    # existing row (see its docstring). This makes the vendor/individual flag
+    # safely editable: flipping it must leave a record that still satisfies
+    # the identity + contact rules.
+    vendor = bool(changes["is_vendor"]) if "is_vendor" in changes else bool(seller.is_vendor)
+    company = str(changes.get("company", seller.company) or "")
+    first_name = str(changes.get("first_name", seller.first_name) or "")
+    last_name = str(changes.get("last_name", seller.last_name) or "")
+    if vendor and not company.strip():
+        raise HTTPException(
+            status_code=422, detail="Company is required for vendor sellers"
+        )
+    if not vendor:
+        if not first_name.strip():
+            raise HTTPException(
+                status_code=422,
+                detail="First name is required for individual sellers",
+            )
+        if not last_name.strip():
+            raise HTTPException(
+                status_code=422,
+                detail="Last name is required for individual sellers",
+            )
+    for field, value in changes.items():
         setattr(seller, field, value)
     db.commit()
     db.refresh(seller)

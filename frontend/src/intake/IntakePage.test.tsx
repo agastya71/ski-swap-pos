@@ -32,8 +32,8 @@ function renderPage() {
 
 async function selectSeller() {
   fireEvent.change(screen.getByPlaceholderText(/search by name or code/i), { target: { value: 'Jane' } })
-  await waitFor(() => screen.getByText('Jane Doe — A001'))
-  fireEvent.click(screen.getByText('Jane Doe — A001'))
+  await waitFor(() => screen.getByText('Jane Doe — A001 · Individual'))
+  fireEvent.click(screen.getByText('Jane Doe — A001 · Individual'))
 }
 
 /** Tests covering the complete multi-step intake workflow driven by IntakePage. */

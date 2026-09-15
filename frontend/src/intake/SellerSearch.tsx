@@ -7,6 +7,7 @@
 import { useState, useEffect } from "react";
 import { BUTTON_STYLE } from "../lib/buttons";
 import { searchSellers } from "../api/sellers";
+import { sellerDisplayName, sellerTypeLabel } from "../lib/sellerDisplay";
 import type { Seller } from "../types";
 
 /**
@@ -75,8 +76,10 @@ export function SellerSearch({
                   marginBottom: 4,
                 }}
               >
-                {s.first_name} {s.last_name} — {s.code}
-                {s.company && ` (${s.company})`}
+                {sellerDisplayName(s)} — {s.code}
+                {s.company && !s.is_vendor && ` (${s.company})`}
+                {' · '}
+                {sellerTypeLabel(s)}
               </button>
             </li>
           ))}

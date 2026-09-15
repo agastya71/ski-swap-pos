@@ -6,6 +6,7 @@
  */
 import { Fragment, useState, useEffect, useRef, type ChangeEvent } from 'react'
 import { updateSeller, listSellerItems } from '../api/sellers'
+import { sellerDisplayName, sellerTypeLabel } from '../lib/sellerDisplay'
 import { getSellerIntakes, createIntake, importItems } from '../api/intakes'
 import { deleteItem, updateItem } from '../api/items'
 import { ItemForm } from '../intake/ItemForm'
@@ -45,6 +46,24 @@ export function SellerDetailPage({ seller: initialSeller, onBack, eventId }: {
 
   async function handleSaveEdit() {
     setEditError(null)
+    // Cross-field contract, same rules as registration (SellerCreate): a vendor
+    // needs a company; an individual needs first + last name; at least one
+    // contact channel. The backend re-validates the resulting record.
+    if (!editDraft.phone?.trim() && !editDraft.email?.trim()) {
+      setEditError('At least one of phone or email is required.')
+      return
+    }
+    if (editDraft.is_vendor && !(editDraft.company ?? '').trim()) {
+      setEditError('Company is required for vendor sellers.')
+      return
+    }
+    if (
+      !editDraft.is_vendor &&
+      (!(editDraft.first_name ?? '').trim() || !(editDraft.last_name ?? '').trim())
+    ) {
+      setEditError('First and last name are required for individual sellers.')
+      return
+    }
     // Same mandatory-field rules as the registration form (SellerForm):
     // state is a 2-char US code, ZIP is 5 digits, street address and city are
     // required — enforced client-side since this panel saves via a button (no
@@ -68,6 +87,7 @@ export function SellerDetailPage({ seller: initialSeller, onBack, eventId }: {
         first_name: editDraft.first_name ?? undefined,
         last_name: editDraft.last_name ?? undefined,
         company: editDraft.company ?? undefined,
+        is_vendor: editDraft.is_vendor,
         phone: editDraft.phone ?? undefined,
         email: editDraft.email ?? undefined,
         address: editDraft.address ?? undefined,
@@ -170,8 +190,11 @@ export function SellerDetailPage({ seller: initialSeller, onBack, eventId }: {
         </button>
         <h3 style={{ margin: 0 }}>
           <span style={{ color: NAVY, marginRight: 8 }}>{seller.code}</span>
-          {seller.first_name} {seller.last_name}
-          {seller.company && (
+          {sellerDisplayName(seller)}
+          <span style={{ color: '#64748b', fontWeight: 400, marginLeft: 8 }}>
+            ({sellerTypeLabel(seller)})
+          </span>
+          {seller.company && !seller.is_vendor && (
             <span style={{ color: '#64748b', fontWeight: 400, marginLeft: 8 }}>({seller.company})</span>
           )}
         </h3>
@@ -181,6 +204,7 @@ export function SellerDetailPage({ seller: initialSeller, onBack, eventId }: {
       <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: 16, marginBottom: 20 }}>
         {!editing ? (
           <>
+            {contactField('Type', seller.is_vendor ? 'Vendor' : 'Individual')}
             {contactField('Phone', seller.phone)}
             {contactField('Email', seller.email)}
             {contactField(
@@ -198,6 +222,38 @@ export function SellerDetailPage({ seller: initialSeller, onBack, eventId }: {
           </>
         ) : (
           <div>
+            {/* Vendor/Individual flag — editable in edit mode. The same
+                creation contract is enforced client-side here and again
+                server-side against the resulting record (PATCH /sellers). */}
+            <label htmlFor="edit-is_vendor" style={{ display: 'block', marginBottom: 8, fontSize: 13 }}>
+              <input
+                id="edit-is_vendor"
+                type="checkbox"
+                checked={editDraft.is_vendor}
+                onChange={e => setEditDraft(prev => ({ ...prev, is_vendor: e.target.checked }))}
+              />{' '}
+              Vendor (not individual consignor)
+            </label>
+            {editDraft.is_vendor !== seller.is_vendor && (
+              <div style={{ fontSize: 12, color: '#b45309', marginBottom: 8 }}>
+                Changing the vendor flag changes the commission rate applied to
+                this seller's payout reports (vendor rate vs standard); the
+                seller code stays as-is.
+              </div>
+            )}
+            {(['company'] as const).map(f => (
+              <div key={f} style={{ marginBottom: 8 }}>
+                <label htmlFor={`edit-${f}`} style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 2 }}>
+                  Company {editDraft.is_vendor ? '*' : '(optional)'}
+                </label>
+                <input
+                  id={`edit-${f}`}
+                  value={(editDraft[f] as string) ?? ''}
+                  onChange={e => setEditDraft(prev => ({ ...prev, [f]: e.target.value }))}
+                  style={{ width: '100%', padding: '5px 8px', boxSizing: 'border-box' }}
+                />
+              </div>
+            ))}
             {(['first_name', 'last_name', 'phone', 'email'] as const).map(f => (
               <div key={f} style={{ marginBottom: 8 }}>
                 <label htmlFor={`edit-${f}`} style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 2 }}>

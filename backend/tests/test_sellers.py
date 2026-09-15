@@ -286,3 +286,80 @@ def test_update_state_accepts_lower_case(client, admin_token, seller):
     )
     assert resp.status_code == 200
     assert resp.json()["state"] == "MA"
+
+
+# ── Vendor/Individual flag editing (cross-field contract on PATCH) ────────
+
+
+def test_update_flip_to_vendor_requires_company(client, admin_token, seller):
+    """Editing the vendor flag applies the creation contract: a vendor needs a
+    company (evaluated against the resulting record, not just the patch)."""
+    resp = client.patch(
+        f"/sellers/{seller.id}",
+        json={"is_vendor": True},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 422
+    assert "Company is required for vendor sellers" in resp.json()["detail"]
+
+
+def test_update_flip_to_vendor_with_company(client, admin_token, seller):
+    """Flipping to vendor with a company present succeeds; the code is
+    grandfathered (flag changes never regenerate the seller code)."""
+    original_code = seller.code
+    resp = client.patch(
+        f"/sellers/{seller.id}",
+        json={"is_vendor": True, "company": "Acme Outdoors"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["is_vendor"] is True
+    assert data["company"] == "Acme Outdoors"
+    assert data["code"] == original_code
+
+
+def test_update_flip_to_individual_requires_names(client, admin_token, active_event, db):
+    """A vendor flipped to individual needs first and last name."""
+    v = Seller(
+        event_id=active_event.id, code="VCO1", company="Vendor Co",
+        is_vendor=True, created_by="admin",
+    )
+    db.add(v); db.commit(); db.refresh(v)
+    resp = client.patch(
+        f"/sellers/{v.id}",
+        json={"is_vendor": False},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 422
+    assert "required for individual sellers" in resp.json()["detail"]
+
+
+def test_update_flip_to_individual_with_names(client, admin_token, active_event, db):
+    v = Seller(
+        event_id=active_event.id, code="VCO2", company="Vendor Co",
+        is_vendor=True, created_by="admin",
+    )
+    db.add(v); db.commit(); db.refresh(v)
+    resp = client.patch(
+        f"/sellers/{v.id}",
+        json={"is_vendor": False, "first_name": "Jane", "last_name": "Doe"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["is_vendor"] is False
+    assert data["first_name"] == "Jane"
+    assert data["last_name"] == "Doe"
+
+
+def test_update_individual_cannot_blank_names(client, admin_token, seller):
+    """The resulting-record check also guards plain edits: an individual seller
+    cannot have their name blanked via a partial update."""
+    resp = client.patch(
+        f"/sellers/{seller.id}",
+        json={"last_name": "   "},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 422
+    assert "Last name is required" in resp.json()["detail"]

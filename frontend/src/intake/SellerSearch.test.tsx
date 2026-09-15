@@ -34,7 +34,24 @@ describe('SellerSearch', () => {
     )
     render(<SellerSearch onSelect={vi.fn()} onCreateNew={vi.fn()} />)
     fireEvent.change(screen.getByPlaceholderText(/search by name or code/i), { target: { value: 'Jane' } })
-    await waitFor(() => expect(screen.getByText('Jane Doe — A001')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Jane Doe — A001 · Individual')).toBeInTheDocument())
+  })
+
+  /** Verifies that each result row shows the Vendor/Individual type tag and
+   *  vendor-aware naming (company shown as the name for vendors). */
+  it('shows the type tag and vendor-aware name per result', async () => {
+    const vendor: Seller = {
+      ...SELLER,
+      id: 2, code: 'VCO1', first_name: null, last_name: null,
+      company: 'Acme Outdoors', is_vendor: true,
+    }
+    server.use(
+      http.get('/sellers', () => HttpResponse.json([SELLER, vendor]))
+    )
+    render(<SellerSearch onSelect={vi.fn()} onCreateNew={vi.fn()} />)
+    fireEvent.change(screen.getByPlaceholderText(/search by name or code/i), { target: { value: 'a' } })
+    await waitFor(() => expect(screen.getByText('Jane Doe — A001 · Individual')).toBeInTheDocument())
+    expect(screen.getByText('Acme Outdoors — VCO1 · Vendor')).toBeInTheDocument()
   })
 
   /** Verifies that clicking a search result invokes onSelect with the corresponding seller object. */
@@ -45,8 +62,8 @@ describe('SellerSearch', () => {
     const onSelect = vi.fn()
     render(<SellerSearch onSelect={onSelect} onCreateNew={vi.fn()} />)
     fireEvent.change(screen.getByPlaceholderText(/search by name or code/i), { target: { value: 'Jane' } })
-    await waitFor(() => screen.getByText('Jane Doe — A001'))
-    fireEvent.click(screen.getByText('Jane Doe — A001'))
+    await waitFor(() => screen.getByText('Jane Doe — A001 · Individual'))
+    fireEvent.click(screen.getByText('Jane Doe — A001 · Individual'))
     expect(onSelect).toHaveBeenCalledWith(SELLER)
   })
 

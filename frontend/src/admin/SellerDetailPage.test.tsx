@@ -33,6 +33,54 @@ describe('SellerDetailPage', () => {
     expect(screen.getByText(/123 Main St/)).toBeInTheDocument()
   })
 
+  /** Verifies the Vendor/Individual flag is displayed in the contact card. */
+  it('shows the seller type in the contact card', () => {
+    render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />)
+    expect(screen.getByText('Individual')).toBeInTheDocument()
+  })
+
+  /** Verifies a vendor seller shows the Vendor type (company used as the name). */
+  it('shows the Vendor type for a vendor seller', () => {
+    render(
+      <SellerDetailPage
+        seller={{ ...seller, is_vendor: true, company: 'Acme', first_name: null, last_name: null }}
+        onBack={vi.fn()}
+        eventId={1}
+      />
+    )
+    expect(screen.getByText('Vendor')).toBeInTheDocument()
+  })
+
+  /** Verifies the vendor flag is editable in edit mode and PATCHed on save. */
+  it('edit mode exposes the vendor flag and PATCHes is_vendor', async () => {
+    let capturedBody: Record<string, unknown> | null = null
+    server.use(
+      http.patch('/sellers/:id', async ({ request }) => {
+        capturedBody = (await request.json()) as Record<string, unknown>
+        return HttpResponse.json({ ...seller, is_vendor: true, company: 'Acme Outdoors' })
+      }),
+    )
+    render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />)
+    clickContactEdit()
+    fireEvent.click(screen.getByRole('checkbox', { name: /vendor/i }))
+    expect(screen.getByText(/commission rate/i)).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText(/company/i), { target: { value: 'Acme Outdoors' } })
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+    await waitFor(() =>
+      expect(capturedBody).toMatchObject({ is_vendor: true, company: 'Acme Outdoors' }),
+    )
+  })
+
+  /** Verifies the client-side contract: flipping to vendor without a company
+   *  is blocked with a clear error (the backend re-checks the same rule). */
+  it('blocks saving a vendor seller without a company', () => {
+    render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />)
+    clickContactEdit()
+    fireEvent.click(screen.getByRole('checkbox', { name: /vendor/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+    expect(screen.getByRole('alert')).toHaveTextContent('Company is required for vendor sellers.')
+  })
+
   it('renders items table with item from API', async () => {
     render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />)
     await waitFor(() => expect(screen.getByText('001-01')).toBeInTheDocument())
