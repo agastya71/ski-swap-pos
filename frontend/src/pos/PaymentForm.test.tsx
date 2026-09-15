@@ -136,3 +136,35 @@ describe("PaymentForm", () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 });
+
+  /** Regression: the stale submit error must clear the moment a payment
+   *  field is edited (the screenshot bug — "Amount tendered ($0.00) is less
+   *  than total ($45.00)" stayed on screen after the cashier filled the
+   *  payment and changed the price). */
+  it("clears the stale error when a payment field is edited", async () => {
+    render(<PaymentForm total={45} onSubmit={vi.fn()} onCancel={vi.fn()} />);
+    // Submit with empty fields -> the tendered error appears.
+    fireEvent.click(screen.getByRole("button", { name: /complete sale/i }));
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent(/amount tendered/i);
+    // Editing any payment field clears the stale error.
+    fireEvent.change(screen.getByLabelText(/cash/i), {
+      target: { value: "50" },
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  /** Verifies the live tendered summary: short → warns, fully covered →
+   *  'ready to complete'. */
+  it("shows a live tendered summary while the payment is entered", async () => {
+    render(<PaymentForm total={280} onSubmit={vi.fn()} onCancel={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText(/cash/i), {
+      target: { value: "250" },
+    });
+    fireEvent.change(screen.getByLabelText(/check/i), {
+      target: { value: "30" },
+    });
+    const status = await screen.findByRole("status");
+    expect(status).toHaveTextContent(/amount tendered: \$280\.00 of \$280\.00/i);
+    expect(status).toHaveTextContent(/ready to complete/i);
+  });
