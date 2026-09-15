@@ -354,8 +354,15 @@ it("shows the on-hand quantity column", () => {
 
 /** Verifies the Donate column renders each item's donate-unsold election. */
 it("shows the donate flag per line item", () => {
-  const donated: Item = { ...ITEM, id: 2, code: "A001-002", donate_unsold: true };
-  render(<ItemList items={[ITEM, donated]} intakeId={5} onItemsChanged={vi.fn()} />);
+  const donated: Item = {
+    ...ITEM,
+    id: 2,
+    code: "A001-002",
+    donate_unsold: true,
+  };
+  render(
+    <ItemList items={[ITEM, donated]} intakeId={5} onItemsChanged={vi.fn()} />,
+  );
   expect(
     screen.getByRole("checkbox", { name: "Donate if unsold for A001-001" }),
   ).not.toBeChecked();

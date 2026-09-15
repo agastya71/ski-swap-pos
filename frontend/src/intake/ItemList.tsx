@@ -124,9 +124,7 @@ export function ItemList({
       onItemsChanged();
     } catch (err) {
       setDonateError(
-        err instanceof Error
-          ? err.message
-          : "Failed to update the donate flag",
+        err instanceof Error ? err.message : "Failed to update the donate flag",
       );
     } finally {
       setDonatePendingId(null);
