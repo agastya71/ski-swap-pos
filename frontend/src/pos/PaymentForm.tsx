@@ -51,6 +51,16 @@ export function PaymentForm({
     const ccAmt = parseFloat(creditCard) || 0;
     const tendered = cashAmt + checkAmt + ccAmt;
 
+    /** Clears any stale submit error the moment the cashier edits a payment
+     *  field — the red box used to persist until the next submit, showing
+     *  amounts and totals that no longer matched the form. */
+    function updatePayment(setter: (v: string) => void) {
+        return (e: { target: { value: string } }) => {
+            setError(null);
+            setter(e.target.value);
+        };
+    }
+
     function handleSubmit(e: FormEvent) {
         e.preventDefault();
         setError(null);
@@ -89,7 +99,7 @@ export function PaymentForm({
                     min="0"
                     step="0.01"
                     value={cash}
-                    onChange={(e) => setCash(e.target.value)}
+                    onChange={updatePayment(setCash)}
                     style={{ padding: 8, fontSize: 16, width: 140 }}
                 />
             </div>
@@ -106,7 +116,7 @@ export function PaymentForm({
                     min="0"
                     step="0.01"
                     value={check}
-                    onChange={(e) => setCheck(e.target.value)}
+                    onChange={updatePayment(setCheck)}
                     style={{ padding: 8, fontSize: 16, width: 140 }}
                 />
             </div>
@@ -122,7 +132,7 @@ export function PaymentForm({
                         id="checkNumber"
                         type="text"
                         value={checkNumber}
-                        onChange={(e) => setCheckNumber(e.target.value)}
+                        onChange={updatePayment(setCheckNumber)}
                         style={{ padding: 8, fontSize: 16, width: 200 }}
                     />
                 </div>
@@ -140,7 +150,7 @@ export function PaymentForm({
                     min="0"
                     step="0.01"
                     value={creditCard}
-                    onChange={(e) => setCreditCard(e.target.value)}
+                    onChange={updatePayment(setCreditCard)}
                     style={{ padding: 8, fontSize: 16, width: 140 }}
                 />
             </div>
@@ -154,7 +164,7 @@ export function PaymentForm({
                 <textarea
                     id="saleNotes"
                     value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
+                    onChange={updatePayment(setNotes)}
                     rows={2}
                     style={{
                         width: "100%",
@@ -167,6 +177,29 @@ export function PaymentForm({
             {error && (
                 <div role="alert" style={{ color: "red", marginBottom: 10 }}>
                     {error}
+                </div>
+            )}
+            {!error && tendered > 0 && (
+                <div
+                    role="status"
+                    style={{
+                        marginBottom: 10,
+                        padding: 8,
+                        borderRadius: 4,
+                        fontSize: 14,
+                        border:
+                            tendered + 0.001 >= total
+                                ? "1px solid #86efac"
+                                : "1px solid #fca5a5",
+                        background:
+                            tendered + 0.001 >= total ? "#f0fdf4" : "#fef2f2",
+                        color: tendered + 0.001 >= total ? "#166534" : "#b91c1c",
+                    }}
+                >
+                    Amount tendered: ${tendered.toFixed(2)} of ${total.toFixed(2)}
+                    {tendered + 0.001 >= total
+                        ? " — ✓ ready to complete"
+                        : ` — $${(total - tendered).toFixed(2)} short`}
                 </div>
             )}
             <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
