@@ -601,6 +601,7 @@ export const handlers = [
                                         description: "Red jacket",
                                         category: "Jackets",
                                         price: 45,
+                                        donate_unsold: true,
                                 },
                         ],
                         total_items: 1,

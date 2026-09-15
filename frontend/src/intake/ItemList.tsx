@@ -61,6 +61,9 @@ export function ItemList({
   // Print the item code as text instead of a barcode (applies to every label
   // printed from this list: per-item and bulk).
   const [codeAsText, setCodeAsText] = useState(false);
+  // Inline donate-unsold toggle per line item (PATCHes immediately).
+  const [donatePendingId, setDonatePendingId] = useState<number | null>(null);
+  const [donateError, setDonateError] = useState<string | null>(null);
 
   /** Opens the edit panel for the given item, or closes it if already open. */
   function openEdit(item: Item) {
@@ -109,6 +112,24 @@ export function ItemList({
       setQtyError(
         err instanceof Error ? err.message : "Failed to adjust quantity",
       );
+    }
+  }
+
+  /** Toggles the item's donate-unsold election inline and refreshes the list. */
+  async function handleToggleDonate(item: Item) {
+    setDonateError(null);
+    setDonatePendingId(item.id);
+    try {
+      await updateItem(item.id, { donate_unsold: !item.donate_unsold });
+      onItemsChanged();
+    } catch (err) {
+      setDonateError(
+        err instanceof Error
+          ? err.message
+          : "Failed to update the donate flag",
+      );
+    } finally {
+      setDonatePendingId(null);
     }
   }
 
@@ -188,6 +209,11 @@ export function ItemList({
           {deleteError}
         </div>
       )}
+      {donateError && (
+        <div role="alert" style={{ color: "red", marginBottom: 8 }}>
+          {donateError}
+        </div>
+      )}
       {printError && (
         <div role="alert" style={{ color: "red", marginBottom: 8 }}>
           {printError}
@@ -245,6 +271,7 @@ export function ItemList({
               Total Price
             </th>
             <th style={{ textAlign: "right", padding: "4px 8px" }}>On Hand</th>
+            <th style={{ textAlign: "left", padding: "4px 8px" }}>Donate</th>
             <th style={{ textAlign: "left", padding: "4px 8px" }}>Label</th>
             <th />
           </tr>
@@ -275,6 +302,15 @@ export function ItemList({
                 </td>
                 <td style={{ padding: "4px 8px", textAlign: "right" }}>
                   {item.remaining}
+                </td>
+                <td style={{ padding: "4px 8px" }}>
+                  <input
+                    type="checkbox"
+                    aria-label={`Donate if unsold for ${item.code}`}
+                    checked={item.donate_unsold}
+                    disabled={donatePendingId === item.id}
+                    onChange={() => void handleToggleDonate(item)}
+                  />
                 </td>
                 <td style={{ padding: "4px 8px" }}>
                   {item.label_printed ? "✓ printed" : "—"}
@@ -695,7 +731,8 @@ export function ItemList({
             <td style={{ padding: "6px 8px", textAlign: "right" }}>
               {totalOnHand}
             </td>
-            <td colSpan={2} />
+            <td />
+            <td colSpan={3} />
           </tr>
         </tfoot>
       </table>

@@ -145,6 +145,7 @@ class UnsoldItem(BaseModel):
     quantity: float = Field(description="Original intake quantity of the unsold item.")
     remaining: float = Field(description="On-hand units not sold (all unsold items have remaining > 0).")
     price: float = Field(description="Asking price of the unsold item.")
+    donate_unsold: bool = Field(description="Whether the consignor elected to donate this item if it does not sell.")
 
 
 class UnsoldItemsReport(BaseModel):

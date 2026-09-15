@@ -1,4 +1,4 @@
-"""Report serialisation service supporting JSON, CSV, Markdown, and PDF output.
+"""Report serialisation service supporting JSON, CSV, Markdown, PDF, and XLSX output.
 
 Converts a typed Pydantic report model into an HTTP ``Response`` in the
 caller's requested format.  Each private helper handles one output format and
@@ -105,10 +105,11 @@ def _to_csv(report: BaseModel, filename_base: str) -> Response:
             w.writerow([item.seller_code, item.item_code, item.description,
                         item.quantity, item.remaining, item.price, item.donation_type])
     elif isinstance(report, UnsoldItemsReport):
-        w.writerow(["seller_code", "item_code", "description", "category", "quantity", "remaining", "price"])
+        w.writerow(["seller_code", "item_code", "description", "category", "quantity", "remaining", "price", "donate"])
         for item in report.items:
             w.writerow([item.seller_code, item.item_code, item.description,
-                        item.category, item.quantity, item.remaining, item.price])
+                        item.category, item.quantity, item.remaining, item.price,
+                        "Yes" if item.donate_unsold else "No"])
     elif isinstance(report, TransactionsByUserReport):
         # Section 1: per-cashier summary; Section 2: one row per transaction.
         w.writerow(["cashier", "sales", "voided", "gross_sales", "mysl_total",
@@ -219,12 +220,13 @@ def _to_md(report: BaseModel, filename_base: str) -> Response:
             f"# Unsold Items: {report.event_name}",
             f"**Total Items:** {report.total_items}  **Total Value:** ${report.total_value:.2f}  ",
             f"**Generated:** {report.generated_at.isoformat()}", "",
-            "| Seller | Item Code | Description | Category | Qty | Remaining | Price |",
-            "|--------|-----------|-------------|----------|-----|-----------|-------|",
+            "| Seller | Item Code | Description | Category | Qty | Remaining | Price | Donate |",
+            "|--------|-----------|-------------|----------|-----|-----------|-------|--------|",
         ]
         for item in report.items:
             lines.append(f"| {item.seller_code} | {item.item_code} | {item.description or ''} | "
-                         f"{item.category or ''} | {item.quantity:G} | {item.remaining:G} | ${item.price:.2f} |")
+                         f"{item.category or ''} | {item.quantity:G} | {item.remaining:G} | ${item.price:.2f} | "
+                         f"{'Yes' if item.donate_unsold else 'No'} |")
     elif isinstance(report, TransactionsByUserReport):
         lines += [
             f"# Transactions by User: {report.event_name}",
@@ -464,7 +466,8 @@ def _to_pdf(report: BaseModel, filename_base: str) -> Response:
         pdf.ln(6)
         pdf.set_font("Helvetica", "B", 10)
         for hdr, width in [("Seller", 25), ("Item Code", 28), ("Description", 44),
-                            ("Category", 24), ("Qty", 10), ("Rem", 10), ("Price", 18)]:
+                            ("Category", 24), ("Qty", 10), ("Rem", 10), ("Price", 18),
+                            ("Donate", 14)]:
             pdf.cell(width, 6, hdr, border=1)
         pdf.ln()
         pdf.set_font("Helvetica", "", 9)
@@ -473,7 +476,8 @@ def _to_pdf(report: BaseModel, filename_base: str) -> Response:
                 pdf.add_page()
                 pdf.set_font("Helvetica", "B", 10)
                 for hdr, width in [("Seller", 25), ("Item Code", 28), ("Description", 44),
-                                    ("Category", 24), ("Qty", 10), ("Rem", 10), ("Price", 18)]:
+                                    ("Category", 24), ("Qty", 10), ("Rem", 10), ("Price", 18),
+                                    ("Donate", 14)]:
                     pdf.cell(width, 6, hdr, border=1)
                 pdf.ln()
                 pdf.set_font("Helvetica", "", 9)
@@ -484,6 +488,7 @@ def _to_pdf(report: BaseModel, filename_base: str) -> Response:
             pdf.cell(10, 6, f"{item.quantity:G}", border=1)
             pdf.cell(10, 6, f"{item.remaining:G}", border=1)
             pdf.cell(18, 6, f"${item.price:.2f}", border=1)
+            pdf.cell(14, 6, "Yes" if item.donate_unsold else "No", border=1)
             pdf.ln()
 
     elif isinstance(report, TransactionsByUserReport):

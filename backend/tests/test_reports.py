@@ -143,6 +143,39 @@ def test_unsold_json_excludes_sold(client, admin_token, active_event, rpt_item):
     assert resp.json()["total_items"] == 0
 
 
+def test_unsold_report_includes_donate_flag(client, admin_token, active_event, db):
+    """The unsold report carries each item's donate-unsold election (JSON + CSV)."""
+    seller = Seller(event_id=active_event.id, code="DU", first_name="Donate",
+                    last_name="Tester", is_vendor=False, created_by="admin")
+    db.add(seller); db.commit(); db.refresh(seller)
+    intake = Intake(seller_id=seller.id, donate_proceeds=False, donate_unsold=False,
+                    created_by="admin")
+    db.add(intake); db.commit(); db.refresh(intake)
+    keep = Item(intake_id=intake.id, seller_id=seller.id, code="DU-001", price=10.00,
+                quantity=1.0, remaining=1.0, status="available", donate_unsold=False,
+                created_by="admin")
+    give = Item(intake_id=intake.id, seller_id=seller.id, code="DU-002", price=20.00,
+                quantity=1.0, remaining=1.0, status="available", donate_unsold=True,
+                created_by="admin")
+    db.add_all([keep, give]); db.commit()
+
+    resp = client.get(
+        f"/reports/{active_event.id}/unsold",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    flags = {i["item_code"]: i["donate_unsold"] for i in resp.json()["items"]}
+    assert flags == {"DU-001": False, "DU-002": True}
+
+    csv_resp = client.get(
+        f"/reports/{active_event.id}/unsold?format=csv",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert csv_resp.status_code == 200
+    assert "donate" in csv_resp.text
+    assert "Yes" in csv_resp.text and "No" in csv_resp.text
+
+
 # ── Transactions by user ───────────────────────────────────────────────────
 
 def test_transactions_split_by_cashier_and_voided(client, db, admin_token, cashier_token, active_event, rpt_seller, rpt_intake):
