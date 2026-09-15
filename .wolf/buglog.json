@@ -2108,6 +2108,22 @@
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-09-13T22:19:52.629Z"
+    },
+    {
+      "id": "bug-132",
+      "timestamp": "2026-09-15T01:42:04.376Z",
+      "error_message": "CSS fix: color",
+      "file": "frontend/src/pos/PaymentForm.tsx",
+      "root_cause": "color: \"red\", marginBottom: 10 → tendered + 0.001 >= total ? \"#166534\" : \"#b91c1c\",",
+      "fix": "Changed color: \"red\", marginBottom: 10 → tendered + 0.001 >= total ? \"#166534\" : \"#b91c1c\",",
+      "tags": [
+        "auto-detected",
+        "style-fix",
+        "tsx"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-15T01:42:04.376Z"
     }
   ]
 }

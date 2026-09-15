@@ -193,10 +193,12 @@ export function PaymentForm({
                                 : "1px solid #fca5a5",
                         background:
                             tendered + 0.001 >= total ? "#f0fdf4" : "#fef2f2",
-                        color: tendered + 0.001 >= total ? "#166534" : "#b91c1c",
+                        color:
+                            tendered + 0.001 >= total ? "#166534" : "#b91c1c",
                     }}
                 >
-                    Amount tendered: ${tendered.toFixed(2)} of ${total.toFixed(2)}
+                    Amount tendered: ${tendered.toFixed(2)} of $
+                    {total.toFixed(2)}
                     {tendered + 0.001 >= total
                         ? " — ✓ ready to complete"
                         : ` — $${(total - tendered).toFixed(2)} short`}
