@@ -37,3 +37,8 @@ class SaleItem(Base):
 
     sale = relationship("Sale", back_populates="sale_items")
     item = relationship("Item", back_populates="sale_items")
+
+    @property
+    def item_code(self) -> str:
+        """Item code convenience accessor for read-only sale responses."""
+        return self.item.code if self.item is not None else ""

@@ -2,8 +2,8 @@
  * Sales API — create, fetch, and void point-of-sale transactions.
  * Requires cashier or admin role.
  */
-import { apiFetch } from './client'
-import type { SaleWithItemsResponse, SaleCreate } from '../types'
+import { apiFetch } from "./client";
+import type { SaleWithItemsResponse, SaleCreate } from "../types";
 
 /**
  * Create a new sale transaction.
@@ -15,7 +15,10 @@ import type { SaleWithItemsResponse, SaleCreate } from '../types'
  * @throws {ApiError} 401 if the session token is invalid.
  */
 export const createSale = (data: SaleCreate) =>
-  apiFetch<SaleWithItemsResponse>('/sales', { method: 'POST', body: JSON.stringify(data) })
+ apiFetch<SaleWithItemsResponse>("/sales", {
+  method: "POST",
+  body: JSON.stringify(data),
+ });
 
 /**
  * Fetch a completed sale by primary key.
@@ -25,7 +28,18 @@ export const createSale = (data: SaleCreate) =>
  * @throws {ApiError} 404 if no sale with the given ID exists.
  * @throws {ApiError} 401 if the session token is invalid.
  */
-export const getSale = (id: number) => apiFetch<SaleWithItemsResponse>(`/sales/${id}`)
+export const getSale = (id: number) =>
+ apiFetch<SaleWithItemsResponse>(`/sales/${id}`);
+
+/**
+ * Fetch the caller's own sales for the active event, newest first, with all
+ * line items — read-only self-service transaction history for the cashier.
+ *
+ * @returns Array of SaleWithItemsResponse (may be empty).
+ * @throws {ApiError} 401 if the session token is invalid.
+ */
+export const fetchMySales = () =>
+ apiFetch<SaleWithItemsResponse[]>("/sales/mine");
 
 /**
  * Void a sale, returning all its line items to 'available' status so they can be re-sold.
@@ -36,4 +50,4 @@ export const getSale = (id: number) => apiFetch<SaleWithItemsResponse>(`/sales/$
  * @throws {ApiError} 401 if the session token is invalid.
  */
 export const voidSale = (id: number) =>
-  apiFetch<SaleWithItemsResponse>(`/sales/${id}/void`, { method: 'POST' })
+ apiFetch<SaleWithItemsResponse>(`/sales/${id}/void`, { method: "POST" });

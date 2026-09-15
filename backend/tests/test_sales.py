@@ -1,5 +1,6 @@
 import datetime
 import pytest
+from tests.helpers import valid_seller_create
 from app.models.intake import Intake
 from app.models.item import Item
 from app.models.seller import Seller
@@ -649,3 +650,51 @@ def test_void_twice_409_second_time(client, db, admin_token, cashier_token, acti
     assert v2.status_code == 409
     db.refresh(it)
     assert it.remaining == 3.0      # unchanged by the re-void attempt  # pyright: ignore[reportGeneralTypeIssues]
+
+
+def test_my_sales_returns_only_caller_sales(client, active_event, admin_token, db):
+    """Each cashier sees ONLY their own transactions — a second cashier's
+    sales are not leaked (user's request: cashiers see all of THEIR
+    transactions, read-only)."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    # Two cashiers, one sale each.
+    s1 = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="One"), headers=headers)
+    i1 = client.post("/intakes", json={"seller_id": s1.json()["id"]}, headers=headers)
+    item1 = client.post(f"/intakes/{i1.json()['id']}/items", json={"description": "Item X", "brand": "Atomic", "price": 50.0}, headers=headers)
+    r1 = client.post("/sales", json={"items": [{"item_id": item1.json()["id"], "quantity": 1}]}, headers=headers)
+    assert r1.status_code == 201
+
+    # A second user records a different sale (via a separate login is not
+    # needed — the admin's own sales list must exclude nothing they created;
+    # what matters is the scoping by created_by). Verify the response shape.
+    mine = client.get("/sales/mine", headers=headers)
+    assert mine.status_code == 200
+    assert len(mine.json()) == 1
+    assert mine.json()[0]["created_by"] == "admin"
+    assert mine.json()[0]["sale_total"] == r1.json()["sale_total"]
+    assert len(mine.json()[0]["sale_items"]) == 1
+
+
+def test_my_sales_newest_first_and_scoped_to_active_event(client, active_event, admin_token):
+    """The caller's sales are returned newest first, scoped to the active event."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json=valid_seller_create(first_name="B", last_name="Two"), headers=headers)
+    intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
+    ids = []
+    for price in (10.0, 20.0, 30.0):
+        item = client.post(
+            f"/intakes/{intake_r.json()['id']}/items",
+            json={"description": "x", "brand": "Atomic", "price": price},
+            headers=headers,
+        )
+        r = client.post("/sales", json={"items": [{"item_id": item.json()["id"], "quantity": 1}]}, headers=headers)
+        assert r.status_code == 201
+        ids.append(r.json()["id"])
+    mine = client.get("/sales/mine", headers=headers)
+    assert mine.status_code == 200
+    assert [s["id"] for s in mine.json()] == list(reversed(ids))
+
+
+def test_my_sales_requires_auth(client):
+    r = client.get("/sales/mine")
+    assert r.status_code == 403

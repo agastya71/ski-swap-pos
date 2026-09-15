@@ -294,7 +294,7 @@ export interface ItemUpdate {
  used?: boolean;
  /** Updated asking price in dollars. */
  price?: number;
- /** On-hand remaining is adjusted via /items/{id}/quantity — not PATCHed here. */
+ /** On-hand remaining is adjusted via /items/{id}/quantity - not PATCHed here. */
  /** Updated barcode string. */
  barcode_39?: string;
  /** Updated second label line. */
@@ -496,6 +496,9 @@ export interface SaleItemResponse {
  sale_id: number;
  /** ID of the inventory item that was sold. */
  item_id: number;
+ /** Item code (denormalized for read-only receipt/report display); null when
+  *  the underlying item record is unavailable. */
+ item_code: string | null;
  /** Sequential line number within the sale; null if not assigned. */
  line_number: number | null;
  /** Number of units sold (almost always 1). */

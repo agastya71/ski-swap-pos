@@ -1,7 +1,7 @@
 """Sales router — processes point-of-sale transactions and void operations; requires cashier or admin role."""
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.dependencies import require_roles
@@ -34,6 +34,31 @@ def create_sale(
     """Record a new sale transaction and mark the purchased items as sold."""
     event = _active_event(db)
     return create_sale_atomic(db, body, event, current_user.username)  # pyright: ignore[reportArgumentType]
+
+
+@router.get("/mine", response_model=list[SaleWithItemsResponse])
+def get_my_sales(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(_CASHIER_ADMIN),
+):
+    """Return the caller's own sales for the active event, newest first, with
+    all line items — read-only self-service transaction history for the
+    cashier ("my transactions"). Voided sales are included and flagged via
+    ``is_voided``. Register before "/{sale_id}" so 'mine' is not captured by
+    the int path parameter.
+    """
+    event = _active_event(db)
+    sales = (
+        db.query(Sale)
+        .filter(
+            Sale.event_id == event.id,
+            Sale.created_by == current_user.username,
+        )
+        .options(joinedload(Sale.sale_items))
+        .order_by(Sale.id.desc())
+        .all()
+    )
+    return sales
 
 
 @router.get("/{sale_id}", response_model=SaleWithItemsResponse)
