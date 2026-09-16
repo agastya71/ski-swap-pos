@@ -70,6 +70,17 @@ describe("ConfirmationScreen", () => {
     expect(screen.getByText(/cash.*\$115\.00/i)).toBeInTheDocument();
   });
 
+  /** Verifies the change given is displayed when the buyer overpaid. */
+  it("shows the change given when the buyer overpaid", () => {
+    render(
+      <ConfirmationScreen
+        sale={{ ...SALE, cash_amount: 120, total_paid: 120, balance_due: -5 }}
+        onNewTransaction={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/change given: \$5\.00/i)).toBeInTheDocument();
+  });
+
   /** Verifies the onNewTransaction callback is invoked exactly once when the button is clicked. */
   it("calls onNewTransaction when New Transaction is clicked", () => {
     const onNew = vi.fn();

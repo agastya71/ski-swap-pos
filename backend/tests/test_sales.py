@@ -232,6 +232,21 @@ def test_create_sale_balance_due(client, cashier_token, active_event, item):
     assert data["balance_due"] == 10.00
 
 
+def test_create_sale_overpay_change_due(client, cashier_token, active_event, item):
+    """Overpayment (tender above the owed total) is recorded as a negative
+    balance_due — the change handed back to the buyer."""
+    resp = client.post(
+        "/sales",
+        json={"items": [{"item_id": item.id}], "cash_amount": 25.00},
+        headers={"Authorization": f"Bearer {cashier_token}"},
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["sale_total"] == 20.00
+    assert data["total_paid"] == 25.00
+    assert data["balance_due"] == -5.00
+
+
 def test_create_sale_item_not_available(client, cashier_token, active_event, sold_item):
     resp = client.post(
         "/sales",
