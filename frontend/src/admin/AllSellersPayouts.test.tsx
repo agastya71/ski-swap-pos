@@ -48,7 +48,7 @@ describe("AllSellersPayouts", () => {
             screen.getAllByRole("heading", { name: /sales/i }).length,
         ).toBeGreaterThan(0);
         expect(screen.getByText("A001-2")).toBeInTheDocument();
-  });
+    });
 
     /** Verifies the grand-total rows sit next to their labels (shrink-to-fit). */
     it("keeps the batch summary amounts next to their labels", async () => {

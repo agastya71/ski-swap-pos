@@ -29,9 +29,7 @@ describe("SellerPayoutPanel", () => {
     await waitFor(() =>
       expect(screen.queryByText(/loading/i)).not.toBeInTheDocument(),
     );
-    const summaryTable = screen
-      .getByText("Items Consigned")
-      .closest("table");
+    const summaryTable = screen.getByText("Items Consigned").closest("table");
     expect(summaryTable).toHaveStyle({ width: "auto" });
   });
 

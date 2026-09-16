@@ -2252,6 +2252,38 @@
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-09-15T12:18:41.526Z"
+    },
+    {
+      "id": "bug-141",
+      "timestamp": "2026-09-16T03:03:59.213Z",
+      "error_message": "Missing await",
+      "file": "frontend/src/admin/SellerPayoutPanel.test.tsx",
+      "root_cause": "Async call without await — returned Promise instead of value",
+      "fix": "Added await to async call",
+      "tags": [
+        "auto-detected",
+        "async-fix",
+        "tsx"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-16T03:03:59.213Z"
+    },
+    {
+      "id": "bug-142",
+      "timestamp": "2026-09-16T03:03:59.258Z",
+      "error_message": "Missing await",
+      "file": "frontend/src/admin/AllSellersPayouts.test.tsx",
+      "root_cause": "Async call without await — returned Promise instead of value",
+      "fix": "Added await to async call",
+      "tags": [
+        "auto-detected",
+        "async-fix",
+        "tsx"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-16T03:03:59.258Z"
     }
   ]
 }

@@ -79,7 +79,13 @@ export function AllSellersPayouts({ eventId }: { eventId: number }) {
                     Download ZIP (Excel + PDF per seller)
                 </button>
             </div>
-            <table style={{ width: "auto", borderCollapse: "collapse", marginBottom: 16 }}>
+            <table
+                style={{
+                    width: "auto",
+                    borderCollapse: "collapse",
+                    marginBottom: 16,
+                }}
+            >
                 <tbody>
                     {[
                         ["Sellers", String(report.seller_count)],
