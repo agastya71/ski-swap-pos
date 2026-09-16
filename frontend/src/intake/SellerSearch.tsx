@@ -78,7 +78,7 @@ export function SellerSearch({
               >
                 {sellerDisplayName(s)} — {s.code}
                 {s.company && !s.is_vendor && ` (${s.company})`}
-                {' · '}
+                {" · "}
                 {sellerTypeLabel(s)}
               </button>
             </li>

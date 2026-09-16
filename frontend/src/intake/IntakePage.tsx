@@ -79,11 +79,13 @@ function Breadcrumb({
             {sep}
             {step === "intake" || step === "items" ? (
               <button style={linkStyle} onClick={onGoToSelectIntake}>
-                {sellerDisplayName(seller)} ({seller.code}) · {sellerTypeLabel(seller)}
+                {sellerDisplayName(seller)} ({seller.code}) ·{" "}
+                {sellerTypeLabel(seller)}
               </button>
             ) : (
               <span style={{ color: "#333" }}>
-                {sellerDisplayName(seller)} ({seller.code}) · {sellerTypeLabel(seller)}
+                {sellerDisplayName(seller)} ({seller.code}) ·{" "}
+                {sellerTypeLabel(seller)}
               </span>
             )}
           </>
