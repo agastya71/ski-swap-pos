@@ -128,6 +128,27 @@ describe("PaymentForm", () => {
     );
   });
 
+  /** Verifies the change-due block appears when the buyer overpays (cash
+   *  above the owed total, or a mixed tender exceeding it). */
+  it("shows the change due when the buyer overpays", () => {
+    render(<PaymentForm total={45} onSubmit={vi.fn()} onCancel={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText(/cash/i), {
+      target: { value: "50" },
+    });
+    expect(
+      screen.getByText(/change due to buyer: \$5\.00/i),
+    ).toBeInTheDocument();
+  });
+
+  /** Verifies no change-due block when the tender exactly covers the total. */
+  it("does not show change due when the tender exactly covers the total", () => {
+    render(<PaymentForm total={45} onSubmit={vi.fn()} onCancel={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText(/cash/i), {
+      target: { value: "45" },
+    });
+    expect(screen.queryByText(/change due/i)).not.toBeInTheDocument();
+  });
+
   /** Verifies the onCancel callback is invoked exactly once when the Cancel button is clicked. */
   it("calls onCancel when Cancel is clicked", () => {
     const onCancel = vi.fn();

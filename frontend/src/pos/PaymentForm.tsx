@@ -199,9 +199,28 @@ export function PaymentForm({
                 >
                     Amount tendered: ${tendered.toFixed(2)} of $
                     {total.toFixed(2)}
-                    {tendered + 0.001 >= total
-                        ? " — ✓ ready to complete"
-                        : ` — $${(total - tendered).toFixed(2)} short`}
+                    {tendered - 0.001 > total
+                        ? " — ✓ payment covers total"
+                        : tendered + 0.001 >= total
+                          ? " — ✓ ready to complete"
+                          : ` — $${(total - tendered).toFixed(2)} short`}
+                </div>
+            )}
+            {!error && tendered - 0.001 > total && (
+                <div
+                    role="status"
+                    style={{
+                        marginBottom: 10,
+                        padding: "10px 12px",
+                        borderRadius: 4,
+                        fontSize: 17,
+                        fontWeight: 700,
+                        border: "1px solid #86efac",
+                        background: "#f0fdf4",
+                        color: "#15803d",
+                    }}
+                >
+                    Change due to buyer: ${(tendered - total).toFixed(2)}
                 </div>
             )}
             <div style={{ display: "flex", gap: 8, marginTop: 16 }}>

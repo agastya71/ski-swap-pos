@@ -28,6 +28,11 @@ export function ConfirmationScreen({ sale, onNewTransaction }: {
         {sale.cash_amount > 0 && <div>Cash: ${sale.cash_amount.toFixed(2)}</div>}
         {sale.check_amount > 0 && <div>Check: ${sale.check_amount.toFixed(2)}</div>}
         {sale.cc_amount > 0 && <div>Card: ${sale.cc_amount.toFixed(2)}</div>}
+        {sale.balance_due < 0 && (
+          <div style={{ color: '#2e7d32', fontWeight: 'bold' }}>
+            Change given: ${(-sale.balance_due).toFixed(2)}
+          </div>
+        )}
       </div>
       <button
         onClick={onNewTransaction}
