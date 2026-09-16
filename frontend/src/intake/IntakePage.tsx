@@ -13,6 +13,7 @@ import { SellerForm } from "./SellerForm";
 import { IntakeForm } from "./IntakeForm";
 import { ItemForm } from "./ItemForm";
 import { ItemList } from "./ItemList";
+import { sellerDisplayName, sellerTypeLabel } from "../lib/sellerDisplay";
 import { ImportItemsButton } from "./ImportItemsButton";
 import type { Seller, Intake, Item } from "../types";
 
@@ -78,11 +79,13 @@ function Breadcrumb({
             {sep}
             {step === "intake" || step === "items" ? (
               <button style={linkStyle} onClick={onGoToSelectIntake}>
-                {seller.first_name} {seller.last_name} ({seller.code})
+                {sellerDisplayName(seller)} ({seller.code}) ·{" "}
+                {sellerTypeLabel(seller)}
               </button>
             ) : (
               <span style={{ color: "#333" }}>
-                {seller.first_name} {seller.last_name} ({seller.code})
+                {sellerDisplayName(seller)} ({seller.code}) ·{" "}
+                {sellerTypeLabel(seller)}
               </span>
             )}
           </>

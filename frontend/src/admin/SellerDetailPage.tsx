@@ -4,265 +4,513 @@
  *
  * @module SellerDetailPage
  */
-import { Fragment, useState, useEffect, useRef, type ChangeEvent } from 'react'
-import { updateSeller, listSellerItems } from '../api/sellers'
-import { getSellerIntakes, createIntake, importItems } from '../api/intakes'
-import { deleteItem, updateItem } from '../api/items'
-import { ItemForm } from '../intake/ItemForm'
-import { SellerPayoutPanel } from './SellerPayoutPanel'
-import { ITEM_TYPES, SIZE_OPTIONS } from '../lib/itemSizes'
-import { US_STATES } from '../lib/usStates'
-import type { Seller, Item, Intake, ImportResult, ItemUpdate } from '../types'
+import { Fragment, useState, useEffect, useRef, type ChangeEvent } from "react";
+import { updateSeller, listSellerItems } from "../api/sellers";
+import { sellerDisplayName, sellerTypeLabel } from "../lib/sellerDisplay";
+import { getSellerIntakes, createIntake, importItems } from "../api/intakes";
+import { deleteItem, updateItem } from "../api/items";
+import { ItemForm } from "../intake/ItemForm";
+import { SellerPayoutPanel } from "./SellerPayoutPanel";
+import { ITEM_TYPES, SIZE_OPTIONS } from "../lib/itemSizes";
+import { US_STATES } from "../lib/usStates";
+import type { Seller, Item, Intake, ImportResult, ItemUpdate } from "../types";
 
-const NAVY = '#1e3a8a'
-const GENDER_AGE_OPTIONS = ['Adult', 'Youth', 'Toddler', 'Unisex']
+const NAVY = "#1e3a8a";
+const GENDER_AGE_OPTIONS = ["Adult", "Youth", "Toddler", "Unisex"];
 
-export function SellerDetailPage({ seller: initialSeller, onBack, eventId }: {
-  seller: Seller
-  onBack: () => void
-  eventId: number
+export function SellerDetailPage({
+  seller: initialSeller,
+  onBack,
+  eventId,
+}: {
+  seller: Seller;
+  onBack: () => void;
+  eventId: number;
 }) {
-  const [seller, setSeller] = useState<Seller>(initialSeller)
-  const [editing, setEditing] = useState(false)
-  const [editDraft, setEditDraft] = useState<Seller>(initialSeller)
-  const [items, setItems] = useState<Item[]>([])
-  const [showAddItem, setShowAddItem] = useState(false)
-  const [addItemIntakeId, setAddItemIntakeId] = useState<number | null>(null)
-  const [intakes, setIntakes] = useState<Intake[]>([])
-  const [importResult, setImportResult] = useState<ImportResult | null>(null)
-  const [showPayout, setShowPayout] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [expandedEditId, setExpandedEditId] = useState<number | null>(null)
-  const [draft, setDraft] = useState({ description: '', price: '', brand: '', type: '', size: '', gender_age: '', color: '' })
-  const [saving, setSaving] = useState(false)
-  const [saveError, setSaveError] = useState<string | null>(null)
-  const [editError, setEditError] = useState<string | null>(null)
+  const [seller, setSeller] = useState<Seller>(initialSeller);
+  const [editing, setEditing] = useState(false);
+  const [editDraft, setEditDraft] = useState<Seller>(initialSeller);
+  const [items, setItems] = useState<Item[]>([]);
+  const [showAddItem, setShowAddItem] = useState(false);
+  const [addItemIntakeId, setAddItemIntakeId] = useState<number | null>(null);
+  const [intakes, setIntakes] = useState<Intake[]>([]);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [showPayout, setShowPayout] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [expandedEditId, setExpandedEditId] = useState<number | null>(null);
+  const [draft, setDraft] = useState({
+    description: "",
+    price: "",
+    brand: "",
+    type: "",
+    size: "",
+    gender_age: "",
+    color: "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
 
   useEffect(() => {
-    listSellerItems(seller.id).then(setItems).catch(() => {})
-    getSellerIntakes(seller.id).then(setIntakes).catch(() => {})
-  }, [seller.id])
+    listSellerItems(seller.id)
+      .then(setItems)
+      .catch(() => {});
+    getSellerIntakes(seller.id)
+      .then(setIntakes)
+      .catch(() => {});
+  }, [seller.id]);
 
   async function handleSaveEdit() {
-    setEditError(null)
+    setEditError(null);
+    // Cross-field contract, same rules as registration (SellerCreate): a vendor
+    // needs a company; an individual needs first + last name; at least one
+    // contact channel. The backend re-validates the resulting record.
+    if (!editDraft.phone?.trim() && !editDraft.email?.trim()) {
+      setEditError("At least one of phone or email is required.");
+      return;
+    }
+    if (editDraft.is_vendor && !(editDraft.company ?? "").trim()) {
+      setEditError("Company is required for vendor sellers.");
+      return;
+    }
+    if (
+      !editDraft.is_vendor &&
+      (!(editDraft.first_name ?? "").trim() ||
+        !(editDraft.last_name ?? "").trim())
+    ) {
+      setEditError("First and last name are required for individual sellers.");
+      return;
+    }
     // Same mandatory-field rules as the registration form (SellerForm):
     // state is a 2-char US code, ZIP is 5 digits, street address and city are
     // required — enforced client-side since this panel saves via a button (no
     // native form submission). Also surface API errors visibly instead of
     // swallowing them.
-    const zip = (editDraft.zip ?? '').trim()
+    const zip = (editDraft.zip ?? "").trim();
     if (!editDraft.address?.trim() || !editDraft.city?.trim()) {
-      setEditError('Street address and city are required.')
-      return
+      setEditError("Street address and city are required.");
+      return;
     }
     if (!editDraft.state?.trim()) {
-      setEditError('State is required.')
-      return
+      setEditError("State is required.");
+      return;
     }
     if (!/^\d{5}$/.test(zip)) {
-      setEditError('ZIP must be a 5-digit US ZIP code.')
-      return
+      setEditError("ZIP must be a 5-digit US ZIP code.");
+      return;
     }
     try {
       const updated = await updateSeller(seller.id, {
         first_name: editDraft.first_name ?? undefined,
         last_name: editDraft.last_name ?? undefined,
         company: editDraft.company ?? undefined,
+        is_vendor: editDraft.is_vendor,
         phone: editDraft.phone ?? undefined,
         email: editDraft.email ?? undefined,
         address: editDraft.address ?? undefined,
         city: editDraft.city ?? undefined,
         state: editDraft.state ?? undefined,
         zip: editDraft.zip ?? undefined,
-      })
-      setSeller(updated)
-      setEditing(false)
+      });
+      setSeller(updated);
+      setEditing(false);
     } catch (err) {
       // keep editing open so the user can retry
-      setEditError(err instanceof Error ? err.message : 'Failed to save changes')
+      setEditError(
+        err instanceof Error ? err.message : "Failed to save changes",
+      );
     }
   }
 
   async function handleDeleteItem(itemId: number) {
     try {
-      await deleteItem(itemId)
-      setItems(prev => prev.filter(i => i.id !== itemId))
-      setExpandedEditId(null)
+      await deleteItem(itemId);
+      setItems((prev) => prev.filter((i) => i.id !== itemId));
+      setExpandedEditId(null);
     } catch {
       // deletion failed — leave item in list
     }
   }
 
   function openItemEdit(item: Item) {
-    if (expandedEditId === item.id) { setExpandedEditId(null); return }
-    setExpandedEditId(item.id)
+    if (expandedEditId === item.id) {
+      setExpandedEditId(null);
+      return;
+    }
+    setExpandedEditId(item.id);
     setDraft({
-      description: item.description ?? '',
+      description: item.description ?? "",
       price: String(item.price),
-      brand: item.brand ?? '',
-      type: item.type ?? '',
-      size: item.size ?? '',
-      gender_age: item.gender_age ?? '',
-      color: item.color ?? '',
-    })
-    setSaveError(null)
+      brand: item.brand ?? "",
+      type: item.type ?? "",
+      size: item.size ?? "",
+      gender_age: item.gender_age ?? "",
+      color: item.color ?? "",
+    });
+    setSaveError(null);
   }
 
   async function handleItemSave(itemId: number) {
-    setSaving(true)
-    setSaveError(null)
+    setSaving(true);
+    setSaveError(null);
     try {
-      const original = items.find(i => i.id === itemId)!
-      const update: Record<string, string | number> = {}
-      if (draft.description !== (original.description ?? '')) update.description = draft.description
-      if (parseFloat(draft.price) !== original.price) update.price = parseFloat(draft.price)
-      if (draft.brand !== (original.brand ?? '')) update.brand = draft.brand
-      if (draft.type !== (original.type ?? '')) update.type = draft.type
-      if (draft.size !== (original.size ?? '')) update.size = draft.size
-      if (draft.gender_age !== (original.gender_age ?? '')) update.gender_age = draft.gender_age
-      if (draft.color !== (original.color ?? '')) update.color = draft.color
-      await updateItem(itemId, update as ItemUpdate)
-      setExpandedEditId(null)
-      listSellerItems(seller.id).then(setItems).catch(() => {})
+      const original = items.find((i) => i.id === itemId)!;
+      const update: Record<string, string | number> = {};
+      if (draft.description !== (original.description ?? ""))
+        update.description = draft.description;
+      if (parseFloat(draft.price) !== original.price)
+        update.price = parseFloat(draft.price);
+      if (draft.brand !== (original.brand ?? "")) update.brand = draft.brand;
+      if (draft.type !== (original.type ?? "")) update.type = draft.type;
+      if (draft.size !== (original.size ?? "")) update.size = draft.size;
+      if (draft.gender_age !== (original.gender_age ?? ""))
+        update.gender_age = draft.gender_age;
+      if (draft.color !== (original.color ?? "")) update.color = draft.color;
+      await updateItem(itemId, update as ItemUpdate);
+      setExpandedEditId(null);
+      listSellerItems(seller.id)
+        .then(setItems)
+        .catch(() => {});
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Failed to save')
+      setSaveError(err instanceof Error ? err.message : "Failed to save");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
   async function getOrCreateIntakeId(): Promise<number> {
-    if (intakes.length > 0) return intakes[0].id
-    const intake = await createIntake({ seller_id: seller.id })
-    setIntakes([intake])
-    return intake.id
+    if (intakes.length > 0) return intakes[0].id;
+    const intake = await createIntake({ seller_id: seller.id });
+    setIntakes([intake]);
+    return intake.id;
   }
 
   async function handleImportFile(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const intakeId = await getOrCreateIntakeId()
-    const result = await importItems(intakeId, file)
-    setImportResult(result)
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const intakeId = await getOrCreateIntakeId();
+    const result = await importItems(intakeId, file);
+    setImportResult(result);
     if (result.imported > 0) {
-      listSellerItems(seller.id).then(setItems).catch(() => {})
+      listSellerItems(seller.id)
+        .then(setItems)
+        .catch(() => {});
     }
-    if (fileInputRef.current) fileInputRef.current.value = ''
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   const contactField = (label: string, value: string | null) => (
     <div style={{ marginBottom: 4 }}>
-      <span style={{ color: '#64748b', fontSize: 13, marginRight: 6 }}>{label}:</span>
-      <span>{value ?? '—'}</span>
+      <span style={{ color: "#64748b", fontSize: 13, marginRight: 6 }}>
+        {label}:
+      </span>
+      <span>{value ?? "—"}</span>
     </div>
-  )
+  );
 
   return (
     <div>
       {/* Back + header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          marginBottom: 16,
+        }}
+      >
         <button
           onClick={onBack}
-          style={{ border: 'none', background: 'none', color: NAVY, cursor: 'pointer', fontSize: 14 }}
+          style={{
+            border: "none",
+            background: "none",
+            color: NAVY,
+            cursor: "pointer",
+            fontSize: 14,
+          }}
           aria-label="Back"
         >
           ← Back
         </button>
         <h3 style={{ margin: 0 }}>
           <span style={{ color: NAVY, marginRight: 8 }}>{seller.code}</span>
-          {seller.first_name} {seller.last_name}
-          {seller.company && (
-            <span style={{ color: '#64748b', fontWeight: 400, marginLeft: 8 }}>({seller.company})</span>
+          {sellerDisplayName(seller)}
+          <span style={{ color: "#64748b", fontWeight: 400, marginLeft: 8 }}>
+            ({sellerTypeLabel(seller)})
+          </span>
+          {seller.company && !seller.is_vendor && (
+            <span style={{ color: "#64748b", fontWeight: 400, marginLeft: 8 }}>
+              ({seller.company})
+            </span>
           )}
         </h3>
       </div>
 
       {/* Contact card */}
-      <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: 16, marginBottom: 20 }}>
+      <div
+        style={{
+          background: "#f8fafc",
+          border: "1px solid #e2e8f0",
+          borderRadius: 6,
+          padding: 16,
+          marginBottom: 20,
+        }}
+      >
         {!editing ? (
           <>
-            {contactField('Phone', seller.phone)}
-            {contactField('Email', seller.email)}
+            {contactField("Type", seller.is_vendor ? "Vendor" : "Individual")}
+            {contactField("Phone", seller.phone)}
+            {contactField("Email", seller.email)}
             {contactField(
-              'Address',
+              "Address",
               seller.address
-                ? `${seller.address}, ${seller.city ?? ''} ${seller.state ?? ''} ${seller.zip ?? ''}`.trim()
+                ? `${seller.address}, ${seller.city ?? ""} ${seller.state ?? ""} ${seller.zip ?? ""}`.trim()
                 : null,
             )}
             <button
-              onClick={() => { setEditDraft(seller); setEditError(null); setEditing(true) }}
-              style={{ marginTop: 8, border: `1px solid ${NAVY}`, color: NAVY, background: 'none', padding: '4px 12px', cursor: 'pointer', borderRadius: 3 }}
+              onClick={() => {
+                setEditDraft(seller);
+                setEditError(null);
+                setEditing(true);
+              }}
+              style={{
+                marginTop: 8,
+                border: `1px solid ${NAVY}`,
+                color: NAVY,
+                background: "none",
+                padding: "4px 12px",
+                cursor: "pointer",
+                borderRadius: 3,
+              }}
             >
               Edit
             </button>
           </>
         ) : (
           <div>
-            {(['first_name', 'last_name', 'phone', 'email'] as const).map(f => (
+            {/* Vendor/Individual flag — editable in edit mode. The same
+                creation contract is enforced client-side here and again
+                server-side against the resulting record (PATCH /sellers). */}
+            <label
+              htmlFor="edit-is_vendor"
+              style={{ display: "block", marginBottom: 8, fontSize: 13 }}
+            >
+              <input
+                id="edit-is_vendor"
+                type="checkbox"
+                checked={editDraft.is_vendor}
+                onChange={(e) =>
+                  setEditDraft((prev) => ({
+                    ...prev,
+                    is_vendor: e.target.checked,
+                  }))
+                }
+              />{" "}
+              Vendor (not individual consignor)
+            </label>
+            {editDraft.is_vendor !== seller.is_vendor && (
+              <div style={{ fontSize: 12, color: "#b45309", marginBottom: 8 }}>
+                Changing the vendor flag changes the commission rate applied to
+                this seller's payout reports (vendor rate vs standard); the
+                seller code stays as-is.
+              </div>
+            )}
+            {(["company"] as const).map((f) => (
               <div key={f} style={{ marginBottom: 8 }}>
-                <label htmlFor={`edit-${f}`} style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 2 }}>
-                  {f === 'first_name' ? 'First Name' : f === 'last_name' ? 'Last Name' : f === 'phone' ? 'Phone (10 digits)' : 'Email'}
+                <label
+                  htmlFor={`edit-${f}`}
+                  style={{
+                    display: "block",
+                    fontSize: 12,
+                    color: "#64748b",
+                    marginBottom: 2,
+                  }}
+                >
+                  Company {editDraft.is_vendor ? "*" : "(optional)"}
                 </label>
                 <input
                   id={`edit-${f}`}
-                  value={(editDraft[f] as string) ?? ''}
-                  onChange={e => setEditDraft(prev => ({ ...prev, [f]: e.target.value }))}
-                  style={{ width: '100%', padding: '5px 8px', boxSizing: 'border-box' }}
+                  value={(editDraft[f] as string) ?? ""}
+                  onChange={(e) =>
+                    setEditDraft((prev) => ({ ...prev, [f]: e.target.value }))
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "5px 8px",
+                    boxSizing: "border-box",
+                  }}
                 />
               </div>
             ))}
-            <fieldset style={{ border: '1px solid #e2e8f0', borderRadius: 4, padding: '10px 12px', marginBottom: 8 }}>
-              <legend style={{ fontSize: 12, color: '#64748b' }}>Address</legend>
-              {/* Address fields rendered identically to the registration form (SellerForm):
-                  Street Address + City required, State as the 2-char US dropdown, ZIP 5-digit. */}
-              {(['address', 'city'] as const).map(f => (
+            {(["first_name", "last_name", "phone", "email"] as const).map(
+              (f) => (
                 <div key={f} style={{ marginBottom: 8 }}>
-                  <label htmlFor={`edit-${f}`} style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 2 }}>
-                    {f === 'address' ? 'Street Address' : 'City'} *
+                  <label
+                    htmlFor={`edit-${f}`}
+                    style={{
+                      display: "block",
+                      fontSize: 12,
+                      color: "#64748b",
+                      marginBottom: 2,
+                    }}
+                  >
+                    {f === "first_name"
+                      ? "First Name"
+                      : f === "last_name"
+                        ? "Last Name"
+                        : f === "phone"
+                          ? "Phone (10 digits)"
+                          : "Email"}
                   </label>
                   <input
                     id={`edit-${f}`}
-                    value={(editDraft[f] as string) ?? ''}
-                    onChange={e => setEditDraft(prev => ({ ...prev, [f]: e.target.value }))}
-                    style={{ width: '100%', padding: '5px 8px', boxSizing: 'border-box' }}
+                    value={(editDraft[f] as string) ?? ""}
+                    onChange={(e) =>
+                      setEditDraft((prev) => ({ ...prev, [f]: e.target.value }))
+                    }
+                    style={{
+                      width: "100%",
+                      padding: "5px 8px",
+                      boxSizing: "border-box",
+                    }}
+                  />
+                </div>
+              ),
+            )}
+            <fieldset
+              style={{
+                border: "1px solid #e2e8f0",
+                borderRadius: 4,
+                padding: "10px 12px",
+                marginBottom: 8,
+              }}
+            >
+              <legend style={{ fontSize: 12, color: "#64748b" }}>
+                Address
+              </legend>
+              {/* Address fields rendered identically to the registration form (SellerForm):
+                  Street Address + City required, State as the 2-char US dropdown, ZIP 5-digit. */}
+              {(["address", "city"] as const).map((f) => (
+                <div key={f} style={{ marginBottom: 8 }}>
+                  <label
+                    htmlFor={`edit-${f}`}
+                    style={{
+                      display: "block",
+                      fontSize: 12,
+                      color: "#64748b",
+                      marginBottom: 2,
+                    }}
+                  >
+                    {f === "address" ? "Street Address" : "City"} *
+                  </label>
+                  <input
+                    id={`edit-${f}`}
+                    value={(editDraft[f] as string) ?? ""}
+                    onChange={(e) =>
+                      setEditDraft((prev) => ({ ...prev, [f]: e.target.value }))
+                    }
+                    style={{
+                      width: "100%",
+                      padding: "5px 8px",
+                      boxSizing: "border-box",
+                    }}
                   />
                 </div>
               ))}
               <div style={{ marginBottom: 8 }}>
-                <label htmlFor="edit-state" style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 2 }}>State *</label>
+                <label
+                  htmlFor="edit-state"
+                  style={{
+                    display: "block",
+                    fontSize: 12,
+                    color: "#64748b",
+                    marginBottom: 2,
+                  }}
+                >
+                  State *
+                </label>
                 <select
                   id="edit-state"
-                  value={editDraft.state ?? ''}
-                  onChange={e => setEditDraft(prev => ({ ...prev, state: e.target.value }))}
-                  style={{ width: '100%', padding: '5px 8px', boxSizing: 'border-box' }}
+                  value={editDraft.state ?? ""}
+                  onChange={(e) =>
+                    setEditDraft((prev) => ({ ...prev, state: e.target.value }))
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "5px 8px",
+                    boxSizing: "border-box",
+                  }}
                 >
                   <option value="">— select state —</option>
-                  {US_STATES.map(s => <option key={s.code} value={s.code}>{s.code} — {s.name}</option>)}
+                  {US_STATES.map((s) => (
+                    <option key={s.code} value={s.code}>
+                      {s.code} — {s.name}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div style={{ marginBottom: 8 }}>
-                <label htmlFor="edit-zip" style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 2 }}>ZIP *</label>
+                <label
+                  htmlFor="edit-zip"
+                  style={{
+                    display: "block",
+                    fontSize: 12,
+                    color: "#64748b",
+                    marginBottom: 2,
+                  }}
+                >
+                  ZIP *
+                </label>
                 <input
                   id="edit-zip"
-                  value={editDraft.zip ?? ''}
+                  value={editDraft.zip ?? ""}
                   maxLength={5}
                   inputMode="numeric"
-                  onChange={e => setEditDraft(prev => ({ ...prev, zip: e.target.value.replace(/\D/g, '') }))}
-                  style={{ width: '100%', padding: '5px 8px', boxSizing: 'border-box' }}
+                  onChange={(e) =>
+                    setEditDraft((prev) => ({
+                      ...prev,
+                      zip: e.target.value.replace(/\D/g, ""),
+                    }))
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "5px 8px",
+                    boxSizing: "border-box",
+                  }}
                 />
               </div>
             </fieldset>
-            {editError && <div role="alert" style={{ color: 'red', marginBottom: 8, fontSize: 13 }}>{editError}</div>}
-            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            {editError && (
+              <div
+                role="alert"
+                style={{ color: "red", marginBottom: 8, fontSize: 13 }}
+              >
+                {editError}
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
               <button
                 onClick={handleSaveEdit}
-                style={{ background: NAVY, color: '#fff', border: 'none', padding: '5px 14px', cursor: 'pointer', borderRadius: 3 }}
+                style={{
+                  background: NAVY,
+                  color: "#fff",
+                  border: "none",
+                  padding: "5px 14px",
+                  cursor: "pointer",
+                  borderRadius: 3,
+                }}
               >
                 Save
               </button>
               <button
                 onClick={() => setEditing(false)}
-                style={{ border: '1px solid #94a3b8', background: 'none', padding: '5px 14px', cursor: 'pointer', borderRadius: 3 }}
+                style={{
+                  border: "1px solid #94a3b8",
+                  background: "none",
+                  padding: "5px 14px",
+                  cursor: "pointer",
+                  borderRadius: 3,
+                }}
               >
                 Cancel
               </button>
@@ -272,12 +520,27 @@ export function SellerDetailPage({ seller: initialSeller, onBack, eventId }: {
       </div>
 
       {/* Items table header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 8,
+        }}
+      >
         <h4 style={{ margin: 0 }}>Items ({items.length})</h4>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: "flex", gap: 8 }}>
           <button
             onClick={() => fileInputRef.current?.click()}
-            style={{ border: `1px solid ${NAVY}`, color: NAVY, background: 'none', padding: '4px 10px', cursor: 'pointer', borderRadius: 3, fontSize: 13 }}
+            style={{
+              border: `1px solid ${NAVY}`,
+              color: NAVY,
+              background: "none",
+              padding: "4px 10px",
+              cursor: "pointer",
+              borderRadius: 3,
+              fontSize: 13,
+            }}
           >
             Import Items
           </button>
@@ -285,22 +548,38 @@ export function SellerDetailPage({ seller: initialSeller, onBack, eventId }: {
             ref={fileInputRef}
             type="file"
             accept=".xlsx,.csv,.tsv"
-            style={{ display: 'none' }}
+            style={{ display: "none" }}
             onChange={handleImportFile}
           />
           <button
-            onClick={() => setShowPayout(prev => !prev)}
-            style={{ border: `1px solid ${NAVY}`, color: NAVY, background: 'none', padding: '4px 10px', cursor: 'pointer', borderRadius: 3, fontSize: 13 }}
+            onClick={() => setShowPayout((prev) => !prev)}
+            style={{
+              border: `1px solid ${NAVY}`,
+              color: NAVY,
+              background: "none",
+              padding: "4px 10px",
+              cursor: "pointer",
+              borderRadius: 3,
+              fontSize: 13,
+            }}
           >
             Payout
           </button>
           <button
             onClick={async () => {
-              const id = await getOrCreateIntakeId()
-              setAddItemIntakeId(id)
-              setShowAddItem(true)
+              const id = await getOrCreateIntakeId();
+              setAddItemIntakeId(id);
+              setShowAddItem(true);
             }}
-            style={{ background: NAVY, color: '#fff', border: 'none', padding: '4px 10px', cursor: 'pointer', borderRadius: 3, fontSize: 13 }}
+            style={{
+              background: NAVY,
+              color: "#fff",
+              border: "none",
+              padding: "4px 10px",
+              cursor: "pointer",
+              borderRadius: 3,
+              fontSize: 13,
+            }}
           >
             + Add Item
           </button>
@@ -309,19 +588,29 @@ export function SellerDetailPage({ seller: initialSeller, onBack, eventId }: {
 
       {/* Import result banner */}
       {importResult && (
-        <div style={{
-          background: importResult.skipped > 0 ? '#fef3c7' : '#f0fdf4',
-          border: '1px solid',
-          borderColor: importResult.skipped > 0 ? '#fcd34d' : '#86efac',
-          borderRadius: 4, padding: '8px 12px', marginBottom: 12, fontSize: 13,
-        }}>
-          Imported {importResult.imported} item{importResult.imported !== 1 ? 's' : ''}.
-          {importResult.skipped > 0 && (
-            ` Skipped ${importResult.skipped} row${importResult.skipped !== 1 ? 's' : ''}: ${importResult.errors.map(e => `row ${e.row}: ${e.reason}`).join('; ')}`
-          )}
+        <div
+          style={{
+            background: importResult.skipped > 0 ? "#fef3c7" : "#f0fdf4",
+            border: "1px solid",
+            borderColor: importResult.skipped > 0 ? "#fcd34d" : "#86efac",
+            borderRadius: 4,
+            padding: "8px 12px",
+            marginBottom: 12,
+            fontSize: 13,
+          }}
+        >
+          Imported {importResult.imported} item
+          {importResult.imported !== 1 ? "s" : ""}.
+          {importResult.skipped > 0 &&
+            ` Skipped ${importResult.skipped} row${importResult.skipped !== 1 ? "s" : ""}: ${importResult.errors.map((e) => `row ${e.row}: ${e.reason}`).join("; ")}`}
           <button
             onClick={() => setImportResult(null)}
-            style={{ marginLeft: 8, border: 'none', background: 'none', cursor: 'pointer' }}
+            style={{
+              marginLeft: 8,
+              border: "none",
+              background: "none",
+              cursor: "pointer",
+            }}
           >
             ×
           </button>
@@ -330,55 +619,115 @@ export function SellerDetailPage({ seller: initialSeller, onBack, eventId }: {
 
       {/* Add Item inline form */}
       {showAddItem && addItemIntakeId !== null && (
-        <div style={{ marginBottom: 16, padding: 16, border: '1px solid #e2e8f0', borderRadius: 6 }}>
+        <div
+          style={{
+            marginBottom: 16,
+            padding: 16,
+            border: "1px solid #e2e8f0",
+            borderRadius: 6,
+          }}
+        >
           <button
-            onClick={() => { setShowAddItem(false); setAddItemIntakeId(null) }}
-            style={{ float: 'right', border: 'none', background: 'none', cursor: 'pointer', color: '#64748b' }}
+            onClick={() => {
+              setShowAddItem(false);
+              setAddItemIntakeId(null);
+            }}
+            style={{
+              float: "right",
+              border: "none",
+              background: "none",
+              cursor: "pointer",
+              color: "#64748b",
+            }}
           >
             ✕ Cancel
           </button>
           <ItemForm
             intakeId={addItemIntakeId}
             defaultDonateUnsold={seller.donate_unsold_default ?? false}
-            onAdded={item => { setItems(prev => [...prev, item]); setShowAddItem(false); setAddItemIntakeId(null) }}
+            onAdded={(item) => {
+              setItems((prev) => [...prev, item]);
+              setShowAddItem(false);
+              setAddItemIntakeId(null);
+            }}
           />
         </div>
       )}
 
       {/* Items table */}
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
-          <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
-            {['Code', 'Description', 'Category', 'Price', 'Status', ''].map(h => (
-              <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: 13 }}>{h}</th>
-            ))}
+          <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
+            {["Code", "Description", "Category", "Price", "Status", ""].map(
+              (h) => (
+                <th
+                  key={h}
+                  style={{
+                    textAlign: "left",
+                    padding: "6px 8px",
+                    fontSize: 13,
+                  }}
+                >
+                  {h}
+                </th>
+              ),
+            )}
           </tr>
         </thead>
         <tbody>
-          {items.map(item => (
+          {items.map((item) => (
             <Fragment key={item.id}>
-              <tr style={{ borderBottom: expandedEditId === item.id ? 'none' : '1px solid #f1f5f9' }}>
-                <td style={{ padding: '7px 8px', fontFamily: 'monospace', color: NAVY }}>{item.code}</td>
-                <td style={{ padding: '7px 8px' }}>{item.description ?? '—'}</td>
-                <td style={{ padding: '7px 8px', color: '#64748b' }}>{item.category ?? '—'}</td>
-                <td style={{ padding: '7px 8px' }}>${item.price.toFixed(2)}</td>
-                <td style={{ padding: '7px 8px' }}>
-                  <span style={{
-                    fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
-                    color: item.status === 'sold' ? '#16a34a' : '#64748b',
-                  }}>
-                    {item.status === 'sold' && item.remaining > 0
+              <tr
+                style={{
+                  borderBottom:
+                    expandedEditId === item.id ? "none" : "1px solid #f1f5f9",
+                }}
+              >
+                <td
+                  style={{
+                    padding: "7px 8px",
+                    fontFamily: "monospace",
+                    color: NAVY,
+                  }}
+                >
+                  {item.code}
+                </td>
+                <td style={{ padding: "7px 8px" }}>
+                  {item.description ?? "—"}
+                </td>
+                <td style={{ padding: "7px 8px", color: "#64748b" }}>
+                  {item.category ?? "—"}
+                </td>
+                <td style={{ padding: "7px 8px" }}>${item.price.toFixed(2)}</td>
+                <td style={{ padding: "7px 8px" }}>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      color: item.status === "sold" ? "#16a34a" : "#64748b",
+                    }}
+                  >
+                    {item.status === "sold" && item.remaining > 0
                       ? `partially sold (${item.remaining} left)`
-                      : item.status === 'sold' && item.remaining <= 0
-                        ? 'fully sold'
+                      : item.status === "sold" && item.remaining <= 0
+                        ? "fully sold"
                         : item.status}
                   </span>
                 </td>
-                <td style={{ padding: '7px 8px' }}>
+                <td style={{ padding: "7px 8px" }}>
                   <button
                     aria-label="Edit item"
                     onClick={() => openItemEdit(item)}
-                    style={{ border: `1px solid ${NAVY}`, color: NAVY, background: 'none', padding: '2px 8px', cursor: 'pointer', borderRadius: 3, fontSize: 12 }}
+                    style={{
+                      border: `1px solid ${NAVY}`,
+                      color: NAVY,
+                      background: "none",
+                      padding: "2px 8px",
+                      cursor: "pointer",
+                      borderRadius: 3,
+                      fontSize: 12,
+                    }}
                   >
                     Edit
                   </button>
@@ -386,90 +735,311 @@ export function SellerDetailPage({ seller: initialSeller, onBack, eventId }: {
               </tr>
               {expandedEditId === item.id && (
                 <tr>
-                  <td colSpan={6} style={{ padding: '8px 16px 14px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
+                  <td
+                    colSpan={6}
+                    style={{
+                      padding: "8px 16px 14px",
+                      background: "#f8fafc",
+                      borderBottom: "1px solid #e2e8f0",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr 1fr",
+                        gap: 8,
+                        marginBottom: 8,
+                      }}
+                    >
                       <div>
-                        <label style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 2 }}>Description</label>
-                        <input value={draft.description} maxLength={99}
-                          onChange={e => setDraft(d => ({ ...d, description: e.target.value }))}
-                          style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box', fontSize: 13 }} />
+                        <label
+                          style={{
+                            display: "block",
+                            fontSize: 12,
+                            color: "#64748b",
+                            marginBottom: 2,
+                          }}
+                        >
+                          Description
+                        </label>
+                        <input
+                          value={draft.description}
+                          maxLength={99}
+                          onChange={(e) =>
+                            setDraft((d) => ({
+                              ...d,
+                              description: e.target.value,
+                            }))
+                          }
+                          style={{
+                            width: "100%",
+                            padding: "4px 6px",
+                            boxSizing: "border-box",
+                            fontSize: 13,
+                          }}
+                        />
                       </div>
                       <div>
-                        <label style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 2 }}>Price</label>
-                        <input type="number" min={0} step={0.01} value={draft.price}
-                          onChange={e => setDraft(d => ({ ...d, price: e.target.value }))}
-                          style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box', fontSize: 13 }} />
+                        <label
+                          style={{
+                            display: "block",
+                            fontSize: 12,
+                            color: "#64748b",
+                            marginBottom: 2,
+                          }}
+                        >
+                          Price
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          value={draft.price}
+                          onChange={(e) =>
+                            setDraft((d) => ({ ...d, price: e.target.value }))
+                          }
+                          style={{
+                            width: "100%",
+                            padding: "4px 6px",
+                            boxSizing: "border-box",
+                            fontSize: 13,
+                          }}
+                        />
                       </div>
                       <div>
-                        <label style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 2 }}>Brand</label>
-                        <input value={draft.brand}
-                          onChange={e => setDraft(d => ({ ...d, brand: e.target.value }))}
-                          style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box', fontSize: 13 }} />
+                        <label
+                          style={{
+                            display: "block",
+                            fontSize: 12,
+                            color: "#64748b",
+                            marginBottom: 2,
+                          }}
+                        >
+                          Brand
+                        </label>
+                        <input
+                          value={draft.brand}
+                          onChange={(e) =>
+                            setDraft((d) => ({ ...d, brand: e.target.value }))
+                          }
+                          style={{
+                            width: "100%",
+                            padding: "4px 6px",
+                            boxSizing: "border-box",
+                            fontSize: 13,
+                          }}
+                        />
                       </div>
                       <div>
-                        <label style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 2 }}>Type</label>
-                        <select value={draft.type}
-                          onChange={e => setDraft(d => ({ ...d, type: e.target.value, size: d.type ? '' : d.size }))}
-                          style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box', fontSize: 13 }}>
+                        <label
+                          style={{
+                            display: "block",
+                            fontSize: 12,
+                            color: "#64748b",
+                            marginBottom: 2,
+                          }}
+                        >
+                          Type
+                        </label>
+                        <select
+                          value={draft.type}
+                          onChange={(e) =>
+                            setDraft((d) => ({
+                              ...d,
+                              type: e.target.value,
+                              size: d.type ? "" : d.size,
+                            }))
+                          }
+                          style={{
+                            width: "100%",
+                            padding: "4px 6px",
+                            boxSizing: "border-box",
+                            fontSize: 13,
+                          }}
+                        >
                           <option value="">— select type —</option>
-                          {ITEM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                          {ITEM_TYPES.map((t) => (
+                            <option key={t} value={t}>
+                              {t}
+                            </option>
+                          ))}
                         </select>
                       </div>
                       <div>
-                        <label style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 2 }}>Size</label>
+                        <label
+                          style={{
+                            display: "block",
+                            fontSize: 12,
+                            color: "#64748b",
+                            marginBottom: 2,
+                          }}
+                        >
+                          Size
+                        </label>
                         {SIZE_OPTIONS[draft.type] ? (
-                          <select value={draft.size}
-                            onChange={e => setDraft(d => ({ ...d, size: e.target.value }))}
-                            style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box', fontSize: 13 }}>
+                          <select
+                            value={draft.size}
+                            onChange={(e) =>
+                              setDraft((d) => ({ ...d, size: e.target.value }))
+                            }
+                            style={{
+                              width: "100%",
+                              padding: "4px 6px",
+                              boxSizing: "border-box",
+                              fontSize: 13,
+                            }}
+                          >
                             <option value="">— select size —</option>
-                            {SIZE_OPTIONS[draft.type].map(s => <option key={s} value={s}>{s}</option>)}
+                            {SIZE_OPTIONS[draft.type].map((s) => (
+                              <option key={s} value={s}>
+                                {s}
+                              </option>
+                            ))}
                           </select>
                         ) : (
-                          <input value={draft.size}
-                            onChange={e => setDraft(d => ({ ...d, size: e.target.value }))}
-                            style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box', fontSize: 13 }} />
+                          <input
+                            value={draft.size}
+                            onChange={(e) =>
+                              setDraft((d) => ({ ...d, size: e.target.value }))
+                            }
+                            style={{
+                              width: "100%",
+                              padding: "4px 6px",
+                              boxSizing: "border-box",
+                              fontSize: 13,
+                            }}
+                          />
                         )}
                       </div>
                       <div>
-                        <label style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 2 }}>Gender/Age</label>
-                        <select value={draft.gender_age}
-                          onChange={e => setDraft(d => ({ ...d, gender_age: e.target.value }))}
-                          style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box', fontSize: 13 }}>
+                        <label
+                          style={{
+                            display: "block",
+                            fontSize: 12,
+                            color: "#64748b",
+                            marginBottom: 2,
+                          }}
+                        >
+                          Gender/Age
+                        </label>
+                        <select
+                          value={draft.gender_age}
+                          onChange={(e) =>
+                            setDraft((d) => ({
+                              ...d,
+                              gender_age: e.target.value,
+                            }))
+                          }
+                          style={{
+                            width: "100%",
+                            padding: "4px 6px",
+                            boxSizing: "border-box",
+                            fontSize: 13,
+                          }}
+                        >
                           <option value="">— select —</option>
-                          {GENDER_AGE_OPTIONS.map(g => <option key={g} value={g}>{g}</option>)}
+                          {GENDER_AGE_OPTIONS.map((g) => (
+                            <option key={g} value={g}>
+                              {g}
+                            </option>
+                          ))}
                         </select>
                       </div>
                       <div>
-                        <label style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 2 }}>Color</label>
-                        <input value={draft.color}
-                          onChange={e => setDraft(d => ({ ...d, color: e.target.value }))}
-                          style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box', fontSize: 13 }} />
+                        <label
+                          style={{
+                            display: "block",
+                            fontSize: 12,
+                            color: "#64748b",
+                            marginBottom: 2,
+                          }}
+                        >
+                          Color
+                        </label>
+                        <input
+                          value={draft.color}
+                          onChange={(e) =>
+                            setDraft((d) => ({ ...d, color: e.target.value }))
+                          }
+                          style={{
+                            width: "100%",
+                            padding: "4px 6px",
+                            boxSizing: "border-box",
+                            fontSize: 13,
+                          }}
+                        />
                       </div>
                     </div>
                     {saveError && (
-                      <p role="alert" style={{ color: '#ef4444', fontSize: 12, margin: '0 0 8px' }}>{saveError}</p>
+                      <p
+                        role="alert"
+                        style={{
+                          color: "#ef4444",
+                          fontSize: 12,
+                          margin: "0 0 8px",
+                        }}
+                      >
+                        {saveError}
+                      </p>
                     )}
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <div
+                      style={{ display: "flex", gap: 8, alignItems: "center" }}
+                    >
                       <button
                         onClick={() => handleItemSave(item.id)}
                         disabled={saving}
-                        style={{ background: NAVY, color: '#fff', border: 'none', padding: '4px 12px', cursor: saving ? 'default' : 'pointer', borderRadius: 3, fontSize: 13 }}
+                        style={{
+                          background: NAVY,
+                          color: "#fff",
+                          border: "none",
+                          padding: "4px 12px",
+                          cursor: saving ? "default" : "pointer",
+                          borderRadius: 3,
+                          fontSize: 13,
+                        }}
                       >
-                        {saving ? 'Saving…' : 'Save'}
+                        {saving ? "Saving…" : "Save"}
                       </button>
                       <button
                         onClick={() => setExpandedEditId(null)}
-                        style={{ border: '1px solid #94a3b8', color: '#64748b', background: 'none', padding: '4px 12px', cursor: 'pointer', borderRadius: 3, fontSize: 13 }}
+                        style={{
+                          border: "1px solid #94a3b8",
+                          color: "#64748b",
+                          background: "none",
+                          padding: "4px 12px",
+                          cursor: "pointer",
+                          borderRadius: 3,
+                          fontSize: 13,
+                        }}
                       >
                         Cancel
                       </button>
                       <button
                         onClick={() => handleDeleteItem(item.id)}
-                        disabled={item.label_printed || item.status !== 'available'}
-                        title={item.label_printed ? 'Cannot delete after labels are printed' : item.status !== 'available' ? 'Cannot delete sold items' : ''}
-                        style={{ marginLeft: 'auto', border: 'none', background: 'none', fontSize: 13,
-                          color: (item.label_printed || item.status !== 'available') ? '#94a3b8' : '#ef4444',
-                          cursor: (item.label_printed || item.status !== 'available') ? 'default' : 'pointer' }}
+                        disabled={
+                          item.label_printed || item.status !== "available"
+                        }
+                        title={
+                          item.label_printed
+                            ? "Cannot delete after labels are printed"
+                            : item.status !== "available"
+                              ? "Cannot delete sold items"
+                              : ""
+                        }
+                        style={{
+                          marginLeft: "auto",
+                          border: "none",
+                          background: "none",
+                          fontSize: 13,
+                          color:
+                            item.label_printed || item.status !== "available"
+                              ? "#94a3b8"
+                              : "#ef4444",
+                          cursor:
+                            item.label_printed || item.status !== "available"
+                              ? "default"
+                              : "pointer",
+                        }}
                       >
                         Delete
                       </button>
@@ -481,7 +1051,10 @@ export function SellerDetailPage({ seller: initialSeller, onBack, eventId }: {
           ))}
           {items.length === 0 && (
             <tr>
-              <td colSpan={6} style={{ padding: 16, textAlign: 'center', color: '#94a3b8' }}>
+              <td
+                colSpan={6}
+                style={{ padding: 16, textAlign: "center", color: "#94a3b8" }}
+              >
                 No items yet
               </td>
             </tr>
@@ -491,11 +1064,21 @@ export function SellerDetailPage({ seller: initialSeller, onBack, eventId }: {
 
       {/* Payout panel */}
       {showPayout && (
-        <div style={{ marginTop: 16, padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6 }}>
-          <strong style={{ fontSize: 13, display: 'block', marginBottom: 8 }}>Seller Payout</strong>
+        <div
+          style={{
+            marginTop: 16,
+            padding: 16,
+            background: "#f8fafc",
+            border: "1px solid #e2e8f0",
+            borderRadius: 6,
+          }}
+        >
+          <strong style={{ fontSize: 13, display: "block", marginBottom: 8 }}>
+            Seller Payout
+          </strong>
           <SellerPayoutPanel eventId={eventId} sellerId={seller.id} />
         </div>
       )}
     </div>
-  )
+  );
 }
