@@ -50,6 +50,18 @@ describe("AllSellersPayouts", () => {
         expect(screen.getByText("A001-2")).toBeInTheDocument();
     });
 
+    /** Verifies the grand-total rows sit next to their labels (shrink-to-fit). */
+    it("keeps the batch summary amounts next to their labels", async () => {
+        render(<AllSellersPayouts eventId={1} />);
+        await waitFor(() =>
+            expect(
+                screen.getAllByText("Jane Smith (A001)").length,
+            ).toBeGreaterThan(0),
+        );
+        const summaryTable = screen.getByText("Sellers").closest("table");
+        expect(summaryTable).toHaveStyle({ width: "auto" });
+    });
+
     /** Verifies the per-seller Download XLSX button triggers a download. */
     it("downloads a per-seller xlsx", async () => {
         const { createObjectURL } = stubBlobDownload();

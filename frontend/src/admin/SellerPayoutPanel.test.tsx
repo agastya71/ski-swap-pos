@@ -22,6 +22,17 @@ describe("SellerPayoutPanel", () => {
     expect(screen.getAllByText("$84.00")[0]).toBeInTheDocument();
   });
 
+  /** Verifies the summary amounts sit next to their labels (the table is
+   *  shrink-to-fit, overriding the global table { width: 100% } rule). */
+  it("keeps the summary amounts next to their labels", async () => {
+    render(<SellerPayoutPanel eventId={1} sellerId={1} />);
+    await waitFor(() =>
+      expect(screen.queryByText(/loading/i)).not.toBeInTheDocument(),
+    );
+    const summaryTable = screen.getByText("Items Consigned").closest("table");
+    expect(summaryTable).toHaveStyle({ width: "auto" });
+  });
+
   it("renders the seller information block after data loads", async () => {
     render(<SellerPayoutPanel eventId={1} sellerId={1} />);
     await waitFor(() =>

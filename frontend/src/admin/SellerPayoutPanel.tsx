@@ -42,7 +42,13 @@ export function SellerPayoutDetails({
     return (
         <div>
             {/* ── Seller information ─────────────────────────────────────── */}
-            <table style={{ borderCollapse: "collapse", marginBottom: 16 }}>
+            <table
+                style={{
+                    width: "auto",
+                    borderCollapse: "collapse",
+                    marginBottom: 16,
+                }}
+            >
                 <tbody>
                     {[
                         [
@@ -79,7 +85,13 @@ export function SellerPayoutDetails({
             </table>
 
             {/* ── Summary ─────────────────────────────────────────────────── */}
-            <table style={{ borderCollapse: "collapse", marginBottom: 16 }}>
+            <table
+                style={{
+                    width: "auto",
+                    borderCollapse: "collapse",
+                    marginBottom: 16,
+                }}
+            >
                 <tbody>
                     {[
                         ["Items Consigned", String(payout.items_consigned)],
