@@ -26,83 +26,14 @@ else
 fi
 echo "      Done."
 
-# ── 2. Database migrations ──────────────────────────────────────────────────
-echo "[2/4] Running database migrations..."
-alembic upgrade head
-echo "      Done."
-
-# ── 3. Data repair + seed ──────────────────────────────────────────────────
-# 3a. Repair sale.date_of_sale values that were stored as the bare year (the
-#     integer 2026) instead of a full datetime string. This happened because
-#     seed_demo.py (and an earlier version of the checkout service) passed a
-#     `date` to a `DateTime` column. Backfill from sale.created_at, which is
-#     always a valid timestamp. Idempotent: only touches non-NULL non-text
-#     values, so it's a no-op once the data is clean.
-echo "[3/4] Repairing data + ensuring seed..."
-python - <<'PY'
-import sqlite3
-
-db = sqlite3.connect("swap.db")
-n = db.execute(
-    "UPDATE sale SET date_of_sale = created_at "
-    "WHERE date_of_sale IS NOT NULL AND typeof(date_of_sale) != 'text'"
-).rowcount
-db.commit()
-# NOTE: db is NOT closed here — the 3a-bis block below reuses this connection.
-if n:
-    print(f"      Repaired {n} sale.date_of_sale value(s) (backfilled from created_at).")
-else:
-    print("      No date_of_sale repairs needed.")
-
-# 3a-bis. Re-sync item.quantity + item.remaining from the on-hand remaining
-#     count (the trustworthy sellable count maintained by the current model) and
-#     the non-voided sale history. Reconstructs quantity = remaining + sold so the
-#     invariant remaining = quantity - sold holds after every restart. Idempotent:
-#     the WHERE clause skips items already in sync (no-op for correct data).
-#     Skips silently on pre-migration DBs where the column doesn't exist yet.
-n_rem = -1
-try:
-    cur = db.cursor()
-    cur.execute("PRAGMA table_info(item)")
-    if any(col[1] == "remaining" for col in cur.fetchall()):
-        # Pass 1: reconstruct intake quantity from remaining (the actively
-        # maintained on-hand count) + non-voided sold units.
-        cur.execute(
-            "UPDATE item SET quantity = remaining + COALESCE(("
-            "SELECT SUM(si.quantity) FROM sale_item si JOIN sale s ON si.sale_id = s.id "
-            "WHERE si.item_id = item.id AND s.is_voided = 0), 0) "
-            "WHERE quantity != remaining + COALESCE(("
-            "SELECT SUM(si.quantity) FROM sale_item si JOIN sale s ON si.sale_id = s.id "
-            "WHERE si.item_id = item.id AND s.is_voided = 0), 0)"
-        )
-        # Pass 2: re-sync remaining = quantity - non-voided sold.
-        cur.execute(
-            "UPDATE item SET remaining = quantity - COALESCE(("
-            "SELECT SUM(si.quantity) FROM sale_item si JOIN sale s ON si.sale_id = s.id "
-            "WHERE si.item_id = item.id AND s.is_voided = 0), 0)"
-        )
-        n_rem = cur.rowcount
-    db.commit()
-except Exception as exc:
-    print(f"      Quantity model repair failed (non-fatal): {exc}")
-finally:
-    db.close()
-if n_rem >= 0:
-    print(f"      Quantity model repair: {n_rem} row(s) re-synced.")
-else:
-    print("      item table not migrated yet — skipping remaining re-sync.")
-PY
-
-# 3b. Seed demo data if the database has no active event yet. seed_demo.py is
-#     idempotent, so running it on a fresh DB is safe; we skip it when an
-#     active event already exists to keep startup quiet.
-HAVE_EVENT="$(python -c "import sqlite3;print(sqlite3.connect('swap.db').execute('select count(*) from event where is_active=1').fetchone()[0])")"
-if [[ "$HAVE_EVENT" == "0" ]]; then
-  echo "      No active event — seeding demo data..."
-  python seed_demo.py
-else
-  echo "      Active event present — skipping seed."
-fi
+# ── 2. Database bootstrap (registry + per-event migrations + repairs + seed)
+# Phase G: scripts/bootstrap.py handles both layouts:
+#   - no registry  -> legacy single-DB mode (alembic on DATABASE_URL + repairs
+#     + seed-if-empty), and
+#   - registry present -> per-event alembic heads + repairs on every event DB,
+#     seeding only when the registry has no events.
+echo "[2/4] Bootstrapping databases (registry + per-event)..."
+python scripts/bootstrap.py
 echo "      Done."
 
 # ── 4. Launch server ────────────────────────────────────────────────────────
