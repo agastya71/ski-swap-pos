@@ -176,7 +176,20 @@ export function SellerPayoutDetails({
                                 key={`${s.item_code}-${i}`}
                                 style={{ borderBottom: "1px solid #eee" }}
                             >
-                                <td style={td}>{s.item_code}</td>
+                                <td style={td}>
+                                    {s.item_code}
+                                    {s.price_adjustment_reason && (
+                                        <div
+                                            style={{
+                                                fontSize: 11,
+                                                color: "#64748b",
+                                                marginTop: 2,
+                                            }}
+                                        >
+                                            Price adj.: {s.price_adjustment_reason}
+                                        </div>
+                                    )}
+                                </td>
                                 <td style={td}>{s.description ?? "—"}</td>
                                 <td style={td}>
                                     {s.date_of_sale

@@ -456,6 +456,7 @@ export const handlers = [
                                         quantity_sold: 1,
                                         sell_price: 120.0,
                                         extended_price: 120.0,
+                                        price_adjustment_reason: "Zipper broken - $5 off",
                                         mysl_share: 36.0,
                                         seller_share: 84.0,
                                         commission_rate: 0.3,
