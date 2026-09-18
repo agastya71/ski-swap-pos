@@ -62,8 +62,9 @@ def test_add_item_to_intake(client, admin_token, intake):
     )
     assert resp.status_code == 201
     data = resp.json()
-    # New scheme: item code = seller code + unpadded sequence ("ABC" + 1 -> "ABC1").
-    assert data["code"] == "ABC1"
+    # New scheme (2026-09-18): item ids are numeric-only, five digits
+    # starting at 10000, assigned sequentially regardless of seller.
+    assert data["code"] == "10000"
     assert data["price"] == 25.00
     assert data["status"] == "available"
     assert data["label_printed"] is False
@@ -196,17 +197,27 @@ def test_search_items_by_partial_code(client, active_event, admin_token):
     assert r.json()[0]["code"] == code
 
 
-def test_search_matches_seller_code_via_item_codes(client, active_event, admin_token):
-    """The seller code is a PREFIX of its item codes, so searching it matches
-    that seller's items through the code itself (not a seller-code field)."""
+def test_search_no_longer_matches_seller_code(client, active_event, admin_token):
+    """Since 2026-09-18 item ids are numeric-only (10000+) and seller codes
+    remain alphanumeric, a seller code is no longer a prefix of any item code
+    — searching it at checkout returns nothing. Items are found by their
+    printed numeric tag instead; seller-based lookup lives in the intake
+    module's full-field search."""
     headers = {"Authorization": f"Bearer {admin_token}"}
     seller_r = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
     seller_code = seller_r.json()["code"]
     intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
-    client.post(f"/intakes/{intake_r.json()['id']}/items", json={"description": "Skis", "brand": "Atomic", "price": 30.0}, headers=headers)
-    r = client.get(f"/items/search?q={seller_code}", headers=headers)
+    created = client.post(f"/intakes/{intake_r.json()['id']}/items", json={"description": "Skis", "brand": "Atomic", "price": 30.0}, headers=headers)
+    item_code = created.json()["code"]  # numeric, e.g. "10000"
+
+    # The item IS findable by its (numeric) code prefix...
+    r = client.get(f"/items/search?q={item_code[:3]}", headers=headers)
     assert r.status_code == 200
-    assert len(r.json()) >= 1
+    assert len(r.json()) == 1
+    # ...but the alphanumeric seller code matches nothing.
+    r2 = client.get(f"/items/search?q={seller_code}", headers=headers)
+    assert r2.status_code == 200
+    assert r2.json() == []
 
 
 def test_search_ignores_description_and_brand(client, active_event, admin_token):

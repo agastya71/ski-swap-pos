@@ -17,7 +17,7 @@ from app.models.user import User
 from app.schemas.intake import IntakeCreate, IntakeResponse, IntakeUpdate, IntakeWithItemsResponse
 from app.schemas.item import ImportResult, ImportRowError, ItemCreate, ItemResponse
 # Item codes combine the seller code with an unpadded sequence ("JSMI1" + 1 -> "JSMI11"):
-from app.services.codes import next_item_seq
+from app.services.codes import next_item_code
 from app.services.zpl import generate_zpl, send_to_printer
 
 router = APIRouter(prefix="/intakes", tags=["intakes"])
@@ -101,7 +101,7 @@ def add_item_to_intake(
     seller = db.query(Seller).filter(Seller.id == intake.seller_id).first()
     if not seller:
         raise HTTPException(status_code=404, detail="Seller not found")
-    item_code = f"{seller.code}{next_item_seq(db, seller)}"
+    item_code = next_item_code(db)
     # donate_unsold inherits from the intake (which itself inherits from the
     # seller's default) unless explicitly set on this item.
     donate_unsold = body.donate_unsold if body.donate_unsold is not None else intake.donate_unsold

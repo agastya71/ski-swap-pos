@@ -3,8 +3,9 @@
 Covers the name-derived seller code scheme ("Jane Smith" -> "JSMI1") and the
 globally-unique numeric-suffix behaviour, including the Jane/Joan/John Smith
 cluster, vendor company names, accented names, and cross-event uniqueness.
-Also covers item-code generation: seller code + unpadded sequence number,
-including the prefix-extension collision case (seller "JSMI1" vs "JSMI11").
+Also covers numeric-only item-id generation (2026-09-18): five digits starting
+at 10000, sequential upward, unique per event DB, legacy alphanumeric codes
+grandfathered (ignored by generation).
 """
 
 from sqlalchemy.orm import Session
@@ -13,7 +14,7 @@ from app.models.event import Event
 from app.models.intake import Intake
 from app.models.item import Item
 from app.models.seller import Seller
-from app.services.codes import next_item_code, next_item_seq, next_seller_code, seller_code_prefix
+from app.services.codes import next_item_code, next_seller_code, seller_code_prefix
 
 
 # ── seller_code_prefix ────────────────────────────────────────────────────────
@@ -69,55 +70,67 @@ def test_seller_code_vendor_company_name(db, active_event):
 
 # ── next_item_code ────────────────────────────────────────────────────────────
 
-def _add_item(db: Session, seller: Seller, seq: int, code: str | None = None) -> None:
+def _add_item(db: Session, seller: Seller, code: str) -> None:
+    """Insert an item row with an explicit (possibly legacy) code."""
     intake = Intake(seller_id=seller.id)
     db.add(intake)
     db.flush()
-    db.add(Item(intake_id=intake.id, seller_id=seller.id,
-                code=code or f"{seller.code}{seq}", price=10.0))
+    db.add(Item(intake_id=intake.id, seller_id=seller.id, code=code, price=10.0))
     db.commit()
 
 
-def test_item_code_combines_seller_code_and_unpadded_sequence(db, active_event):
+def test_item_code_starts_at_10000_on_empty_event(db, active_event):
+    assert next_item_code(db) == "10000"
+
+
+def test_item_code_is_five_digits_numeric_only(db, active_event):
+    code = next_item_code(db)
+    assert len(code) == 5 and code.isdigit()
+
+
+def test_item_code_continues_after_existing_numeric_codes(db, active_event):
+    """Items 10000..10104 already present -> next is 10105 (sequential up)."""
     seller = Seller(event_id=active_event.id, code="JSMI1")
     db.add(seller)
     db.commit()
-    code = next_item_code(db, seller)
-    assert code == "JSMI11"
-    assert "-" not in code
-    prefix = f"{seller.code}"
-    seq = code[len(prefix):]
-    assert seq == "1" and not seq.startswith("0")  # no leading zeros
-    assert len(code) <= 10
+    for n in range(10000, 10105):
+        _add_item(db, seller, str(n))
+    assert next_item_code(db) == "10105"
 
 
-def test_item_code_sequence_bumps_past_taken_codes(db, active_event):
-    """Seller JSMI1 with items 1-5 -> next is 6 (no reuse, no leading zeros)."""
+def test_item_code_ignores_legacy_alphanumeric_codes(db, active_event):
+    """Grandfathered codes like EJOH11 / ABC-001 do not move the numeric
+    counter: the first new numeric id is still 10000."""
     seller = Seller(event_id=active_event.id, code="JSMI1")
     db.add(seller)
     db.commit()
-    for seq in range(1, 6):
-        _add_item(db, seller, seq)
-    assert next_item_code(db, seller) == "JSMI16"
+    _add_item(db, seller, "EJOH11")
+    _add_item(db, seller, "ABC-001")
+    assert next_item_code(db) == "10000"
 
 
-def test_item_code_skips_prefix_extension_collision(db, active_event):
-    """THE edge case: seller "JSMI1" item 11 -> "JSMI111", which collides with
-    seller "JSMI11" item 1. Generation must bump past taken codes."""
-    s1 = Seller(event_id=active_event.id, code="JSMI1")
-    s11 = Seller(event_id=active_event.id, code="JSMI11")
-    db.add_all([s1, s11])
-    db.commit()
-    _add_item(db, s11, 1)  # takes "JSMI111" (seller JSMI11 + seq 1)
-    for seq in range(1, 11):
-        _add_item(db, s1, seq)  # takes "JSMI11".."JSMI110"
-    assert next_item_code(db, s1) == "JSMI112"
-
-
-def test_item_code_numeric_only_for_long_sequences(db, active_event):
-    seller = Seller(event_id=active_event.id, code="AB1")
+def test_item_code_skips_legacy_numeric_below_10000(db, active_event):
+    """A legacy numeric code below 10000 (e.g. "500") does not shift the
+    start: the counter still opens at 10000."""
+    seller = Seller(event_id=active_event.id, code="JSMI1")
     db.add(seller)
     db.commit()
-    for seq in range(1, 4):
-        _add_item(db, seller, seq)
-    assert next_item_code(db, seller) == "AB14"
+    _add_item(db, seller, "500")
+    assert next_item_code(db) == "10000"
+
+
+def test_item_code_skips_reserved_codes_for_batches(db, active_event):
+    """Bulk import reserves codes generated earlier in the same uncommitted
+    batch via the ``reserved`` set (pending rows are invisible to queries)."""
+    assert next_item_code(db, reserved={"10000", "10001"}) == "10002"
+
+
+def test_item_code_exhaustion_raises_valueerror(db, active_event):
+    seller = Seller(event_id=active_event.id, code="JSMI1")
+    db.add(seller)
+    db.commit()
+    _add_item(db, seller, "99999")
+    import pytest
+
+    with pytest.raises(ValueError):
+        next_item_code(db)
