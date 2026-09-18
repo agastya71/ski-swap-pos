@@ -7,7 +7,7 @@ Usage (from the backend/ directory):
 Safe to run multiple times — skips existing records, never duplicates.
 
 What gets created:
-  - 1 active event: Ski Swap 2026 (30% commission)
+  - 1 active event: TEST SWAP POS 2026 (30% commission)
   - 3 users: admin / intake1 / cashier1
   - 15 sellers: name-derived codes (EJOH1, ILAR1, …, NORD1) — 12 individual,
     3 vendor
@@ -52,7 +52,7 @@ skipped = {"events": 0, "users": 0, "sellers": 0, "intakes": 0, "items": 0, "sal
 db = SessionLocal()
 try:
     # ── 1. Event ────────────────────────────────────────────────────────────
-    EVENT_NAME      = "Ski Swap 2026"
+    EVENT_NAME      = "TEST SWAP POS 2026"
     COMMISSION_RATE = 0.30
 
     # pi-lens-ignore: python-sql-injection
@@ -472,7 +472,7 @@ try:
     print("    intake1  / intake123  (intake volunteer)")
     print("    cashier1 / cashier123 (cashier)")
     print()
-    print("  Active event : Ski Swap 2026  (30% commission)")
+    print("  Active event : TEST SWAP POS 2026  (30% commission)")
     print("  Sellers      : 12 individual + 3 vendor")
     print("  Items        : mix of available / sold / donated / returned")
     print("  Sales        : 10 transactions across 2 days (Oct 4–5)")
