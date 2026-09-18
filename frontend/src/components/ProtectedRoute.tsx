@@ -4,7 +4,7 @@
 import type { ReactNode } from 'react'
 import { useAuth } from '../auth/AuthContext'
 
-type Role = 'admin' | 'intake' | 'cashier'
+type Role = 'admin' | 'intake' | 'cashier' | 'cashier_intake'
 
 /**
  * Renders `children` only when the signed-in user's role is included in `roles`.

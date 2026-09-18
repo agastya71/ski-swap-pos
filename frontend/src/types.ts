@@ -18,8 +18,8 @@ export interface TokenResponse {
 export interface DecodedToken {
  /** Username (subject claim) encoded in the token. */
  sub: string;
- /** Role of the authenticated user: 'admin', 'intake', or 'cashier'. */
- role: "admin" | "intake" | "cashier";
+ /** Role of the authenticated user: 'admin', 'intake', 'cashier', or 'cashier_intake'. */
+ role: "admin" | "intake" | "cashier" | "cashier_intake";
  /** ID of the event this token is scoped to. */
  event_id: number;
  /** Token expiry as a Unix timestamp (seconds since epoch). */
@@ -63,7 +63,7 @@ export interface User {
  /** Login username, unique within the event. */
  username: string;
  /** Role controlling which screens and APIs this user can access. */
- role: "admin" | "intake" | "cashier";
+ role: "admin" | "intake" | "cashier" | "cashier_intake";
  /** Whether this account is currently allowed to log in. */
  is_active: boolean;
  /** ID of the event this user account belongs to. */
@@ -76,8 +76,8 @@ export interface UserCreate {
  username: string;
  /** Plaintext password — hashed by the backend on creation. */
  password: string;
- /** Role to assign: 'admin', 'intake', or 'cashier'. */
- role: "admin" | "intake" | "cashier";
+ /** Role to assign: 'admin', 'intake', 'cashier', or 'cashier_intake'. */
+ role: "admin" | "intake" | "cashier" | "cashier_intake";
 }
 
 // Sellers

@@ -12,7 +12,7 @@ import { CreatedUserModal } from "./CreatedUserModal";
 import type { User } from "../types";
 
 /** Permitted role values for event user accounts. */
-type Role = "admin" | "intake" | "cashier";
+type Role = "admin" | "intake" | "cashier" | "cashier_intake";
 
 /**
  * Admin panel for managing event user accounts: displays the user table with
@@ -195,6 +195,7 @@ export function UserManagement() {
           >
             <option value="cashier">Cashier</option>
             <option value="intake">Intake</option>
+            <option value="cashier_intake">Cashier + Intake (combined)</option>
             <option value="admin">Admin</option>
           </select>
         </div>

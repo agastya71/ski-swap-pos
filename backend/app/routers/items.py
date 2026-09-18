@@ -29,8 +29,8 @@ from app.services.zpl import generate_zpl, send_to_printer
 
 router = APIRouter(prefix="/items", tags=["items"])
 
-_INTAKE_ADMIN = require_roles("admin", "intake")
-_CASHIER_ADMIN = require_roles("admin", "cashier")
+_INTAKE_ADMIN = require_roles("admin", "intake", "cashier_intake")
+_CASHIER_ADMIN = require_roles("admin", "cashier", "cashier_intake")
 
 
 def _item_for_active_event(item_id: int, db: Session) -> Item:

@@ -17,7 +17,7 @@ type Page = "intake" | "pos" | "admin" | "docs";
 
 /** Returns the default landing page for a given user role. */
 function defaultPage(role: string): Page {
-  if (role === "cashier") return "pos";
+  if (role === "cashier" || role === "cashier_intake") return "pos";
   if (role === "intake") return "intake";
   return "admin";
 }
@@ -38,12 +38,12 @@ function AppInner() {
   return (
     <Layout page={activePage} onNavigate={setPage}>
       {activePage === "intake" && (
-        <ProtectedRoute roles={["admin", "intake"]}>
+        <ProtectedRoute roles={["admin", "intake", "cashier_intake"]}>
           <IntakeModulePage />
         </ProtectedRoute>
       )}
       {activePage === "pos" && (
-        <ProtectedRoute roles={["admin", "cashier"]}>
+        <ProtectedRoute roles={["admin", "cashier", "cashier_intake"]}>
           <POSPage />
         </ProtectedRoute>
       )}
@@ -53,7 +53,7 @@ function AppInner() {
         </ProtectedRoute>
       )}
       {activePage === "docs" && (
-        <ProtectedRoute roles={["admin", "cashier", "intake"]}>
+        <ProtectedRoute roles={["admin", "cashier", "intake", "cashier_intake"]}>
           <DocumentationPage />
         </ProtectedRoute>
       )}

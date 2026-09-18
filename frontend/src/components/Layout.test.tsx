@@ -13,7 +13,7 @@ function fakeJwt(payload: Record<string, unknown>): string {
   return `${b64({ alg: "HS256", typ: "JWT" })}.${b64(payload)}.sig`;
 }
 
-function renderLayout(role: "admin" | "cashier" | "intake" = "admin") {
+function renderLayout(role: "admin" | "cashier" | "intake" | "cashier_intake" = "admin") {
   // setToken writes both the in-memory cache and localStorage ('auth_token')
   // — seeding localStorage directly is NOT seen by getToken()'s cache.
   setToken(fakeJwt({ sub: role, role, event_id: 1, exp: 9999999999 }));
@@ -52,6 +52,22 @@ describe("Layout", () => {
     expect(
       screen.queryByRole("button", { name: /intake/i }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^admin$/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows both Intake and Checkout tabs to the cashier_intake role", () => {
+    renderLayout("cashier_intake");
+    expect(
+      screen.getByRole("button", { name: /intake/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /checkout/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /documentation/i }),
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /^admin$/i }),
     ).not.toBeInTheDocument();

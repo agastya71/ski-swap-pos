@@ -13,7 +13,7 @@ from app.services.checkout import create_sale_atomic
 
 router = APIRouter(prefix="/sales", tags=["sales"])
 
-_CASHIER_ADMIN = require_roles("admin", "cashier")
+_CASHIER_ADMIN = require_roles("admin", "cashier", "cashier_intake")
 _ADMIN_ONLY = require_roles("admin")
 
 

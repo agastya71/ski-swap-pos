@@ -115,14 +115,14 @@ export function Layout({
 
         {/* Nav links */}
         <nav style={{ display: "flex", flex: 1 }}>
-          {(role === "admin" || role === "intake") && (
+          {(role === "admin" || role === "intake" || role === "cashier_intake") && (
             <NavLink
               label="Intake"
               active={page === "intake"}
               onClick={() => onNavigate("intake")}
             />
           )}
-          {(role === "admin" || role === "cashier") && (
+          {(role === "admin" || role === "cashier" || role === "cashier_intake") && (
             <NavLink
               label="Checkout"
               active={page === "pos"}

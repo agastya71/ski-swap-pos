@@ -20,7 +20,7 @@ class User(Base):
     event_id = Column(Integer, ForeignKey("event.id"), nullable=False)
     username = Column(String, nullable=False)
     password_hash = Column(String, nullable=False)
-    role = Column(String, nullable=False)  # admin / intake / cashier
+    role = Column(String, nullable=False)  # admin / intake / cashier / cashier_intake (combined)
     is_active = Column(Boolean, nullable=False, default=True)
 
     __table_args__ = (UniqueConstraint("event_id", "username", name="uq_user_event_username"),)
