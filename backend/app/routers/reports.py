@@ -31,6 +31,23 @@ def get_seller_payout(
     return format_report(report, fmt, f"seller_payout_{event_id}_{seller_id}")
 
 
+@router.get("/{event_id}/vendor/{seller_id}/equipment-summary")
+def get_vendor_equipment_summary(
+    event_id: int,
+    seller_id: int,
+    fmt: str = Query("json", alias="format"),
+    db: Session = Depends(get_db),
+    _user: User = Depends(_ADMIN_ONLY),
+):
+    """Per-vendor sales summary grouped by equipment type (item.category).
+
+    Built for vendors ("how many skate skis did I sell") — admins generate
+    it on demand; the report refuses non-vendor sellers (422).
+    """
+    report = report_svc.get_vendor_equipment_summary(db, event_id, seller_id)
+    return format_report(report, fmt, f"vendor_equipment_summary_{event_id}_{seller_id}")
+
+
 @router.get("/{event_id}/sellers-payouts")
 def get_all_seller_payouts(
     event_id: int,

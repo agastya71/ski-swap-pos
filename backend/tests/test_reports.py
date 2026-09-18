@@ -520,3 +520,67 @@ def test_single_seller_payout_xlsx_format(client, admin_token, active_event, rpt
     assert wb.sheetnames == ["Summary", "Sales", "Unsold Items"]
     sales_ws = wb["Sales"]
     assert sales_ws.cell(row=2, column=1).value == "RPT-001"
+
+
+# ── Vendor equipment summary endpoint ─────────────────────────────────────────
+
+def test_vendor_equipment_summary_json(client, db, admin_token, active_event):
+    """GET /reports/{event}/vendor/{seller}/equipment-summary groups by category."""
+    vendor = Seller(event_id=active_event.id, code="VEPT", first_name=None, last_name=None,
+                    company="Endpoint Vendor", is_vendor=True, created_by="admin")
+    db.add(vendor); db.commit(); db.refresh(vendor)
+    intake = Intake(seller_id=vendor.id, donate_proceeds=False, created_by="admin")
+    db.add(intake); db.commit(); db.refresh(intake)
+    it = Item(intake_id=intake.id, seller_id=vendor.id, code="VEND-1", category="Skis",
+              price=100.0, quantity=1.0, remaining=0.0, status="sold", created_by="admin")
+    db.add(it); db.commit(); db.refresh(it)
+    sale = Sale(event_id=active_event.id, sale_total=100.0, cash_amount=100.0,
+                total_paid=100.0, is_voided=False, created_by="admin")
+    db.add(sale); db.flush()
+    db.add(SaleItem(sale_id=sale.id, item_id=it.id, line_number=1, quantity=1.0,
+                    sell_price=100.0, extended_price=100.0, created_by="admin"))
+    db.commit()
+
+    resp = client.get(
+        f"/reports/{active_event.id}/vendor/{vendor.id}/equipment-summary",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["seller_code"] == "VEPT"
+    assert [c["category"] for c in data["categories"]] == ["Skis"]
+    assert data["total"]["units_sold"] == 1.0
+
+
+def test_vendor_equipment_summary_refuses_non_vendor(client, admin_token, active_event, rpt_seller):
+    """Non-vendor sellers are rejected with 422."""
+    resp = client.get(
+        f"/reports/{active_event.id}/vendor/{rpt_seller.id}/equipment-summary",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 422
+
+
+def test_vendor_equipment_summary_requires_admin(client, cashier_token, active_event, rpt_seller):
+    resp = client.get(
+        f"/reports/{active_event.id}/vendor/{rpt_seller.id}/equipment-summary",
+        headers={"Authorization": f"Bearer {cashier_token}"},
+    )
+    assert resp.status_code == 403
+
+
+def test_vendor_equipment_summary_csv_format(client, db, admin_token, active_event):
+    """?format=csv returns the category table with a TOTAL row."""
+    vendor = Seller(event_id=active_event.id, code="VEP2", first_name=None, last_name=None,
+                    company="CSV Vendor", is_vendor=True, created_by="admin")
+    db.add(vendor); db.commit(); db.refresh(vendor)
+
+    resp = client.get(
+        f"/reports/{active_event.id}/vendor/{vendor.id}/equipment-summary?format=csv",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    assert "text/csv" in resp.headers["content-type"]
+    content = resp.content
+    assert b"category,items_consigned" in content
+    assert b"TOTAL" in content

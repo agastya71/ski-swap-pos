@@ -315,3 +315,80 @@ def test_seller_payout_vendor_rate_applied(db, active_event):
     assert s.commission_rate == 0.25
     assert s.mysl_share == 25.0
     assert s.seller_share == 75.0
+
+
+# ── Vendor equipment summary ─────────────────────────────────────────────────
+
+def test_vendor_equipment_summary_groups_by_category(db, active_event):
+    """Units/gross/shares group by item.category; TOTAL row sums everything."""
+    from app.models.seller import Seller
+    from app.models.intake import Intake
+    from app.models.item import Item
+    from app.services.reports import get_vendor_equipment_summary
+
+    active_event.vendor_commission_rate = 0.30
+    db.commit()
+    vendor = Seller(event_id=active_event.id, code="VSUM", first_name=None, last_name=None,
+                    company="Summary Vendor", is_vendor=True, created_by="admin")
+    db.add(vendor); db.commit(); db.refresh(vendor)
+    intake = Intake(seller_id=vendor.id, donate_proceeds=False, created_by="admin")
+    db.add(intake); db.commit(); db.refresh(intake)
+
+    skate = Item(intake_id=intake.id, seller_id=vendor.id, code="V1-1", category="Skis",
+                 description="Skate ski", price=100.0, quantity=2.0, remaining=1.0,
+                 status="sold", created_by="admin")
+    classic = Item(intake_id=intake.id, seller_id=vendor.id, code="V1-2", category="Skis",
+                   description="Classic ski", price=80.0, quantity=1.0, remaining=0.0,
+                   status="sold", created_by="admin")
+    boots = Item(intake_id=intake.id, seller_id=vendor.id, code="V1-3", category="Boots",
+                 price=50.0, quantity=1.0, remaining=1.0, status="available", created_by="admin")
+    db.add_all([skate, classic, boots]); db.commit()
+
+    sale = Sale(event_id=active_event.id, sale_total=150.0, cash_amount=150.0,
+                total_paid=150.0, is_voided=False, created_by="admin")
+    db.add(sale); db.flush()
+    db.add(SaleItem(sale_id=sale.id, item_id=skate.id, line_number=1, quantity=1.0,
+                    sell_price=100.0, extended_price=100.0, created_by="admin"))
+    db.add(SaleItem(sale_id=sale.id, item_id=classic.id, line_number=2, quantity=1.0,
+                    sell_price=50.0, extended_price=50.0, created_by="admin"))
+    db.commit()
+
+    report = get_vendor_equipment_summary(db, active_event.id, vendor.id)  # pyright: ignore[reportArgumentType]
+    skis = next(l for l in report.categories if l.category == "Skis")
+    assert skis.items_consigned == 2
+    assert skis.units_sold == 2.0
+    assert skis.gross_sales == 150.0
+    assert skis.mysl_share == 45.0  # 150 x 30% vendor rate
+    assert skis.seller_share == 105.0
+    assert skis.units_unsold == 1.0  # skate ski has 1 unit on hand
+    assert skis.unsold_value == 100.0
+    boots_row = next(l for l in report.categories if l.category == "Boots")
+    assert boots_row.units_sold == 0.0
+    assert boots_row.units_unsold == 1.0
+    assert report.total.category == "TOTAL"
+    assert report.total.units_sold == 2.0
+    assert report.total.gross_sales == 150.0
+    assert report.total.mysl_share == 45.0
+    assert report.total.seller_share == 105.0
+    assert report.total.unsold_value == 150.0  # skate 100 + boots 50
+    assert report.seller_name == "Summary Vendor"
+
+
+def test_vendor_equipment_summary_refuses_non_vendor(db, active_event, seller):
+    from fastapi import HTTPException
+    import pytest
+
+    from app.services.reports import get_vendor_equipment_summary
+    with pytest.raises(HTTPException) as exc:
+        get_vendor_equipment_summary(db, active_event.id, seller.id)
+    assert exc.value.status_code == 422
+
+
+def test_vendor_equipment_summary_unknown_seller_404(db, active_event):
+    from fastapi import HTTPException
+    import pytest
+
+    from app.services.reports import get_vendor_equipment_summary
+    with pytest.raises(HTTPException) as exc:
+        get_vendor_equipment_summary(db, active_event.id, 999999)
+    assert exc.value.status_code == 404

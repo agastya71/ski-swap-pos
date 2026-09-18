@@ -171,3 +171,75 @@ def test_format_unsold_report_donate_column():
     assert pdf.media_type == "application/pdf"
     text = "".join(page.extract_text() for page in PdfReader(io.BytesIO(pdf.body)).pages)
     assert "Donate" in text and "Yes" in text
+
+
+# ── Vendor equipment summary ─────────────────────────────────────────────────
+
+def _vendor_summary():
+    from app.schemas.reports import VendorCategoryLine, VendorEquipmentSummaryReport
+
+    line = VendorCategoryLine(
+        category="Skis", items_consigned=2, units_sold=2.0, gross_sales=150.0,
+        mysl_share=45.0, seller_share=105.0, units_unsold=1.0, unsold_value=100.0,
+    )
+    total = VendorCategoryLine(
+        category="TOTAL", items_consigned=2, units_sold=2.0, gross_sales=150.0,
+        mysl_share=45.0, seller_share=105.0, units_unsold=1.0, unsold_value=100.0,
+    )
+    return VendorEquipmentSummaryReport(
+        event_id=1, event_name="Test Event", seller_code="VEND1",
+        seller_name="Summary Vendor", company="Summary Vendor",
+        vendor_commission_rate=0.30, categories=[line], total=total,
+        generated_at=datetime.now(timezone.utc),
+    )
+
+
+def test_vendor_summary_csv():
+    from app.services.report_formatter import format_report
+    resp = format_report(_vendor_summary(), "csv", "vendor_summary")
+    assert b"category,items_consigned,units_sold" in resp.body
+    assert b"Skis" in resp.body
+    assert b"TOTAL" in resp.body
+
+
+def test_vendor_summary_md():
+    from app.services.report_formatter import format_report
+    resp = format_report(_vendor_summary(), "md", "vendor_summary")
+    body = bytes(resp.body).decode()
+    assert "Vendor Equipment Summary" in body
+    assert "Skis" in body
+    assert "**TOTAL**" in body
+
+
+def test_vendor_summary_xlsx():
+    import io
+
+    import openpyxl
+
+    from app.services.report_formatter import format_report
+    resp = format_report(_vendor_summary(), "xlsx", "vendor_summary")
+    wb = openpyxl.load_workbook(io.BytesIO(resp.body))
+    ws = wb.active
+    assert ws is not None, "workbook has no active sheet"
+    assert ws.cell(row=1, column=1).value == "Vendor Equipment Summary"
+    headers = [c.value for c in ws[6]]  # row 5 is the blank separator
+    assert headers[0] == "Category"
+    assert ws.cell(row=7, column=1).value == "Skis"
+    totals_row = [c.value for c in ws[8]]
+    assert totals_row[0] == "TOTAL"
+    assert totals_row[3] == 150.0  # gross
+
+
+def test_vendor_summary_pdf():
+    """PDF content is compressed — verify via pypdf text extraction."""
+    import io
+
+    from pypdf import PdfReader
+
+    from app.services.report_formatter import format_report
+    resp = format_report(_vendor_summary(), "pdf", "vendor_summary")
+    assert resp.media_type == "application/pdf"
+    reader = PdfReader(io.BytesIO(resp.body))
+    text = "\n".join((page.extract_text() or "") for page in reader.pages)
+    assert "Skis" in text
+    assert "TOTAL" in text
