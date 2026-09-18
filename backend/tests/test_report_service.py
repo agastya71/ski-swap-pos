@@ -102,6 +102,24 @@ def test_seller_payout_sums_sold_items(db, active_event, seller, sale, sold_item
     assert report.seller_code == "TST"
 
 
+def test_seller_payout_includes_price_adjustment_reason(db, active_event, seller, sale, sold_item):
+    """sale_item.notes — the cashier's price-adjustment reason — surfaces on
+    the payout SALES line; lines without notes come through as None."""
+    from app.services.reports import get_seller_payout
+    si = sale.sale_items[0]
+    si.notes = "Zipper broken - $5 off"
+    db.commit()
+    report = get_seller_payout(db, active_event.id, seller.id)
+    line = next(s for s in report.sales if s.item_code == "TST-002")
+    assert line.price_adjustment_reason == "Zipper broken - $5 off"
+
+    si.notes = None
+    db.commit()
+    report2 = get_seller_payout(db, active_event.id, seller.id)
+    line2 = next(s for s in report2.sales if s.item_code == "TST-002")
+    assert line2.price_adjustment_reason is None
+
+
 def test_seller_payout_excludes_voided(db, active_event, seller, voided_sale, available_item):
     from app.services.reports import get_seller_payout
     report = get_seller_payout(db, active_event.id, seller.id)

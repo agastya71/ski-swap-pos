@@ -374,4 +374,53 @@ describe("POSPage", () => {
     expect(screen.getByLabelText(/cash/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/check/i)).toBeInTheDocument();
   });
+
+  /** My Transactions: expanded lines surface the cashier's price-adjustment
+   *  reason (sale_item.notes) when one was recorded; lines without a reason
+   *  render no "Price adj." text. */
+  it("shows the price-adjustment reason on expanded My Transactions lines", async () => {
+    server.use(
+      http.get("/sales/mine", () =>
+        HttpResponse.json([
+          {
+            ...SALE,
+            sale_items: [
+              {
+                id: 11,
+                sale_id: 1,
+                item_id: 5,
+                item_code: "10003",
+                line_number: 1,
+                quantity: 1,
+                sell_price: 20,
+                extended_price: 20,
+                notes: "Zipper broken - $5 off",
+                created_at: "2026-04-04T10:00:00",
+              },
+              {
+                id: 12,
+                sale_id: 1,
+                item_id: 6,
+                item_code: "10004",
+                line_number: 2,
+                quantity: 1,
+                sell_price: 55,
+                extended_price: 55,
+                notes: null,
+                created_at: "2026-04-04T10:01:00",
+              },
+            ],
+          },
+        ]),
+      ),
+    );
+    renderPOS();
+    fireEvent.click(screen.getByRole("button", { name: /my transactions/i }));
+    await waitFor(() => screen.getByText(/Sale #1/));
+    fireEvent.click(screen.getByRole("button", { name: /transaction 1 details/i }));
+    expect(await screen.findByText(/Price adj.: Zipper broken - \$5 off/)).toBeInTheDocument();
+    // Only the adjusted line carries the reason label.
+    const reasonNodes = screen.getAllByText(/Price adj\.: /);
+    expect(reasonNodes).toHaveLength(1);
+  });
 });

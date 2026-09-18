@@ -101,6 +101,7 @@ def _build_seller_payout(db: Session, event: Event, seller: Seller) -> SellerPay
             quantity_sold=si.quantity,  # pyright: ignore[reportArgumentType]
             sell_price=si.sell_price,  # pyright: ignore[reportArgumentType]
             extended_price=si.extended_price,  # pyright: ignore[reportArgumentType]
+            price_adjustment_reason=si.notes,  # pyright: ignore[reportArgumentType]
             mysl_share=mysl_share,
             seller_share=seller_share,
             commission_rate=rate,  # pyright: ignore[reportArgumentType]

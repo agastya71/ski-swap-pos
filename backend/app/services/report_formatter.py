@@ -89,10 +89,10 @@ def _to_csv(report: BaseModel, filename_base: str) -> Response:
                     report.items_donated, report.gross_sales, report.seller_total])
         w.writerow([])
         w.writerow(["SALES", "item_code", "description", "date_of_sale", "quantity_sold",
-                    "sell_price", "extended_price", "due_seller", "commission_rate"])
+                    "sell_price", "extended_price", "price_adjustment_reason", "due_seller", "commission_rate"])
         for s in report.sales:
             w.writerow(["SALES", s.item_code, s.description, s.date_of_sale, s.quantity_sold,
-                        s.sell_price, s.extended_price, s.seller_share, s.commission_rate])
+                        s.sell_price, s.extended_price, s.price_adjustment_reason, s.seller_share, s.commission_rate])
         w.writerow([])
         w.writerow(["UNSOLD", "item_code", "description", "quantity", "remaining", "price",
                     "status", "donate_unsold"])
@@ -174,13 +174,14 @@ def _to_md(report: BaseModel, filename_base: str) -> Response:
             f"{report.items_donated} | ${report.gross_sales:.2f} | "
             f"${report.seller_total:.2f} |",
             "", "## Sales",
-            "| Item Code | Description | Date Sold | Qty | Sell Price | Extended | Due Seller | Rate |",
-            "|-----------|-------------|-----------|-----|------------|----------|------------|------|",
+            "| Item Code | Description | Date Sold | Qty | Sell Price | Extended | Adj. Reason | Due Seller | Rate |",
+            "|-----------|-------------|-----------|-----|------------|----------|-------------|------------|------|",
         ]
         for s in report.sales:
             when = s.date_of_sale.isoformat() if s.date_of_sale else "—"
             lines.append(f"| {s.item_code} | {s.description or ''} | {when} | {s.quantity_sold:G} | "
                          f"${s.sell_price:.2f} | ${s.extended_price:.2f} | "
+                         f"{s.price_adjustment_reason or ''} | "
                          f"${s.seller_share:.2f} | {s.commission_rate:.0%} |")
         lines += ["", "## Unsold Items",
                   "| Item Code | Description | Qty | Remaining | Price | Status | Donate if Unsold |",
@@ -355,9 +356,10 @@ def _to_pdf(report: BaseModel, filename_base: str) -> Response:
         # Shared column geometry: headers, data rows and page-break headers all
         # render through the same width list, so they can never drift apart.
         # Total width must stay within the printable page width (190mm on A4).
-        sales_cols = [("Item Code", 24), ("Description", 40), ("Date", 28),
-                      ("Qty", 10), ("Sell", 15), ("Total", 16),
-                      ("Due Seller", 20), ("Rate", 12)]
+        # fpdf cell() does NOT truncate — long reason text is clipped in code.
+        sales_cols = [("Item Code", 20), ("Description", 30), ("Date", 24),
+                      ("Qty", 8), ("Sell", 14), ("Total", 14),
+                      ("Adj. Reason", 30), ("Due Seller", 18), ("Rate", 10)]
 
         def _pdf_row(cells: list[str], bold: bool = False) -> None:
             if pdf.get_y() > 260:
@@ -373,11 +375,12 @@ def _to_pdf(report: BaseModel, filename_base: str) -> Response:
             when = s.date_of_sale.strftime("%Y-%m-%d") if s.date_of_sale else "—"
             _pdf_row([
                 _safe(s.item_code),
-                _safe((s.description or "")[:24]),
+                _safe((s.description or "")[:17]),
                 _safe(when),
                 f"{s.quantity_sold:G}",
                 f"${s.sell_price:.2f}",
                 f"${s.extended_price:.2f}",
+                _safe((s.price_adjustment_reason or "")[:20]),
                 f"${s.seller_share:.2f}",
                 f"{s.commission_rate:.0%}",
             ])
@@ -580,14 +583,14 @@ def _payout_xlsx_bytes(report: SellerPayoutReport) -> bytes:
 
     ws_sales = wb.create_sheet("Sales")
     ws_sales.append(["Item Code", "Description", "Date Sold", "Qty", "Sell Price",
-                     "Extended", "Due Seller", "Rate"])
+                     "Extended", "Adj. Reason", "Due Seller", "Rate"])
     for s in report.sales:
         ws_sales.append([s.item_code, s.description, s.date_of_sale, s.quantity_sold,
-                         s.sell_price, s.extended_price, s.seller_share,
-                         s.commission_rate])
+                         s.sell_price, s.extended_price, s.price_adjustment_reason,
+                         s.seller_share, s.commission_rate])
     ws_sales.append([])
     ws_sales.append(["Sales Total", "", "", "", "", round(report.gross_sales, 2),
-                     round(report.seller_total, 2)])
+                     "", round(report.seller_total, 2)])
 
     ws_unsold = wb.create_sheet("Unsold Items")
     ws_unsold.append(["Item Code", "Description", "Qty", "Remaining", "Price",

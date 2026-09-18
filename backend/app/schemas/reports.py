@@ -31,6 +31,10 @@ class SellerPayoutSaleLine(BaseModel):
     quantity_sold: float = Field(description="Units of the item sold in this transaction line.")
     sell_price: float = Field(description="Actual price at which the item was sold (per unit).")
     extended_price: float = Field(description="Quantity sold x sell price for this transaction line.")
+    price_adjustment_reason: Optional[str] = Field(
+        default=None,
+        description="Cashier's reason for selling below/above the listed price (sale_item.notes); None when the price was not adjusted.",
+    )
     mysl_share: float = Field(description="MYSL commission for this sale line.")
     seller_share: float = Field(description="Seller payout for this sale line.")
     commission_rate: float = Field(description="Commission rate applied to this sale line.")

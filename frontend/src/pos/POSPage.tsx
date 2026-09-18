@@ -468,6 +468,17 @@ export function POSPage() {
                             >
                               <td style={{ padding: "4px 6px" }}>
                                 {si.item_code ?? "—"}
+                                {si.notes && (
+                                  <div
+                                    style={{
+                                      fontSize: 11,
+                                      color: "#64748b",
+                                      marginTop: 2,
+                                    }}
+                                  >
+                                    Price adj.: {si.notes}
+                                  </div>
+                                )}
                               </td>
                               <td
                                 style={{
