@@ -285,3 +285,52 @@ same values apply on any OS with this printer and stock.
 3. LEDs (the ZD421 has no display): green diamond = ready; lit PAUSE =
    paused (press the Pause button or send `~PS` + `~JC` to recalibrate); red
    NETWORK = the unused Ethernet interface (irrelevant to USB printing).
+
+## 8. Event-day database reset (fresh start)
+
+After testing parties, create a clean "Event day" database — an EMPTY one with
+no demo data: schema at head, the **active event**, and one **bootstrap admin**;
+everything else (users, sellers, intakes, items, sales) is created fresh.
+
+The script refuses to run without `--yes`, refuses while the daemon is serving
+`swap.db`, and backs the old database up (`swap.db.bak-pre-event-<timestamp>`)
+before touching anything.
+
+**Why the event is created by the script:** `start.sh` seeds demo data whenever
+no active event exists. Creating the event in the script guarantees the demo
+seed can never fire on event day.
+
+1. Stop the daemon (it holds the SQLite file open):
+
+   ```bash
+   sudo systemctl stop ski-swap-pos
+   ```
+
+2. Run the reset (from `backend/`, with the venv python — adjust the event
+   values; omit `--admin-password` to have a strong random one generated and
+   printed once):
+
+   ```bash
+   .venv/bin/python scripts/prepare_event_db.py \
+       --event-name "MYSL Ski Swap 2026" --event-year 2026 \
+       --commission-rate 0.30 --vendor-commission-rate 0.25 \
+       --admin-username admin --yes
+   ```
+
+3. Start the daemon again:
+
+   ```bash
+   sudo systemctl start ski-swap-pos
+   ```
+
+   `start.sh` should log `Active event present — skipping seed.` — if it
+   instead seeds demo data, STOP and investigate (the event row was missing).
+4. Sign in as the bootstrap admin (the password the script printed), open
+   **Admin**, and create the event-day intake/cashier accounts (users are
+   event-scoped — they bind to the new event automatically).
+5. Spot-check: login works, `GET /events/active` returns the new event, and
+   the seller search is empty. Then intake begins.
+
+The script is `backend/scripts/prepare_event_db.py`; its tests live in
+`backend/tests/test_prepare_event_db.py` (they run against temp databases
+only — the live swap.db is never touched by tests).
