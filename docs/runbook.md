@@ -121,7 +121,7 @@ sudo systemctl disable --now ski-swap-pos   # stop + disable boot start
 `seed_demo.py` is idempotent and only runs automatically when no active event
 exists. It creates:
 
-- 1 active event: **Ski Swap 2026** (30% commission)
+- 1 active event: **TEST SWAP POS 2026** (30% commission)
 - 3 users, 15 sellers (12 individual + 3 vendor), 15 intakes, 83 items, 10 sales
 
 | Username   | Password     | Role    | Tabs visible             |
