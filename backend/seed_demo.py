@@ -12,8 +12,9 @@ What gets created:
   - 15 sellers: name-derived codes (EJOH1, ILAR1, …, NORD1) — 12 individual,
     3 vendor
   - 15 intakes: one per seller
-  - 83 items: 4–8 per seller, all categories, mix of statuses — item codes
-    combine the seller code with an unpadded sequence (EJOH11, EJOH12, …)
+  - 83 items: 4–8 per seller, all categories, mix of statuses — item ids are
+    numeric-only, five digits starting at 10000 assigned in list order
+    (10000, 10001, … 10082); seller codes stay alphanumeric (EJOH1, ILAR1, …)
   - 10 sales: Oct 4–5, cash / check / CC transactions
 """
 import os
@@ -297,9 +298,13 @@ try:
 
     items_by_code: dict[str, Item] = {}
     item_seller_code: dict[str, str] = {}  # code -> seller_code for sales lookup
-    for (seller_code, seq, category, brand, description, size, gender_age,
-         price, used, donate_unsold, status) in ITEMS:
-        code = f"{sellers_by_code[seller_code].code}{seq}"
+    for idx, (seller_code, seq, category, brand, description, size, gender_age,
+              price, used, donate_unsold, status) in enumerate(ITEMS):
+        # Numeric-only item ids (2026-09-18): five digits starting at 10000,
+        # assigned in ITEMS list order so re-running the seed is idempotent.
+        # (seq in the tuple is retained for data provenance but no longer used
+        # to build the code.)
+        code = str(10000 + idx)
         # pi-lens-ignore: python-sql-injection
         existing = db.query(Item).filter(Item.code == code).first()
         if existing:
@@ -333,7 +338,7 @@ try:
         created["items"] += 1
         items_by_code[code] = item
         # legacy internal key ("{seller_key}-{seq}") still used by the SALES
-        # data below — kept in sync with the actual (derived) code.
+        # data below — kept in sync with the actual (numeric) code.
         items_by_code[f"{seller_code}-{seq}"] = item
         item_seller_code[f"{seller_code}-{seq}"] = seller_code
     print(f"  Items: {created['items']} created, {skipped['items']} skipped")

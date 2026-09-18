@@ -36,7 +36,7 @@ from app.schemas.item import (
 )
 from app.services.brand_match import closest_brand
 from app.services.canonical import canonicalize_category, canonicalize_type
-from app.services.codes import next_item_seq, next_seller_code
+from app.services.codes import next_item_code, next_seller_code
 
 
 def parse_upload(filename: str, data: bytes) -> list[list[Any]]:
@@ -99,13 +99,11 @@ def _import_rows(
     """
     brands_pool = _existing_brands(db, seller)
 
-    # Item codes are globally-unique: seller code + an unpadded sequence
-    # number (e.g. "JSMI11"). The bump loop skips codes already taken by any
-    # seller (codes can be prefixes of one another); rows added below are
-    # tracked with a local counter because pending (uncommitted) rows are not
-    # visible to queries under autoflush=False.
-    prefix = f"{seller.code}"
-    seq = next_item_seq(db, seller)
+    # Item codes are numeric-only (2026-09-18): five digits starting at
+    # 10000, unique within the event database. Rows added below reserve their
+    # codes in a local set because pending (uncommitted) rows are not visible
+    # to queries under autoflush=False.
+    reserved: set[str] = set()
 
     errors: list[ImportRowError] = []
     imported = 0
@@ -175,7 +173,7 @@ def _import_rows(
         elif brand_str not in brands_pool:
             brands_pool.append(brand_str)  # later rows can match this newly-seen brand
 
-        item_code = f"{prefix}{seq}"
+        item_code = next_item_code(db, reserved)
         used = str(used_str).strip().lower() != "no" if used_str is not None else True
         # Inherit donate_unsold from the intake when the row leaves it blank.
         if donate_str is None or str(donate_str).strip() == "":
@@ -213,7 +211,7 @@ def _import_rows(
             donate_unsold=donate,
             created_by=username,
         ))
-        seq += 1
+        reserved.add(item_code)
         imported += 1
 
     db.commit()

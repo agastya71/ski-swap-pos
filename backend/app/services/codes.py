@@ -5,11 +5,14 @@ letters plus a globally-unique numeric suffix, e.g. Jane Smith -> "JSMI1",
 the next Jane/Joan/John Smith -> "JSMI2" (the suffix never resets or reuses,
 and is unique across ALL events, so item codes derived from it are unique too).
 
-Item codes combine the seller code and a sequence number with NO hyphen and
-NO leading zeros: Jane Smith's items are "JSMI11", "JSMI12", ... — at most
-10 characters (seller prefix <= 5 + up to 5-digit sequence).
-
-Names with no A-Z letters at all fall back to the prefix "GEN".
+Item codes are NUMERIC ONLY (2026-09-18 decision): five digits starting at
+10000, assigned sequentially upward (10000, 10001, … 99999) and unique within
+the event database — each event gets its own database with the same schema,
+so the counter is per-event by construction. Codes are auto-assigned at
+intake time (and by bulk import); seller codes remain alphanumeric. Items
+created before this change keep their legacy alphanumeric codes (no
+renumbering — printed labels stay valid); generation only bumps past codes
+that actually exist, so both schemes coexist.
 """
 
 from sqlalchemy.orm import Session
@@ -20,7 +23,11 @@ from app.models.seller import Seller
 _AZ = set("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 _FALLBACK_PREFIX = "GEN"
 
-__all__ = ["next_seller_code", "next_item_code", "next_item_seq", "seller_code_prefix"]
+# Numeric item ids: five digits, 10000..99999, sequential, unique per event DB.
+_NUMERIC_ITEM_START = 10000
+_NUMERIC_ITEM_END = 99999
+
+__all__ = ["next_seller_code", "next_item_code", "seller_code_prefix"]
 
 
 def _letters(value: str | None) -> str:
@@ -68,23 +75,33 @@ def next_seller_code(
     return f"{prefix}{n}"
 
 
-def next_item_seq(db: Session, seller: Seller) -> int:
-    """First unused item-code sequence number for the seller's code prefix."""
-    prefix = f"{seller.code}"
-    seq = 1
-    while db.query(Item.id).filter(Item.code == f"{prefix}{seq}").first() is not None:
-        seq += 1
-    return seq
+def _numeric_value(code: str) -> int | None:
+    """int() of a digit string, or None for anything non-numeric."""
+    try:
+        return int(code)
+    except ValueError:
+        return None
 
 
-def next_item_code(db: Session, seller: Seller) -> str:
-    """Globally-unique item code for a seller: seller code + sequence number.
+def next_item_code(db: Session, reserved: set[str] | None = None) -> str:
+    """Next numeric-only item code: five digits starting at 10000, going up.
 
-    The sequence starts at 1 with no leading zeros, and bumps past any code
-    already taken (including by other sellers whose codes extend this one as
-    a prefix, e.g. seller "JSMI1" vs "JSMI11"). Sees committed rows only; a
-    DB unique constraint on item.code remains the final backstop.
+    Unique within the event database (this single-DB query IS the per-event
+    scope; Phase G gives each event its own database file). Only committed
+    rows are visible — batch importers must pass every code generated so far
+    in the same uncommitted batch via ``reserved``. The DB unique constraint
+    on item.code remains the final backstop.
+
+    Raises ValueError when the five-digit space is exhausted (after 99999).
     """
-    prefix = f"{seller.code}"
-    seq = next_item_seq(db, seller)
-    return f"{prefix}{seq}"
+    codes = [str(c) for (c,) in db.query(Item.code).all() if c is not None]
+    numeric = [v for c in codes if (v := _numeric_value(c)) is not None]
+    n = max(numeric + [_NUMERIC_ITEM_START - 1]) + 1
+    taken = set(codes) | (reserved or set())
+    while n <= _NUMERIC_ITEM_END and str(n) in taken:
+        n += 1
+    if n > _NUMERIC_ITEM_END:
+        raise ValueError(
+            f"Numeric item ids exhausted: all codes {_NUMERIC_ITEM_START}-{_NUMERIC_ITEM_END} are taken"
+        )
+    return str(n)
