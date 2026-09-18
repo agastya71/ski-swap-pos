@@ -37,6 +37,24 @@ export const deactivateUser = (id: number) =>
   apiFetch<User>(`/users/${id}/deactivate`, { method: 'PATCH' })
 
 /**
+ * Permanently delete a user account (e.g. one created in error).
+ *
+ * Phase G: accounts live in the shared registry; deleting removes the row.
+ * Guards (backend-enforced): you cannot delete your own account, and you
+ * cannot delete the last active admin. Transaction history is unaffected
+ * (sales/items store `created_by` as a username string).
+ *
+ * @param id - Primary key of the user to delete.
+ * @returns The deleted account's id and username.
+ * @throws {ApiError} 404 if no user with the given ID exists.
+ * @throws {ApiError} 400 if the account is your own or the last active admin.
+ */
+export const deleteUser = (id: number) =>
+  apiFetch<{ deleted: number; username: string }>(`/users/${id}`, {
+    method: 'DELETE',
+  })
+
+/**
  * Admin resets another user's (or own) password.
  *
  * @param id - Primary key of the user whose password is being reset.

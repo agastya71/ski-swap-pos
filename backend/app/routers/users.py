@@ -85,3 +85,47 @@ def reset_user_password(
     user.password_hash = hash_password(body.new_password)  # pyright: ignore[reportAttributeAccessIssue]
     db.commit()
     return {"ok": True}
+
+
+@router.delete("/{user_id}", status_code=200)
+def delete_user(
+    user_id: int,
+    db: Session = Depends(get_registry_db),
+    admin: RegistryUser = Depends(require_roles("admin")),
+):
+    """Permanently delete a user account (e.g. one created in error).
+
+    Guards:
+      - You cannot delete your OWN account (that would lock you out).
+      - You cannot delete the LAST ACTIVE admin account (there must always be
+        a way to administer). Deactivate the account instead if it should
+        merely be disabled.
+
+    Transaction history is preserved: sales and items record ``created_by``
+    as a username STRING, so deleting the account never breaks past records.
+    """
+    user = (
+        db.query(RegistryUser)  # pi-lens-ignore: python-sql-injection
+        .filter(RegistryUser.id == user_id)
+        .first()
+    )
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if getattr(user, "id", 0) == getattr(admin, "id", 1):
+        raise HTTPException(status_code=400, detail="You cannot delete your own account")
+    if str(user.role) == "admin" and bool(user.is_active):
+        # pi-lens-ignore: python-sql-injection
+        active_admins = (
+            db.query(RegistryUser)
+            .filter_by(role="admin", is_active=True)
+            .count()
+        )
+        if active_admins <= 1:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot delete the last active admin account",
+            )
+    username = str(user.username)
+    db.delete(user)
+    db.commit()
+    return {"deleted": user_id, "username": username}

@@ -77,6 +77,20 @@ def _unique_filename(taken: set[str], name: str) -> str:
     return candidate
 
 
+def _parse_dt(value):
+    """sqlite3 returns DateTime columns as strings — parse for SQLAlchemy."""
+    from datetime import datetime
+
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(str(value))
+    except ValueError:
+        return None
+
+
 def _copy_sqlite(src_path: Path, dst_path: Path) -> None:
     """Consistent copy via the SQLite backup API (WAL-safe)."""
     src = sqlite3.connect(str(src_path))
@@ -178,7 +192,7 @@ def main() -> int:
                     vendor_commission_rate=float(e["vendor_commission_rate"]),
                     is_active=is_active,
                     db_filename=db_filename,
-                    created_at=e["created_at"],
+                    created_at=_parse_dt(e["created_at"]),
                 )
             )
 
@@ -197,7 +211,17 @@ def main() -> int:
                 )
             )
         reg_db.commit()
-    finally:
+    except Exception:
+        reg_db.rollback()
+        reg_db.close()
+        reg_engine.dispose()
+        # Remove the partial registry so a re-run can proceed cleanly.
+        for suffix in ("", "-wal", "-shm"):
+            p = Path(str(registry_path) + suffix)
+            if p.exists():
+                p.unlink()
+        raise
+    else:
         reg_db.close()
         reg_engine.dispose()
 
