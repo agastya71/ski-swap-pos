@@ -5,6 +5,7 @@
  */
 
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { vi } from 'vitest'
 import { server } from '../mocks/server'
 import { http, HttpResponse } from 'msw'
 import { UserManagement } from './UserManagement'
@@ -167,6 +168,36 @@ describe('UserManagement', () => {
     expect(roleSelect.value).toBe('cashier_intake')
     fireEvent.click(screen.getByRole('button', { name: /create user/i }))
     await waitFor(() => expect(screen.getByRole('dialog', { name: /created user combo1/i })).toBeInTheDocument())
+  })
+
+  /** Permanently deleting an account created in error removes its row. */
+  it('deletes a user after confirmation', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    server.use(
+      http.get('/users', () => HttpResponse.json(USERS)),
+      http.delete('/users/2', () => HttpResponse.json({ deleted: 2, username: 'intake1' })),
+    )
+    render(<UserManagement />)
+    await waitFor(() => screen.getByText('intake1'))
+    fireEvent.click(screen.getByRole('button', { name: /delete user intake1/i }))
+    await waitFor(() => expect(screen.queryByText('intake1')).not.toBeInTheDocument())
+    confirmSpy.mockRestore()
+  })
+
+  /** Backend guards (own account / last active admin) surface as errors. */
+  it('shows a backend error when the delete is rejected', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    server.use(
+      http.get('/users', () => HttpResponse.json(USERS)),
+      http.delete('/users/3', () =>
+        HttpResponse.json({ detail: 'You cannot delete your own account' }, { status: 400 }),
+      ),
+    )
+    render(<UserManagement />)
+    await waitFor(() => screen.getByText('cashier1'))
+    fireEvent.click(screen.getByRole('button', { name: /delete user cashier1/i }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(/you cannot delete your own account/i)
+    confirmSpy.mockRestore()
   })
 
 })

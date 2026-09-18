@@ -5,7 +5,7 @@
 
 import { useState, useEffect, type FormEvent } from "react";
 import { BUTTON_STYLE } from "../lib/buttons";
-import { getUsers, createUser, deactivateUser } from "../api/users";
+import { getUsers, createUser, deactivateUser, deleteUser } from "../api/users";
 import { generatePassword } from "../api/auth";
 import { ResetPasswordModal } from "./ResetPasswordModal";
 import { CreatedUserModal } from "./CreatedUserModal";
@@ -78,6 +78,24 @@ export function UserManagement() {
     setUsers((prev) => prev.map((u) => (u.id === id ? updated : u)));
   }
 
+  /** Permanently deletes an account created in error (confirm-gated; backend
+   *  guards: not your own account, not the last active admin). */
+  async function handleDelete(u: User) {
+    const ok = window.confirm(
+      `Delete user "${u.username}"? This permanently removes their login. ` +
+        "Their recorded transactions are kept. There is no undo.",
+    );
+    if (!ok) return;
+    setError(null);
+    try {
+      const result = await deleteUser(u.id);
+      setUsers((prev) => prev.filter((x) => x.id !== u.id));
+      window.alert(`Deleted "${result.username}".`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete user");
+    }
+  }
+
   return (
     <div>
       <h3>Users</h3>
@@ -110,11 +128,18 @@ export function UserManagement() {
                 {u.is_active && (
                   <button
                     onClick={() => handleDeactivate(u.id)}
-                    style={BUTTON_STYLE}
+                    style={{ ...BUTTON_STYLE, marginRight: 6 }}
                   >
                     Deactivate
                   </button>
                 )}
+                <button
+                  onClick={() => handleDelete(u)}
+                  style={BUTTON_STYLE}
+                  aria-label={`delete user ${u.username}`}
+                >
+                  Delete
+                </button>
               </td>
             </tr>
           ))}

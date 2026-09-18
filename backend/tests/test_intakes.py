@@ -197,32 +197,24 @@ def test_import_skips_rows_missing_price(client, active_event, admin_token):
     assert body["errors"][0]["row"] == 3
 
 
-def test_create_intake_no_active_event_returns_503(client, db):
-    from app.models.event import Event
-    from app.models.user import User
+def test_create_intake_no_active_event_returns_503(client, registry_db):
+    """No active event in the DATA database → POST /intakes returns 503."""
+    from app.models.registry import RegistryUser
     from app.services.auth import create_access_token, hash_password
 
-    # Create inactive event
-    event = Event(name="Old Event", year=2025, commission_rate=0.30, is_active=False)
-    db.add(event)
-    db.commit()
-    db.refresh(event)
-
-    # Create user for this event
-    user = User(
-        event_id=event.id,
+    user = RegistryUser(
         username="adminx",
         password_hash=hash_password("pw"),
         role="admin",
         is_active=True,
     )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
+    registry_db.add(user)
+    registry_db.commit()
+    registry_db.refresh(user)
 
     # getattr: model attrs are untyped Columns; returns Any -> analyzer-clean.
     token = create_access_token(
-        getattr(user, "id"), getattr(user, "username"), getattr(user, "role"), getattr(event, "id")
+        getattr(user, "id"), getattr(user, "username"), getattr(user, "role"), 0
     )
     resp = client.post(
         "/intakes",

@@ -11,6 +11,14 @@ from app.routers.admin import router as admin_router
 
 app = FastAPI(title="Ski Swap POS", version="1.0.0")
 
+# Phase G: bind the event-data engine to the registry's active event DB (if a
+# registry exists). No-op otherwise — legacy single-DB mode keeps DATABASE_URL.
+from app.database import resolve_active_event as _resolve_active_event
+
+_bound: str | None = _resolve_active_event()
+if _bound:
+    print(f"[events] active event DB: {_bound}")
+
 app.include_router(auth.router)
 app.include_router(events.router)
 app.include_router(users.router)

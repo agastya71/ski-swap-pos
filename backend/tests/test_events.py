@@ -1,3 +1,7 @@
+"""
+"""
+from app.models.registry import RegistryUser
+
 # ── POST /events ──────────────────────────────────────────────────────────────
 
 def test_create_event(client, admin_token):
@@ -58,25 +62,29 @@ def test_list_events_requires_admin(client, intake_token):
 
 # ── POST /events/{id}/activate ────────────────────────────────────────────────
 
-def test_activate_event_deactivates_others(client, admin_token, active_event, db):
-    from app.models.event import Event
-
-    new_event = Event(name="MYSL Swap 2027", year=2027, commission_rate=0.30, is_active=False)
-    db.add(new_event)
-    db.commit()
-    db.refresh(new_event)
+def test_activate_event_deactivates_others(client, admin_token, active_event, registry_db):
+    """Create a second event via the API, then activate it — the registry
+    deactivates the old one and the data engine rebinds to the new DB."""
+    create_resp = client.post(
+        "/events",
+        json={"name": "MYSL Swap 2027", "year": 2027, "commission_rate": 0.30},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert create_resp.status_code == 201
+    new_event = create_resp.json()
 
     response = client.post(
-        f"/events/{new_event.id}/activate",
+        f"/events/{new_event['id']}/activate",
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert response.status_code == 200
     data = response.json()
     assert data["is_active"] is True
-    assert data["id"] == new_event.id
+    assert data["id"] == new_event["id"]
+    assert data["db_filename"].endswith(".db")
 
-    # Previously active event should now be inactive
-    db.refresh(active_event)
+    # The previously active event is now inactive in the registry.
+    registry_db.refresh(active_event)
     assert active_event.is_active is False
 
 
@@ -115,29 +123,23 @@ def test_get_active_event_intake_user(client, intake_token, active_event):
     assert response.json()["id"] == active_event.id
 
 
-def test_get_active_event_none_configured(client, db):
-    """No ACTIVE event → 503 even if an inactive event exists (same contract as login)."""
-    from app.models.event import Event
-    from app.models.user import User
+def test_get_active_event_none_configured(client, registry_db):
+    """No ACTIVE event in the registry → 503 even if an inactive event exists."""
     from app.services.auth import create_access_token, hash_password
 
-    event = Event(name="Dormant 2024", year=2024, is_active=False)
-    db.add(event)
-    db.flush()
-    db.add(
-        User(
-            event_id=event.id,
-            username="dormant_admin",
-            password_hash=hash_password("pw"),
-            role="admin",
-            is_active=True,
-        )
+    admin = RegistryUser(
+        username="dormant_admin",
+        password_hash=hash_password("pw"),
+        role="admin",
+        is_active=True,
     )
-    db.commit()
+    registry_db.add(admin)
+    registry_db.commit()
+    registry_db.refresh(admin)
     # Plain values: create_access_token takes ints/strs, not Column proxies.
-    user_id = db.query(User.id).filter(User.username == "dormant_admin").scalar()
-    event_id = db.query(Event.id).filter(Event.name == "Dormant 2024").scalar()
-    token = create_access_token(user_id, "dormant_admin", "admin", event_id)
+    token = create_access_token(
+        admin.id, admin.username, admin.role, 0  # pyright: ignore[reportArgumentType]
+    )
 
     response = client.get("/events/active", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 503

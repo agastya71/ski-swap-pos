@@ -1,5 +1,6 @@
 import os
 import sys
+from pathlib import Path
 
 
 def _env_int(name: str, default: int) -> int:
@@ -57,6 +58,14 @@ LABEL_PRINTER_QUEUE: str = os.getenv("LABEL_PRINTER_QUEUE", "") or _LABEL_PRESET
 
 
 DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./swap.db")
+# Phase G (per-event databases): the REGISTRY holds the event catalogue + all
+# user accounts (shared across events); each event's data lives in its own
+# SQLite file under EVENTS_DIR. Both default cwd-relative like DATABASE_URL
+# (the daemon runs from backend/).
+REGISTRY_URL: str = os.getenv("REGISTRY_URL", "sqlite:///./registry.db")
+EVENTS_DIR: str = os.getenv(
+    "EVENTS_DIR", str(Path(__file__).resolve().parents[1] / "events")
+)
 JWT_SECRET: str = os.getenv("JWT_SECRET", "change-me-before-event-day")
 JWT_ALGORITHM: str = "HS256"
 JWT_EXPIRE_MINUTES: int = 480  # 8-hour shift

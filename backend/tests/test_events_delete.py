@@ -1,124 +1,72 @@
-"""Tests for DELETE /events/{id} — cascade deletion of an inactive event."""
+"""Tests for DELETE /events/{id} — Phase G registry semantics.
+
+An event's data lives in its own database file, so deleting an INACTIVE event
+removes the registry row and that event's database file (no cross-table
+cascade). Guards: the ACTIVE event cannot be deleted; the old
+caller-own-event lockout guard is obsolete (accounts are shared, not stored
+in event databases).
+"""
+
+from pathlib import Path
 
 import pytest
 
-from app.models.event import Event
-from app.models.intake import Intake
-from app.models.item import Item
-from app.models.sale import Sale
-from app.models.sale_item import SaleItem
-from app.models.seller import Seller
-from app.models.user import User
+from app.models.registry import RegistryEvent, RegistryUser
 from app.services.auth import create_access_token, hash_password
 
 
-@pytest.fixture
-def other_event(db):
-    """An inactive, deletable event distinct from the admin's active event."""
-    event = Event(name="Old Swap 2025", year=2025, commission_rate=0.30, is_active=False)
-    db.add(event)
-    db.commit()
-    db.refresh(event)
-    return event
-
-
-@pytest.fixture
-def other_event_data(db, other_event):
-    """Populate other_event with one of every cascade-able record type."""
-    seller = Seller(event_id=other_event.id, code="S25")
-    db.add(seller)
-    db.flush()
-    intake = Intake(seller_id=seller.id)
-    db.add(intake)
-    db.flush()
-    item = Item(intake_id=intake.id, seller_id=seller.id, code="ITM-25-1", price=10.0)
-    db.add(item)
-    sale = Sale(event_id=other_event.id)
-    db.add(sale)
-    db.flush()
-    db.add(
-        SaleItem(
-            sale_id=sale.id,
-            item_id=item.id,
-            sell_price=10.0,
-            extended_price=10.0,
-        )
-    )
-    db.add(
-        User(
-            event_id=other_event.id,
-            username="oldadmin",
-            password_hash=hash_password("pw"),
-            role="admin",
-            is_active=True,
-        )
-    )
-    db.commit()
-
-
-def _auth(token):
+def _auth(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
-def test_delete_inactive_event_cascades_all_records(
-    client, db, admin_token, active_event, other_event, other_event_data
+@pytest.fixture
+def other_event(registry_db):
+    """An inactive, deletable registry event distinct from the active event."""
+    event = RegistryEvent(
+        name="Old Swap 2025",
+        year=2025,
+        commission_rate=0.30,
+        vendor_commission_rate=0.30,
+        is_active=False,
+        db_filename="old_swap_2025.db",
+    )
+    registry_db.add(event)
+    registry_db.commit()
+    registry_db.refresh(event)
+    return event
+
+
+def test_delete_inactive_event_removes_registry_row_and_file(
+    client, registry_db, admin_token, active_event, other_event
 ):
+    # The event's database file exists (as it would after a real event).
+    import app.config as config
+    from pathlib import Path
+
+    db_file = Path(config.EVENTS_DIR) / str(other_event.db_filename)
+    db_file.write_bytes(b"stub")  # content is irrelevant; DELETE must remove it
+
     resp = client.delete(f"/events/{other_event.id}", headers=_auth(admin_token))
     assert resp.status_code == 200
     body = resp.json()
-    assert body["id"] == other_event.id
+    assert body["deleted"] == other_event.id
     assert body["name"] == "Old Swap 2025"
-    assert body["deleted"] == {
-        "sale_items": 1,
-        "sales": 1,
-        "items": 1,
-        "intakes": 1,
-        "sellers": 1,
-        "users": 1,
-    }
+    assert body["db_filename"] == "old_swap_2025.db"
 
-    # Everything belonging to the deleted event is gone.
-    assert db.query(Event).filter(Event.id == other_event.id).first() is None
-    assert db.query(SaleItem).all() == []
-    assert db.query(Sale).filter(Sale.event_id == other_event.id).first() is None
-    assert db.query(Item).all() == []
-    assert db.query(Intake).all() == []
-    assert db.query(Seller).filter(Seller.event_id == other_event.id).first() is None
-    assert db.query(User).filter(User.event_id == other_event.id).first() is None
+    # The registry row and the database file are gone.
+    # pi-lens-ignore: python-sql-injection
+    assert registry_db.query(RegistryEvent).filter(RegistryEvent.id == other_event.id).first() is None
+    assert not db_file.exists()
 
-    # The admin's active event (and its data) is untouched.
-    assert db.query(Event).filter(Event.id == active_event.id).first() is not None
+    # The admin's active event is untouched.
+    # pi-lens-ignore: python-sql-injection
+    assert registry_db.query(RegistryEvent).filter(RegistryEvent.id == active_event.id).first() is not None
 
 
 def test_delete_active_event_blocked(client, admin_token, active_event):
     resp = client.delete(f"/events/{active_event.id}", headers=_auth(admin_token))
     assert resp.status_code == 400
     assert "active" in resp.json()["detail"].lower()
-
-
-def test_delete_own_event_blocked(client, db, other_event):
-    """An admin cannot delete the event they belong to (would delete their own account)."""
-    user = User(
-        event_id=other_event.id,
-        username="oldadmin",
-        password_hash=hash_password("pw"),
-        role="admin",
-        is_active=True,
-    )
-    db.add(user)
-    db.commit()
-    # Plain values: create_access_token takes ints/strs, not Column proxies.
-    user_id = (
-        db.query(User.id)
-        .filter(User.username == "oldadmin", User.event_id == other_event.id)
-        .scalar()
-    )
-    token = create_access_token(user_id, "oldadmin", "admin", other_event.id)
-
-    resp = client.delete(f"/events/{other_event.id}", headers=_auth(token))
-    assert resp.status_code == 400
-    assert "logged into" in resp.json()["detail"].lower()
-    assert db.query(Event).filter(Event.id == other_event.id).first() is not None
 
 
 def test_delete_missing_event_returns_404(client, admin_token):

@@ -326,7 +326,12 @@ def test_payout_uses_individual_rate_for_non_vendor(
     client, admin_token, db, active_event, rpt_sale, rpt_seller
 ):
     """Non-vendor seller: payout uses commission_rate (0.30), NOT vendor rate (0.25)."""
-    active_event.vendor_commission_rate = 0.25
+    active_event.vendor_commission_rate = 0.25  # registry row
+    db.commit()
+    # The reports read the IN-DB event row — mirror the rate there (Phase G).
+    from app.models.event import Event as _Ev
+    ev_event = db.get(_Ev, active_event.id)
+    ev_event.vendor_commission_rate = 0.25  # pyright: ignore[reportAttributeAccessIssue]
     db.commit()
 
     resp = client.get(
@@ -349,7 +354,12 @@ def test_payout_uses_vendor_rate_for_vendor_seller(
     from app.models.sale import Sale
     from app.models.sale_item import SaleItem
 
-    active_event.vendor_commission_rate = 0.25
+    active_event.vendor_commission_rate = 0.25  # registry row
+    db.commit()
+    # The reports read the IN-DB event row — mirror the rate there (Phase G).
+    from app.models.event import Event as _Ev
+    ev_event = db.get(_Ev, active_event.id)
+    ev_event.vendor_commission_rate = 0.25  # pyright: ignore[reportAttributeAccessIssue]
     db.commit()
 
     vendor = Seller(

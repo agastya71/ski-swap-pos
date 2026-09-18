@@ -293,7 +293,12 @@ def test_seller_payout_vendor_rate_applied(db, active_event):
     from app.models.sale_item import SaleItem
     from app.services.reports import get_seller_payout
 
-    active_event.vendor_commission_rate = 0.25
+    active_event.vendor_commission_rate = 0.25  # registry row
+    db.commit()
+    # The reports read the IN-DB event row — mirror the rate there (Phase G).
+    from app.models.event import Event as _Ev
+    ev_event = db.get(_Ev, active_event.id)
+    ev_event.vendor_commission_rate = 0.25  # pyright: ignore[reportAttributeAccessIssue]
     db.commit()
     vendor = Seller(event_id=active_event.id, code="VND", first_name=None, last_name=None,
                     company="Vendor Co", is_vendor=True, created_by="admin")

@@ -1,7 +1,7 @@
 # Improvements Plan — 2026-09-18
 
 > Six workstreams from the 2026-09-18 request, phased for execution.
-> Status: **EXECUTING** — Q2–Q7 resolved 2026-09-18; **Q1 (label specifics) still OPEN, Phase F parked** until answered.
+> Status: **PHASES A–E MERGED (#99/#100/#101/#102/#104) · PHASE G IMPLEMENTED (this branch) · Phase F PARKED awaiting Q1 (label specifics).**
 > Resolved: A2 role name = `cashier_intake` (cashier+intake abilities, nothing admin) · A3 item codes = 5-digit numeric starting **10000**, sequential, auto-assigned at intake, unique per event DB, seller codes stay alphanumeric, existing items grandfathered (no renumber — 83 of 102 live items have printed labels that would be invalidated) · A4 = (a) payout reports + (b) My Transactions · A5 = per-vendor on demand, grouped by `item.category` · A6 = shared user-account registry; existing swap.db becomes the TEST SWAP POS 2026 event DB; storage `backend/events/<name>.db` · A7 = rename now.
 > Each phase = one feature branch → PR → (user approval) → merge → gates re-run on main.
 > Deploy conventions: frontend-only = `npm run build` (live immediately); backend = one
@@ -91,20 +91,15 @@
 - Blocked on Q1 answers. Changes land in `zpl.py` + `config.py` label constants + tests;
   every geometry change verified against the ZD421 (user visually confirms a live print).
 
-### Phase G — Per-event databases + admin-controlled active event
-- Architecture (per Q6a): each event = separate SQLite file with the SAME schema
-  (`backend/events/<slug>.db`), schema at alembic head; a small master registry (file or
-  registry DB) holds the active-event pointer; admin endpoint `POST /events/{id}/activate`
-  switches it for ALL users (cashiers/intake/combined included) — the app rebinds its
-  engine to the active event's DB.
-- `prepare_event_db.py` (PR #98) extended: create + register a new event DB instead of
-  replacing the single DB (backup-before-create retained).
-- `EventSetup.tsx`: create event (→ new DB file), set active (→ engine switch), show
-  which DB each event maps to.
-- `start.sh` / `config.py`: DATABASE_URL handling for the active-event DB; migrations
-  applied per event DB; backups cover `backend/events/*`.
-- Existing data migration path decided by Q6b.
-- Runbook § update; tests for switch-on-the-fly + bootstrap/lockout guards.
+### Phase G — Per-event databases + admin-controlled active event  ✅ IMPLEMENTED (this branch)
+- Registry DB (`backend/registry.db`, created lazily via `RegistryBase`): event catalogue (+ each event's `db_filename`) + ALL user accounts (shared; usernames globally unique). NOT alembic-managed.
+- Per-event DBs (`backend/events/<slug>.db`, same schema at alembic head): created by POST /events; the in-file event row mirrors the registry id (event_id semantics unchanged) and is the single active event of that file.
+- Engine rebind at runtime: activate → registry flags flip + data engine rebinds (all users, no re-login); boot binds via `resolve_active_event()` in main.py.
+- auth/users/events/admin-backup routers switched to the registry; data routers unchanged (per-file single event). Backup ZIP now includes a registry snapshot.
+- `scripts/bootstrap.py` (start.sh step 2): legacy single-DB mode when no registry; per-event alembic heads + repairs + seed-if-empty otherwise.
+- `scripts/migrate_to_registry.py`: one-time migration (daemon stopped) — builds the registry from swap.db and copies each event's data into its own file (source left as fallback).
+- seed_demo reworked (registry + event-DB sessions; smoke-tested + idempotent); runbook § 9 documents the layout; prepare_event_db superseded by in-app event creation.
+- Tests: conftest builds registry+event DB pairs per test; suite green (363 backend / 277 frontend); new delete semantics + activate/create-DB flows covered.
 
 ---
 

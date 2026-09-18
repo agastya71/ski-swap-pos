@@ -41,6 +41,8 @@ export interface Event {
  vendor_commission_rate: number;
  /** Whether this event is currently active and accepting transactions. */
  is_active: boolean;
+ /** Filename of this event's dedicated SQLite database (backend/events/, Phase G). */
+ db_filename: string;
 }
 
 /** Payload for creating a new swap event. */
@@ -66,8 +68,8 @@ export interface User {
  role: "admin" | "intake" | "cashier" | "cashier_intake";
  /** Whether this account is currently allowed to log in. */
  is_active: boolean;
- /** ID of the event this user account belongs to. */
- event_id: number;
+ /** Always null since Phase G — accounts are shared across events (the active event id rides on the JWT). */
+ event_id: number | null;
 }
 
 /** Payload for creating a new event user. */

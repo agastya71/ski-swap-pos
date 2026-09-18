@@ -334,3 +334,42 @@ seed can never fire on event day.
 The script is `backend/scripts/prepare_event_db.py`; its tests live in
 `backend/tests/test_prepare_event_db.py` (they run against temp databases
 only — the live swap.db is never touched by tests).
+
+## 9. Multi-event databases (Phase G, 2026-09-18)
+
+**Layout.** The app now runs on TWO kinds of SQLite databases:
+
+- `backend/registry.db` — the REGISTRY: the event catalogue (one row per
+  event, with that event's database filename) and ALL user accounts. Accounts
+  are shared across events; switching the active event never requires a
+  re-login. Created automatically on first use (not alembic-managed).
+- `backend/events/<slug>.db` — one database per event, same data schema (at
+  alembic head). The event's own `event` row inside the file carries the
+  registry's id, so every `event_id` reference keeps meaning.
+
+**Boot.** `start.sh` runs `backend/scripts/bootstrap.py` which:
+- no registry → legacy single-DB mode (alembic on `DATABASE_URL`, repairs,
+  seed-if-empty);
+- registry present → alembic head on EVERY registered event DB + idempotent
+  repairs + seed only when the registry has no events.
+
+At startup the app binds its data engine to the registry's ACTIVE event DB
+(prints `[events] active event DB: ...`).
+
+**Switching events.** Admin → Event Setup → Activate. `POST
+/events/{id}/activate` flips the registry flags and rebinds the data engine
+at runtime — the switch applies to ALL users (shared accounts). Creating an
+event (POST /events) also creates + migrates its database file.
+
+**One-time migration from the single-DB layout** (daemon stopped):
+
+    sudo systemctl stop ski-swap-pos
+    cd backend && .venv/bin/python scripts/migrate_to_registry.py --yes
+    sudo systemctl start ski-swap-pos
+
+The source file is left untouched as a fallback. Runbook § 8's
+`prepare_event_db.py` is superseded by in-app event creation (POST /events);
+its "reset" flow is retired for multi-event setups.
+
+**Backups.** `POST /admin/backup` now includes the ACTIVE event's database
+plus a `registry.db` snapshot in the ZIP.
