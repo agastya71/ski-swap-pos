@@ -32,6 +32,8 @@ from app.schemas.reports import (
     SellersPayoutsReport,
     UnsoldItem,
     UnsoldItemsReport,
+    VendorCategoryLine,
+    VendorEquipmentSummaryReport,
 )
 
 
@@ -188,6 +190,132 @@ def get_seller_payout(db: Session, event_id: int, seller_id: int) -> SellerPayou
     if not seller:
         raise HTTPException(status_code=404, detail="Seller not found in this event")
     return _build_seller_payout(db, event, seller)
+
+
+def get_vendor_equipment_summary(
+    db: Session, event_id: int, seller_id: int
+) -> VendorEquipmentSummaryReport:
+    """Summarise a VENDOR's sales grouped by equipment type (item.category).
+
+    Built for vendors who want, e.g., "how many skate skis did I sell": one
+    row per item category with units sold, gross revenue, MYSL/vendor shares
+    (vendor commission rate; donate-proceeds lines send everything to MYSL),
+    plus on-hand (unsold) units and their asking-price value. Admin generates
+    it on demand; vendors have no logins.
+
+    Args:
+        db: Active SQLAlchemy database session.
+        event_id: Primary key of the event to report on.
+        seller_id: Primary key of the vendor seller to report on.
+
+    Returns:
+        A populated ``VendorEquipmentSummaryReport`` with one row per
+        category (sorted by name) and a ``TOTAL`` grand-total row.
+
+    Raises:
+        HTTPException: 404 if the event or seller is not found.
+        HTTPException: 422 if the seller is not a vendor.
+    """
+    event = _get_event_or_404(db, event_id)
+    seller = db.query(Seller).filter(
+        Seller.id == seller_id, Seller.event_id == event.id
+    ).first()
+    if not seller:
+        raise HTTPException(status_code=404, detail="Seller not found in this event")
+    if not seller.is_vendor:  # pyright: ignore[reportGeneralTypeIssues]
+        raise HTTPException(status_code=422, detail="Seller is not a vendor")
+
+    # getattr() keeps pyright clean on ORM Column attributes (the
+    # established idiom in this codebase).
+    rate = getattr(event, "vendor_commission_rate", 0.30) or 0.30
+
+    items = (
+        db.query(Item)
+        .join(Seller)
+        .filter(Item.seller_id == seller.id, Seller.event_id == event.id,
+                Item.is_deleted.is_(False))
+        .all()
+    )
+    sale_items = (
+        db.query(SaleItem)
+        .join(Sale)
+        .join(Item, SaleItem.item_id == Item.id)
+        .options(
+            joinedload(SaleItem.item)
+            .joinedload(Item.intake)
+        )
+        .filter(Item.seller_id == seller.id, Sale.is_voided.is_(False))
+        .all()
+    )
+
+    def _display(category) -> str:
+        """Category label for grouping; '(uncategorized)' when blank."""
+        text = str(category) if category is not None else ""
+        return text if text.strip() else "(uncategorized)"
+
+    agg: dict[str, dict] = {}
+
+    def _bucket(category) -> dict:
+        return agg.setdefault(_display(category), {
+            "items": 0, "units_sold": 0.0, "gross": 0.0,
+            "mysl": 0.0, "seller": 0.0, "units_unsold": 0.0, "unsold_value": 0.0,
+        })
+
+    for it in items:
+        b = _bucket(getattr(it, "category", None))
+        remaining = getattr(it, "remaining", 0.0) or 0.0
+        price = getattr(it, "price", 0.0) or 0.0
+        b["items"] += 1
+        b["units_unsold"] += remaining
+        b["unsold_value"] += price * remaining
+    for si in sale_items:
+        b = _bucket(getattr(si.item, "category", None))
+        extended = getattr(si, "extended_price", 0.0) or 0.0
+        b["units_sold"] += getattr(si, "quantity", 0.0) or 0.0
+        b["gross"] += extended
+        donate = bool(getattr(si.item.intake, "donate_proceeds", False)) if si.item.intake is not None else False
+        if donate:
+            b["mysl"] += extended
+        else:
+            mysl = round(extended * rate, 2)
+            b["mysl"] += mysl
+            b["seller"] += extended - mysl
+
+    def _line(category: str, v: dict) -> VendorCategoryLine:
+        return VendorCategoryLine(
+            category=category,
+            items_consigned=v["items"],
+            units_sold=round(v["units_sold"], 2),
+            gross_sales=round(v["gross"], 2),
+            mysl_share=round(v["mysl"], 2),
+            seller_share=round(v["seller"], 2),
+            units_unsold=round(v["units_unsold"], 2),
+            unsold_value=round(v["unsold_value"], 2),
+        )
+
+    lines = [_line(cat, v) for cat, v in sorted(agg.items())]
+    total = _line("TOTAL", {
+        "items": sum(l.items_consigned for l in lines),
+        "units_sold": sum(l.units_sold for l in lines),
+        "gross": sum(l.gross_sales for l in lines),
+        "mysl": sum(l.mysl_share for l in lines),
+        "seller": sum(l.seller_share for l in lines),
+        "units_unsold": sum(l.units_unsold for l in lines),
+        "unsold_value": sum(l.unsold_value for l in lines),
+    })
+    company = getattr(seller, "company", None)
+    name = str(company) if company else f"{getattr(seller, 'first_name', '')} {getattr(seller, 'last_name', '')}".strip()
+    return VendorEquipmentSummaryReport(
+        event_id=getattr(event, "id", 0),  # pyright: ignore[reportArgumentType]
+        event_name=str(getattr(event, "name", "")),
+        seller_code=str(getattr(seller, "code", "")),
+        seller_name=name,
+        company=str(company) if company is not None else None,
+        vendor_commission_rate=rate,
+        categories=lines,
+        total=total,
+        generated_at=_now(),
+    )
 
 
 def get_all_seller_payouts(db: Session, event_id: int) -> SellersPayoutsReport:

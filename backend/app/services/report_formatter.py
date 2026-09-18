@@ -23,6 +23,7 @@ from app.schemas.reports import (
     EventRevenueReport,
     SellerPayoutReport,
     UnsoldItemsReport,
+    VendorEquipmentSummaryReport,
 )
 
 _VALID_FORMATS = {"json", "csv", "md", "pdf", "xlsx"}
@@ -127,6 +128,15 @@ def _to_csv(report: BaseModel, filename_base: str) -> Response:
                 w.writerow([t.cashier, t.sale_id, t.date_of_sale, t.items_count,
                             t.units_sold, t.sale_total, t.mysl_total, t.seller_total,
                             t.cash_amount, t.check_amount, t.cc_amount, t.is_voided])
+    elif isinstance(report, VendorEquipmentSummaryReport):
+        w.writerow(["category", "items_consigned", "units_sold", "gross_sales",
+                    "mysl_share", "seller_share", "units_unsold", "unsold_value"])
+        for l in report.categories:
+            w.writerow([l.category, l.items_consigned, l.units_sold, l.gross_sales,
+                        l.mysl_share, l.seller_share, l.units_unsold, l.unsold_value])
+        t = report.total
+        w.writerow([t.category, t.items_consigned, t.units_sold, t.gross_sales,
+                    t.mysl_share, t.seller_share, t.units_unsold, t.unsold_value])
     else:
         data = report.model_dump(mode="json")
         w.writerow(list(data.keys()))
@@ -190,6 +200,21 @@ def _to_md(report: BaseModel, filename_base: str) -> Response:
         for u in report.unsold_items:
             lines.append(f"| {u.item_code} | {u.description or ''} | {u.quantity:G} | {u.remaining:G} | "
                          f"${u.price:.2f} | {u.status} | {u.donate_unsold} |")
+    elif isinstance(report, VendorEquipmentSummaryReport):
+        lines += [
+            f"# Vendor Equipment Summary: {report.seller_name} ({report.seller_code})",
+            f"**Event:** {report.event_name}  ",
+            f"**Vendor commission:** {report.vendor_commission_rate:.0%}  ",
+            f"**Generated:** {report.generated_at.isoformat()}", "",
+            "| Category | Consigned | Units Sold | Gross | MYSL | Vendor Payout | Unsold Units | Unsold Value |",
+            "|----------|-----------|------------|-------|------|---------------|--------------|--------------|",
+        ]
+        for l in report.categories:
+            lines.append(f"| {l.category} | {l.items_consigned} | {l.units_sold:G} | ${l.gross_sales:.2f} | "
+                         f"${l.mysl_share:.2f} | ${l.seller_share:.2f} | {l.units_unsold:G} | ${l.unsold_value:.2f} |")
+        t = report.total
+        lines.append(f"| **TOTAL** | {t.items_consigned} | {t.units_sold:G} | ${t.gross_sales:.2f} | "
+                     f"${t.mysl_share:.2f} | ${t.seller_share:.2f} | {t.units_unsold:G} | ${t.unsold_value:.2f} |")
     elif isinstance(report, EventRevenueReport):
         lines += [
             f"# Event Revenue: {report.event_name}",
@@ -412,6 +437,48 @@ def _to_pdf(report: BaseModel, filename_base: str) -> Response:
                 str(u.donate_unsold),
             ])
 
+    elif isinstance(report, VendorEquipmentSummaryReport):
+        pdf.cell(0, 8, _safe(f"Vendor Equipment Summary: {report.seller_name} ({report.seller_code})"))
+        pdf.ln()
+        pdf.cell(0, 6, _safe(f"Event: {report.event_name}   Vendor commission: {report.vendor_commission_rate:.0%}"))
+        pdf.ln(6)
+        # Shared (header, width) geometry; total 178mm <= 190mm printable width.
+        vendor_cols = [("Category", 40), ("Consigned", 20), ("Sold", 16), ("Gross", 22),
+                       ("MYSL", 20), ("Vendor", 20), ("Unsold", 16), ("Unsold $", 24)]
+
+        def _vendor_row(cells: list[str], bold: bool = False) -> None:
+            if pdf.get_y() > 260:
+                pdf.add_page()
+                _vendor_row([hdr for hdr, _ in vendor_cols], bold=True)
+            pdf.set_font("Helvetica", "B" if bold else "", 9)
+            for text, (_, width) in zip(cells, vendor_cols):
+                pdf.cell(width, 6, text, border=1)
+            pdf.ln()
+
+        _vendor_row([hdr for hdr, _ in vendor_cols], bold=True)
+        for l in report.categories:
+            _vendor_row([
+                _safe(l.category[:24]),
+                str(l.items_consigned),
+                f"{l.units_sold:G}",
+                f"${l.gross_sales:.2f}",
+                f"${l.mysl_share:.2f}",
+                f"${l.seller_share:.2f}",
+                f"{l.units_unsold:G}",
+                f"${l.unsold_value:.2f}",
+            ])
+        t = report.total
+        _vendor_row([
+            "TOTAL",
+            str(t.items_consigned),
+            f"{t.units_sold:G}",
+            f"${t.gross_sales:.2f}",
+            f"${t.mysl_share:.2f}",
+            f"${t.seller_share:.2f}",
+            f"{t.units_unsold:G}",
+            f"${t.unsold_value:.2f}",
+        ], bold=True)
+        pdf.ln(6)
     elif isinstance(report, EventRevenueReport):
         pdf.cell(0, 8, _safe(f"Event Revenue: {report.event_name}"))
         pdf.ln()
@@ -621,6 +688,24 @@ def _to_xlsx(report: BaseModel, filename_base: str) -> Response:
 
     if isinstance(report, SellerPayoutReport):
         content = _payout_xlsx_bytes(report)
+    elif isinstance(report, VendorEquipmentSummaryReport):
+        ws.append(["Vendor Equipment Summary"])
+        ws.append(["Vendor", f"{report.seller_name} ({report.seller_code})"])
+        ws.append(["Event", report.event_name])
+        ws.append(["Vendor commission", report.vendor_commission_rate])
+        ws.append([])
+        ws.append(["Category", "Consigned", "Units Sold", "Gross", "MYSL",
+                   "Vendor Payout", "Unsold Units", "Unsold $"])
+        for l in report.categories:
+            ws.append([l.category, l.items_consigned, l.units_sold, l.gross_sales,
+                       l.mysl_share, l.seller_share, l.units_unsold, l.unsold_value])
+        t = report.total
+        ws.append([t.category, t.items_consigned, t.units_sold, t.gross_sales,
+                   t.mysl_share, t.seller_share, t.units_unsold, t.unsold_value])
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        content = buf.getvalue()
     else:
         data = report.model_dump(mode="json")
         ws.append(list(data.keys()))

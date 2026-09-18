@@ -163,6 +163,37 @@ class UnsoldItemsReport(BaseModel):
     generated_at: datetime = Field(description="UTC timestamp when this report was generated.")
 
 
+class VendorCategoryLine(BaseModel):
+    """Aggregated per-equipment-type row of a vendor's equipment summary."""
+
+    category: str = Field(description="Equipment type (item.category); '(uncategorized)' when blank.")
+    items_consigned: int = Field(description="Distinct items consigned in this category.")
+    units_sold: float = Field(description="Units sold in this category.")
+    gross_sales: float = Field(description="Extended-price revenue for this category.")
+    mysl_share: float = Field(description="MYSL commission for this category (donate-proceeds lines send everything to MYSL).")
+    seller_share: float = Field(description="Vendor payout for this category.")
+    units_unsold: float = Field(description="Units still on hand (remaining) in this category.")
+    unsold_value: float = Field(description="Asking-price value of the on-hand units.")
+
+
+class VendorEquipmentSummaryReport(BaseModel):
+    """Per-vendor sales summary grouped by equipment type (item.category).
+
+    Generated on demand by an admin for a VENDOR seller — e.g. "how many
+    skate skis did they sell". Refuses non-vendor sellers (422).
+    """
+
+    event_id: int = Field(description="ID of the event this report covers.")
+    event_name: str = Field(description="Human-readable name of the event.")
+    seller_code: str = Field(description="Unique alphanumeric code identifying the vendor.")
+    seller_name: str = Field(description="Full name of the vendor (company for vendor sellers).")
+    company: Optional[str] = Field(default=None, description="Company name for vendor sellers.")
+    vendor_commission_rate: float = Field(description="Commission rate applied to this vendor's sales.")
+    categories: list[VendorCategoryLine] = Field(description="One row per equipment type, sorted by category name.")
+    total: VendorCategoryLine = Field(description="Grand totals across all categories (category='TOTAL').")
+    generated_at: datetime = Field(description="UTC timestamp when this report was generated.")
+
+
 class EndOfDayReport(BaseModel):
     """Cumulative event sales summary stamped with the date the report was generated."""
 
