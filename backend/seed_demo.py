@@ -24,10 +24,20 @@ from datetime import date, datetime
 # Allow running from repo root as well as backend/
 sys.path.insert(0, os.path.dirname(__file__))
 
-from app.database import SessionLocal, engine, Base
-from sqlalchemy import text
-from app.models.event import Event
-from app.models.user import User
+from pathlib import Path
+
+from sqlalchemy import create_engine, event as sa_event, text
+from sqlalchemy.orm import sessionmaker
+
+from app.database import (
+    RegistryBase,
+    _set_sqlite_pragmas,
+    _sqlite_connect_args,
+    create_event_db,
+    slugify,
+    event_db_file,
+)
+from app.models.registry import RegistryEvent, RegistryUser
 from app.models.seller import Seller
 from app.models.intake import Intake
 from app.models.item import Item
@@ -36,62 +46,105 @@ from app.models.sale_item import SaleItem
 from app.services.auth import hash_password
 from app.services.codes import next_seller_code
 
-# Ensure all tables exist (no-op if Alembic already created them)
-import app.models.event      # noqa: F401
-import app.models.user       # noqa: F401
-import app.models.seller     # noqa: F401
-import app.models.intake     # noqa: F401
-import app.models.item       # noqa: F401
-import app.models.sale       # noqa: F401
-import app.models.sale_item  # noqa: F401
-Base.metadata.create_all(bind=engine)
+BACKEND_DIR = Path(__file__).resolve().parent
+
+def _unique_seed_filename(reg_db, name: str) -> str:
+    """Registry-unique slug filename for the seed event's database."""
+    base = slugify(name)
+    candidate = f"{base}.db"
+    n = 1
+    while (
+        # pi-lens-ignore: python-sql-injection
+        reg_db.query(RegistryEvent)
+        .filter(RegistryEvent.db_filename == candidate)
+        .first()
+        is not None
+    ):
+        n += 1
+        candidate = f"{base}{n}.db"
+    return candidate
+
+
+def _sqlite_engine(path: str):
+    """Engine with the app's pragmas for a standalone seed session."""
+    eng = create_engine(f"sqlite:///{path}", connect_args=_sqlite_connect_args())
+    sa_event.listens_for(eng, "connect")(_set_sqlite_pragmas)
+    return eng
+
+# Phase G: the REGISTRY (event catalogue + shared accounts) and the event's
+# own database file are ensured below; sellers/intakes/items/sales go into
+# the event database, users/event rows into the registry.
 
 # ── counters ────────────────────────────────────────────────────────────────
 created = {"events": 0, "users": 0, "sellers": 0, "intakes": 0, "items": 0, "sales": 0}
 skipped = {"events": 0, "users": 0, "sellers": 0, "intakes": 0, "items": 0, "sales": 0}
 
-db = SessionLocal()
+# ── REGISTRY: event catalogue + shared accounts ────────────────────────────
+import app.config as _cfg
+reg_engine = _sqlite_engine(_cfg.REGISTRY_URL.replace("sqlite:///", "", 1))
+import app.models.registry  # noqa: F401  (register registry tables)
+RegistryBase.metadata.create_all(reg_engine)
+reg_db = sessionmaker(autocommit=False, autoflush=False, bind=reg_engine)()
+
+db = reg_db
 try:
     # ── 1. Event ────────────────────────────────────────────────────────────
     EVENT_NAME      = "TEST SWAP POS 2026"
     COMMISSION_RATE = 0.30
 
     # pi-lens-ignore: python-sql-injection
-    event = db.query(Event).filter(Event.name == EVENT_NAME).first()
+    event = reg_db.query(RegistryEvent).filter(RegistryEvent.name == EVENT_NAME).first()
     if not event:
-        event = Event(name=EVENT_NAME, year=2026, commission_rate=COMMISSION_RATE, is_active=True)
-        db.add(event)
-        db.commit()
-        db.refresh(event)
+        db_filename = _unique_seed_filename(reg_db, EVENT_NAME)
+        event = RegistryEvent(
+            name=EVENT_NAME, year=2026, commission_rate=COMMISSION_RATE,
+            is_active=True, db_filename=db_filename,
+        )
+        reg_db.add(event)
+        reg_db.flush()  # fix the registry id before the file is created
+        create_event_db(
+            db_filename,
+            event_id=int(getattr(event, "id", 0)),
+            name=EVENT_NAME,
+            year=2026,
+            commission_rate=COMMISSION_RATE,
+            vendor_commission_rate=COMMISSION_RATE,
+        )
+        reg_db.commit()
+        reg_db.refresh(event)
         created["events"] += 1
-        print(f"  [+] Event: {event.name} (id={event.id})")
+        print(f"  [+] Event: {event.name} (id={event.id}, db={db_filename})")
     else:
         skipped["events"] += 1
         print(f"  [=] Event exists: {event.name} (id={event.id})")
         if not event.is_active:  # pyright: ignore[reportGeneralTypeIssues]
             event.is_active = True  # pyright: ignore[reportAttributeAccessIssue]
-            db.commit()  # pyright: ignore[reportAttributeAccessIssue]
+            reg_db.commit()  # pyright: ignore[reportAttributeAccessIssue]
+    event_id = int(getattr(event, "id", 0))
+
+    # ── 1b. The event's own database (data session) ─────────────────────────
+    ev_engine = _sqlite_engine(event_db_file(str(event.db_filename)))  # pyright: ignore[reportArgumentType]
+    db = sessionmaker(autocommit=False, autoflush=False, bind=ev_engine)()
 
     # ── 2. Users ─────────────────────────────────────────────────────────────
-    def _ensure_user(username: str, password: str, role: str) -> User:
+    def _ensure_user(username: str, password: str, role: str) -> RegistryUser:
         # pi-lens-ignore: python-sql-injection
-        existing = db.query(User).filter(
-            User.event_id == event.id, User.username == username  # pyright: ignore[reportOptionalMemberAccess]
+        existing = reg_db.query(RegistryUser).filter(
+            RegistryUser.username == username
         ).first()
         if existing:
             skipped["users"] += 1
             print(f"  [=] User exists: {username}")
             return existing
-        u = User(
-            event_id=event.id,  # pyright: ignore[reportOptionalMemberAccess]
+        u = RegistryUser(
             username=username,
             password_hash=hash_password(password),
             role=role,
             is_active=True,
         )
-        db.add(u)
-        db.commit()
-        db.refresh(u)
+        reg_db.add(u)
+        reg_db.commit()
+        reg_db.refresh(u)
         created["users"] += 1
         print(f"  [+] User: {username} / {password}  ({role})")
         return u
@@ -126,7 +179,7 @@ try:
     for (code, first, last, phone, email, is_vendor, company) in SELLERS:
         # pi-lens-ignore: python-sql-injection
         existing = db.query(Seller).filter(
-            Seller.event_id == event.id,
+            Seller.event_id == event_id,
             Seller.first_name == first,
             Seller.last_name == last,
         ).first()
@@ -135,7 +188,7 @@ try:
             sellers_by_code[code] = existing
             continue
         s = Seller(
-            event_id=event.id,
+            event_id=event_id,
             code=next_seller_code(db, first, last, company, is_vendor),
             first_name=first,
             last_name=last,
@@ -354,14 +407,14 @@ try:
 
     # pi-lens-ignore: python-sql-injection
     seed_sale_exists = db.query(Sale).filter(
-        Sale.event_id == event.id,
+        Sale.event_id == event_id,
         Sale.created_by == "seed_demo",
     ).first()
 
     if seed_sale_exists:
         # pi-lens-ignore: python-sql-injection
         n = db.query(Sale).filter(
-            Sale.event_id == event.id, Sale.created_by == "seed_demo"
+            Sale.event_id == event_id, Sale.created_by == "seed_demo"
         ).count()
         skipped["sales"] = n
         print(f"  Sales: 0 created, {n} skipped (already seeded)")
@@ -409,7 +462,7 @@ try:
             )
 
             sale = Sale(
-                event_id=event.id,
+                event_id=event_id,
                 # date_of_sale is a DateTime column — must be a datetime, not a
                 # date. Passing date(...) made SQLite store the bare year (2026)
                 # as an integer, which crashes SQLAlchemy's datetime parser on

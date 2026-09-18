@@ -66,18 +66,16 @@ export function EventSetup() {
   /** Deletes an inactive event (with confirmation) and refreshes the list. */
   async function handleDelete(ev: Event) {
     const ok = window.confirm(
-      `Delete event "${ev.name}" (${ev.year})? This PERMANENTLY removes all of its ` +
-        "sales, items, intakes, sellers, and user accounts. There is no undo.",
+      `Delete event "${ev.name}" (${ev.year})? This PERMANENTLY removes its ` +
+        "entire database file (all sales, items, intakes, and sellers). There is no undo.",
     );
     if (!ok) return;
     setError(null);
     try {
       const result = await deleteEvent(ev.id);
-      const counts = Object.entries(result.deleted).flatMap(([type, n]) =>
-        n > 0 ? [`${n} ${type}`] : [],
+      window.alert(
+        `Deleted "${result.name}" and its database file (${result.db_filename}).`,
       );
-      if (counts.length > 0)
-        window.alert(`Deleted "${result.name}" (${counts.join(", ")}).`);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete event");

@@ -11,7 +11,7 @@ def test_create_user(client, admin_token, active_event):
     assert data["username"] == "newcashier"
     assert data["role"] == "cashier"
     assert data["is_active"] is True
-    assert data["event_id"] == active_event.id
+    assert data["event_id"] is None  # Phase G: accounts are event-agnostic
     assert "password" not in data
     assert "password_hash" not in data
 
@@ -46,36 +46,32 @@ def test_create_user_duplicate_username(client, admin_token, active_event, admin
     assert response.status_code == 409
 
 
-def test_create_user_no_active_event(client, db):
-    from app.models.event import Event
-    from app.models.user import User
+def test_create_user_works_without_active_event(client, registry_db):
+    """Phase G: user accounts live in the registry and do NOT require an
+    active event — an admin token whose event_id claim is 0 still works."""
+    from app.models.registry import RegistryUser
     from app.services.auth import create_access_token, hash_password
 
-    inactive_event = Event(name="Old Swap", year=2020, commission_rate=0.30, is_active=False)
-    db.add(inactive_event)
-    db.commit()
-    db.refresh(inactive_event)
-
-    orphan_admin = User(
-        event_id=inactive_event.id,
+    admin = RegistryUser(
         username="orphan",
-        password_hash=hash_password("x"),
+        password_hash=hash_password("Str0ng!pw"),
         role="admin",
         is_active=True,
     )
-    db.add(orphan_admin)
-    db.commit()
-    db.refresh(orphan_admin)
+    registry_db.add(admin)
+    registry_db.commit()
+    registry_db.refresh(admin)
 
     token = create_access_token(
-        orphan_admin.id, orphan_admin.username, orphan_admin.role, inactive_event.id  # pyright: ignore[reportArgumentType]
+        admin.id, admin.username, admin.role, 0  # no active event claim  # pyright: ignore[reportArgumentType]
     )
     response = client.post(
         "/users",
         json={"username": "x", "password": "Str0ng!pw", "role": "cashier"},
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert response.status_code == 503
+    assert response.status_code == 201
+    assert response.json()["username"] == "x"
 
 
 def test_create_user_requires_admin(client, cashier_token, active_event):
@@ -133,38 +129,6 @@ def test_deactivate_user_requires_admin(client, cashier_token, admin_user):
     )
     assert response.status_code == 403
 
-
-def test_deactivate_user_from_other_event_returns_404(client, admin_token, db):
-    from app.models.event import Event
-    from app.models.user import User
-    from app.services.auth import hash_password
-
-    # Create a user in a different (inactive) event
-    other_event = Event(name="Old Swap", year=2019, commission_rate=0.30, is_active=False)
-    db.add(other_event)
-    db.commit()
-    db.refresh(other_event)
-
-    other_user = User(
-        event_id=other_event.id,
-        username="olduser",
-        password_hash=hash_password("x"),
-        role="cashier",
-        is_active=True,
-    )
-    db.add(other_user)
-    db.commit()
-    db.refresh(other_user)
-
-    # Admin of active event cannot deactivate user from inactive event
-    response = client.patch(
-        f"/users/{other_user.id}/deactivate",
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
-    assert response.status_code == 404
-
-
-# ── password complexity policy ────────────────────────────────────────────────
 
 def test_create_user_weak_password_is_422(client, admin_token, active_event):
     for weak in ("short", "alllowercase1!", "NoDigits!!", "nouppercase1!", "SPECIALSNO"):

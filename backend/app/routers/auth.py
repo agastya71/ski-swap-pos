@@ -3,10 +3,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.database import get_db
+from app.database import get_registry_db
 from app.dependencies import get_current_user
-from app.models.event import Event
-from app.models.user import User
+from app.models.registry import RegistryEvent, RegistryUser
 from app.schemas.auth import LoginRequest, PasswordChange, TokenResponse
 from app.services.auth import create_access_token, generate_password, hash_password, verify_password
 
@@ -18,18 +17,26 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(body: LoginRequest, db: Session = Depends(get_db)):
-    """Authenticate a user and return a signed JWT access token."""
-    event = db.query(Event).filter(Event.is_active == True).first()
+def login(body: LoginRequest, db: Session = Depends(get_registry_db)):
+    """Authenticate a user and return a signed JWT access token.
+
+    Phase G: accounts live in the shared REGISTRY (valid across all events);
+    login still requires an active event (the POS is unusable without one) and
+    the token's event_id claim records the active event at login time.
+    """
+    event = (
+        db.query(RegistryEvent)
+        .filter(RegistryEvent.is_active == True)  # noqa: E712  (SQLAlchemy idiom)
+        .first()
+    )
     if not event:
         raise HTTPException(status_code=503, detail="No active event configured")
 
     user = (
-        db.query(User)
+        db.query(RegistryUser)
         .filter(
-            User.event_id == event.id,
-            User.username == body.username,
-            User.is_active == True,
+            RegistryUser.username == body.username,
+            RegistryUser.is_active == True,  # noqa: E712  (SQLAlchemy idiom)
         )
         .first()
     )
@@ -42,18 +49,28 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
 
     # Column attrs are runtime scalars (untyped Column declarations) — the
     # argument-type flags are static-analysis artifacts of that idiom.
-    token = create_access_token(user.id, user.username, user.role, user.event_id)  # pyright: ignore[reportArgumentType]
-    return TokenResponse(access_token=token, role=user.role, event_id=user.event_id)  # pyright: ignore[reportArgumentType]
+    token = create_access_token(user.id, user.username, user.role, event.id)  # pyright: ignore[reportArgumentType]
+    return TokenResponse(access_token=token, role=user.role, event_id=event.id)  # pyright: ignore[reportArgumentType]
 
 
 @router.get("/me")
-def me(user: User = Depends(get_current_user)):
+def me(user: RegistryUser = Depends(get_current_user), db: Session = Depends(get_registry_db)):
     """Return the identity and role of the currently authenticated user."""
-    return {"id": user.id, "username": user.username, "role": user.role, "event_id": user.event_id}
+    event = (
+        db.query(RegistryEvent)
+        .filter(RegistryEvent.is_active == True)  # noqa: E712  (SQLAlchemy idiom)
+        .first()
+    )
+    return {
+        "id": user.id,
+        "username": user.username,
+        "role": user.role,
+        "event_id": event.id if event else None,
+    }
 
 
 @router.get("/generate-password")
-def suggest_password(_user: User = Depends(get_current_user)):
+def suggest_password(_user: RegistryUser = Depends(get_current_user)):
     """Return a suggested password that satisfies the complexity policy.
 
     Used by the UI to prefill a compliant default when creating a user or
@@ -65,8 +82,8 @@ def suggest_password(_user: User = Depends(get_current_user)):
 @router.post("/change-password", status_code=200)
 def change_password(
     body: PasswordChange,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: RegistryUser = Depends(get_current_user),
+    db: Session = Depends(get_registry_db),
 ):
     """Let an authenticated user change their own password.
 

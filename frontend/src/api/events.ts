@@ -58,7 +58,7 @@ export const activateEvent = (id: number) =>
  * @throws {ApiError} 401 if the session token is invalid.
  */
 export const deleteEvent = (id: number) =>
- apiFetch<{ id: number; name: string; deleted: Record<string, number> }>(
+ apiFetch<{ deleted: number; name: string; db_filename: string }>(
   `/events/${id}`,
   { method: "DELETE" },
  );

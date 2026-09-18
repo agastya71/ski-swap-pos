@@ -19,6 +19,7 @@ const EVENTS: Event[] = [
     commission_rate: 0.3,
     vendor_commission_rate: 0.3,
     is_active: false,
+    db_filename: "swap_stub.db",
   },
   {
     id: 2,
@@ -27,6 +28,7 @@ const EVENTS: Event[] = [
     commission_rate: 0.3,
     vendor_commission_rate: 0.25,
     is_active: true,
+    db_filename: "swap_stub.db",
   },
 ];
 const NEW_EVENT: Event = {
@@ -36,6 +38,7 @@ const NEW_EVENT: Event = {
   commission_rate: 0.3,
   vendor_commission_rate: 0.3,
   is_active: false,
+  db_filename: "swap_stub.db",
 };
 
 /** EventSetup admin panel — event list display, creation, activation, and error handling. */

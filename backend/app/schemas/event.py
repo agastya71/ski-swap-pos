@@ -25,11 +25,15 @@ class EventCreate(BaseModel):
 
 
 class EventResponse(BaseModel):
-    """Read-only representation of an event record returned by the API."""
+    """Read-only representation of an event record returned by the API.
+
+    Phase G: events live in the registry; ``db_filename`` names the event's
+    dedicated SQLite file under ``backend/events/``.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: int = Field(description="Auto-generated primary key for the event.")
+    id: int = Field(description="Auto-generated primary key for the event (mirrored as event.id inside its own database).")
     name: str = Field(description="Human-readable name for the event.")
     year: int = Field(description="Calendar year in which the event takes place.")
     commission_rate: float = Field(
@@ -39,4 +43,5 @@ class EventResponse(BaseModel):
         description="Fraction of each sale retained by MYSL for vendor sellers."
     )
     is_active: bool = Field(description="Whether this event is the currently active swap event.")
+    db_filename: str = Field(description="Filename of this event's dedicated SQLite database (under backend/events/).")
     created_at: datetime = Field(description="UTC timestamp when the event record was created.")
