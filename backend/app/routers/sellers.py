@@ -20,7 +20,7 @@ from app.services.codes import next_seller_code
 
 router = APIRouter(prefix="/sellers", tags=["sellers"])
 
-_INTAKE_ADMIN = require_roles("admin", "intake")
+_INTAKE_ADMIN = require_roles("admin", "intake", "cashier_intake")
 
 
 def _active_event(db: Session) -> Event:

@@ -12,8 +12,8 @@ class UserCreate(BaseModel):
 
     username: str = Field(description="Unique login name for the user.")
     password: str = Field(description="Plaintext password that will be hashed before storage. Must meet the complexity policy.")
-    role: Literal["admin", "intake", "cashier"] = Field(
-        description="Role assigned to the user, controlling which operations they may perform."
+    role: Literal["admin", "intake", "cashier", "cashier_intake"] = Field(
+        description="Role assigned to the user, controlling which operations they may perform. 'cashier_intake' combines the cashier and intake permission sets (no admin powers)."
     )
 
     @field_validator("password")

@@ -17,7 +17,7 @@ def test_create_user(client, admin_token, active_event):
 
 
 def test_create_user_all_roles(client, admin_token, active_event):
-    for role in ("admin", "intake", "cashier"):
+    for role in ("admin", "intake", "cashier", "cashier_intake"):
         response = client.post(
             "/users",
             json={"username": f"user_{role}", "password": "Str0ng!pw", "role": role},
@@ -68,7 +68,7 @@ def test_create_user_no_active_event(client, db):
     db.refresh(orphan_admin)
 
     token = create_access_token(
-        orphan_admin.id, orphan_admin.username, orphan_admin.role, inactive_event.id
+        orphan_admin.id, orphan_admin.username, orphan_admin.role, inactive_event.id  # pyright: ignore[reportArgumentType]
     )
     response = client.post(
         "/users",

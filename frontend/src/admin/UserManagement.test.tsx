@@ -153,4 +153,20 @@ describe('UserManagement', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: /created user newcashier/i })).not.toBeInTheDocument())
   })
 
+  /** The combined cashier_intake role is selectable and sent on creation. */
+  it('offers the combined cashier_intake role when creating a user', async () => {
+    server.use(
+      http.get('/users', () => HttpResponse.json(USERS)),
+      http.post('/users', () => HttpResponse.json({ id: 4, username: 'combo1', role: 'cashier_intake', is_active: true, event_id: 1 })),
+    )
+    render(<UserManagement />)
+    await waitFor(() => screen.getByText('admin1'))
+    fireEvent.change(screen.getByLabelText(/username/i), { target: { value: 'combo1' } })
+    const roleSelect = screen.getByLabelText(/role/i) as HTMLSelectElement
+    fireEvent.change(roleSelect, { target: { value: 'cashier_intake' } })
+    expect(roleSelect.value).toBe('cashier_intake')
+    fireEvent.click(screen.getByRole('button', { name: /create user/i }))
+    await waitFor(() => expect(screen.getByRole('dialog', { name: /created user combo1/i })).toBeInTheDocument())
+  })
+
 })

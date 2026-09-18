@@ -44,9 +44,9 @@ def test_token_for_deactivated_user_returns_401(client, active_event, db):
     db.commit()
     db.refresh(user)
 
-    token = create_access_token(user.id, user.username, user.role, active_event.id)
+    token = create_access_token(user.id, user.username, user.role, active_event.id)  # pyright: ignore[reportArgumentType]
 
-    user.is_active = False
+    user.is_active = False  # pyright: ignore[reportAttributeAccessIssue]
     db.commit()
 
     response = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})

@@ -22,7 +22,7 @@ from app.services.zpl import generate_zpl, send_to_printer
 
 router = APIRouter(prefix="/intakes", tags=["intakes"])
 
-_INTAKE_ADMIN = require_roles("admin", "intake")
+_INTAKE_ADMIN = require_roles("admin", "intake", "cashier_intake")
 
 
 def _active_event(db: Session) -> Event:

@@ -128,3 +128,34 @@ def intake_token(intake_user, active_event):
     return create_access_token(
         intake_user.id, intake_user.username, intake_user.role, active_event.id
     )
+
+
+@pytest.fixture
+def cashier_intake_user(db, active_event):
+    """User with the combined cashier_intake role (cashier + intake powers, no admin)."""
+    from app.models.user import User
+    from app.services.auth import hash_password
+
+    user = User(
+        event_id=active_event.id,
+        username="staff1",
+        password_hash=hash_password("cashier123"),
+        role="cashier_intake",
+        is_active=True,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@pytest.fixture
+def cashier_intake_token(cashier_intake_user, active_event):
+    from app.services.auth import create_access_token
+
+    return create_access_token(
+        cashier_intake_user.id,
+        cashier_intake_user.username,
+        cashier_intake_user.role,
+        active_event.id,
+    )
