@@ -598,6 +598,8 @@ export interface SellerPayoutSaleLine {
  sell_price: number;
  /** Quantity sold x sell price for this line. */
  extended_price: number;
+ /** Cashier's reason for adjusting the price from the listed amount; null when unadjusted. */
+ price_adjustment_reason: string | null;
  /** MYSL commission for this sale line. */
  mysl_share: number;
  /** Seller payout for this sale line. */

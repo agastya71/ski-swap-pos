@@ -70,4 +70,16 @@ describe("SellerPayoutPanel", () => {
     render(<SellerPayoutPanel eventId={1} sellerId={1} />);
     await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
   });
+
+  /** The cashier's price-adjustment reason (sale_item.notes) surfaces on the
+   *  SALES lines under the item code (Phase D surface (a) — admin UI). */
+  it("shows the price-adjustment reason on SALES lines", async () => {
+    render(<SellerPayoutPanel eventId={1} sellerId={1} />);
+    await waitFor(() =>
+      expect(screen.getByText("Atomic skis")).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByText(/Price adj.: Zipper broken - \$5 off/),
+    ).toBeInTheDocument();
+  });
 });

@@ -40,6 +40,7 @@ def _payout():
             SellerPayoutSaleLine(item_code="ABC-001", description="Skis",
                                  date_of_sale=datetime.now(timezone.utc),
                                  quantity_sold=1.0, sell_price=20.00, extended_price=20.00,
+                                 price_adjustment_reason="Price match",
                                  mysl_share=6.0, seller_share=14.0, commission_rate=0.30),
         ],
         unsold_items=[
@@ -93,6 +94,53 @@ def test_format_invalid_raises_422():
     with pytest.raises(HTTPException) as exc:
         format_report(_eod(), "xml", "eod_test")
     assert exc.value.status_code == 422
+
+
+def test_payout_csv_includes_adjustment_reason_column():
+    """The seller payout CSV SALES section carries the price-adjustment reason."""
+    from app.services.report_formatter import format_report
+    resp = format_report(_payout(), "csv", "payout")
+    assert b"price_adjustment_reason" in resp.body
+    assert b"Price match" in resp.body
+
+
+def test_payout_md_includes_adjustment_reason_column():
+    """The seller payout Markdown SALES table carries the reason."""
+    from app.services.report_formatter import format_report
+    resp = format_report(_payout(), "md", "payout")
+    body = bytes(resp.body).decode()
+    assert "Adj. Reason" in body
+    assert "Price match" in body
+
+
+def test_payout_xlsx_includes_adjustment_reason_column():
+    """The per-seller XLSX workbook's Sales sheet carries the reason and keeps
+    the totals row aligned under Extended / Due Seller."""
+    import io
+
+    import openpyxl
+
+    from app.services.report_formatter import format_report
+    payout = _payout()
+    # openpyxl rejects tz-aware datetimes; live rows are stored naive.
+    payout = payout.model_copy(update={
+        "sales": [
+            s.model_copy(update={
+                "date_of_sale": s.date_of_sale.replace(tzinfo=None) if s.date_of_sale else None
+            })
+            for s in payout.sales
+        ],
+    })
+    resp = format_report(payout, "xlsx", "payout")
+    wb = openpyxl.load_workbook(io.BytesIO(resp.body))
+    ws = wb["Sales"]
+    headers = [c.value for c in ws[1]]
+    assert "Adj. Reason" in headers
+    reason_col = headers.index("Adj. Reason")
+    assert ws.cell(row=2, column=reason_col + 1).value == "Price match"
+    totals = [c.value for c in ws[ws.max_row]]
+    assert totals[headers.index("Extended")] == 20.00
+    assert totals[headers.index("Due Seller")] == 14.00
 
 
 def test_format_unsold_report_donate_column():
