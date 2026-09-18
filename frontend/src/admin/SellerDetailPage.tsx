@@ -11,6 +11,7 @@ import { getSellerIntakes, createIntake, importItems } from "../api/intakes";
 import { deleteItem, updateItem } from "../api/items";
 import { ItemForm } from "../intake/ItemForm";
 import { SellerPayoutPanel } from "./SellerPayoutPanel";
+import { SellerEquipmentSummaryPanel } from "./SellerEquipmentSummaryPanel";
 import { ITEM_TYPES, SIZE_OPTIONS } from "../lib/itemSizes";
 import { US_STATES } from "../lib/usStates";
 import type { Seller, Item, Intake, ImportResult, ItemUpdate } from "../types";
@@ -1077,6 +1078,24 @@ export function SellerDetailPage({
             Seller Payout
           </strong>
           <SellerPayoutPanel eventId={eventId} sellerId={seller.id} />
+        </div>
+      )}
+
+      {/* Vendor equipment-type summary (vendors only, generated on demand) */}
+      {seller.is_vendor && (
+        <div
+          style={{
+            marginTop: 16,
+            padding: 16,
+            background: "#f8fafc",
+            border: "1px solid #e2e8f0",
+            borderRadius: 6,
+          }}
+        >
+          <strong style={{ fontSize: 13, display: "block", marginBottom: 8 }}>
+            Equipment Type Summary
+          </strong>
+          <SellerEquipmentSummaryPanel eventId={eventId} sellerId={seller.id} />
         </div>
       )}
     </div>

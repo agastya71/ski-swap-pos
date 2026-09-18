@@ -598,6 +598,8 @@ export interface SellerPayoutSaleLine {
  sell_price: number;
  /** Quantity sold x sell price for this line. */
  extended_price: number;
+ /** Cashier's reason for adjusting the price from the listed amount; null when unadjusted. */
+ price_adjustment_reason: string | null;
  /** MYSL commission for this sale line. */
  mysl_share: number;
  /** Seller payout for this sale line. */
@@ -664,6 +666,48 @@ export interface SellerPayoutReport {
  sales: SellerPayoutSaleLine[];
  /** UNSOLD ITEMS section: every item still on hand. */
  unsold_items: SellerPayoutUnsoldLine[];
+ /** ISO 8601 timestamp when this report was generated. */
+ generated_at: string;
+}
+
+/** One equipment-type row of a vendor's equipment summary. */
+export interface VendorCategorySummary {
+ /** Equipment type (item.category); '(uncategorized)' when blank. */
+ category: string;
+ /** Distinct items consigned in this category. */
+ items_consigned: number;
+ /** Units sold in this category. */
+ units_sold: number;
+ /** Extended-price revenue for this category. */
+ gross_sales: number;
+ /** MYSL commission for this category. */
+ mysl_share: number;
+ /** Vendor payout for this category. */
+ seller_share: number;
+ /** Units still on hand in this category. */
+ units_unsold: number;
+ /** Asking-price value of the on-hand units. */
+ unsold_value: number;
+}
+
+/** Per-vendor sales summary grouped by equipment type (vendors only; admin-only). */
+export interface VendorEquipmentSummaryReport {
+ /** ID of the event this report covers. */
+ event_id: number;
+ /** Name of the event. */
+ event_name: string;
+ /** Short seller code. */
+ seller_code: string;
+ /** Vendor name (company). */
+ seller_name: string;
+ /** Company name for vendor sellers. */
+ company: string | null;
+ /** Commission rate applied to this vendor's sales. */
+ vendor_commission_rate: number;
+ /** One row per equipment type, sorted by category name. */
+ categories: VendorCategorySummary[];
+ /** Grand totals across all categories (category = 'TOTAL'). */
+ total: VendorCategorySummary;
  /** ISO 8601 timestamp when this report was generated. */
  generated_at: string;
 }

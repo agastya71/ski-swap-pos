@@ -12,6 +12,7 @@ import type {
  UnsoldItemsReport,
  EndOfDayReport,
  TransactionsByUserReport,
+ VendorEquipmentSummaryReport,
 } from "../types";
 
 /**
@@ -25,6 +26,21 @@ import type {
  */
 export const getSellerPayout = (eventId: number, sellerId: number) =>
  apiFetch<SellerPayoutReport>(`/reports/${eventId}/seller/${sellerId}`);
+
+/**
+ * Fetch a vendor's sales summary grouped by equipment type (item.category).
+ *
+ * @param eventId - ID of the event to report on.
+ * @param sellerId - ID of the VENDOR seller (422 for non-vendors).
+ * @returns VendorEquipmentSummaryReport with one row per category + TOTAL.
+ * @throws {ApiError} 404 if the event or seller does not exist.
+ * @throws {ApiError} 422 if the seller is not a vendor.
+ * @throws {ApiError} 401 if the session token is invalid.
+ */
+export const getVendorEquipmentSummary = (eventId: number, sellerId: number) =>
+ apiFetch<VendorEquipmentSummaryReport>(
+  `/reports/${eventId}/vendor/${sellerId}/equipment-summary`,
+ );
 
 /**
  * Fetch payout reports for ALL sellers in an event (sorted by seller code).
