@@ -363,9 +363,11 @@ event (POST /events) also creates + migrates its database file.
 
 **One-time migration from the single-DB layout** (daemon stopped):
 
-    sudo systemctl stop ski-swap-pos
-    cd backend && .venv/bin/python scripts/migrate_to_registry.py --yes
-    sudo systemctl start ski-swap-pos
+```bash
+sudo systemctl stop ski-swap-pos
+cd backend && .venv/bin/python scripts/migrate_to_registry.py --yes
+sudo systemctl start ski-swap-pos
+```
 
 The source file is left untouched as a fallback. Runbook § 8's
 `prepare_event_db.py` is superseded by in-app event creation (POST /events);
