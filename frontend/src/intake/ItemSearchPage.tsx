@@ -175,12 +175,14 @@ export function ItemSearchPage() {
                 <thead>
                     <tr style={{ borderBottom: "2px solid #ccc" }}>
                         <th style={cell}>Code</th>
-                        <th style={cell}>Description</th>
-                        <th style={cell}>Brand</th>
-                        <th style={cell}>Category</th>
-                        <th style={cell}>Size</th>
-                        <th style={cell}>Price</th>
                         <th style={cell}>Qty</th>
+                        <th style={cell}>Category</th>
+                        <th style={cell}>Type</th>
+                        <th style={cell}>Brand</th>
+                        <th style={cell}>Description</th>
+                        <th style={cell}>Size</th>
+                        <th style={cell}>Sell Price</th>
+                        <th style={cell}>Donate?</th>
                         <th style={cell}>Remaining</th>
                         <th style={cell}>Status</th>
                         <th style={cell}>Seller</th>
@@ -193,14 +195,18 @@ export function ItemSearchPage() {
                             style={{ borderBottom: "1px solid #eee" }}
                         >
                             <td style={cell}>{item.code}</td>
-                            <td style={cell}>{item.description}</td>
-                            <td style={cell}>{item.brand}</td>
+                            <td style={cell}>{item.quantity}</td>
                             <td style={cell}>{item.category}</td>
+                            <td style={cell}>{item.type ?? "—"}</td>
+                            <td style={cell}>{item.brand ?? "—"}</td>
+                            <td style={cell}>{item.description}</td>
                             <td style={cell}>{item.size}</td>
                             <td style={cell}>
                                 ${(item.price ?? 0).toFixed(2)}
                             </td>
-                            <td style={cell}>{item.quantity}</td>
+                            <td style={cell}>
+                                {item.donate_unsold ? "Yes" : "—"}
+                            </td>
                             <td style={cell}>{item.remaining}</td>
                             <td style={cell}>{item.status}</td>
                             <td style={cell}>

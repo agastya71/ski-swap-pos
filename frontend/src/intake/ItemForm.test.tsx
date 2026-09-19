@@ -221,7 +221,7 @@ describe("ItemForm", () => {
     fireEvent.change(screen.getByLabelText(/price/i), {
       target: { value: "75" },
     });
-    fireEvent.change(screen.getByLabelText(/quantity/i), {
+    fireEvent.change(screen.getByLabelText(/qty/i), {
       target: { value: "3" },
     });
     fireEvent.click(screen.getByRole("button", { name: /add item/i }));
@@ -368,7 +368,7 @@ it("pre-fills the donate-unsold checkbox from defaultDonateUnsold", () => {
     <ItemForm intakeId={5} onAdded={vi.fn()} defaultDonateUnsold={true} />,
   );
   const checkbox = screen.getByRole("checkbox", {
-    name: /donate if unsold/i,
+    name: /^donate\?/i,
   }) as HTMLInputElement;
   expect(checkbox.checked).toBe(true);
 });
@@ -376,7 +376,7 @@ it("pre-fills the donate-unsold checkbox from defaultDonateUnsold", () => {
 it("defaults the donate-unsold checkbox to false when defaultDonateUnsold is not provided", () => {
   render(<ItemForm intakeId={5} onAdded={vi.fn()} />);
   const checkbox = screen.getByRole("checkbox", {
-    name: /donate if unsold/i,
+    name: /^donate\?/i,
   }) as HTMLInputElement;
   expect(checkbox.checked).toBe(false);
 });

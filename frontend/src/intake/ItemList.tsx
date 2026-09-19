@@ -16,14 +16,13 @@ import {
 } from "../api/items";
 import { BUTTON_STYLE } from "../lib/buttons";
 import { printIntakeLabels } from "../api/intakes";
-import { ITEM_TYPES, SIZE_OPTIONS } from "../lib/itemSizes";
+import { CATEGORIES, SIZE_OPTIONS, typesForCategory } from "../lib/itemSizes";
 import type { Item, ItemUpdate } from "../types";
-
-const GENDER_AGE_OPTIONS = ["Adult", "Youth", "Toddler", "Unisex"];
 
 /**
  * Renders a tabular list of items belonging to a single intake session.
- * Provides per-item Edit panel (description, price, brand, size, color), Print Label,
+ * Provides per-item Edit panel (category, type, brand, description, size,
+ * sell price — 2026-09-18; Gender/Age and Color suppressed), Print Label,
  * and Delete (inside the edit panel, disabled if label printed) actions,
  * plus a bulk Print All Labels button.
  *
@@ -42,13 +41,12 @@ export function ItemList({
 }) {
   const [expandedEditId, setExpandedEditId] = useState<number | null>(null);
   const [draft, setDraft] = useState({
+    category: "",
     description: "",
     price: "",
     brand: "",
     type: "",
     size: "",
-    gender_age: "",
-    color: "",
   });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -73,13 +71,12 @@ export function ItemList({
     }
     setExpandedEditId(item.id);
     setDraft({
+      category: item.category ?? "",
       description: item.description ?? "",
       price: String(item.price),
       brand: item.brand ?? "",
       type: item.type ?? "",
       size: item.size ?? "",
-      gender_age: item.gender_age ?? "",
-      color: item.color ?? "",
     });
     setSaveError(null);
   }
@@ -138,6 +135,8 @@ export function ItemList({
     try {
       const original = items.find((i) => i.id === itemId)!;
       const update: Record<string, string | number> = {};
+      if (draft.category !== (original.category ?? ""))
+        update.category = draft.category;
       if (draft.description !== (original.description ?? ""))
         update.description = draft.description;
       if (parseFloat(draft.price) !== original.price)
@@ -145,9 +144,6 @@ export function ItemList({
       if (draft.brand !== (original.brand ?? "")) update.brand = draft.brand;
       if (draft.type !== (original.type ?? "")) update.type = draft.type;
       if (draft.size !== (original.size ?? "")) update.size = draft.size;
-      if (draft.gender_age !== (original.gender_age ?? ""))
-        update.gender_age = draft.gender_age;
-      if (draft.color !== (original.color ?? "")) update.color = draft.color;
       await updateItem(itemId, update as ItemUpdate);
       setExpandedEditId(null);
       onItemsChanged();
@@ -259,17 +255,22 @@ export function ItemList({
         <thead>
           <tr style={{ borderBottom: "2px solid #ccc" }}>
             <th style={{ textAlign: "left", padding: "4px 8px" }}>Code</th>
+            <th style={{ textAlign: "right", padding: "4px 8px" }}>Qty</th>
             <th style={{ textAlign: "left", padding: "4px 8px" }}>Category</th>
+            <th style={{ textAlign: "left", padding: "4px 8px" }}>Type</th>
+            <th style={{ textAlign: "left", padding: "4px 8px" }}>Brand</th>
             <th style={{ textAlign: "left", padding: "4px 8px" }}>
               Description
             </th>
-            <th style={{ textAlign: "right", padding: "4px 8px" }}>Price</th>
-            <th style={{ textAlign: "right", padding: "4px 8px" }}>Qty</th>
+            <th style={{ textAlign: "left", padding: "4px 8px" }}>Size</th>
+            <th style={{ textAlign: "right", padding: "4px 8px" }}>
+              Sell Price
+            </th>
             <th style={{ textAlign: "right", padding: "4px 8px" }}>
               Total Price
             </th>
+            <th style={{ textAlign: "left", padding: "4px 8px" }}>Donate?</th>
             <th style={{ textAlign: "right", padding: "4px 8px" }}>On Hand</th>
-            <th style={{ textAlign: "left", padding: "4px 8px" }}>Donate</th>
             <th style={{ textAlign: "left", padding: "4px 8px" }}>Label</th>
             <th />
           </tr>
@@ -284,16 +285,18 @@ export function ItemList({
                 }}
               >
                 <td style={{ padding: "4px 8px" }}>{item.code}</td>
-                <td style={{ padding: "4px 8px" }}>{item.category}</td>
-                <td style={{ padding: "4px 8px" }}>
-                  {[item.brand, item.description].filter(Boolean).join(" — ") ||
-                    "—"}
-                </td>
-                <td style={{ padding: "4px 8px", textAlign: "right" }}>
-                  ${item.price.toFixed(2)}
-                </td>
                 <td style={{ padding: "4px 8px", textAlign: "right" }}>
                   {item.quantity}
+                </td>
+                <td style={{ padding: "4px 8px" }}>{item.category}</td>
+                <td style={{ padding: "4px 8px" }}>{item.type ?? "—"}</td>
+                <td style={{ padding: "4px 8px" }}>{item.brand ?? "—"}</td>
+                <td style={{ padding: "4px 8px" }}>
+                  {item.description ?? "—"}
+                </td>
+                <td style={{ padding: "4px 8px" }}>{item.size ?? "—"}</td>
+                <td style={{ padding: "4px 8px", textAlign: "right" }}>
+                  ${item.price.toFixed(2)}
                 </td>
                 <td style={{ padding: "4px 8px", textAlign: "right" }}>
                   ${(item.price * item.quantity).toFixed(2)}
@@ -381,7 +384,7 @@ export function ItemList({
               {expandedEditId === item.id && (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={13}
                     style={{
                       padding: "8px 16px 16px",
                       background: "#f8fafc",
@@ -484,6 +487,42 @@ export function ItemList({
                             marginBottom: 2,
                           }}
                         >
+                          Category
+                        </label>
+                        <select
+                          value={draft.category}
+                          onChange={(e) =>
+                            setDraft((d) => ({
+                              ...d,
+                              category: e.target.value,
+                              type: "",
+                              size: "",
+                            }))
+                          }
+                          style={{
+                            width: "100%",
+                            padding: "4px 6px",
+                            boxSizing: "border-box",
+                            fontSize: 13,
+                          }}
+                        >
+                          <option value="">— select —</option>
+                          {CATEGORIES.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label
+                          style={{
+                            display: "block",
+                            fontSize: 12,
+                            color: "#64748b",
+                            marginBottom: 2,
+                          }}
+                        >
                           Type
                         </label>
                         <select
@@ -503,7 +542,7 @@ export function ItemList({
                           }}
                         >
                           <option value="">— select type —</option>
-                          {ITEM_TYPES.map((t) => (
+                          {typesForCategory(draft.category).map((t) => (
                             <option key={t} value={t}>
                               {t}
                             </option>
@@ -521,7 +560,8 @@ export function ItemList({
                         >
                           Size
                         </label>
-                        {SIZE_OPTIONS[draft.type] ? (
+                        {SIZE_OPTIONS[`${draft.category}:${draft.type}`] ??
+                        SIZE_OPTIONS[draft.type] ? (
                           <select
                             value={draft.size}
                             onChange={(e) =>
@@ -555,64 +595,6 @@ export function ItemList({
                             }}
                           />
                         )}
-                      </div>
-                      <div>
-                        <label
-                          style={{
-                            display: "block",
-                            fontSize: 12,
-                            color: "#64748b",
-                            marginBottom: 2,
-                          }}
-                        >
-                          Gender/Age
-                        </label>
-                        <select
-                          value={draft.gender_age}
-                          onChange={(e) =>
-                            setDraft((d) => ({
-                              ...d,
-                              gender_age: e.target.value,
-                            }))
-                          }
-                          style={{
-                            width: "100%",
-                            padding: "4px 6px",
-                            boxSizing: "border-box",
-                            fontSize: 13,
-                          }}
-                        >
-                          <option value="">— select —</option>
-                          {GENDER_AGE_OPTIONS.map((g) => (
-                            <option key={g} value={g}>
-                              {g}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label
-                          style={{
-                            display: "block",
-                            fontSize: 12,
-                            color: "#64748b",
-                            marginBottom: 2,
-                          }}
-                        >
-                          Color
-                        </label>
-                        <input
-                          value={draft.color}
-                          onChange={(e) =>
-                            setDraft((d) => ({ ...d, color: e.target.value }))
-                          }
-                          style={{
-                            width: "100%",
-                            padding: "4px 6px",
-                            boxSizing: "border-box",
-                            fontSize: 13,
-                          }}
-                        />
                       </div>
                     </div>
                     <div
@@ -715,22 +697,26 @@ export function ItemList({
               background: "#f8fafc",
             }}
           >
-            <td colSpan={3} style={{ padding: "6px 8px", textAlign: "right" }}>
+            <td style={{ padding: "6px 8px" }} />
+            <td style={{ padding: "6px 8px", textAlign: "right" }}>
+              {totalUnits}
+            </td>
+            <td
+              colSpan={5}
+              style={{ padding: "6px 8px", textAlign: "right" }}
+            >
               Total — {items.length} item
               {items.length !== 1 ? "s" : ""}
             </td>
             <td />
             <td style={{ padding: "6px 8px", textAlign: "right" }}>
-              {totalUnits}
-            </td>
-            <td style={{ padding: "6px 8px", textAlign: "right" }}>
               ${totalPrice.toFixed(2)}
             </td>
+            <td />
             <td style={{ padding: "6px 8px", textAlign: "right" }}>
               {totalOnHand}
             </td>
-            <td />
-            <td colSpan={3} />
+            <td colSpan={2} />
           </tr>
         </tfoot>
       </table>
