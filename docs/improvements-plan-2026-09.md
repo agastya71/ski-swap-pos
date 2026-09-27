@@ -1,7 +1,7 @@
 # Improvements Plan — 2026-09-18
 
 > Six workstreams from the 2026-09-18 request, phased for execution.
-> Status: **PHASES A–E MERGED (#99/#100/#101/#102/#104) · PHASE G IMPLEMENTED (this branch) · Phase F PARKED awaiting Q1 (label specifics).**
+> Status: **PHASES A–E MERGED (#99/#100/#101/#102/#104) · PHASE G IMPLEMENTED (this branch) · Phase F IN FLIGHT — PR #108 (Q1 answered 2026-09-27 with the MYSL 2020 reference screenshot).**
 > Resolved: A2 role name = `cashier_intake` (cashier+intake abilities, nothing admin) · A3 item codes = 5-digit numeric starting **10000**, sequential, auto-assigned at intake, unique per event DB, seller codes stay alphanumeric, existing items grandfathered (no renumber — 83 of 102 live items have printed labels that would be invalidated) · A4 = (a) payout reports + (b) My Transactions · A5 = per-vendor on demand, grouped by `item.category` · A6 = shared user-account registry; existing swap.db becomes the TEST SWAP POS 2026 event DB; storage `backend/events/<name>.db` · A7 = rename now.
 > Each phase = one feature branch → PR → (user approval) → merge → gates re-run on main.
 > Deploy conventions: frontend-only = `npm run build` (live immediately); backend = one
@@ -13,7 +13,7 @@
 
 | # | Question | Status |
 |---|----------|--------|
-| Q1 | **Label refinement specifics** — current layout: price (top-left, 30pt) · Code 128 barcode of the item code (top-right) + human-readable code under it · event name centered below · seller code · description (30 chars) · 2 optional free-text lines; one label per on-hand unit. What exactly should change (fields added/removed, sizes, positions, barcode type)? A reference photo of a desired label is ideal. | ⏸ OPEN — Phase F parked |
+| Q1 | **Label refinement specifics** — resolved 2026-09-27: the user supplied a reference photo of the old MYSL 2020 tag (price top-left · event name in the top band · tall barcode top-right · item ID large centered under the barcode · seller code · category + `Sz:` size · description). Implemented in PR #108: Code 128 kept, canvas unchanged, event-name font ladder, `label_line_2/3` kept via a compact regime. | ✅ 2026-09-27 (PR #108) |
 | Q2 | **Combined role name** — resolved: `cashier_intake`; cashier+intake abilities, nothing admin-only. | ✅ 2026-09-18 |
 | Q3 | **Numeric item IDs** — resolved: 5-digit numeric starting 10000, sequential upward (10000, 10001, …), auto-assigned at intake, unique per event DB; seller codes stay alphanumeric; existing items grandfathered (renumbering would invalidate 83 printed labels). | ✅ 2026-09-18 |
 | Q4 | **Price-adjustment reason surfaces** — resolved: (a) seller payout reports' SALES tables (all formats + per-seller ZIP) + (b) My Transactions expanded lines. No dedicated event-wide report. | ✅ 2026-09-18 |
@@ -87,9 +87,10 @@
 - "Vendors only" scoping: report refuses non-vendor sellers (422) per the user's intent.
 - Tests: service + router + UI panel.
 
-### Phase F — Label printing refinement [HIGH]
-- Blocked on Q1 answers. Changes land in `zpl.py` + `config.py` label constants + tests;
-  every geometry change verified against the ZD421 (user visually confirms a live print).
+### Phase F — Label printing refinement  ✅ IMPLEMENTED (PR #108)
+- Reference photo (MYSL 2020 tag) recreates the outlay: price + event name + barcode in the top band, item ID centered under the barcode, seller / category+`Sz:` size / description rows.
+- Changes in `zpl.py` (+ event-name font ladder, compact regime for `label_line_2/3`), tests (+10), user-guide § 2.6; geometry constants untouched.
+- Every geometry change verified against the ZD421 by the user's visual check of a live print (post-merge: one restart, print, compare to the photo).
 
 ### Phase G — Per-event databases + admin-controlled active event  ✅ IMPLEMENTED (this branch)
 - Registry DB (`backend/registry.db`, created lazily via `RegistryBase`): event catalogue (+ each event's `db_filename`) + ALL user accounts (shared; usernames globally unique). NOT alembic-managed.
