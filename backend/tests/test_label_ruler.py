@@ -35,13 +35,21 @@ def test_ruler_zpl_scales_are_complete():
     assert "^FT650,54^A0N,16,16^FD50^FS" in zpl
     assert "^FT330,182^A0N,16,16^FD200^FS" in zpl
     # Horizontal scale: ticks every 20 dots in the y=130..148 band…
-    assert "^FO520,130^GB2,18,2^FS" in zpl  # minor (not a 100 multiple)
-    assert "^FO500,130^GB3,18,3^FS" in zpl  # major every 100
+    assert "^FO520,130^GB2,18,2^FS" in zpl  # minor (not a 50 multiple)
+    assert "^FO500,130^GB3,18,3^FS" in zpl  # major every 50
     assert "^FO840,130^GB2,18,2^FS" in zpl  # last tick — past the ≈830 media edge
-    # …labeled every 100 dots (the x=0 label block is clamped to the origin).
-    assert "^FT75,156^FB50,1,0,C,0^A0N,16,16^FD100^FS" in zpl
+    # …labeled every 50 dots (the x=0 label block is clamped to the origin).
+    assert "^FT25,156^FB50,1,0,C,0^A0N,16,16^FD50^FS" in zpl
+    assert "^FT125,156^FB50,1,0,C,0^A0N,16,16^FD150^FS" in zpl
+    assert "^FT425,156^FB50,1,0,C,0^A0N,16,16^FD450^FS" in zpl
     assert "^FT0,156^FB50,1,0,C,0^A0N,16,16^FD0^FS" in zpl
     assert "^FT775,156^FB50,1,0,C,0^A0N,16,16^FD800^FS" in zpl
+    # The y=150 vertical label prints at x=450 (avoids the 350/650 h-labels).
+    assert "^FT450,154^A0N,16,16^FD150^FS" in zpl
+    assert "^FT330,154" not in zpl
+    # Header moved below the off-media top band (media top ≈12 per the
+    # 2026-09-27 ruler print).
+    assert "^FT280,29^FB530,1,0,C,0^A0N,16,16^FDCALIBRATION RULER^FS" in zpl
 
 
 def test_ruler_main_dry_run_writes_zpl(capsys):

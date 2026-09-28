@@ -5,14 +5,15 @@ via direct USB (pyusb) or a Linux device path, with a CUPS `lp` fallback —
 the live deployment's ZD421 is owned by the CUPS queue ``ZTC-ZD421-203dpi-ZPL``
 (no raw ``/dev/usb/lp*`` node exists).
 
-Label geometry is measured and explicit (2026-09-13 calibration; media size
-confirmed by the user 2026-09-27: ≈3" wide × 1" tall): the media window in
-``^FT`` coordinates spans ``LABEL_LEFT_ORIGIN_DOTS`` (≈ 280) to
-``LABEL_RIGHT_EDGE_DOTS`` (≈ 810) — the media start position under the
-printhead moved print-to-print until gap-tracking mode (^MNY) + media
-calibration (~JC) were applied. Text fields use ``^FT`` (field top), and
-``^LS`` is NOT used: ^FT-positioned fields ignore the label shift, so the
-left origin is baked into every x coordinate instead.
+Label geometry is measured and explicit (ruler-measured via
+``scripts/label_ruler.py``, 2026-09-27; media user-confirmed ≈3" wide × 1"
+tall): the media window in ``^FT`` coordinates spans
+``LABEL_LEFT_ORIGIN_DOTS`` (≈ 150) to ``LABEL_RIGHT_EDGE_DOTS`` (≈ 700) —
+the 2026-09-13 window (~275..830) had drifted/aged out, which clipped the
+barcode at the right edge and left the old left origin 130 dots inside the
+media. Text fields use ``^FT`` (field top), and ``^LS`` is NOT used:
+^FT-positioned fields ignore the label shift, so the left origin is baked
+into every x coordinate instead.
 """
 
 import logging
@@ -48,12 +49,14 @@ def _barcode_x(barcode: str, right: int) -> int:
 _CHAR_W = 0.6          # A0N scalable average glyph width ≈ fraction of font height
 ROW_FONT = 30          # EVERY text field prints at the price's font size (user directive,
                        # 2026-09-27 print feedback)
-ROW_PITCH = 29         # row stride: 30pt caps ≈ 21 dots leave ~8 dots of air between rows
-BAND_TEXT_Y = 25       # price / in-band event field top (barcode occupies 5..53)
-BARCODE_HEIGHT = 48
-FIRST_ROW_Y = 62       # first full-width row below the barcode band (+9 clear of the bars)
+ROW_PITCH = 27         # row stride: 30pt caps ≈ 21 dots leave ~6 dots of air between rows
+BAND_TOP = 14          # barcode top — the media top sits ≈12 dots below format y=0
+                       # (ruler print 2026-09-27: the y=0 band prints off-media)
+BAND_TEXT_Y = 33       # price / in-band event field top (barcode occupies 14..60)
+BARCODE_HEIGHT = 46
+FIRST_ROW_Y = 66       # first full-width row below the barcode band (+6 clear of the bars)
 TEXT_ROWS_Y = 80       # text-mode rows start below the 50pt code ink (ends ≈75)
-MAX_FIELD_CHARS = 28   # 28 × (0.6 × 30) ≈ 504 dots ≤ content width (~530)
+MAX_FIELD_CHARS = 28   # 28 × (0.6 × 30) ≈ 504 dots ≤ content width
 ROW_INK = 24           # worst-case ink depth of a 30pt row (caps + descenders)
 
 
@@ -71,10 +74,12 @@ def generate_zpl(
         event name, item identifier, seller code, category + size,
         description, free-text lines (user directive after the first live
         print of v2)
-      - Top band: price top-left, Code 128 barcode top-right — pulled 40
-        dots in from the media's right edge (the first print clipped bars
-        past the ~830-dot media edge), event name right-aligned against
-        the barcode when it fits the price→barcode zone at 30pt
+      - Top band: price top-left, Code 128 barcode top-right — anchored to
+        the ruler-measured media window (2026-09-27: content x 150..700;
+        the old 280..850 window printed bars past the media edge),
+        starting at y=14 because the ruler print showed the media top ≈12
+        dots below format y=0; event name right-aligned against the
+        barcode when it fits the price→barcode zone at 30pt
       - The event name is NEVER truncated: when the band cannot hold it at
         30pt, it prints full-size, centered, on its own row below the band
         (user directive)
@@ -123,7 +128,7 @@ def generate_zpl(
         code_block = f"^FT{origin},40^FB{right - origin},1,0,R,0^A0N,50,50^FD{item.code}^FS\n"
         event_anchor = right - int(_CHAR_W * 50 * len(item.code)) - 20
     else:
-        code_block = f"^FO{bx},5^BCN,{BARCODE_HEIGHT},N,N,N^FD{barcode}^FS\n"
+        code_block = f"^FO{bx},{BAND_TOP}^BCN,{BARCODE_HEIGHT},N,N,N^FD{barcode}^FS\n"
         event_anchor = bx - 20
     # Event name at the price's font size, never truncated: right-aligned
     # against the identifier when the price→identifier zone holds it at
@@ -179,7 +184,7 @@ def generate_zpl(
         f"^LL{LABEL_LENGTH_DOTS}\n"
         f"^PW{right}\n"
         "^CI0\n"
-        f"^FT{origin},25^A0N,30,30^FD{price_text}^FS\n"
+        f"^FT{origin},{BAND_TEXT_Y}^A0N,30,30^FD{price_text}^FS\n"
         f"{code_block}"
         f"{number_block}"
         f"{event_block}"

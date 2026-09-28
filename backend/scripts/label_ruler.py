@@ -5,12 +5,14 @@ Media is ≈3" wide × 1" tall (≈610 × 203 dots), but the media's position un
 the printhead is what must be measured: this label prints two numbered scales
 at known ZPL coordinates and the physical edges are read off directly —
 
-  HORIZONTAL scale  ticks every 20 dots (x = 0..860), a number label every
-                    100 dots (0, 100, … 800), tick band y = 130..148
+  HORIZONTAL scale  ticks every 20 dots (x = 0..840), a number label every
+                    50 dots (0, 50, … 800), tick band y = 130..148
   VERTICAL scale    full-width lines every 25 dots (y = 0..200), a number
                     label every 50 dots (0, 50, … 200) in two columns
                     (x = 330 and x = 650) so at least one column survives
                     even if the media sits far from the assumed window
+                    (the y=150 label prints at x=450 — at x=330/650 it
+                    would collide with the horizontal 350/650 labels)
 
 Report the SMALLEST and LARGEST number that is fully visible on each scale:
 the media edge lies between the last missing number and the first printed
@@ -40,10 +42,11 @@ from app.services.zpl import send_to_printer  # noqa: E402
 # don't print, which is exactly the signal being measured.
 RULER_PW = 850
 TICK_STEP = 20
-TICK_LABEL_STEP = 100
+TICK_LABEL_STEP = 50
 VLINE_STEP = 25
 VLINE_LABEL_STEP = 50
 VLINE_LABEL_COLUMNS = (330, 650)
+VLINE_LABEL_X_150 = 450  # y=150's label — x=330/650 collide with h-labels 350/650
 TICK_Y, TICK_H = 130, 18  # tick band sits between the y=125 and y=150 lines
 HLABEL_Y = 156  # between the y=150 and y=175 lines
 
@@ -56,8 +59,10 @@ def build_ruler_zpl(pw: int = RULER_PW, ll: int = LABEL_LENGTH_DOTS) -> str:
         f"^LL{ll}",
         f"^PW{pw}",
         "^CI0",
-        # Header sits inside the top band (between the y=0 and y=25 lines).
-        "^FT280,4^FB530,1,0,C,0^A0N,16,16^FDCALIBRATION RULER^FS",
+        # Header sits between the y=25 and y=50 lines — the top band lands
+        # OFF-media (ruler print 2026-09-27: media top ≈12 dots below
+        # format y=0, so a header at y=4 prints half-cut).
+        "^FT280,29^FB530,1,0,C,0^A0N,16,16^FDCALIBRATION RULER^FS",
     ]
     # Vertical scale: full-width lines every 25 dots, labeled every 50 in two
     # x columns. The y=200 label moves ABOVE its line (there is no room
@@ -66,7 +71,8 @@ def build_ruler_zpl(pw: int = RULER_PW, ll: int = LABEL_LENGTH_DOTS) -> str:
         parts.append(f"^FO0,{y}^GB{pw},2,2^FS")
     for y in range(0, ll + 1, VLINE_LABEL_STEP):
         ly = y + 4 if y + 24 <= ll else y - 18
-        for x in VLINE_LABEL_COLUMNS:
+        columns = (VLINE_LABEL_X_150,) if y == 150 else VLINE_LABEL_COLUMNS
+        for x in columns:
             parts.append(f"^FT{x},{ly}^A0N,16,16^FD{y}^FS")
     # Horizontal scale: ticks every 20 dots, labeled every 100. Labels use a
     # centered ^FB block; the x=0 block is clamped to the format origin.
@@ -101,7 +107,7 @@ def main(argv: list[str] | None = None) -> int:
     send_to_printer(zpl)
     print(
         "Ruler label sent. Read off the label and report:\n"
-        "  1. HORIZONTAL scale (numbers every 100: 0..800): smallest and\n"
+        "  1. HORIZONTAL scale (numbers every 50: 0..800): smallest and\n"
         "     largest number fully visible\n"
         "  2. VERTICAL scale (numbers every 50: 0..200, two columns): smallest\n"
         "     and largest number fully visible\n"
