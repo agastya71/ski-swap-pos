@@ -119,7 +119,11 @@ def generate_zpl(
     event_name   = (event_name or "")[:MAX_FIELD_CHARS]
     origin       = LABEL_LEFT_ORIGIN_DOTS
     right        = LABEL_RIGHT_EDGE_DOTS
-    bx           = _barcode_x(barcode, right)  # right-flush identifier origin
+    # Bars end AT the content right edge: _barcode_x reserves a 20-dot quiet
+    # zone after the last bar, so pass right+20 and let the (blank) trailing
+    # quiet zone fall past the edge — the printed bars end exactly at `right`
+    # (user directive 2026-09-27: "the bar code ending at 700").
+    bx           = _barcode_x(barcode, right + 20)
     price_text   = f"${item.price:.2f}"
 
     # Top band: price top-left, identifier (barcode / large text) top-right.

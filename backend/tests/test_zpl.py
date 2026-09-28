@@ -360,11 +360,11 @@ def test_generate_zpl_price_top_left_and_identifier_top_right(item):
     """Price prints top-left (^FT top-anchored); the barcode is right-aligned
     at the pulled-in right edge (810) — bars end well clear of the ~830-dot
     media edge (2026-09-27 clip fix). For a 7-char code the right-aligned
-    origin is 700 - (9*30 + 8*2 + 40) = 374 dots."""
+    origin is 700 - (9*30 + 8*2 + 40) = 394 dots — the bars end exactly at 700."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item)
     assert "^FT150,33^A0N,30,30^FD$25.00^FS" in zpl
-    assert "^FO374,14^BCN,46,N,N,N^FDABC-001^FS" in zpl
+    assert "^FO394,14^BCN,46,N,N,N^FDABC-001^FS" in zpl
 
 
 def test_generate_zpl_item_id_row_below_barcode(item):
@@ -374,7 +374,7 @@ def test_generate_zpl_item_id_row_below_barcode(item):
     at 66."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item)
-    assert "^FT374,66^FB326,1,0,C,0^A0N,30,30^FDABC-001^FS" in zpl
+    assert "^FT394,66^FB306,1,0,C,0^A0N,30,30^FDABC-001^FS" in zpl
 
 
 def test_generate_zpl_user_id_below_price(item):
@@ -420,7 +420,7 @@ def test_generate_zpl_prints_event_name(item):
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item, event_name="Ski Swap 2026")
     assert "^FT150,66^FB550,1,0,C,0^A0N,30,30^FDSki Swap 2026^FS" in zpl
-    assert "^FT374,93^FB326,1,0,C,0^A0N,30,30^FDABC-001^FS" in zpl
+    assert "^FT394,93^FB306,1,0,C,0^A0N,30,30^FDABC-001^FS" in zpl
     assert "^FT150,120^A0N,30,30^FDABC^FS" in zpl
 
 
@@ -452,4 +452,4 @@ def test_generate_zpl_text_mode_code_top_right(item):
     assert "^FT150,40^FB550,1,0,R,0^A0N,50,50^FDABC-001^FS" in zpl
     assert "Ski Swap 2026" in zpl
     assert "^BCN" not in zpl
-    assert "^FT374," not in zpl  # no identifier row under the (absent) barcode
+    assert "^FT394," not in zpl  # no identifier row under the (absent) barcode
