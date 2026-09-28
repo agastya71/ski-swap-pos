@@ -50,6 +50,15 @@ VLINE_LABEL_X_150 = 450  # y=150's label — x=330/650 collide with h-labels 350
 TICK_Y, TICK_H = 130, 18  # tick band sits between the y=125 and y=150 lines
 HLABEL_Y = 156  # between the y=150 and y=175 lines
 
+# Fine edge probe (--fine): 2-dot bars every 10 dots (y 0..140) in the two
+# edge zones, labeled every 30 dots below the bars — pins each media edge
+# to ±5 dots. Zones bracket the 2026-09-27 coarse-ruler readings
+# (left edge 114..136, right edge 712..762).
+FINE_BAR_STEP = 10
+FINE_BAR_HEIGHT = 140
+FINE_LABEL_STEP = 30
+FINE_ZONES = ((80, 230), (630, 780))
+
 
 def build_ruler_zpl(pw: int = RULER_PW, ll: int = LABEL_LENGTH_DOTS) -> str:
     """Build the ZPL for the calibration-ruler label."""
@@ -87,6 +96,27 @@ def build_ruler_zpl(pw: int = RULER_PW, ll: int = LABEL_LENGTH_DOTS) -> str:
     return "\n".join(parts) + "\n"
 
 
+def build_fine_probe_zpl(pw: int = RULER_PW, ll: int = LABEL_LENGTH_DOTS) -> str:
+    """Build the fine edge-probe label (dense bars in the two edge zones)."""
+    parts = [
+        "^XA",
+        f"^MD{max(0, min(30, LABEL_DARKNESS))}",
+        f"^LL{ll}",
+        f"^PW{pw}",
+        "^CI0",
+        # Header below the label band (the top band prints off-media).
+        "^FT150,168^FB550,1,0,C,0^A0N,16,16^FDFINE EDGE PROBE^FS",
+    ]
+    for lo, hi in FINE_ZONES:
+        for x in range(lo, hi + 1, FINE_BAR_STEP):
+            parts.append(f"^FO{x},0^GB2,{FINE_BAR_HEIGHT},2^FS")
+            if x % FINE_LABEL_STEP == 0:  # label the multiples of 30 only
+                lx = max(0, x - 15)
+                parts.append(f"^FT{lx},150^FB30,1,0,C,0^A0N,12,12^FD{x}^FS")
+    parts.append("^XZ")
+    return "\n".join(parts) + "\n"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Print a calibration ruler label on the ZD421 label printer."
@@ -95,24 +125,38 @@ def main(argv: list[str] | None = None) -> int:
         "--copies", type=int, default=1, help="number of ruler labels to print"
     )
     parser.add_argument(
+        "--fine",
+        action="store_true",
+        help="print the fine edge probe (dense bars at the two edge zones)",
+    )
+    parser.add_argument(
         "--dry-run", action="store_true", help="write the ZPL to stdout, don't print"
     )
     args = parser.parse_args(argv)
-    zpl = build_ruler_zpl()
+    zpl = build_fine_probe_zpl() if args.fine else build_ruler_zpl()
     if args.copies > 1:
         zpl = zpl.replace("^XZ\n", f"^XZ\n^PQ{args.copies}\n", 1)
     if args.dry_run:
         sys.stdout.write(zpl)
         return 0
     send_to_printer(zpl)
-    print(
-        "Ruler label sent. Read off the label and report:\n"
-        "  1. HORIZONTAL scale (numbers every 50: 0..800): smallest and\n"
-        "     largest number fully visible\n"
-        "  2. VERTICAL scale (numbers every 50: 0..200, two columns): smallest\n"
-        "     and largest number fully visible\n"
-        "  3. any number that is partially cut off at an edge"
-    )
+    if args.fine:
+        print(
+            "Fine edge probe sent. Report:\n"
+            "  1. LEFT zone (bars/labels 80..230): the smallest number fully\n"
+            "     visible, and whether the bar just left of it is partial or absent\n"
+            "  2. RIGHT zone (bars/labels 630..780): the largest number fully\n"
+            "     visible, and whether the bar just right of it is partial or absent"
+        )
+    else:
+        print(
+            "Ruler label sent. Read off the label and report:\n"
+            "  1. HORIZONTAL scale (numbers every 50: 0..800): smallest and\n"
+            "     largest number fully visible\n"
+            "  2. VERTICAL scale (numbers every 50: 0..200, two columns): smallest\n"
+            "     and largest number fully visible\n"
+            "  3. any number that is partially cut off at an edge"
+        )
     return 0
 
 

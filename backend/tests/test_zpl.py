@@ -307,14 +307,14 @@ def test_generate_zpl_emits_explicit_format_commands(item):
     assert "^MD20" in zpl
     assert "^LL203" in zpl
     assert "^LS" not in zpl  # ^FT fields ignore the label shift — the origin is baked into x
-    assert "^PW700" in zpl
+    assert "^PW723" in zpl
     assert "^CI0" in zpl
 
 
 def test_generate_zpl_code_as_text_also_carries_format_commands(item):
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item, code_as_text=True)
-    assert "^PW700" in zpl
+    assert "^PW723" in zpl
     assert "^MD20" in zpl
     assert "^BCN" not in zpl
 
@@ -360,11 +360,11 @@ def test_generate_zpl_price_top_left_and_identifier_top_right(item):
     """Price prints top-left (^FT top-anchored); the barcode is right-aligned
     at the pulled-in right edge (810) — bars end well clear of the ~830-dot
     media edge (2026-09-27 clip fix). For a 7-char code the right-aligned
-    origin is 700 - (9*30 + 8*2 + 40) = 394 dots — the bars end exactly at 700."""
+    origin is 723 + 20 - (9*30 + 8*2 + 40) = 417 dots — the bars end exactly at 723."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item)
-    assert "^FT150,33^A0N,30,30^FD$25.00^FS" in zpl
-    assert "^FO394,14^BCN,46,N,N,N^FDABC-001^FS" in zpl
+    assert "^FT147,33^A0N,30,30^FD$25.00^FS" in zpl
+    assert "^FO417,14^BCN,46,N,N,N^FDABC-001^FS" in zpl
 
 
 def test_generate_zpl_item_id_row_below_barcode(item):
@@ -374,7 +374,7 @@ def test_generate_zpl_item_id_row_below_barcode(item):
     at 66."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item)
-    assert "^FT394,66^FB306,1,0,C,0^A0N,30,30^FDABC-001^FS" in zpl
+    assert "^FT417,66^FB306,1,0,C,0^A0N,30,30^FDABC-001^FS" in zpl
 
 
 def test_generate_zpl_user_id_below_price(item):
@@ -382,7 +382,7 @@ def test_generate_zpl_user_id_below_price(item):
     price's font size, top-anchored via ^FT."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item)
-    assert "^FT150,93^A0N,30,30^FDABC^FS" in zpl
+    assert "^FT147,93^A0N,30,30^FDABC^FS" in zpl
 
 
 def test_generate_zpl_label_lines_print_when_they_fit(item):
@@ -390,8 +390,8 @@ def test_generate_zpl_label_lines_print_when_they_fit(item):
     they fit the 1" canvas: line2 at 147, line3 at 174 (174+24 ≤ 203)."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item)
-    assert "^FT150,147^A0N,30,30^FDSize 8^FS" in zpl
-    assert "^FT150,174^A0N,30,30^FDAdult^FS" in zpl
+    assert "^FT147,147^A0N,30,30^FDSize 8^FS" in zpl
+    assert "^FT147,174^A0N,30,30^FDAdult^FS" in zpl
 
 
 def test_generate_zpl_category_and_size_row(clean_item):
@@ -399,9 +399,9 @@ def test_generate_zpl_category_and_size_row(clean_item):
     row between the seller code and the description."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(clean_item)
-    assert "^FT150,120^A0N,30,30^FDPOLES  Sz: 115cm^FS" in zpl
-    assert "^FT150,93^A0N,30,30^FDABC^FS" in zpl
-    assert "^FT150,147^A0N,30,30^FDSki boots^FS" in zpl
+    assert "^FT147,120^A0N,30,30^FDPOLES  Sz: 115cm^FS" in zpl
+    assert "^FT147,93^A0N,30,30^FDABC^FS" in zpl
+    assert "^FT147,147^A0N,30,30^FDSki boots^FS" in zpl
 
 
 def test_generate_zpl_category_size_row_skipped_when_absent(item):
@@ -409,7 +409,7 @@ def test_generate_zpl_category_size_row_skipped_when_absent(item):
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item)
     assert "Sz: " not in zpl
-    assert "^FT150,120^A0N,30,30^FDSki boots^FS" in zpl
+    assert "^FT147,120^A0N,30,30^FDSki boots^FS" in zpl
 
 
 def test_generate_zpl_prints_event_name(item):
@@ -419,9 +419,9 @@ def test_generate_zpl_prints_event_name(item):
     shift down one pitch."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item, event_name="Ski Swap 2026")
-    assert "^FT150,66^FB550,1,0,C,0^A0N,30,30^FDSki Swap 2026^FS" in zpl
-    assert "^FT394,93^FB306,1,0,C,0^A0N,30,30^FDABC-001^FS" in zpl
-    assert "^FT150,120^A0N,30,30^FDABC^FS" in zpl
+    assert "^FT147,66^FB576,1,0,C,0^A0N,30,30^FDSki Swap 2026^FS" in zpl
+    assert "^FT417,93^FB306,1,0,C,0^A0N,30,30^FDABC-001^FS" in zpl
+    assert "^FT147,120^A0N,30,30^FDABC^FS" in zpl
 
 
 def test_generate_zpl_event_fallback_row_drops_overflowing_lines(item):
@@ -430,18 +430,18 @@ def test_generate_zpl_event_fallback_row_drops_overflowing_lines(item):
     (174+24 ≤ 203), line3 (201) does not."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item, event_name="Ski Swap 2026")
-    assert "^FT150,174^A0N,30,30^FDSize 8^FS" in zpl
+    assert "^FT147,174^A0N,30,30^FDSize 8^FS" in zpl
     assert "Adult" not in zpl
 
 
 def test_generate_zpl_event_name_in_band_when_it_fits(item):
     """A short event name fits the band beside a text-mode code: anchor
-    700-(0.6*50*7)-20 = 470, budget 470-268 = 202 ≥ 162 → right-aligned at
+    723-(0.6*50*7)-20 = 493, budget 493-265 = 228 ≥ 162 → right-aligned at
     the price's font size, aligned with the price row."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item, code_as_text=True, event_name="MYSL 2020")
-    assert "^FT150,33^FB320,1,0,R,0^A0N,30,30^FDMYSL 2020^FS" in zpl
-    assert "^FT150,80^A0N,30,30^FDABC^FS" in zpl  # text-mode rows start at 80
+    assert "^FT147,33^FB346,1,0,R,0^A0N,30,30^FDMYSL 2020^FS" in zpl
+    assert "^FT147,80^A0N,30,30^FDABC^FS" in zpl  # text-mode rows start at 80
 
 
 def test_generate_zpl_text_mode_code_top_right(item):
@@ -449,7 +449,7 @@ def test_generate_zpl_text_mode_code_top_right(item):
     aligned via ^FB) with no repeated identifier row below it."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item, code_as_text=True, event_name="Ski Swap 2026")
-    assert "^FT150,40^FB550,1,0,R,0^A0N,50,50^FDABC-001^FS" in zpl
+    assert "^FT147,40^FB576,1,0,R,0^A0N,50,50^FDABC-001^FS" in zpl
     assert "Ski Swap 2026" in zpl
     assert "^BCN" not in zpl
-    assert "^FT394," not in zpl  # no identifier row under the (absent) barcode
+    assert "^FT417," not in zpl  # no identifier row under the (absent) barcode

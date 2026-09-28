@@ -57,3 +57,29 @@ def test_ruler_main_dry_run_writes_zpl(capsys):
     out = capsys.readouterr().out
     assert out.startswith("^XA\n")
     assert out.endswith("^XZ\n")
+
+
+def test_fine_probe_zpl_covers_both_edge_zones():
+    zpl = label_ruler.build_fine_probe_zpl()
+    assert zpl.startswith("^XA\n")
+    assert zpl.endswith("^XZ\n")
+    # Bars every 10 dots in both zones (y 0..140)…
+    assert "^FO80,0^GB2,140,2^FS" in zpl
+    assert "^FO120,0^GB2,140,2^FS" in zpl
+    assert "^FO230,0^GB2,140,2^FS" in zpl
+    assert "^FO630,0^GB2,140,2^FS" in zpl
+    assert "^FO780,0^GB2,140,2^FS" in zpl
+    assert "^GB2,140" in zpl and zpl.count("^GB2,140") == 32  # 16 bars per zone
+    # …labeled every 30 dots below the bars (multiples of 30 only).
+    assert "^FT105,150^FB30,1,0,C,0^A0N,12,12^FD120^FS" in zpl
+    assert "^FT615,150^FB30,1,0,C,0^A0N,12,12^FD630^FS" in zpl
+    assert "^FT765,150^FB30,1,0,C,0^A0N,12,12^FD780^FS" in zpl
+    assert "^A0N,12,12^FD100^FS" not in zpl  # 100 is not a multiple of 30
+    assert "^FT150,168^FB550,1,0,C,0^A0N,16,16^FDFINE EDGE PROBE^FS" in zpl
+
+
+def test_fine_probe_main_dry_run_writes_zpl(capsys):
+    assert label_ruler.main(["--fine", "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert "^FO80,0^GB2,140,2^FS" in out  # probe bars, not ruler ticks
+    assert out.endswith("^XZ\n")
