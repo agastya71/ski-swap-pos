@@ -46,7 +46,6 @@ def _barcode_x(barcode: str, right: int) -> int:
     return max(0, right - barcode_dots)
 
 
-_CHAR_W = 0.6          # A0N scalable average glyph width ≈ fraction of font height
 ROW_FONT = 30          # EVERY text field prints at the price's font size (user directive,
                        # 2026-09-27 print feedback)
 ROW_PITCH = 27         # row stride: 30pt caps ≈ 21 dots leave ~6 dots of air between rows
@@ -76,18 +75,18 @@ def generate_zpl(
         print of v2)
       - Top band: price top-left, Code 128 barcode top-right — anchored to
         the ruler-measured media window (2026-09-27 fine probes, two prints
-        agreeing post-recalibration: content x 147..723);
-        the old 280..850 window printed bars past the media edge),
-        starting at y=14 because the ruler print showed the media top ≈12
-        dots below format y=0; event name right-aligned against the
-        barcode when it fits the price→barcode zone at 30pt
-      - The event name is NEVER truncated: when the band cannot hold it at
-        30pt, it prints full-size, centered, on its own row below the band
-        (user directive)
-      - Item identifier on its own full 30pt row, centered under the
-        barcode, a full row clear of the bars (v2's 5-dot gap read as
-        "mixed up with the barcode"); skipped in ``code_as_text`` mode,
-        where the code already prints large in the band
+        agreeing post-recalibration: content x 147..723); the old
+        280..850 window printed bars past the media edge; content starts
+        at y=14 because the ruler print showed the media top ≈12 dots
+        below format y=0
+      - Event name: ALWAYS below the price in the left column, at the
+        price's font size — never in the band (user directive 2026-09-28;
+        supersedes the in-band/fallback variants)
+      - Item identifier on its own full 30pt row one pitch below the event
+        slot, centered under the barcode — a uniform y on EVERY label,
+        clear of the bars (v2's 5-dot gap read as "mixed up with the
+        barcode"); skipped in ``code_as_text`` mode, where the code
+        already prints large in the band
       - Seller code, category + ``Sz:`` size, description and the optional
         ``label_line_2``/``label_line_3`` free-text lines follow, one 30pt
         row each, printed top-down while they still fit the 1" canvas
@@ -104,8 +103,9 @@ def generate_zpl(
     labels (the "print a specified number of labels per item" flow).
 
     ``code_as_text``: render the item code as text instead of a barcode
-    (option added 2026-09-12). ``event_name``: printed between the price and
-    the identifier (added 2026-09-12; omitted when not provided).
+    (option added 2026-09-12). ``event_name``: printed below the price in
+    the left column (2026-09-28; originally between the price and the
+    identifier, 2026-09-12; omitted when not provided).
     """
     barcode      = item.barcode_39 or item.code
     seller_code  = item.seller.code if item.seller else ""
@@ -132,30 +132,20 @@ def generate_zpl(
     if code_as_text:
         # The code is already printed large — no repeated identifier row.
         code_block = f"^FT{origin},40^FB{right - origin},1,0,R,0^A0N,50,50^FD{item.code}^FS\n"
-        event_anchor = right - int(_CHAR_W * 50 * len(item.code)) - 20
     else:
         code_block = f"^FO{bx},{BAND_TOP}^BCN,{BARCODE_HEIGHT},N,N,N^FD{barcode}^FS\n"
-        event_anchor = bx - 20
-    # Event name at the price's font size, never truncated: right-aligned
-    # against the identifier when the price→identifier zone holds it at
-    # 30pt, otherwise centered on its own full-size row below the band.
+    # Event name: always below the price, left column, at the price's font
+    # size (user directive 2026-09-28).
     row_y = TEXT_ROWS_Y if code_as_text else FIRST_ROW_Y
     event_block = ""
     if event_name:
-        zone_left = origin + int(_CHAR_W * ROW_FONT * len(price_text)) + 10
-        if int(_CHAR_W * ROW_FONT * len(event_name)) <= event_anchor - zone_left:
-            event_block = (
-                f"^FT{origin},{BAND_TEXT_Y}^FB{event_anchor - origin},1,0,R,0"
-                f"^A0N,{ROW_FONT},{ROW_FONT}^FD{event_name}^FS\n"
-            )
-        else:
-            event_block = (
-                f"^FT{origin},{row_y}^FB{right - origin},1,0,C,0"
-                f"^A0N,{ROW_FONT},{ROW_FONT}^FD{event_name}^FS\n"
-            )
-            row_y += ROW_PITCH
-    # Item identifier: its own full 30pt row, centered under the barcode, a
-    # full row clear of the bars (v2's 5-dot gap read as "mixed up").
+        event_block = (
+            f"^FT{origin},{row_y}^A0N,{ROW_FONT},{ROW_FONT}^FD{event_name}^FS\n"
+        )
+    # The identifier row always sits one pitch below the event slot — a
+    # uniform y on every label (with or without an event name), full row
+    # clear of the bars (v2's 5-dot gap read as "mixed up").
+    row_y += ROW_PITCH
     number_block = ""
     if not code_as_text:
         number_block = (
