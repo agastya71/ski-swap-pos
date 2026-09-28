@@ -267,9 +267,9 @@ the transport from **per-OS presets** (`PRINTER_OS_PRESETS` in
 | `LABEL_TRANSPORT`       | *(OS preset)*            | force `usb` / `device` / `cups` / `auto`     |
 | `LABEL_PRINTER_PATH`    | `/dev/usb/lp0`           | raw device node; tried first in `auto`       |
 | `LABEL_PRINTER_QUEUE`   | `ZTC-ZD421-203dpi-ZPL`   | CUPS queue name (host-specific)              |
-| `LABEL_WIDTH_DOTS`      | `600`                    | measured: ≈3" media                          |
-| `LABEL_LENGTH_DOTS`     | `190`                    | measured: ≈1" media                          |
-| `LABEL_LEFT_SHIFT_DOTS` | `115`                    | origin sits ~120 dots left of media edge     |
+| `LABEL_LEFT_ORIGIN_DOTS` | `280`                    | measured: media left edge ≈275 in printhead coordinates |
+| `LABEL_RIGHT_EDGE_DOTS`  | `810`                    | media ≈3" wide, right edge ≈830; bars end well clear (2026-09-27 clip fix) |
+| `LABEL_LENGTH_DOTS`      | `203`                    | measured: ≈1" tall media |
 | `LABEL_DARKNESS`        | `20`                     | 0–30                                         |
 
 Geometry/darkness are **media- and printer-specific, not OS-specific** — the

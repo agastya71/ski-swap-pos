@@ -307,14 +307,14 @@ def test_generate_zpl_emits_explicit_format_commands(item):
     assert "^MD20" in zpl
     assert "^LL203" in zpl
     assert "^LS" not in zpl  # ^FT fields ignore the label shift — the origin is baked into x
-    assert "^PW850" in zpl
+    assert "^PW810" in zpl
     assert "^CI0" in zpl
 
 
 def test_generate_zpl_code_as_text_also_carries_format_commands(item):
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item, code_as_text=True)
-    assert "^PW850" in zpl
+    assert "^PW810" in zpl
     assert "^MD20" in zpl
     assert "^BCN" not in zpl
 
@@ -358,36 +358,40 @@ def test_send_to_printer_cups_unavailable_raises_oserror(tmp_path):
 
 def test_generate_zpl_price_top_left_and_identifier_top_right(item):
     """Price prints top-left (^FT top-anchored); the barcode is right-aligned
-    (user-requested arrangement, 2026-09-12; width 625). For a 7-char code the
-    right-aligned origin is 625 - (9*30 + 8*2 + 40) = 299 dots."""
+    at the pulled-in right edge (810) — bars end well clear of the ~830-dot
+    media edge (2026-09-27 clip fix). For a 7-char code the right-aligned
+    origin is 810 - (9*30 + 8*2 + 40) = 484 dots."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item)
-    assert "^FT280,38^A0N,30,30^FD$25.00^FS" in zpl
-    assert "^FO524,5^BCN,70,N,N,N^FDABC-001^FS" in zpl
+    assert "^FT280,25^A0N,30,30^FD$25.00^FS" in zpl
+    assert "^FO484,5^BCN,48,N,N,N^FDABC-001^FS" in zpl
 
 
-def test_generate_zpl_item_id_centered_under_barcode(item):
-    """The item identifier repeats LARGE, centered under the barcode (the
-    MYSL reference photo's number row) — compact regime (free-text lines
-    present) shrinks it to make room."""
+def test_generate_zpl_item_id_row_below_barcode(item):
+    """The item identifier repeats at the price's font size, centered under
+    the barcode, a clear row below the bars (print feedback: v2's 5-dot gap
+    read as "mixed up with the barcode"). Bars end at y=53; the row starts
+    at 62."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item)
-    assert "^FT524,78^FB326,1,0,C,0^A0N,26,26^FDABC-001^FS" in zpl
-
-
-def test_generate_zpl_item_id_full_size_in_photo_regime(clean_item):
-    """Without free-text lines the identifier row uses the photo's full 32pt."""
-    from app.services.zpl import generate_zpl
-    zpl = generate_zpl(clean_item)
-    assert "^FT524,80^FB326,1,0,C,0^A0N,32,32^FDABC-002^FS" in zpl
+    assert "^FT484,62^FB326,1,0,C,0^A0N,30,30^FDABC-001^FS" in zpl
 
 
 def test_generate_zpl_user_id_below_price(item):
-    """The seller code prints on the left below the price band, top-anchored
-    via ^FT (compact regime: free-text lines present)."""
+    """The seller code prints on the left below the identifier row, at the
+    price's font size, top-anchored via ^FT."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item)
-    assert "^FT280,108^A0N,22,22^FDABC^FS" in zpl
+    assert "^FT280,91^A0N,30,30^FDABC^FS" in zpl
+
+
+def test_generate_zpl_label_lines_print_when_they_fit(item):
+    """The optional free-text lines print at the same 30pt, top-down, while
+    they fit the 1" canvas: line2 at 149, line3 at 178 (178+24 ≤ 203)."""
+    from app.services.zpl import generate_zpl
+    zpl = generate_zpl(item)
+    assert "^FT280,149^A0N,30,30^FDSize 8^FS" in zpl
+    assert "^FT280,178^A0N,30,30^FDAdult^FS" in zpl
 
 
 def test_generate_zpl_category_and_size_row(clean_item):
@@ -395,9 +399,9 @@ def test_generate_zpl_category_and_size_row(clean_item):
     row between the seller code and the description."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(clean_item)
-    assert "^FT280,144^A0N,22,22^FDPOLES  Sz: 115cm^FS" in zpl
-    assert "^FT280,116^A0N,24,24^FDABC^FS" in zpl
-    assert "^FT280,170^A0N,22,22^FDSki boots^FS" in zpl
+    assert "^FT280,120^A0N,30,30^FDPOLES  Sz: 115cm^FS" in zpl
+    assert "^FT280,91^A0N,30,30^FDABC^FS" in zpl
+    assert "^FT280,149^A0N,30,30^FDSki boots^FS" in zpl
 
 
 def test_generate_zpl_category_size_row_skipped_when_absent(item):
@@ -405,35 +409,39 @@ def test_generate_zpl_category_size_row_skipped_when_absent(item):
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item)
     assert "Sz: " not in zpl
-    assert "^FT280,133^A0N,18,18^FDSki boots^FS" in zpl
+    assert "^FT280,120^A0N,30,30^FDSki boots^FS" in zpl
 
 
 def test_generate_zpl_prints_event_name(item):
-    """The event name prints inside the top band, right-aligned against the
-    barcode (MYSL photo placement), shrinking along the font ladder to fit
-    the price→barcode zone."""
-    from app.services.zpl import generate_zpl
-    zpl = generate_zpl(item, event_name="MYSL 2020")
-    # barcode 'ABC-001' → bx=524, anchor 504, budget 504-398=106 → 18pt
-    assert "^FT280,38^FB224,1,0,R,0^A0N,18,18^FDMYSL 2020^FS" in zpl
-
-
-def test_generate_zpl_event_name_full_size_when_it_fits(item):
-    """A 5-digit numeric code leaves a wide price→barcode zone, so a short
-    event name keeps the photo's full 30pt."""
-    from app.services.zpl import generate_zpl
-    item.barcode_39 = "10042"  # 5 chars → bx = 850 - (7*30 + 6*2 + 40) = 588
-    zpl = generate_zpl(item, event_name="MYSL 2020")
-    assert "^FT280,38^FB288,1,0,R,0^A0N,30,30^FDMYSL 2020^FS" in zpl
-
-
-def test_generate_zpl_event_name_truncated_when_nothing_fits(item):
-    """When even the smallest ladder font cannot fit, the name truncates
-    rather than colliding with the price or the barcode."""
+    """The event name prints at the price's font size. It never shrinks and
+    never truncates: when the price→barcode zone cannot hold it at 30pt it
+    takes its own centered row below the band, and the identifier/lower rows
+    shift down one pitch."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item, event_name="Ski Swap 2026")
-    assert "^A0N,15,15^FDSki Swap 20^FS" in zpl
-    assert "Ski Swap 2026" not in zpl
+    assert "^FT280,62^FB530,1,0,C,0^A0N,30,30^FDSki Swap 2026^FS" in zpl
+    assert "^FT484,91^FB326,1,0,C,0^A0N,30,30^FDABC-001^FS" in zpl
+    assert "^FT280,120^A0N,30,30^FDABC^FS" in zpl
+
+
+def test_generate_zpl_event_fallback_row_drops_overflowing_lines(item):
+    """With the event name on its own row, a free-text line that would run
+    past the 1" media edge is dropped rather than clipped: line2 still fits
+    (178+24 ≤ 203), line3 (207) does not."""
+    from app.services.zpl import generate_zpl
+    zpl = generate_zpl(item, event_name="Ski Swap 2026")
+    assert "^FT280,178^A0N,30,30^FDSize 8^FS" in zpl
+    assert "Adult" not in zpl
+
+
+def test_generate_zpl_event_name_in_band_when_it_fits(item):
+    """A short event name fits the band beside a text-mode code: anchor
+    810-(0.6*50*7)-20 = 580, budget 580-398 = 182 ≥ 162 → right-aligned at
+    the price's font size, aligned with the price row."""
+    from app.services.zpl import generate_zpl
+    zpl = generate_zpl(item, code_as_text=True, event_name="MYSL 2020")
+    assert "^FT280,25^FB300,1,0,R,0^A0N,30,30^FDMYSL 2020^FS" in zpl
+    assert "^FT280,80^A0N,30,30^FDABC^FS" in zpl  # text-mode rows start at 80
 
 
 def test_generate_zpl_text_mode_code_top_right(item):
@@ -441,7 +449,7 @@ def test_generate_zpl_text_mode_code_top_right(item):
     aligned via ^FB) with no repeated identifier row below it."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item, code_as_text=True, event_name="Ski Swap 2026")
-    assert "^FT280,40^FB570,1,0,R,0^A0N,50,50^FDABC-001^FS" in zpl
+    assert "^FT280,40^FB530,1,0,R,0^A0N,50,50^FDABC-001^FS" in zpl
     assert "Ski Swap 2026" in zpl
     assert "^BCN" not in zpl
-    assert "^A0N,32,32" not in zpl  # no identifier row under the (absent) barcode
+    assert "^FT484," not in zpl  # no identifier row under the (absent) barcode

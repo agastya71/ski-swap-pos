@@ -77,8 +77,12 @@ LABEL_PRINTER_QUEUE: str = os.getenv("LABEL_PRINTER_QUEUE", "ZTC-ZD421-203dpi-ZP
 # set inside that window. The printer prints BLANK unless ^PW/^LL/^MD are
 # set explicitly on every label; ^FT-positioned text ignores ^LS, so the
 # left origin is baked into each field's x coordinate instead.
+# 2026-09-27 print feedback: right edge pulled 850→810 — right-anchored
+# content (barcode bars) printed past the ~830 media edge and clipped.
+# Media size confirmed by the user 2026-09-27: ≈3" wide × 1" tall (the old
+# "≈2" tall" comment was wrong — the runbook's ≈3"/≈1" row was right).
 LABEL_LEFT_ORIGIN_DOTS: int = _env_int("LABEL_LEFT_ORIGIN_DOTS", 280)
-LABEL_RIGHT_EDGE_DOTS: int = _env_int("LABEL_RIGHT_EDGE_DOTS", 850)
-LABEL_LENGTH_DOTS: int = _env_int("LABEL_LENGTH_DOTS", 203)  # media ≈ 2" tall (blank space below the content in every test print)
+LABEL_RIGHT_EDGE_DOTS: int = _env_int("LABEL_RIGHT_EDGE_DOTS", 810)
+LABEL_LENGTH_DOTS: int = _env_int("LABEL_LENGTH_DOTS", 203)  # ≈1" tall media
 LABEL_DARKNESS: int = _env_int("LABEL_DARKNESS", 20)
 BACKUP_DIR: str = os.getenv("BACKUP_DIR", "backups")
