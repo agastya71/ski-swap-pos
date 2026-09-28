@@ -46,6 +46,22 @@ def _barcode_x(barcode: str, right: int) -> int:
     return max(0, right - barcode_dots)
 
 
+_CHAR_W = 0.6          # A0N scalable average glyph width ≈ fraction of font height
+_EVENT_FONT_LADDER = (30, 26, 22, 18, 15)
+
+
+def _fit_font(text: str, budget: int) -> tuple[int, str]:
+    """Return the largest ladder font whose estimated width fits ``budget``
+    (dots); when even the smallest size does not fit, the text is truncated
+    at that size so the field can never run into its neighbour."""
+    for height in _EVENT_FONT_LADDER:
+        if int(_CHAR_W * height * len(text)) <= budget:
+            return height, text
+    smallest = _EVENT_FONT_LADDER[-1]
+    max_chars = max(1, int(budget / (_CHAR_W * smallest)))
+    return smallest, text[:max_chars]
+
+
 def generate_zpl(
     item,
     copies: int | None = None,
@@ -54,15 +70,21 @@ def generate_zpl(
 ) -> str:
     """Generate a ZPL II label string for the ZD421 (203 dpi).
 
-    Layout (2026-09-13, matched to the reference label IMG_6581.jpg):
-      - Top band: price top-left, event name centered between price and
-        identifier, item identifier top-right — Code 128 barcode (default)
-        or the item code as large right-aligned text when ``code_as_text``
-        is set (same position as the barcode; the barcode also prints its
-        human-readable code below)
-      - User id (seller code) below the price
-      - Description, optional size/colour line + optional extra line below,
-        left-justified
+    Layout (2026-09-27, matched to the MYSL 2020 reference screenshot —
+    ``Screenshot 2026-09-17 at 7.42.22 PM.png``; supersedes the 2026-09-13
+    IMG_6581.jpg arrangement):
+      - Top band: price top-left, event name right-aligned against the
+        barcode (auto-shrinking font so long names never collide with the
+        price or the barcode), item identifier top-right — Code 128 barcode
+        (default) or the item code as large right-aligned text when
+        ``code_as_text`` is set
+      - Item identifier repeated LARGE, centered under the barcode (the
+        photo's "3746" row; skipped in ``code_as_text`` mode, where the code
+        is already printed large)
+      - Seller code, category + ``Sz:`` size, and description left-justified
+        below; the two optional free-text lines (``label_line_2``/
+        ``label_line_3``) print in a compact regime beneath them so every
+        row still fits the 1" canvas
     Text fields use ``^FT`` (field top): for scalable fonts ``^FO`` positions
     at the BASELINE, which clipped the tops of the price/ID (print test
     2026-09-13).
@@ -79,29 +101,72 @@ def generate_zpl(
     """
     barcode      = item.barcode_39 or item.code
     seller_code  = item.seller.code if item.seller else ""
-    description  = (item.description or "")[:30]
+    description  = (item.description or "")[:36]
     line2        = item.label_line_2 or ""
     line3        = item.label_line_3 or ""
+    category     = str(item.category or "").upper()
+    size         = str(item.size or "")
+    cat_size     = "  ".join(
+        part for part in (category, f"Sz: {size}" if size else "") if part
+    )
     origin       = LABEL_LEFT_ORIGIN_DOTS
     right        = LABEL_RIGHT_EDGE_DOTS
     content_w    = right - origin
     bx           = _barcode_x(barcode, right)  # right-flush identifier origin
+    price_text   = f"${item.price:.2f}"
+
     # Top band: price top-left, identifier (barcode / large text) top-right.
     if code_as_text:
-        code_block = f"^FT{origin},55^FB{content_w},1,0,R,0^A0N,50,50^FD{item.code}^FS\n"
+        # The code is already printed large — no repeated identifier row.
+        code_block = f"^FT{origin},40^FB{content_w},1,0,R,0^A0N,50,50^FD{item.code}^FS\n"
+        number_block = ""
+        event_anchor = right - int(_CHAR_W * 50 * len(item.code)) - 20
     else:
         code_block = f"^FO{bx},5^BCN,70,N,N,N^FD{barcode}^FS\n"
-    # Event name: centered on its own row below the identifier band — in-band
-    # placement would collide with the barcode for 7+ char codes (the gap is
-    # ~119 dots; the name needs ~156 at 22pt). 24pt keeps it legible.
-    hr_block = (
-        f"^FT{origin},98^FB{content_w},1,0,R,0^A0N,22,22^FD{barcode}^FS\n"
-    )
+        number_block = (
+            f"^FT{bx},80^FB{right - bx},1,0,C,0^A0N,32,32^FD{barcode}^FS\n"
+        )
+        event_anchor = bx - 20
+    # Event name: inside the top band, right-aligned against the identifier
+    # (the reference photo places it between the price and the barcode).
+    # A font ladder keeps long names clear of the price and the barcode.
     event_block = ""
     if event_name:
-        event_block = (
-            f"^FT{origin},118^FB{content_w},1,0,C,0^A0N,22,22^FD{event_name}^FS\n"
-        )
+        zone_left = origin + int(_CHAR_W * 30 * len(price_text)) + 10
+        budget = event_anchor - zone_left
+        if budget >= 40:
+            height, text = _fit_font(event_name, budget)
+            event_block = (
+                f"^FT{origin},38^FB{event_anchor - origin},1,0,R,0"
+                f"^A0N,{height},{height}^FD{text}^FS\n"
+            )
+    # Lower block: seller code, category + size, description — and, when the
+    # optional free-text lines carry data, a compact regime that squeezes
+    # every row onto the 203-dot canvas.
+    compact     = bool(line2 or line3)
+    num_h, num_y = (26, 78) if compact else (32, 80)
+    number_block = (
+        number_block.replace(f"^FT{bx},80^FB{right - bx},1,0,C,0^A0N,32,32",
+                             f"^FT{bx},{num_y}^FB{right - bx},1,0,C,0^A0N,{num_h},{num_h}")
+        if number_block else ""
+    )
+    row_gap     = 3 if compact else 4
+    rows: list[tuple[str, int]] = [
+        (seller_code, 22 if compact else 24),
+        (cat_size,    18 if compact else 22),
+        (description, 18 if compact else 22),
+    ]
+    if line2:
+        rows.append((line2, 13))
+    if line3:
+        rows.append((line3, 13))
+    lower_blocks = ""
+    y = 108 if compact else 116
+    for text, height in rows:
+        if not text:
+            continue
+        lower_blocks += f"^FT{origin},{y}^A0N,{height},{height}^FD{text}^FS\n"
+        y += height + (1 if height < 18 else row_gap)
     try:
         # On-hand remaining (== intake quantity until a partial sale) —
         # reprints mid-event print labels only for units still in stock.
@@ -119,14 +184,11 @@ def generate_zpl(
         f"^LL{LABEL_LENGTH_DOTS}\n"
         f"^PW{right}\n"
         "^CI0\n"
-        f"^FT{origin},38^A0N,30,30^FD${item.price:.2f}^FS\n"
+        f"^FT{origin},38^A0N,30,30^FD{price_text}^FS\n"
         f"{code_block}"
-        f"{hr_block}"
+        f"{number_block}"
         f"{event_block}"
-        f"^FT{origin},144^A0N,24,24^FD{seller_code}^FS\n"
-        f"^FT{origin},162^A0N,16,16^FD{description}^FS\n"
-        f"^FT{origin},176^A0N,14,14^FD{line2}^FS\n"
-        f"^FT{origin},188^A0N,14,14^FD{line3}^FS\n"
+        f"{lower_blocks}"
         f"{pq}"
         "^XZ\n"
     )

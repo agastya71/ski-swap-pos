@@ -111,7 +111,7 @@ The header button **Print Labels for All Items** prints tags for every item in t
 
 ### 2.6 Printing labels
 
-Labels are Zebra tags (Code 39 barcode, seller code + price, description) printed on the configured label printer. Printing marks the item as *label printed* — after that, the item can no longer be deleted (its tags are already on the merchandise).
+Labels are Zebra tags printed on the configured label printer (Code 128 barcode of the item code, with the item number repeated in large type beneath it). Each tag shows: the **price** (top left), the **event name** beside the barcode, the barcode (top right), the **seller code**, the **category and size** (e.g. `POLES  Sz: 115cm`), and the **description**. Printing marks the item as *label printed* — after that, the item can no longer be deleted (its tags are already on the merchandise).
 
 - **Print All Labels** (per item) — one tag per on-hand unit.
 - **Print N** (per item) — an exact number of tags.
