@@ -8,7 +8,7 @@ the live deployment's ZD421 is owned by the CUPS queue ``ZTC-ZD421-203dpi-ZPL``
 Label geometry is measured and explicit (ruler-measured via
 ``scripts/label_ruler.py``, 2026-09-27; media user-confirmed ≈3" wide × 1"
 tall): the media window in ``^FT`` coordinates spans
-``LABEL_LEFT_ORIGIN_DOTS`` (≈ 150) to ``LABEL_RIGHT_EDGE_DOTS`` (≈ 700) —
+``LABEL_LEFT_ORIGIN_DOTS`` (≈ 147) to ``LABEL_RIGHT_EDGE_DOTS`` (≈ 723) —
 the 2026-09-13 window (~275..830) had drifted/aged out, which clipped the
 barcode at the right edge and left the old left origin 130 dots inside the
 media. Text fields use ``^FT`` (field top), and ``^LS`` is NOT used:
@@ -75,7 +75,8 @@ def generate_zpl(
         description, free-text lines (user directive after the first live
         print of v2)
       - Top band: price top-left, Code 128 barcode top-right — anchored to
-        the ruler-measured media window (2026-09-27: content x 150..700;
+        the ruler-measured media window (2026-09-27 fine probes, two prints
+        agreeing post-recalibration: content x 147..723);
         the old 280..850 window printed bars past the media edge),
         starting at y=14 because the ruler print showed the media top ≈12
         dots below format y=0; event name right-aligned against the
@@ -122,7 +123,8 @@ def generate_zpl(
     # Bars end AT the content right edge: _barcode_x reserves a 20-dot quiet
     # zone after the last bar, so pass right+20 and let the (blank) trailing
     # quiet zone fall past the edge — the printed bars end exactly at `right`
-    # (user directive 2026-09-27: "the bar code ending at 700").
+    # (user directive 2026-09-27: the bars end at the right content edge,
+    # 723 after the fine-probe tune).
     bx           = _barcode_x(barcode, right + 20)
     price_text   = f"${item.price:.2f}"
 
