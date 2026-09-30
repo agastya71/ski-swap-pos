@@ -34,7 +34,7 @@ Set the two values (subdomain only — no `.duckdns.org`, no spaces):
 
 ```sh
 DOMAINS="myskiswap"
-TOKEN="a7c4d0ad-114e-40ef-ba1d-d217904a50f2"
+TOKEN="<your-uuid-token>"  # from the DuckDNS dashboard — never commit the real value
 ```
 
 For multiple subdomains: `DOMAINS="myskiswap,myskiswap2"` (comma-separated, no spaces).
