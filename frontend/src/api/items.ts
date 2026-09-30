@@ -2,7 +2,7 @@
  * Items API — fetch, update, delete, and look up individual consignment items.
  * Lookup and search are available to all roles; write operations require admin or intake.
  */
-import { apiFetch, getToken } from "./client";
+import { apiFetch, apiFetchText, getToken } from "./client";
 import type {
  Item,
  ItemUpdate,
@@ -150,18 +150,58 @@ export const fetchBrands = (q: string, category?: string) => {
  * @throws {ApiError} 401 if the session token is invalid.
  */
 export const printLabel = (
- id: number,
- copies?: number,
- codeAsText?: boolean,
+	id: number,
+	copies?: number,
+	codeAsText?: boolean,
 ) => {
- const params = new URLSearchParams();
- if (copies) params.set("copies", String(copies));
- if (codeAsText) params.set("code_as_text", "true");
- const qs = params.toString();
- return apiFetch<Item>(`/items/${id}/label${qs ? `?${qs}` : ""}`, {
-  method: "POST",
- });
+	const params = new URLSearchParams();
+	if (copies) params.set("copies", String(copies));
+	if (codeAsText) params.set("code_as_text", "true");
+	const qs = params.toString();
+	return apiFetch<Item>(`/items/${id}/label${qs ? `?${qs}` : ""}`, {
+		method: "POST",
+	});
 };
+
+/**
+ * Fetch the raw ZPL label text for one item WITHOUT sending it to the
+ * server-attached printer (client-side printing path).
+ *
+ * Used when the Zebra is attached to the browser workstation instead of the
+ * server: the caller hands this ZPL to the local printer (e.g. the Zebra
+ * Browser Print agent) or downloads it, then calls {@link ackLabelPrinted}
+ * after a successful local print.
+ *
+ * @param id - Primary key of the item whose label should be rendered.
+ * @param copies - Optional explicit number of copies to encode via ^PQ.
+ *   When omitted, the ZPL prints one copy per on-hand remaining unit, exactly
+ *   like the server-attached path.
+ * @param codeAsText - When true, the item code prints as large text instead
+ *   of a barcode (`?code_as_text=true`).
+ * @returns The ZPL II label text (`text/plain`).
+ * @throws {ApiError} 404 if no item with the given ID exists.
+ * @throws {ApiError} 422 if `copies` is provided and less than 1.
+ * @throws {ApiError} 401 if the session token is invalid.
+ */
+export const fetchLabelZpl = (id: number, copies?: number, codeAsText?: boolean) => {
+	const params = new URLSearchParams();
+	if (copies) params.set("copies", String(copies));
+	if (codeAsText) params.set("code_as_text", "true");
+	const qs = params.toString();
+	return apiFetchText(`/items/${id}/label.zpl${qs ? `?${qs}` : ""}`);
+};
+
+/**
+ * Mark an item's label as printed after a successful client-side local print.
+ * Idempotent companion of the server-attached POST /label path's flagging.
+ *
+ * @param id - Primary key of the item whose print should be acknowledged.
+ * @returns The updated Item record with `label_printed: true`.
+ * @throws {ApiError} 404 if no item with the given ID exists.
+ * @throws {ApiError} 401 if the session token is invalid.
+ */
+export const ackLabelPrinted = (id: number) =>
+	apiFetch<Item>(`/items/${id}/label-ack`, { method: "POST" });
 
 /**
  * Exact-match item lookup by code — the fast path for barcode scanners.

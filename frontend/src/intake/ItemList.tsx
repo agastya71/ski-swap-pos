@@ -11,11 +11,16 @@ import { Fragment, useState } from "react";
 import {
   adjustItemQuantity,
   deleteItem,
-  printLabel,
   updateItem,
 } from "../api/items";
 import { BUTTON_STYLE } from "../lib/buttons";
-import { printIntakeLabels } from "../api/intakes";
+import {
+  dispatchIntakeLabels,
+  dispatchItemLabel,
+  getLabelPrinterMode,
+  setLabelPrinterMode,
+  type LabelPrinterMode,
+} from "../lib/labelPrinter";
 import { CATEGORIES, SIZE_OPTIONS, typesForCategory } from "../lib/itemSizes";
 import type { Item, ItemUpdate } from "../types";
 
@@ -59,6 +64,12 @@ export function ItemList({
   // Print the item code as text instead of a barcode (applies to every label
   // printed from this list: per-item and bulk).
   const [codeAsText, setCodeAsText] = useState(false);
+  // Where labels print: the server-attached Zebra (original behavior) or a
+  // Zebra attached to THIS workstation via the Browser Print agent, or a
+  // downloaded .zpl file. Persisted per workstation.
+  const [printerMode, setPrinterMode] = useState<LabelPrinterMode>(
+    getLabelPrinterMode(),
+  );
   // Inline donate-unsold toggle per line item (PATCHes immediately).
   const [donatePendingId, setDonatePendingId] = useState<number | null>(null);
   const [donateError, setDonateError] = useState<string | null>(null);
@@ -154,11 +165,19 @@ export function ItemList({
     }
   }
 
-  /** Prints labels for every remaining unit of a single item ("all labels per item"). */
+  /** Prints labels for every remaining unit of a single item ("all labels per
+   *  item"), dispatching on the workstation's label-printer setting. */
   async function handlePrintOne(id: number) {
     setPrintError(null);
     try {
-      await printLabel(id, undefined, codeAsText);
+      const item = items.find((i) => i.id === id);
+      await dispatchItemLabel(
+        printerMode,
+        id,
+        undefined,
+        codeAsText,
+        `label-${item?.code ?? id}.zpl`,
+      );
       onItemsChanged();
     } catch (err) {
       setPrintError(err instanceof Error ? err.message : "Print failed");
@@ -169,18 +188,31 @@ export function ItemList({
   async function handlePrintCopies(id: number, count: number) {
     setPrintError(null);
     try {
-      await printLabel(id, count, codeAsText);
+      const item = items.find((i) => i.id === id);
+      await dispatchItemLabel(
+        printerMode,
+        id,
+        count,
+        codeAsText,
+        `label-${item?.code ?? id}-x${count}.zpl`,
+      );
       onItemsChanged();
     } catch (err) {
       setPrintError(err instanceof Error ? err.message : "Print failed");
     }
   }
 
-  /** Prints ZPL labels for all items in the current intake and notifies the parent to refresh. */
+  /** Prints ZPL labels for all items in the current intake and notifies the
+   *  parent to refresh. Dispatches on the workstation's label-printer setting. */
   async function handlePrintAll() {
     setPrintError(null);
     try {
-      await printIntakeLabels(intakeId, codeAsText);
+      await dispatchIntakeLabels(
+        printerMode,
+        intakeId,
+        codeAsText,
+        `labels-intake-${intakeId}.zpl`,
+      );
       onItemsChanged();
     } catch (err) {
       setPrintError(err instanceof Error ? err.message : "Print failed");
@@ -227,6 +259,23 @@ export function ItemList({
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           {/* Print the item code as text instead of a barcode — applies to
               every label printed from this list (per-item and bulk). */}
+          {/* Label printer target: server-attached Zebra (default), this
+              workstation via Zebra Browser Print, or a .zpl file download.
+              Persisted per workstation (localStorage). */}
+          <select
+            aria-label="Label printer location"
+            value={printerMode}
+            onChange={(e) => {
+              const mode = e.target.value as LabelPrinterMode;
+              setPrinterMode(mode);
+              setLabelPrinterMode(mode);
+            }}
+            style={{ fontSize: 13, padding: "4px 6px" }}
+          >
+            <option value="server">Print on server</option>
+            <option value="agent">Print here (Browser Print agent)</option>
+            <option value="download">Download .zpl file</option>
+          </select>
           <label
             style={{
               display: "flex",

@@ -407,6 +407,57 @@ def print_item_label(
     return item
 
 
+@router.get("/{item_id}/label.zpl", response_class=Response)
+def get_item_label_zpl(
+    item_id: int,
+    copies: int | None = None,
+    code_as_text: bool = False,
+    db: Session = Depends(get_db),
+    _user: User = Depends(_INTAKE_ADMIN),
+) -> Response:
+    """Return the raw ZPL label text WITHOUT sending it to any printer.
+
+    Client-side printing path (2026-10-01): for workstations where the Zebra
+    is attached to the browser machine instead of the server, the SPA fetches
+    this ZPL and hands it to a locally attached printer (e.g. the Zebra
+    Browser Print agent on localhost). ``label_printed`` is deliberately NOT
+    set here — the client calls ``POST /{item_id}/label-ack`` after the local
+    print succeeds.
+
+    Same parameters and validation as ``POST /{item_id}/label``.
+    """
+    item = _item_for_active_event(item_id, db)
+    if copies is not None and copies < 1:
+        raise HTTPException(status_code=422, detail="Copies must be at least 1")
+    event = db.query(Event).filter(Event.is_active == True).first()
+    zpl = generate_zpl(
+        item,
+        copies=copies,
+        code_as_text=code_as_text,
+        event_name=str(event.name) if event else None,
+    )
+    return Response(content=zpl, media_type="text/plain; charset=utf-8")
+
+
+@router.post("/{item_id}/label-ack", response_model=ItemResponse)
+def ack_item_label(
+    item_id: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(_INTAKE_ADMIN),
+):
+    """Mark an item's label as printed after a client-side local print.
+
+    Idempotent. Mirrors the ``label_printed`` flag set by the server-attached
+    printer path (``POST /{item_id}/label``) so delete-guardrails and the
+    intake "print remaining labels" flow stay consistent.
+    """
+    item = _item_for_active_event(item_id, db)
+    item.label_printed = True  # pyright: ignore[reportAttributeAccessIssue]
+    db.commit()
+    db.refresh(item)
+    return item
+
+
 @router.delete("/{item_id}", status_code=204)
 def delete_item(
     item_id: int,

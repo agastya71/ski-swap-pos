@@ -4,7 +4,7 @@ import datetime
 from io import BytesIO
 
 import openpyxl
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -174,6 +174,51 @@ def print_intake_labels(
         printed += 1
     db.commit()
     return {"intake_id": intake_id, "printed": printed}
+
+
+@router.get("/{intake_id}/labels.zpl", response_class=Response)
+def get_intake_labels_zpl(
+    intake_id: int,
+    code_as_text: bool = False,
+    db: Session = Depends(get_db),
+    _user: User = Depends(_INTAKE_ADMIN),
+) -> Response:
+    """Return the concatenated raw ZPL for ALL items in the intake, unsent.
+
+    Client-side printing path (2026-10-01): mirrors ``POST /{intake_id}/labels``
+    label-for-label (same ZPL, all intake items) but hands the text to the
+    caller instead of the server-attached printer. ``label_printed`` is NOT
+    set here — the client calls ``POST /{intake_id}/labels-ack`` after its
+    local print succeeds.
+    """
+    event = _active_event(db)
+    intake = _get_intake_for_event(intake_id, event.id, db)  # pyright: ignore[reportArgumentType]
+    zpl = "".join(
+        generate_zpl(item, code_as_text=code_as_text, event_name=str(event.name))
+        for item in intake.items
+    )
+    return Response(content=zpl, media_type="text/plain; charset=utf-8")
+
+
+@router.post("/{intake_id}/labels-ack")
+def ack_intake_labels(
+    intake_id: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(_INTAKE_ADMIN),
+):
+    """Mark every item in the intake as label-printed (client-side ack).
+
+    Idempotent bulk companion of ``POST /{item_id}/label-ack`` — mirrors the
+    flagging done by the server-attached printer path after a local print.
+    """
+    event = _active_event(db)
+    intake = _get_intake_for_event(intake_id, event.id, db)  # pyright: ignore[reportArgumentType]
+    acknowledged = 0
+    for item in intake.items:
+        item.label_printed = True
+        acknowledged += 1
+    db.commit()
+    return {"intake_id": intake_id, "acknowledged": acknowledged}
 
 
 @router.patch("/{intake_id}", response_model=IntakeResponse)

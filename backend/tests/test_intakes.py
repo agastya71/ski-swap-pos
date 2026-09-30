@@ -317,3 +317,56 @@ def test_add_item_explicit_donate_unsold_overrides_intake(db, client, active_eve
                     headers=headers)
     assert r.status_code == 201
     assert r.json()["donate_unsold"] is False
+
+
+# ── Client-side label printing (GET /labels.zpl + POST /labels-ack) ─────────
+
+
+def _add_item(client, headers, intake_id, description):
+    r = client.post(
+        f"/intakes/{intake_id}/items",
+        json={"description": description, "brand": "Atomic", "price": 25.0},
+        headers=headers,
+    )
+    assert r.status_code == 201
+    return r.json()
+
+
+def test_get_intake_labels_zpl_concatenates_without_flagging(client, admin_token, intake):
+    h = {"Authorization": f"Bearer {admin_token}"}
+    a = _add_item(client, h, intake.id, "Skis")
+    b = _add_item(client, h, intake.id, "Boots")
+    resp = client.get(f"/intakes/{intake.id}/labels.zpl", headers=h)
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("text/plain")
+    assert resp.text.count("^XZ") >= 2  # one label per item
+    assert str(a["code"]) in resp.text
+    assert str(b["code"]) in resp.text
+    intake_data = client.get(f"/intakes/{intake.id}", headers=h).json()
+    assert all(item["label_printed"] is False for item in intake_data["items"])
+
+
+def test_intake_labels_ack_sets_all_flags(client, admin_token, intake):
+    h = {"Authorization": f"Bearer {admin_token}"}
+    a = _add_item(client, h, intake.id, "Skis")
+    b = _add_item(client, h, intake.id, "Boots")
+    resp = client.post(f"/intakes/{intake.id}/labels-ack", headers=h)
+    assert resp.status_code == 200
+    assert resp.json() == {"intake_id": intake.id, "acknowledged": 2}
+    intake_data = client.get(f"/intakes/{intake.id}", headers=h).json()
+    flags = {item["id"]: item["label_printed"] for item in intake_data["items"]}
+    assert flags[a["id"]] is True and flags[b["id"]] is True
+
+
+def test_intake_labels_ack_idempotent(client, admin_token, intake):
+    h = {"Authorization": f"Bearer {admin_token}"}
+    _add_item(client, h, intake.id, "Skis")
+    first = client.post(f"/intakes/{intake.id}/labels-ack", headers=h)
+    second = client.post(f"/intakes/{intake.id}/labels-ack", headers=h)
+    assert first.status_code == second.status_code == 200
+    assert second.json()["acknowledged"] == first.json()["acknowledged"]
+
+
+def test_cashier_cannot_ack_intake_labels(client, cashier_token, intake):
+    resp = client.post(f"/intakes/{intake.id}/labels-ack", headers={"Authorization": f"Bearer {cashier_token}"})
+    assert resp.status_code in (401, 403)

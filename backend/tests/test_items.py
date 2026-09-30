@@ -169,7 +169,8 @@ def test_lookup_intake_role_forbidden(client, intake_token, active_event, item):
 
 def test_lookup_no_active_event(client, db, cashier_token):
     from app.models.event import Event
-    db.query(Event).update({"is_active": False})
+    for ev in db.query(Event).all():
+        ev.is_active = False
     db.commit()
     resp = client.get(
         "/items/lookup?code=ABC-001",
@@ -969,3 +970,54 @@ def test_import_worksheet_rejects_legacy_layout(client, active_event, admin_toke
     )
     assert r.status_code == 422
     assert "No seller info block" in r.json()["detail"]
+
+
+# ── Client-side label printing (GET /label.zpl + POST /label-ack) ──────────
+
+
+def test_get_item_label_zpl_returns_raw_zpl(client, admin_token, item):
+    resp = client.get(f"/items/{item.id}/label.zpl", headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("text/plain")
+    assert resp.text.startswith("^XA")
+    assert "^XZ" in resp.text
+    assert str(item.code) in resp.text  # barcode content
+
+
+def test_get_item_label_zpl_does_not_set_label_printed(client, admin_token, item):
+    resp = client.get(f"/items/{item.id}/label.zpl", headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 200
+    assert item.label_printed is False  # the ack endpoint is the only flagger on this path
+
+
+def test_get_item_label_zpl_copies_param(client, admin_token, item):
+    resp = client.get(f"/items/{item.id}/label.zpl?copies=3", headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 200
+    assert "^PQ3" in resp.text
+
+
+def test_get_item_label_zpl_invalid_copies(client, admin_token, item):
+    resp = client.get(f"/items/{item.id}/label.zpl?copies=0", headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 422
+
+
+def test_label_ack_sets_flag_and_engages_delete_guard(client, admin_token, item):
+    h = {"Authorization": f"Bearer {admin_token}"}
+    resp = client.post(f"/items/{item.id}/label-ack", headers=h)
+    assert resp.status_code == 200
+    assert resp.json()["label_printed"] is True
+    resp2 = client.delete(f"/items/{item.id}", headers=h)
+    assert resp2.status_code == 409  # delete-after-print guardrail now active
+
+
+def test_label_ack_idempotent(client, admin_token, item):
+    h = {"Authorization": f"Bearer {admin_token}"}
+    first = client.post(f"/items/{item.id}/label-ack", headers=h)
+    second = client.post(f"/items/{item.id}/label-ack", headers=h)
+    assert first.status_code == second.status_code == 200
+    assert second.json()["label_printed"] is True
+
+
+def test_cashier_cannot_fetch_label_zpl(client, cashier_token, item):
+    resp = client.get(f"/items/{item.id}/label.zpl", headers={"Authorization": f"Bearer {cashier_token}"})
+    assert resp.status_code in (401, 403)
