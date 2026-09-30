@@ -1001,6 +1001,31 @@ def test_get_item_label_zpl_invalid_copies(client, admin_token, item):
     assert resp.status_code == 422
 
 
+def test_get_item_label_zpl_dx_dy_shift_fields(client, admin_token, item):
+    """Browser-Print agent nudge (?dx=-3&dy=3) shifts every field coordinate."""
+    import re
+
+    h = {"Authorization": f"Bearer {admin_token}"}
+
+    def coords(z: str):
+        return [(int(m[0]), int(m[1])) for m in re.findall(r"\^(?:FO|FT)(-?\d+),(-?\d+)", z)]
+
+    base = coords(client.get(f"/items/{item.id}/label.zpl", headers=h).text)
+    resp = client.get(f"/items/{item.id}/label.zpl?dx=-3&dy=3", headers=h)
+    assert resp.status_code == 200
+    shifted = coords(resp.text)
+    assert len(base) == len(shifted) > 0
+    for (x0, y0), (x1, y1) in zip(base, shifted):
+        assert x1 == x0 - 3
+        assert y1 == y0 + 3
+
+
+def test_get_item_label_zpl_dx_dy_out_of_range(client, admin_token, item):
+    h = {"Authorization": f"Bearer {admin_token}"}
+    assert client.get(f"/items/{item.id}/label.zpl?dx=51", headers=h).status_code == 422
+    assert client.get(f"/items/{item.id}/label.zpl?dy=-51", headers=h).status_code == 422
+
+
 def test_label_ack_sets_flag_and_engages_delete_guard(client, admin_token, item):
     h = {"Authorization": f"Bearer {admin_token}"}
     resp = client.post(f"/items/{item.id}/label-ack", headers=h)

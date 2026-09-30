@@ -278,6 +278,14 @@ provides three targets:
   (`POST /intakes/{id}/labels-ack`) to flag `label_printed` exactly like the
   server-attached path. If the HTTPS listener cert is untrusted, accept it
   once per workstation; the SPA falls back to the HTTP listener.
+- **Agent geometry nudge** — agent-delivered labels print 3 dots right and
+  3 dots high versus the server-attached printer (Windows workstation print
+  feedback, 2026-09-30), so agent mode fetches the ZPL with `?dx=-3&dy=3`.
+  The nudge is baked into every field coordinate (`^FT`/`^FO` fields ignore
+  `^LS`/`^LT` label shifts) in `zpl.generate_zpl`; both `.zpl` endpoints
+  accept `dx`/`dy` within ±50 dots (422 outside). Server and download ZPL
+  are byte-identical to before; constants live in
+  `frontend/src/lib/labelPrinter.ts` (`AGENT_ZPL_DX_DOTS`/`DY_DOTS`).
 - **Download .zpl file** — same ZPL saved as a file (manual printing: Zebra
   Setup Utilities on Windows, `lp -o raw file.zpl` on Linux/mac). Does NOT
   acknowledge — `label_printed` stays false so delete guardrails remain

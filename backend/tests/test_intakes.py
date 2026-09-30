@@ -346,6 +346,33 @@ def test_get_intake_labels_zpl_concatenates_without_flagging(client, admin_token
     assert all(item["label_printed"] is False for item in intake_data["items"])
 
 
+def test_get_intake_labels_zpl_dx_dy_shift_fields(client, admin_token, intake):
+    """Browser-Print agent nudge (?dx=-3&dy=3) shifts every label's fields."""
+    import re
+
+    h = {"Authorization": f"Bearer {admin_token}"}
+    _add_item(client, h, intake.id, "Skis")
+
+    def coords(z: str):
+        return [(int(m[0]), int(m[1])) for m in re.findall(r"\^(?:FO|FT)(-?\d+),(-?\d+)", z)]
+
+    base = coords(client.get(f"/intakes/{intake.id}/labels.zpl", headers=h).text)
+    resp = client.get(f"/intakes/{intake.id}/labels.zpl?dx=-3&dy=3", headers=h)
+    assert resp.status_code == 200
+    shifted = coords(resp.text)
+    assert len(base) == len(shifted) > 0
+    for (x0, y0), (x1, y1) in zip(base, shifted):
+        assert x1 == x0 - 3
+        assert y1 == y0 + 3
+
+
+def test_get_intake_labels_zpl_dx_dy_out_of_range(client, admin_token, intake):
+    h = {"Authorization": f"Bearer {admin_token}"}
+    r1 = client.get(f"/intakes/{intake.id}/labels.zpl?dx=51", headers=h)
+    r2 = client.get(f"/intakes/{intake.id}/labels.zpl?dy=-51", headers=h)
+    assert r1.status_code == r2.status_code == 422
+
+
 def test_intake_labels_ack_sets_all_flags(client, admin_token, intake):
     h = {"Authorization": f"Bearer {admin_token}"}
     a = _add_item(client, h, intake.id, "Skis")

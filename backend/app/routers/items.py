@@ -412,6 +412,8 @@ def get_item_label_zpl(
     item_id: int,
     copies: int | None = None,
     code_as_text: bool = False,
+    dx: int = 0,
+    dy: int = 0,
     db: Session = Depends(get_db),
     _user: User = Depends(_INTAKE_ADMIN),
 ) -> Response:
@@ -424,17 +426,24 @@ def get_item_label_zpl(
     set here — the client calls ``POST /{item_id}/label-ack`` after the local
     print succeeds.
 
-    Same parameters and validation as ``POST /{item_id}/label``.
+    Same parameters and validation as ``POST /{item_id}/label``, plus the
+    optional ``dx``/``dy`` geometry nudge in dots (±50; see
+    ``zpl.generate_zpl``) — the Browser-Print agent path shifts every field
+    to compensate for workstation-side print feedback (2026-09-30).
     """
     item = _item_for_active_event(item_id, db)
     if copies is not None and copies < 1:
         raise HTTPException(status_code=422, detail="Copies must be at least 1")
+    if not -50 <= dx <= 50 or not -50 <= dy <= 50:
+        raise HTTPException(status_code=422, detail="dx/dy must be within ±50 dots")
     event = db.query(Event).filter(Event.is_active == True).first()
     zpl = generate_zpl(
         item,
         copies=copies,
         code_as_text=code_as_text,
         event_name=str(event.name) if event else None,
+        dx=dx,
+        dy=dy,
     )
     return Response(content=zpl, media_type="text/plain; charset=utf-8")
 

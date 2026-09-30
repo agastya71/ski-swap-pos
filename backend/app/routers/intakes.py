@@ -180,6 +180,8 @@ def print_intake_labels(
 def get_intake_labels_zpl(
     intake_id: int,
     code_as_text: bool = False,
+    dx: int = 0,
+    dy: int = 0,
     db: Session = Depends(get_db),
     _user: User = Depends(_INTAKE_ADMIN),
 ) -> Response:
@@ -190,11 +192,23 @@ def get_intake_labels_zpl(
     caller instead of the server-attached printer. ``label_printed`` is NOT
     set here — the client calls ``POST /{intake_id}/labels-ack`` after its
     local print succeeds.
+
+    Optional ``dx``/``dy`` geometry nudge in dots (±50; see
+    ``zpl.generate_zpl``) — the Browser-Print agent path shifts every field
+    to compensate for workstation-side print feedback (2026-09-30).
     """
+    if not -50 <= dx <= 50 or not -50 <= dy <= 50:
+        raise HTTPException(status_code=422, detail="dx/dy must be within ±50 dots")
     event = _active_event(db)
     intake = _get_intake_for_event(intake_id, event.id, db)  # pyright: ignore[reportArgumentType]
     zpl = "".join(
-        generate_zpl(item, code_as_text=code_as_text, event_name=str(event.name))
+        generate_zpl(
+            item,
+            code_as_text=code_as_text,
+            event_name=str(event.name),
+            dx=dx,
+            dy=dy,
+        )
         for item in intake.items
     )
     return Response(content=zpl, media_type="text/plain; charset=utf-8")

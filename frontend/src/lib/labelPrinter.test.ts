@@ -17,6 +17,7 @@ import {
 } from "./labelPrinter";
 import { ackLabelPrinted, fetchLabelZpl, printLabel } from "../api/items";
 import { ackIntakeLabels, fetchIntakeLabelsZpl, printIntakeLabels } from "../api/intakes";
+import { AGENT_ZPL_DX_DOTS, AGENT_ZPL_DY_DOTS } from "./labelPrinter";
 
 // Static + dynamic imports inside labelPrinter.ts resolve to these mocked modules.
 vi.mock("../api/items", () => ({
@@ -184,7 +185,7 @@ describe("dispatchItemLabel", () => {
       "https://localhost:9101/write": { ok: true },
     });
     await dispatchItemLabel("agent", 7, 2, true, "label-ABC-001.zpl");
-    expect(fetchLabelZpl).toHaveBeenCalledWith(7, 2, true);
+    expect(fetchLabelZpl).toHaveBeenCalledWith(7, 2, true, AGENT_ZPL_DX_DOTS, AGENT_ZPL_DY_DOTS);
     expect(ackLabelPrinted).toHaveBeenCalledWith(7);
     const { data, deviceUid } = writeCallBodyUrl(callsOf(fetchMock));
     expect(data).toBe("^XA ZPL-ITEM ^XZ");
@@ -217,7 +218,7 @@ describe("dispatchIntakeLabels", () => {
       "https://localhost:9101/write": { ok: true },
     });
     await dispatchIntakeLabels("agent", 3, false, "labels-intake-3.zpl");
-    expect(fetchIntakeLabelsZpl).toHaveBeenCalledWith(3, false);
+    expect(fetchIntakeLabelsZpl).toHaveBeenCalledWith(3, false, AGENT_ZPL_DX_DOTS, AGENT_ZPL_DY_DOTS);
     expect(ackIntakeLabels).toHaveBeenCalledWith(3);
     const { data } = writeCallBodyUrl(
       callsOf(globalThis.fetch),

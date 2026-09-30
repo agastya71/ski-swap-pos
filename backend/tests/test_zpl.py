@@ -79,6 +79,36 @@ def clean_item(db, intake, seller):
 
 # ── ZPL generation unit tests (no HTTP, no mocking) ─────────────────────────
 
+import re as _re
+
+
+def _field_coords(zpl: str) -> list[tuple[int, int]]:
+    """Extract (x, y) from every ^FO/^FT field position, in output order."""
+    return [
+        (int(m[0]), int(m[1]))
+        for m in _re.findall(r"\^(?:FO|FT)(-?\d+),(-?\d+)", zpl)
+    ]
+
+
+def test_generate_zpl_dx_dy_shifts_every_field(item):
+    """dx=-3/dy=3 ( Browser-Print agent nudge ) moves EVERY field: x-3, y+3."""
+    from app.services.zpl import generate_zpl
+
+    base = _field_coords(generate_zpl(item))
+    shifted = _field_coords(generate_zpl(item, dx=-3, dy=3))
+    assert len(base) == len(shifted) > 0
+    for (x0, y0), (x1, y1) in zip(base, shifted):
+        assert x1 == x0 - 3
+        assert y1 == y0 + 3
+
+
+def test_generate_zpl_zero_offset_is_default(item):
+    """dx=dy=0 stays byte-identical — server-attached printing is untouched."""
+    from app.services.zpl import generate_zpl
+
+    assert generate_zpl(item, dx=0, dy=0) == generate_zpl(item)
+
+
 def test_generate_zpl_contains_barcode(item):
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item)

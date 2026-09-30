@@ -64,6 +64,8 @@ def generate_zpl(
     copies: int | None = None,
     code_as_text: bool = False,
     event_name: str | None = None,
+    dx: int = 0,
+    dy: int = 0,
 ) -> str:
     """Generate a ZPL II label string for the ZD421 (203 dpi).
 
@@ -106,6 +108,16 @@ def generate_zpl(
     (option added 2026-09-12). ``event_name``: printed below the price in
     the left column (2026-09-28; originally between the price and the
     identifier, 2026-09-12; omitted when not provided).
+
+    ``dx``/``dy``: optional geometry nudge in dots (203 dpi) applied to EVERY
+    field coordinate — dx negative = left, dy positive = down. Baked into
+    the coordinates because ``^FT``-positioned fields ignore ``^LS``/``^LT``
+    label shifts (see module docstring), so an offset must move each x/y.
+    Added for the client-side Browser-Print agent path (2026-09-30): the
+    Windows workstation's agent-delivered labels print 3 dots right and
+    3 dots high versus the server-attached printer, so agent mode requests
+    dx=-3, dy=3. dx=dy=0 (the default) emits byte-identical output as
+    before. ``^PW`` stays the media print width — only field positions move.
     """
     barcode      = item.barcode_39 or item.code
     seller_code  = item.seller.code if item.seller else ""
@@ -118,8 +130,13 @@ def generate_zpl(
         part for part in (category, f"Sz: {size}" if size else "") if part
     )[:MAX_FIELD_CHARS]
     event_name   = (event_name or "")[:MAX_FIELD_CHARS]
-    origin       = LABEL_LEFT_ORIGIN_DOTS
-    right        = LABEL_RIGHT_EDGE_DOTS
+    # dx/dy shift EVERY field x/y (dots). ^PW below stays anchored to the
+    # unshifted media width — only field positions move (see docstring).
+    origin       = LABEL_LEFT_ORIGIN_DOTS + dx
+    right        = LABEL_RIGHT_EDGE_DOTS + dx
+    band_top_y   = BAND_TOP + dy          # barcode ^FO top
+    band_text_y  = BAND_TEXT_Y + dy       # price ^FT top
+    text_code_y  = 40 + dy                # code_as_text block top
     # Bars end AT the content right edge: _barcode_x reserves a 20-dot quiet
     # zone after the last bar, so pass right+20 and let the (blank) trailing
     # quiet zone fall past the edge — the printed bars end exactly at `right`
@@ -131,12 +148,12 @@ def generate_zpl(
     # Top band: price top-left, identifier (barcode / large text) top-right.
     if code_as_text:
         # The code is already printed large — no repeated identifier row.
-        code_block = f"^FT{origin},40^FB{right - origin},1,0,R,0^A0N,50,50^FD{item.code}^FS\n"
+        code_block = f"^FT{origin},{text_code_y}^FB{right - origin},1,0,R,0^A0N,50,50^FD{item.code}^FS\n"
     else:
-        code_block = f"^FO{bx},{BAND_TOP}^BCN,{BARCODE_HEIGHT},N,N,N^FD{barcode}^FS\n"
+        code_block = f"^FO{bx},{band_top_y}^BCN,{BARCODE_HEIGHT},N,N,N^FD{barcode}^FS\n"
     # Event name: always below the price, left column, at the price's font
     # size (user directive 2026-09-28).
-    row_y = TEXT_ROWS_Y if code_as_text else FIRST_ROW_Y
+    row_y = TEXT_ROWS_Y + dy if code_as_text else FIRST_ROW_Y + dy
     event_block = ""
     if event_name:
         event_block = (
@@ -180,7 +197,7 @@ def generate_zpl(
         f"^LL{LABEL_LENGTH_DOTS}\n"
         f"^PW{right}\n"
         "^CI0\n"
-        f"^FT{origin},{BAND_TEXT_Y}^A0N,30,30^FD{price_text}^FS\n"
+        f"^FT{origin},{band_text_y}^A0N,30,30^FD{price_text}^FS\n"
         f"{code_block}"
         f"{number_block}"
         f"{event_block}"
