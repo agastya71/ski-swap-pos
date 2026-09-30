@@ -260,6 +260,33 @@ the transport from **per-OS presets** (`PRINTER_OS_PRESETS` in
   (If ever needed: add a winspool path to `send_to_printer`, printing via
   the Windows spooler with the Zebra installed as a raw/ZPL port.)
 
+### Client-side label printing (Zebra attached to the intake workstation)
+
+When the Zebra is attached to the BROWSER machine (any of Windows/macOS/Linux)
+instead of the server — the intake-page "Label printer location" selector
+(persisted per workstation in `localStorage` under `label_printer_mode`)
+provides three targets:
+
+- **Print on server** (default) — the original `POST /label` path above;
+  unchanged behavior.
+- **Print here (Browser Print agent)** — the SPA fetches the raw ZPL text
+  from `GET /items/{id}/label.zpl` (`GET /intakes/{id}/labels.zpl` for the
+  bulk flow), sends it to the **Zebra Browser Print** agent on the same
+  machine (`http://localhost:9100`, `https://localhost:9101` — install the
+  agent once from zebra.com/browserprint with installers for all three
+  OSes), and on success calls `POST /items/{id}/label-ack`
+  (`POST /intakes/{id}/labels-ack`) to flag `label_printed` exactly like the
+  server-attached path. If the HTTPS listener cert is untrusted, accept it
+  once per workstation; the SPA falls back to the HTTP listener.
+- **Download .zpl file** — same ZPL saved as a file (manual printing: Zebra
+  Setup Utilities on Windows, `lp -o raw file.zpl` on Linux/mac). Does NOT
+  acknowledge — `label_printed` stays false so delete guardrails remain
+  strict.
+
+Client-side ZPL endpoints never touch the printer, never set
+`label_printed`, and re-use the full measured ZD421 geometry from
+`zpl.py`; only the delivery hop lives in the browser (`lib/labelPrinter.ts`).
+
 ### Per-host env overrides (no code changes)
 
 | Variable                | Default (linux preset)   | Notes                                        |

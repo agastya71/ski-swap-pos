@@ -2,7 +2,7 @@
  * Intakes API — create and manage seller intake sessions and add items.
  * Requires admin or intake role.
  */
-import { apiFetch, getToken } from "./client";
+import { apiFetch, apiFetchText, getToken } from "./client";
 import type {
  Intake,
  IntakeWithItems,
@@ -89,6 +89,42 @@ export const addItem = (intakeId: number, data: ItemCreate) =>
 export const printIntakeLabels = (intakeId: number, codeAsText?: boolean) =>
  apiFetch<{ intake_id: number; printed: number }>(
   `/intakes/${intakeId}/labels${codeAsText ? "?code_as_text=true" : ""}`,
+  { method: "POST" },
+ );
+
+/**
+ * Fetch the concatenated raw ZPL for all items in an intake WITHOUT sending
+ * it to the server-attached printer (client-side printing path).
+ *
+ * Used when the Zebra is attached to the browser workstation: the caller hands
+ * this ZPL to the local printer (e.g. the Zebra Browser Print agent) or saves
+ * it as a download, then calls {@link ackIntakeLabels} after a successful
+ * local print. Label-for-label identical to the server-attached POST flow.
+ *
+ * @param intakeId - Primary key of the intake whose labels should be rendered.
+ * @param codeAsText - When true, each item's code prints as large text instead
+ *   of a barcode (`?code_as_text=true`).
+ * @returns The concatenated ZPL II text (`text/plain`).
+ * @throws {ApiError} 404 if the referenced intake does not exist.
+ * @throws {ApiError} 401 if the session token is invalid.
+ */
+export const fetchIntakeLabelsZpl = (intakeId: number, codeAsText?: boolean) =>
+ apiFetchText(
+  `/intakes/${intakeId}/labels.zpl${codeAsText ? "?code_as_text=true" : ""}`,
+ );
+
+/**
+ * Mark every item in the intake as label-printed after a successful
+ * client-side local print (idempotent bulk companion of the item-level ack).
+ *
+ * @param intakeId - Primary key of the intake whose labels were printed.
+ * @returns Object with `intake_id` and `acknowledged` item count.
+ * @throws {ApiError} 404 if the referenced intake does not exist.
+ * @throws {ApiError} 401 if the session token is invalid.
+ */
+export const ackIntakeLabels = (intakeId: number) =>
+ apiFetch<{ intake_id: number; acknowledged: number }>(
+  `/intakes/${intakeId}/labels-ack`,
   { method: "POST" },
  );
 

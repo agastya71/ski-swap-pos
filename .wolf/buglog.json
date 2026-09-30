@@ -2876,6 +2876,119 @@
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-09-28T01:56:04.399Z"
+    },
+    {
+      "id": "bug-180",
+      "timestamp": "2026-09-28T02:50:22.463Z",
+      "error_message": "Significant refactor of zpl.py",
+      "file": "backend/app/services/zpl.py",
+      "root_cause": "3 lines replaced/restructured",
+      "fix": "Rewrote 3\u21925 lines (3 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-28T02:50:22.463Z"
+    },
+    {
+      "id": "bug-181",
+      "timestamp": "2026-09-28T12:10:06.329Z",
+      "error_message": "Significant refactor of test_zpl.py",
+      "file": "backend/tests/test_zpl.py",
+      "root_cause": "3 lines replaced/restructured",
+      "fix": "Rewrote 13\u219216 lines (3 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-28T12:10:06.329Z"
+    },
+    {
+      "id": "bug-182",
+      "timestamp": "2026-09-30T00:12:40.659Z",
+      "error_message": "Missing error handling in function()",
+      "file": "frontend/src/api/client.ts",
+      "root_cause": "Code path had no error handling \u2014 exceptions would propagate uncaught",
+      "fix": "Added try/catch block",
+      "tags": [
+        "auto-detected",
+        "error-handling",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-30T00:12:40.659Z"
+    },
+    {
+      "id": "bug-183",
+      "timestamp": "2026-09-30T00:12:40.780Z",
+      "error_message": "Type error",
+      "file": "frontend/src/api/items.ts",
+      "root_cause": "Missing or incorrect type annotation",
+      "fix": "Added type assertion/annotation",
+      "tags": [
+        "auto-detected",
+        "type-fix",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-30T00:12:40.780Z"
+    },
+    {
+      "id": "bug-184",
+      "timestamp": "2026-09-30T00:15:12.082Z",
+      "error_message": "Type error",
+      "file": "frontend/src/api/intakes.ts",
+      "root_cause": "Missing or incorrect type annotation",
+      "fix": "Added type assertion/annotation",
+      "tags": [
+        "auto-detected",
+        "type-fix",
+        "ts"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-30T00:15:12.082Z"
+    },
+    {
+      "id": "bug-185",
+      "timestamp": "2026-09-30T00:19:26.496Z",
+      "error_message": "Null/undefined access in ItemList.tsx",
+      "file": "frontend/src/intake/ItemList.tsx",
+      "root_cause": "Property access on potentially null/undefined value",
+      "fix": "Added null safety (optional chaining or null check)",
+      "tags": [
+        "auto-detected",
+        "null-safety",
+        "tsx"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-09-30T00:19:26.496Z"
+    }
+  ],
+  "entries": [
+    {
+      "id": "detached-head-push-stale-branch",
+      "timestamp": "2026-09-29T19:35:00Z",
+      "error_message": "gh pr create: could not determine current branch \u2014 repo silently in detached HEAD after a chained 'git checkout -b X && git checkout --detach'",
+      "file": "n/a (git workflow)",
+      "root_cause": "Branch-setup command chained a stray 'git checkout --detach'; commits then landed on detached HEAD, and 'git push -u origin <branch>' pushed the STALE branch ref (e0406d8), not HEAD's commits (61ab33e).",
+      "fix": "git branch -f <branch> <detached-sha>; git checkout <branch>; git merge --ff-only <sha>; push again. Verify 'git branch --show-current' is non-empty AND 'git rev-parse <branch>' == HEAD before committing.",
+      "tags": [
+        "git",
+        "detached-head",
+        "workflow"
+      ],
+      "occurrences": 1,
+      "last_seen": "2026-09-29"
     }
   ]
 }

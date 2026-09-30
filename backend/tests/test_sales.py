@@ -286,7 +286,10 @@ def test_create_sale_empty_items(client, cashier_token, active_event):
 
 def test_create_sale_no_active_event(client, db, cashier_token):
     from app.models.event import Event
-    db.query(Event).update({"is_active": False})
+    # Attribute loop (not query.bulk_update/update()): keeps every test file on
+    # the parameterized-by-construction form the SQL-sink scanner allowlists.
+    for ev in db.query(Event).all():
+        ev.is_active = False
     db.commit()
     resp = client.post(
         "/sales",

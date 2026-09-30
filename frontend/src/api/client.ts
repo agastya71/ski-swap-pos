@@ -118,3 +118,28 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
 }
+
+/**
+ * Authenticated fetch wrapper like {@link apiFetch} for endpoints answering
+ * with a text body (e.g. the raw ZPL label endpoints). Shares the Bearer-token
+ * injection and non-2xx error handling; returns the body as a string.
+ *
+ * @param path - API path relative to the origin, e.g. `/items/7/label.zpl`.
+ * @param init - Optional fetch init overrides (method, body, additional headers).
+ * @returns The response body decoded as text.
+ * @throws {ApiError} For any non-2xx HTTP response (body parsed as JSON for the error detail).
+ */
+export async function apiFetchText(path: string, init?: RequestInit): Promise<string> {
+  const headers: Record<string, string> = {
+    ...(init?.body != null ? { 'Content-Type': 'application/json' } : {}),
+    ...(init?.headers as Record<string, string> | undefined),
+  }
+  if (_token) headers['Authorization'] = `Bearer ${_token}`
+
+  const res = await fetch(path, { ...init, headers })
+  if (!res.ok) {
+    const body: unknown = await res.json().catch(() => null)
+    throw new ApiError(res.status, extractApiErrorMessage(body) ?? res.statusText)
+  }
+  return res.text()
+}
