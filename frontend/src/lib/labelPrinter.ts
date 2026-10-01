@@ -38,6 +38,15 @@ export type LabelPrinterMode = "server" | "agent" | "download";
 /** localStorage key persisting the per-workstation label printer target. */
 const MODE_KEY = "label_printer_mode";
 
+/** Geometry nudge for the Browser-Print agent path (dots, 203 dpi). Live
+ *  print feedback on the Windows agent workstation (2026-09-30) showed
+ *  agent-delivered labels land 3 dots right and 3 dots high versus the
+ *  server-attached printer, so agent mode fetches its ZPL with every field
+ *  shifted 3 left (dx) and 3 down (dy). Applied ONLY in "agent" mode —
+ *  server and download ZPL are byte-identical to before. */
+export const AGENT_ZPL_DX_DOTS = -3;
+export const AGENT_ZPL_DY_DOTS = 3;
+
 /** Read the persisted label-printer target. Defaults to "server" when unset,
  *  when the value is corrupted, or when localStorage is unavailable (tests,
  *  blocked storage). */
@@ -190,7 +199,13 @@ export async function dispatchItemLabel(
     await printLabel(id, copies, codeAsText);
     return;
   }
-  const zpl = await fetchLabelZpl(id, copies, codeAsText);
+  // Browser-Print agent labels print 3 right / 3 high vs the server
+  // printer — the agent fetch requests the compensating geometry nudge
+  // (see AGENT_ZPL_DX_DOTS/AGENT_ZPL_DY_DOTS). Other modes: bare ZPL.
+  const zpl =
+    mode === "agent"
+      ? await fetchLabelZpl(id, copies, codeAsText, AGENT_ZPL_DX_DOTS, AGENT_ZPL_DY_DOTS)
+      : await fetchLabelZpl(id, copies, codeAsText);
   if (mode === "download") {
     downloadZplFile(zpl, filename);
     return;
@@ -214,7 +229,11 @@ export async function dispatchIntakeLabels(
     await printIntakeLabels(intakeId, codeAsText);
     return;
   }
-  const zpl = await fetchIntakeLabelsZpl(intakeId, codeAsText);
+  // Same geometry nudge as dispatchItemLabel, agent mode only.
+  const zpl =
+    mode === "agent"
+      ? await fetchIntakeLabelsZpl(intakeId, codeAsText, AGENT_ZPL_DX_DOTS, AGENT_ZPL_DY_DOTS)
+      : await fetchIntakeLabelsZpl(intakeId, codeAsText);
   if (mode === "download") {
     downloadZplFile(zpl, filename);
     return;

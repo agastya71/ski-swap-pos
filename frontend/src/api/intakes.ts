@@ -108,10 +108,19 @@ export const printIntakeLabels = (intakeId: number, codeAsText?: boolean) =>
  * @throws {ApiError} 404 if the referenced intake does not exist.
  * @throws {ApiError} 401 if the session token is invalid.
  */
-export const fetchIntakeLabelsZpl = (intakeId: number, codeAsText?: boolean) =>
- apiFetchText(
-  `/intakes/${intakeId}/labels.zpl${codeAsText ? "?code_as_text=true" : ""}`,
- );
+export const fetchIntakeLabelsZpl = (
+ intakeId: number,
+ codeAsText?: boolean,
+ dx?: number,
+ dy?: number,
+) => {
+ const params = new URLSearchParams();
+ if (codeAsText) params.set("code_as_text", "true");
+ if (dx) params.set("dx", String(dx));
+ if (dy) params.set("dy", String(dy));
+ const qs = params.toString();
+ return apiFetchText(`/intakes/${intakeId}/labels.zpl${qs ? `?${qs}` : ""}`);
+};
 
 /**
  * Mark every item in the intake as label-printed after a successful

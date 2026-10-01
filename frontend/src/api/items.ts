@@ -178,15 +178,28 @@ export const printLabel = (
  *   like the server-attached path.
  * @param codeAsText - When true, the item code prints as large text instead
  *   of a barcode (`?code_as_text=true`).
+ * @param dx - Optional horizontal geometry nudge in dots (±50). Nonzero only
+ *   on the Browser-Print agent path (see {@link AGENT_ZPL_DX_DOTS}).
+ * @param dy - Optional vertical geometry nudge in dots (±50; positive =
+ *   down). Nonzero only on the Browser-Print agent path.
  * @returns The ZPL II label text (`text/plain`).
  * @throws {ApiError} 404 if no item with the given ID exists.
- * @throws {ApiError} 422 if `copies` is provided and less than 1.
+ * @throws {ApiError} 422 if `copies` is provided and less than 1, or dx/dy
+ *   are out of range.
  * @throws {ApiError} 401 if the session token is invalid.
  */
-export const fetchLabelZpl = (id: number, copies?: number, codeAsText?: boolean) => {
+export const fetchLabelZpl = (
+	id: number,
+	copies?: number,
+	codeAsText?: boolean,
+	dx?: number,
+	dy?: number,
+) => {
 	const params = new URLSearchParams();
 	if (copies) params.set("copies", String(copies));
 	if (codeAsText) params.set("code_as_text", "true");
+	if (dx) params.set("dx", String(dx));
+	if (dy) params.set("dy", String(dy));
 	const qs = params.toString();
 	return apiFetchText(`/items/${id}/label.zpl${qs ? `?${qs}` : ""}`);
 };

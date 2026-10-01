@@ -110,3 +110,9 @@ budget_tokens: 2000
 - httpx TestClient responses expose `.content`/`.text`, NOT `.body` (that's the FastAPI Response before serialization).
 - Numeric item ids (10000+) break the old "seller code is a prefix of item codes" POS-search convenience — test_search_no_longer_matches_seller_code documents this; flagged to the user as a possible follow-up (seller search box at POS).
 - Branched git must VERIFY: after creating a branch, confirm `git branch --show-current` is non-empty AND `git rev-parse <branch>` == HEAD before committing — a chained stray `git checkout --detach` sent commits onto detached HEAD (2026-09-29) and `git push -u origin <branch>` from detached HEAD silently pushed the STALE branch ref (stale code on remote). Fix: `git branch -f <branch> <sha>` + checkout + ff-merge + push.
+
+### [2026-09-30] Agent label geometry nudge (dx/dy)
+
+- pi-lens `typos:unknown` flags ZPL command names (`^FO`, `^FT`) as misspellings in comments/regexes — expect FP churn on any zpl.py/test_zpl editing; mark false-positive per instance (4 marked this session).
+- Label geometry nudges MUST be baked into field coordinates: `^FT`-positioned fields ignore `^LS`/`^LT` label shifts (zpl.py module docstring).
+- `git add -A` in this repo sweeps unrelated untracked scaffolding (.claude/, .opencode/, OS junk, *.db-shm/-wal/bak) — always stage explicit paths.
