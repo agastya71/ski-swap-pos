@@ -51,12 +51,25 @@ ROW_FONT = 30          # EVERY text field prints at the price's font size (user 
 ROW_PITCH = 27         # row stride: 30pt caps ≈ 21 dots leave ~6 dots of air between rows
 BAND_TOP = 14          # barcode top — the media top sits ≈12 dots below format y=0
                        # (ruler print 2026-09-27: the y=0 band prints off-media)
-BAND_TEXT_Y = 33       # price / in-band event field top (barcode occupies 14..60)
 BARCODE_HEIGHT = 46
-FIRST_ROW_Y = 66       # first full-width row below the barcode band (+6 clear of the bars)
-TEXT_ROWS_Y = 80       # text-mode rows start below the 50pt code ink (ends ≈75)
+EVENT_ROW_Y = 33       # event row — the price's OLD top-band-left slot (2026-10-06:
+                       # event shifts up into it; the barcode occupies 14..60 to
+                       # its right). Supersedes the 2026-09-28 below-the-price
+                       # placement, which only applied while the price sat there.
+ID_ROW_Y = 93          # item-ID row, uniform on every label — centered under the
+                       # bars (the bars occupy y 14..60; +6 dots of ink clearance)
+SELLER_ROW_Y = 120     # seller row — the PRICE (+ the donate flag) join it in the
+                       # right column (2026-10-06 v6 user directive: "the row with
+                       # Y = 120"); all rows below unchanged from v5
+TEXT_ROWS_Y = 80       # text-mode FLOW start: the seller row — the flag+price and
+                       # the seller share it (below the 50pt code ink, ends ≈75)
 MAX_FIELD_CHARS = 28   # 28 × (0.6 × 30) ≈ 504 dots ≤ content width
+DESC_MAX_CHARS = 20    # description truncates at 20 chars (2026-10-06: directive,
+                       # originally 30)
 ROW_INK = 24           # worst-case ink depth of a 30pt row (caps + descenders)
+LABEL_DOWN_DOTS = 4    # v7 (2026-10-06 user directive: "move the whole label down
+                       # by 4 dots") — print-feedback media shift applied to
+                       # every field's y via dy_eff
 
 
 def generate_zpl(
@@ -69,31 +82,56 @@ def generate_zpl(
 ) -> str:
     """Generate a ZPL II label string for the ZD421 (203 dpi).
 
-    Layout (2026-09-27 v3 — print-feedback revision of the MYSL 2020 photo
-    layout; supersedes the v2 font ladder):
-      - EVERY text field prints at the price's font size (30pt): price,
-        event name, item identifier, seller code, category + size,
-        description, free-text lines (user directive after the first live
-        print of v2)
-      - Top band: price top-left, Code 128 barcode top-right — anchored to
-        the ruler-measured media window (2026-09-27 fine probes, two prints
+    Layout (2026-10-06 v7 — every field sits 4 dots lower (LABEL_DOWN_DOTS,
+    user directive); v6 = price-beside-flag-in-seller-row; v5 = event into
+    the price's old band slot):
+      - Top band: Code 128 barcode top-right — anchored to the
+        ruler-measured media window (2026-09-27 fine probes, two prints
         agreeing post-recalibration: content x 147..723); the old
-        280..850 window printed bars past the media edge; content starts
-        at y=14 because the ruler print showed the media top ≈12 dots
-        below format y=0
-      - Event name: ALWAYS below the price in the left column, at the
-        price's font size — never in the band (user directive 2026-09-28;
-        supersedes the in-band/fallback variants)
-      - Item identifier on its own full 30pt row one pitch below the event
-        slot, centered under the barcode — a uniform y on EVERY label,
-        clear of the bars (v2's 5-dot gap read as "mixed up with the
-        barcode"); skipped in ``code_as_text`` mode, where the code
-        already prints large in the band
+        280..850 window printed bars past the media edge; the barcode
+        starts at y=14 because the ruler print showed the media top ≈12
+        dots below format y=0
+      - Event name: takes the price's OLD top-band-left slot (y=33) — the
+        slot the price vacated when it moved below the barcode (2026-10-06
+        user directive: "shift the event name to take the place of the
+        price, and everything below shifted up"). Left column, uniform y,
+        never truncated, omitted when not provided. This supersedes the
+        2026-09-28 "always below the price / never in the band" placement,
+        which only applied while the price sat in the band
+      - Price + donation flag: one composed field in the RIGHT COLUMN of
+        the seller row (2026-10-06 v6 user directive: "place the price in
+        the right column in the row with Y = 120, left justified, with a
+        few spaces separating the price and the Donate Flag") — left-
+        justified: donated items print "D" + four spaces + the price,
+        left-packed at the column edge ("D    $125.00"); non-donate items
+        print the price alone at the same edge. In barcode mode the
+        column edge is the barcode's x anchor (bx — the same right-column
+        band the barcode and the centered ID occupy; floored so a very
+        long item code can never slide the flag under the seller code);
+        text mode (no barcode) splits the content width at its midpoint.
+        Supersedes v4/v5's dedicated price row below the band (y=66 — now
+        empty) and the v4 "D below the price" placement
+      - Donation flag: rides beside the price in that composed field
+        (v6); the flag left the item-ID row, which keeps its uniform row
+        alone
+      - EVERY text field prints at the price's font size (30pt): price,
+        donation flag, event name, item identifier, seller code,
+        category + size, description, free-text lines (user directive
+        after the first live print of v2; kept in v4)
+      - Item identifier: UNCHANGED — its own full 30pt row centered under
+        the barcode, uniform y, clear of the bars (v2's 5-dot gap read as
+        "mixed up with the barcode"); skipped in ``code_as_text`` mode,
+        where the code already prints large in the band
+      - Event name: see the top-band bullet above (2026-10-06: the
+        price's old slot, above the price; consumes no lower row — the
+        seller/category/description flow is identical with or without it)
       - Seller code, category + ``Sz:`` size, description and the optional
         ``label_line_2``/``label_line_3`` free-text lines follow, one 30pt
         row each, printed top-down while they still fit the 1" canvas
         (media confirmed ≈3" × 1" — ^LL back to 203; the v2 "compact
-        regime" is gone)
+        regime" is gone). The description truncates to 20 characters
+        (2026-10-06 directive, originally 30); the other fields keep the
+        28-char cap
     Text fields use ``^FT`` (field top): for scalable fonts ``^FO`` positions
     at the BASELINE, which clipped the tops of the price/ID (print test
     2026-09-13).
@@ -105,9 +143,10 @@ def generate_zpl(
     labels (the "print a specified number of labels per item" flow).
 
     ``code_as_text``: render the item code as text instead of a barcode
-    (option added 2026-09-12). ``event_name``: printed below the price in
-    the left column (2026-09-28; originally between the price and the
-    identifier, 2026-09-12; omitted when not provided).
+    (option added 2026-09-12). ``event_name``: printed in the top band's
+    left slot — the price's old place, now above the price (2026-10-06;
+    below the price 2026-09-28, beside the identifier originally
+    2026-09-12; omitted when not provided).
 
     ``dx``/``dy``: optional geometry nudge in dots (203 dpi) applied to EVERY
     field coordinate — dx negative = left, dy positive = down. Baked into
@@ -118,10 +157,12 @@ def generate_zpl(
     3 dots high versus the server-attached printer, so agent mode requests
     dx=-3, dy=3. dx=dy=0 (the default) emits byte-identical output as
     before. ``^PW`` stays the media print width — only field positions move.
-    """
+    With dy=dy_eff's LABEL_DOWN_DOTS global shift: dx=dy=0 emits the
+    un-nudged layout (which since v7 already includes the +4-dot label
+    shift)."""
     barcode      = item.barcode_39 or item.code
     seller_code  = item.seller.code if item.seller else ""
-    description  = (item.description or "")[:MAX_FIELD_CHARS]
+    description  = (item.description or "")[:DESC_MAX_CHARS]   # 20-char cap (2026-10-06)
     line2        = (item.label_line_2 or "")[:MAX_FIELD_CHARS]
     line3        = (item.label_line_3 or "")[:MAX_FIELD_CHARS]
     category     = str(item.category or "").upper()
@@ -132,11 +173,14 @@ def generate_zpl(
     event_name   = (event_name or "")[:MAX_FIELD_CHARS]
     # dx/dy shift EVERY field x/y (dots). ^PW below stays anchored to the
     # unshifted media width — only field positions move (see docstring).
+    # v7 (2026-10-06): the whole label sits LABEL_DOWN_DOTS dots lower —
+    # folded into the effective dy every field shares, so the per-print
+    # dx/dy nudge (Browser-Print agent path) stacks on top of it.
     origin       = LABEL_LEFT_ORIGIN_DOTS + dx
     right        = LABEL_RIGHT_EDGE_DOTS + dx
-    band_top_y   = BAND_TOP + dy          # barcode ^FO top
-    band_text_y  = BAND_TEXT_Y + dy       # price ^FT top
-    text_code_y  = 40 + dy                # code_as_text block top
+    dy_eff       = dy + LABEL_DOWN_DOTS
+    band_top_y   = BAND_TOP + dy_eff      # barcode ^FO top
+    text_code_y  = 40 + dy_eff            # code_as_text block top
     # Bars end AT the content right edge: _barcode_x reserves a 20-dot quiet
     # zone after the last bar, so pass right+20 and let the (blank) trailing
     # quiet zone fall past the edge — the printed bars end exactly at `right`
@@ -145,31 +189,55 @@ def generate_zpl(
     bx           = _barcode_x(barcode, right + 20)
     price_text   = f"${item.price:.2f}"
 
-    # Top band: price top-left, identifier (barcode / large text) top-right.
-    if code_as_text:
-        # The code is already printed large — no repeated identifier row.
-        code_block = f"^FT{origin},{text_code_y}^FB{right - origin},1,0,R,0^A0N,50,50^FD{item.code}^FS\n"
-    else:
-        code_block = f"^FO{bx},{band_top_y}^BCN,{BARCODE_HEIGHT},N,N,N^FD{barcode}^FS\n"
-    # Event name: always below the price, left column, at the price's font
-    # size (user directive 2026-09-28).
-    row_y = TEXT_ROWS_Y + dy if code_as_text else FIRST_ROW_Y + dy
+    # Event name: takes the price's OLD top-band-left slot (2026-10-06 user
+    # directive — "shift the event name to take the place of the price, and
+    # everything below shifted up"; supersedes the 2026-09-28 below-the-
+    # price placement, which only applied while the price sat there).
+    # Left column, uniform y, never truncated; it consumes no row in the
+    # lower flow — everything below shifts up exactly one pitch.
+    event_y      = EVENT_ROW_Y + dy_eff
     event_block = ""
     if event_name:
         event_block = (
-            f"^FT{origin},{row_y}^A0N,{ROW_FONT},{ROW_FONT}^FD{event_name}^FS\n"
+            f"^FT{origin},{event_y}^A0N,{ROW_FONT},{ROW_FONT}^FD{event_name}^FS\n"
         )
-    # The identifier row always sits one pitch below the event slot — a
-    # uniform y on every label (with or without an event name), full row
-    # clear of the bars (v2's 5-dot gap read as "mixed up").
-    row_y += ROW_PITCH
+
+    # Identifier (barcode / large text) — top band, unchanged (barcode
+    # mode: ^FO-anchored bars ending at the right edge; text mode: the
+    # large code right-aligned via ^FB — no repeated identifier row).
+    if code_as_text:
+        code_block = f"^FT{origin},{text_code_y}^FB{right - origin},1,0,R,0^A0N,50,50^FD{item.code}^FS\n"
+    else:
+        code_block = f"^FO{bx},{band_top_y}^BCN,{BARCODE_HEIGHT},N,N,N^FD{barcode}^FS\n"
+
+    # Price + donation flag: one composed field in the right column of the
+    # seller row (2026-10-06 v6 user directive — "place the price in the
+    # right column in the row with Y = 120, left justified, with a few
+    # spaces separating the price and the Donate Flag"): donated items
+    # print "D" + four spaces + the price, left-packed at the column edge;
+    # non-donate items print the price alone at the same edge. Barcode
+    # mode: the column edge is the barcode's x anchor (bx — the right-
+    # column band the barcode and the centered ID occupy), floored so an
+    # unusually long item code never slides the flag under the seller's
+    # code (6-char cap + the flag prefix + spacing). Text mode (no
+    # barcode): the content width's midpoint. The price leaves its v5 row
+    # below the band (y=66 now empty) and the flag leaves the ID row.
+    price_row_y  = (TEXT_ROWS_Y if code_as_text else SELLER_ROW_Y) + dy_eff
+    price_col_x  = max(bx, origin + 10 * 18) if not code_as_text else (origin + right) // 2
+    flag_price   = f"D    {price_text}" if item.donate_unsold else price_text
+    price_block  = f"^FT{price_col_x},{price_row_y}^A0N,{ROW_FONT},{ROW_FONT}^FD{flag_price}^FS\n"
+
+    # Item identifier row (barcode mode only): UNCHANGED uniform y —
+    # centered under the bars. The donate flag left this row in v6 (it
+    # rides beside the price now); the lower flow resumes below it.
     number_block = ""
+    row_y        = (TEXT_ROWS_Y if code_as_text else SELLER_ROW_Y) + dy_eff
     if not code_as_text:
         number_block = (
-            f"^FT{bx},{row_y}^FB{right - bx},1,0,C,0"
+            f"^FT{bx},{ID_ROW_Y + dy_eff}^FB{right - bx},1,0,C,0"
             f"^A0N,{ROW_FONT},{ROW_FONT}^FD{barcode}^FS\n"
         )
-        row_y += ROW_PITCH
+
     # Lower block: one 30pt row per field, top to bottom; on the 1" canvas a
     # row that would run past the media edge is dropped rather than clipped.
     lower_blocks = ""
@@ -197,10 +265,10 @@ def generate_zpl(
         f"^LL{LABEL_LENGTH_DOTS}\n"
         f"^PW{right}\n"
         "^CI0\n"
-        f"^FT{origin},{band_text_y}^A0N,30,30^FD{price_text}^FS\n"
-        f"{code_block}"
-        f"{number_block}"
         f"{event_block}"
+        f"{code_block}"
+        f"{price_block}"
+        f"{number_block}"
         f"{lower_blocks}"
         f"{pq}"
         "^XZ\n"
