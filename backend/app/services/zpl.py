@@ -106,14 +106,6 @@ ROW_INK = 24           # worst-case ink depth of a 30pt row (caps + descenders)
 LABEL_DOWN_DOTS = 4    # v7 (2026-10-06 user directive: "move the whole label down
                        # by 4 dots") — print-feedback media shift applied to
                        # every field's y via dy_eff
-BARCODE_RIGHT_NUDGE = 5
-                       # v9.1 (2026-10-12 user directive: "the barcode, item code
-                       # beneath the barcode, the price and donation flag beneath
-                       # that have shifted too much to the right — shift them back
-                       # about 5 dots"): the whole barcode band (bars, ID row, and
-                       # the flag/price column) references the content right edge
-                       # MINUS this nudge — bars end at 718, ID/flag/price pack 5
-                       # dots left; the ID row re-centers on the bars' band.
 
 
 def generate_zpl(
@@ -241,13 +233,13 @@ def generate_zpl(
     band_top_y   = BAND_TOP + dy_eff      # barcode ^FO top
     text_code_y  = 34 + dy_eff            # code_as_text block top (v8: rides 6 dots higher
                                           # — the ×2 bitmap cell needs the ink clearance)
-    # Bars end 5 dots INSIDE the content right edge (v9.1 BARCODE_RIGHT_NUDGE:
-    # the exact-model re-anchor landed ~5 dots too far right and the user moved
-    # the whole band back). _barcode_x models Code 128 exactly (11 modules/char
-    # × module 2 + the two 20-dot quiet zones), so the BARS end at
-    # (right − nudge) and the reserved trailing quiet zone falls past the edge
-    # (user directive 2026-09-27: the bars end at the right content edge).
-    bx           = _barcode_x(barcode, right + 20 - BARCODE_RIGHT_NUDGE)
+    # Bars end AT the content right edge: _barcode_x models Code 128 exactly
+    # (11 modules/char × module 2 + the two 20-dot quiet zones), so the BARS
+    # end at `right` and the reserved trailing quiet zone falls past the edge
+    # (v9 2026-10-12: the old 30-dots/symbol estimate parked the bars ~100
+    # dots short of 723 — dead space the user directive asked to reclaim;
+    # user directive 2026-09-27: the bars end at the right content edge).
+    bx           = _barcode_x(barcode, right + 20)
     price_text   = f"${item.price:.2f}"
 
     # Event name: takes the price's OLD top-band-left slot (2026-10-06 user
@@ -300,9 +292,8 @@ def generate_zpl(
     number_block = ""
     row_y        = (TEXT_ROWS_Y if code_as_text else SELLER_ROW_Y) + dy_eff
     if not code_as_text:
-        band_right = right - BARCODE_RIGHT_NUDGE   # v9.1: the ID centers on the
-        number_block = (                           # bars' band, not the old edge
-            f"^FT{bx},{ID_ROW_Y + dy_eff}^FB{band_right - bx},1,0,C,0"
+        number_block = (
+            f"^FT{bx},{ID_ROW_Y + dy_eff}^FB{right - bx},1,0,C,0"
             f"{_PLAIN}^FD{barcode}^FS\n"
         )
 
