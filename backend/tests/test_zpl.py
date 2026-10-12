@@ -398,13 +398,13 @@ def test_send_to_printer_cups_unavailable_raises_oserror(tmp_path):
 def test_generate_zpl_price_right_column_seller_row(item):
     """The price prints in the RIGHT COLUMN of the seller row (y=120), left
     justified at the barcode's x anchor (2026-10-06 v6 user directive). For
-    the 7-char code the anchor is 743 - (10 syms × 22 + 40 quiet) = 483
+    the 7-char code the anchor is 738 - (10 syms × 22 + 40 quiet) = 478
     dots (v9 exact model) — the same column edge the barcode and centered
     ID occupy. The bars end exactly at 723."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item)
-    assert "^FT483,124^AEN,28,15^FD$25.00^FS" in zpl
-    assert "^FO483,18^BCN,46,N,N,N^FDABC-001^FS" in zpl
+    assert "^FT478,124^AEN,28,15^FD$25.00^FS" in zpl
+    assert "^FO478,18^BCN,46,N,N,N^FDABC-001^FS" in zpl
 
 
 def test_generate_zpl_item_id_row_below_barcode(item):
@@ -415,7 +415,7 @@ def test_generate_zpl_item_id_row_below_barcode(item):
     y=93 with or without an event name."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item)
-    assert "^FT483,90^FB240,1,0,C,0^AEN,28,15^FDABC-001^FS" in zpl
+    assert "^FT478,90^FB240,1,0,C,0^AEN,28,15^FDABC-001^FS" in zpl
 
 
 def test_generate_zpl_user_id_below_price(item):
@@ -463,7 +463,7 @@ def test_generate_zpl_prints_event_name(item):
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item, event_name="Ski Swap 2026")
     assert "^FT147,37^AEN,28,15^FDSki Swap 2026^FS" in zpl
-    assert "^FT483,90^FB240,1,0,C,0^AEN,28,15^FDABC-001^FS" in zpl
+    assert "^FT478,90^FB240,1,0,C,0^AEN,28,15^FDABC-001^FS" in zpl
     assert "^FT147,124^AEN,28,15^FDABC^FS" in zpl
 
 
@@ -500,7 +500,7 @@ def test_generate_zpl_text_mode_code_top_right(item):
     assert "^FT147,37^AEN,28,15^FDSki Swap 2026^FS" in zpl
     assert "^FT435,84^AEN,28,15^FD$25.00^FS" in zpl
     assert "^BCN" not in zpl
-    assert "^FT483," not in zpl  # no identifier row under the (absent) barcode
+    assert "^FT478," not in zpl  # no identifier row under the (absent) barcode
 
 
 def test_generate_zpl_donation_flag_beside_price(item):
@@ -513,16 +513,16 @@ def test_generate_zpl_donation_flag_beside_price(item):
     from app.services.zpl import generate_zpl
     item.donate_unsold = True
     zpl = generate_zpl(item)
-    assert "^FT483,124^A0N,30,30^FDD^FS" in zpl
-    assert "^FT523,124^AEN,28,15^FD$25.00^FS" in zpl
+    assert "^FT478,124^A0N,30,30^FDD^FS" in zpl
+    assert "^FT518,124^AEN,28,15^FD$25.00^FS" in zpl
     # the flag left the ID row: the ID is centered there alone, and the
     # seller row keeps its slot (the flag costs no row either way)
-    assert "^FT483,90^FB240,1,0,C,0^AEN,28,15^FDABC-001^FS" in zpl
+    assert "^FT478,90^FB240,1,0,C,0^AEN,28,15^FDABC-001^FS" in zpl
     assert "^FT147,124^AEN,28,15^FDABC^FS" in zpl
     assert zpl.count("^FDD^FS") == 1          # exactly one D field, at the price row
     item.donate_unsold = False
     zpl = generate_zpl(item)
-    assert "^FT483,124^AEN,28,15^FD$25.00^FS" in zpl
+    assert "^FT478,124^AEN,28,15^FD$25.00^FS" in zpl
     assert zpl.count("^FDD^FS") == 0
     assert "^FT147,124^AEN,28,15^FDABC^FS" in zpl
 
@@ -531,8 +531,8 @@ def test_generate_zpl_price_column_floored_for_long_codes(item):
     """A long item code slides the barcode anchor left — the flag+price
     edge is floored so it can never land under the seller code (v9 exact
     model: field = 20 + (data+4 syms)×22 + 20). A 13-char code is NOT
-    floored (bx = 743 - 392 = 351 > 327): the flag prints at 351 and the
-    price 40 dots right of it. A 16-char code IS: bx = 285 < floor
+    floored (bx = 738 - 392 = 346 > 327): the flag prints at 346 and the
+    price 40 dots right of it. A 16-char code IS: bx = 280 < floor
     (origin + 180 = 327) → flag at 327, price at 367. v8: bars encode
     item.code, so the test sets the code only (barcode_39 no longer
     reaches the label)."""
@@ -540,8 +540,8 @@ def test_generate_zpl_price_column_floored_for_long_codes(item):
     item.code = "LONGCODE-1234"
     item.donate_unsold = True
     zpl = generate_zpl(item)
-    assert "^FT351,124^A0N,30,30^FDD^FS" in zpl
-    assert "^FT391,124^AEN,28,15^FD$25.00^FS" in zpl
+    assert "^FT346,124^A0N,30,30^FDD^FS" in zpl
+    assert "^FT386,124^AEN,28,15^FD$25.00^FS" in zpl
     item.code = "LONGCODE-1234567"
     zpl = generate_zpl(item)
     assert "^FT327,124^A0N,30,30^FDD^FS" in zpl
@@ -552,15 +552,15 @@ def test_generate_zpl_numeric_id_bars_end_at_right_edge(item):
     """v9 (2026-10-12 user directive: use more of the label width): with the
     numeric 5-digit item ids the exact Code 128 model parks the bars at the
     content right edge — 7 syms (start C + 2 pairs + B-switch pair + check +
-    stop) × 22 = 154-dot ink ending at 723, bx = 743 - 194 = 549 — and the
+    stop) × 22 = 154-dot ink ending at 723, bx = 738 - 194 = 544 — and the
     price/ID column anchors at that (true) bars start instead of floating
     ~100 dots left of them as the v7 estimate did."""
     from app.services.zpl import generate_zpl
     item.code = "10042"
     zpl = generate_zpl(item)
-    assert "^FO549,18^BCN,46,N,N,N^FD10042^FS" in zpl
-    assert "^FT549,124^AEN,28,15^FD$25.00^FS" in zpl
-    assert "^FT549,90^FB174,1,0,C,0^AEN,28,15^FD10042^FS" in zpl
+    assert "^FO544,18^BCN,46,N,N,N^FD10042^FS" in zpl
+    assert "^FT544,124^AEN,28,15^FD$25.00^FS" in zpl
+    assert "^FT544,90^FB174,1,0,C,0^AEN,28,15^FD10042^FS" in zpl
 
 
 def test_generate_zpl_text_mode_donation_flag_rides_price(item):
@@ -588,7 +588,7 @@ def test_generate_zpl_barcode_encodes_item_code_only(item):
     from app.services.zpl import generate_zpl
     item.barcode_39 = "CUSTOM-39"
     zpl = generate_zpl(item)
-    assert "^FO483,18^BCN,46,N,N,N^FDABC-001^FS" in zpl
+    assert "^FO478,18^BCN,46,N,N,N^FDABC-001^FS" in zpl
     assert "CUSTOM-39" not in zpl
 
 
@@ -600,7 +600,7 @@ def test_generate_zpl_plain_font_except_donation_flag(item, clean_item):
     item.donate_unsold = True
     zpl = generate_zpl(item)
     assert zpl.count("^A0N") == 1                       # only the flag
-    assert "^FT483,124^A0N,30,30^FDD^FS" in zpl
+    assert "^FT478,124^A0N,30,30^FDD^FS" in zpl
     assert zpl.count("^AEN,28,15") >= 4                  # every other text row
     item.donate_unsold = False
     assert "^A0N" not in generate_zpl(item)
