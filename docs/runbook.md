@@ -302,9 +302,9 @@ Client-side ZPL endpoints never touch the printer, never set
 | `LABEL_TRANSPORT`       | *(OS preset)*            | force `usb` / `device` / `cups` / `auto`     |
 | `LABEL_PRINTER_PATH`    | `/dev/usb/lp0`           | raw device node; tried first in `auto`       |
 | `LABEL_PRINTER_QUEUE`   | `ZTC-ZD421-203dpi-ZPL`   | CUPS queue name (host-specific)              |
-| `LABEL_LEFT_ORIGIN_DOTS` | `280`                    | measured: media left edge ≈275 in printhead coordinates |
-| `LABEL_RIGHT_EDGE_DOTS`  | `810`                    | media ≈3" wide, right edge ≈830; bars end well clear (2026-09-27 clip fix) |
-| `LABEL_LENGTH_DOTS`      | `203`                    | measured: ≈1" tall media |
+| `LABEL_LEFT_ORIGIN_DOTS` | `147`                    | ruler-calibrated 2026-09-27: tag left edge ≈131 in printhead coordinates (probe band 112..136); 147 = the safe content edge — text cannot go further left without a fresh ruler print |
+| `LABEL_RIGHT_EDGE_DOTS`  | `723`                    | tag right edge ≈761 (probe band 712..762); content stops at 723 (v9 exact-model bars end here) |
+| `LABEL_LENGTH_DOTS`      | `203`                    | measured: ≈1" tall media — the tag is 3" × 1" (user-confirmed); tag top sits ≈12 dots below format y=0 |
 | `LABEL_DARKNESS`        | `20`                     | 0–30                                         |
 
 Geometry/darkness are **media- and printer-specific, not OS-specific** — the

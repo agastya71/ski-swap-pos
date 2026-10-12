@@ -32,18 +32,40 @@ from app.config import (
 _CONTENT_WIDTH = LABEL_RIGHT_EDGE_DOTS - LABEL_LEFT_ORIGIN_DOTS  # ≈ 540 dots
 _ZEBRA_VID   = 0x0A5F
 _ZEBRA_PID   = 0x0185
-def _barcode_x(barcode: str, right: int) -> int:
-    """Return the x origin (dots) that RIGHT-aligns the barcode at the
-    content right edge (``right``).
+def _code128_symbols(data: str) -> int:
+    """Symbol-character count of ZPL ^BC's automatic Code 128 encodation.
 
-    Code 128 geometry at default module width (2 dots, ratio 3.0):
-      - each symbol (including start/stop): 30 dots
-      - inter-character gap: 2 dots
-      - quiet zones (10× narrow bar): 20 dots each side
+    Every Code 128 character carries 11 modules (start, data, a MANDATORY
+    mod-103 check, stop — the characters chain with NO inter-character
+    gaps). Numeric data packs digit PAIRS into subset C (2 digits per
+    symbol char); an odd trailing digit costs 2 extra symbols (the subset-B
+    switch + the digit). Mixed alphanumeric data encodes subset B — ZPL's
+    auto subsetting may differ from this simple model by ±1 symbol there,
+    which only shifts the bars' LEFT edge ±22 dots (the right edge stays
+    anchored; see _barcode_x).
     """
-    n_symbols    = len(barcode) + 2          # data chars + start + stop
-    barcode_dots = n_symbols * 30 + (n_symbols - 1) * 2 + 40  # +40 quiet zones
-    return max(0, right - barcode_dots)
+    if data.isdigit():
+        pairs, odd = divmod(len(data), 2)
+        return 1 + pairs + (2 if odd else 0) + 1 + 1
+    return 1 + len(data) + 1 + 1
+
+
+def _barcode_x(barcode: str, right: int) -> int:
+    """Return the x origin (dots) that RIGHT-aligns the barcode so the BARS
+    end EXACTLY at ``right − 20`` — the field's 20-dot trailing quiet zone
+    then falls just past the content right edge (v7's convention, now with
+    an EXACT model: v7's conservative 30-dots/symbol estimate parked the
+    bars ≈100 dots short of the right edge on 5-digit numeric codes and
+    dragged the price/ID column left with them — exactly the dead space the
+    2026-10-12 user directive wants used; bars now run to the edge and the
+    right column packs tight beneath them).
+
+    Expects the ^BY default module width of 2 dots (Code 128 = uniform
+    11-module characters; quiet zones = 10× module = 20 dots per side).
+    """
+    ink   = _code128_symbols(barcode) * 11 * 2    # module width 2
+    field = 20 + ink + 20                         # leading + trailing quiet zones
+    return max(0, right - field)
 
 
 PLAIN_H = 28           # v8 (2026-10-12 user directive: "plain script except the D"): every
@@ -68,8 +90,10 @@ EVENT_ROW_Y = 33       # event row — the price's OLD top-band-left slot (2026-
                        # event shifts up into it; the barcode occupies 14..60 to
                        # its right). Supersedes the 2026-09-28 below-the-price
                        # placement, which only applied while the price sat there.
-ID_ROW_Y = 93          # item-ID row, uniform on every label — centered under the
-                       # bars (the bars occupy y 14..60; +6 dots of ink clearance)
+ID_ROW_Y = 86          # item-ID row, uniform on every label — centered under the
+                       # bars (the bars occupy y 14..60; v9 2026-10-12 user directive:
+                       # MORE vertical air between the ID row and the price below it —
+                       # the ID moved up 7 dots, the price keeps its row)
 SELLER_ROW_Y = 120     # seller row — the PRICE (+ the donate flag) join it in the
                        # right column (2026-10-06 v6 user directive: "the row with
                        # Y = 120"); all rows below unchanged from v5
@@ -209,11 +233,12 @@ def generate_zpl(
     band_top_y   = BAND_TOP + dy_eff      # barcode ^FO top
     text_code_y  = 34 + dy_eff            # code_as_text block top (v8: rides 6 dots higher
                                           # — the ×2 bitmap cell needs the ink clearance)
-    # Bars end AT the content right edge: _barcode_x reserves a 20-dot quiet
-    # zone after the last bar, so pass right+20 and let the (blank) trailing
-    # quiet zone fall past the edge — the printed bars end exactly at `right`
-    # (user directive 2026-09-27: the bars end at the right content edge,
-    # 723 after the fine-probe tune).
+    # Bars end AT the content right edge: _barcode_x models Code 128 exactly
+    # (11 modules/char × module 2 + the two 20-dot quiet zones), so the BARS
+    # end at `right` and the reserved trailing quiet zone falls past the edge
+    # (v9 2026-10-12: the old 30-dots/symbol estimate parked the bars ~100
+    # dots short of 723 — dead space the user directive asked to reclaim;
+    # user directive 2026-09-27: the bars end at the right content edge).
     bx           = _barcode_x(barcode, right + 20)
     price_text   = f"${item.price:.2f}"
 
