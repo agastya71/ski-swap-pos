@@ -46,8 +46,20 @@ def _barcode_x(barcode: str, right: int) -> int:
     return max(0, right - barcode_dots)
 
 
-ROW_FONT = 30          # EVERY text field prints at the price's font size (user directive,
-                       # 2026-09-27 print feedback)
+PLAIN_H = 28           # v8 (2026-10-12 user directive: "plain script except the D"): every
+PLAIN_W = 15           # text field prints in bitmap font E (OCR-B, native 28×15 — plain
+                       # weight; font 0 is CG Triumvirate BOLD Condensed, the ZD421's only
+                       # resident scalable font, which made the whole label read bold).
+                       # Native size keeps a ≈21-dot cap height (v7's font-0 30 looked the
+                       # same); E mono width 15 dots/char. The D flag alone keeps font 0.
+BOLD_D_FONT = 30       # donation flag "D": font 0 (bold) at 30 dots, as v2–v7 printed it
+FLAG_D_WIDTH = 14      # bold "D" advance in font 0 at 30 dots (render-tuned)
+FLAG_GAP = 26          # ≈ the 4 font-0 spaces the v6 composed field used; with FLAG_D_WIDTH
+                       # the plain price starts 40 dots right of the bold D's left edge
+_PLAIN = "^AEN,28,15"  # font E (OCR-B) at its native 28×15 bitmap — CRISP at native size
+                       # (bitmap fonts only scale in integer multiples; 28×15 = ×1)
+BIG_CODE_H = 56        # code_as_text band code: font E ×2 (56×30 cell, integer multiple) —
+BIG_CODE_W = 30        # the "big code" the 50-tall font-0 line used to print
 ROW_PITCH = 27         # row stride: 30pt caps ≈ 21 dots leave ~6 dots of air between rows
 BAND_TOP = 14          # barcode top — the media top sits ≈12 dots below format y=0
                        # (ruler print 2026-09-27: the y=0 band prints off-media)
@@ -82,9 +94,10 @@ def generate_zpl(
 ) -> str:
     """Generate a ZPL II label string for the ZD421 (203 dpi).
 
-    Layout (2026-10-06 v7 — every field sits 4 dots lower (LABEL_DOWN_DOTS,
-    user directive); v6 = price-beside-flag-in-seller-row; v5 = event into
-    the price's old band slot):
+    Layout (2026-10-12 v8 — plain-weight OCR-B text + the flag's own bold
+    field + the barcode encodes the item id only; v7 = +4-dot label shift;
+    v6 = price-beside-flag-in-seller-row; v5 = event into the price's old
+    band slot):
       - Top band: Code 128 barcode top-right — anchored to the
         ruler-measured media window (2026-09-27 fine probes, two prints
         agreeing post-recalibration: content x 147..723); the old
@@ -98,28 +111,34 @@ def generate_zpl(
         never truncated, omitted when not provided. This supersedes the
         2026-09-28 "always below the price / never in the band" placement,
         which only applied while the price sat in the band
-      - Price + donation flag: one composed field in the RIGHT COLUMN of
-        the seller row (2026-10-06 v6 user directive: "place the price in
-        the right column in the row with Y = 120, left justified, with a
-        few spaces separating the price and the Donate Flag") — left-
-        justified: donated items print "D" + four spaces + the price,
-        left-packed at the column edge ("D    $125.00"); non-donate items
-        print the price alone at the same edge. In barcode mode the
-        column edge is the barcode's x anchor (bx — the same right-column
-        band the barcode and the centered ID occupy; floored so a very
-        long item code can never slide the flag under the seller code);
-        text mode (no barcode) splits the content width at its midpoint.
-        Supersedes v4/v5's dedicated price row below the band (y=66 — now
-        empty) and the v4 "D below the price" placement
-      - Donation flag: rides beside the price in that composed field
-        (v6); the flag left the item-ID row, which keeps its uniform row
+      - Price + donation flag: the flag is its OWN bold field (font 0, as
+        v2–v7 printed everything) and the price is a separate plain-weight
+        field starting FLAG_D_WIDTH + FLAG_GAP dots right of the flag's
+        left edge (v8 2026-10-12 user directive: "plain script except for
+        the Donation flag (D)" — see the fonts bullet) — same seller-row
+        right column, left-justified at bx (floored so a very long item
+        code can never slide the flag under the seller code); text mode
+        (no barcode) splits the content width at its midpoint. Supersedes
+        v6's single composed "D␣␣␣␣$125.00" field (one font per field
+        cannot weight the flag differently), which supersedes v4/v5's
+        dedicated price row below the band (y=66 — still empty) and the
+        v4 "D below the price" placement
+      - Donation flag: rides beside the price in its own bold field (v8,
+        v6); the flag left the item-ID row, which keeps its uniform row
         alone
-      - EVERY text field prints at the price's font size (30pt): price,
-        donation flag, event name, item identifier, seller code,
-        category + size, description, free-text lines (user directive
-        after the first live print of v2; kept in v4)
-      - Item identifier: UNCHANGED — its own full 30pt row centered under
-        the barcode, uniform y, clear of the bars (v2's 5-dot gap read as
+      - FONTS (v8 2026-10-12 user directive: "make the label to be printed
+        in plain script except for the Donation flag (D)"): every text
+        field — event name, item identifier row, price, seller code,
+        category + size, description, free-text lines, and the text-mode
+        band code — prints in resident bitmap font E (OCR-B, native
+        28×15: plain weight, CRISP at ×1, ≈ font-0's cap height; font 0
+        is CG Triumvirate BOLD Condensed, the ZD421's ONLY resident
+        scalable font, which is why the v7 label read bold). Bitmap fonts
+        scale only in integer multiples, so OCR-B keeps native size
+        everywhere except the code_as_text band code (×2 = 56×30). Only
+        the D flag keeps font 0 (bold)
+      - Item identifier: UNCHANGED — its own row centered under the
+        barcode, uniform y, clear of the bars (v2's 5-dot gap read as
         "mixed up with the barcode"); skipped in ``code_as_text`` mode,
         where the code already prints large in the band
       - Event name: see the top-band bullet above (2026-10-06: the
@@ -157,10 +176,18 @@ def generate_zpl(
     3 dots high versus the server-attached printer, so agent mode requests
     dx=-3, dy=3. dx=dy=0 (the default) emits byte-identical output as
     before. ``^PW`` stays the media print width — only field positions move.
-    With dy=dy_eff's LABEL_DOWN_DOTS global shift: dx=dy=0 emits the
-    un-nudged layout (which since v7 already includes the +4-dot label
-    shift)."""
-    barcode      = item.barcode_39 or item.code
+    barcode data (v8, 2026-10-12 user directive): the item id ONLY — always
+    the item code, never the (customizable) barcode_39 string, so a custom
+    barcode can no longer sneak a different value (or a wider alphanumeric
+    payload) into the bars. With the numeric-only item codes (2026-09-18
+    onward) the data is 5 pure digits → ^BC's automatic subset selection
+    packs digit pairs (subset C), the densest linear symbology ZPL offers:
+    ≈22 dots per symbol pair vs ≈22/code128-char for the old alphanumeric
+    subset-B codes. Code 39/Codabar would print WIDER; I2of5 pads odd digit
+    counts with a leading zero (scans to a padded value); 2D codes need a
+    2D-capable scanner. Legacy databases that still hold alphanumeric codes
+    (pre-renumber) keep printing them as subset-B Code 128, as before."""
+    barcode      = item.code                     # v8: the item id ONLY (never barcode_39)
     seller_code  = item.seller.code if item.seller else ""
     description  = (item.description or "")[:DESC_MAX_CHARS]   # 20-char cap (2026-10-06)
     line2        = (item.label_line_2 or "")[:MAX_FIELD_CHARS]
@@ -180,7 +207,8 @@ def generate_zpl(
     right        = LABEL_RIGHT_EDGE_DOTS + dx
     dy_eff       = dy + LABEL_DOWN_DOTS
     band_top_y   = BAND_TOP + dy_eff      # barcode ^FO top
-    text_code_y  = 40 + dy_eff            # code_as_text block top
+    text_code_y  = 34 + dy_eff            # code_as_text block top (v8: rides 6 dots higher
+                                          # — the ×2 bitmap cell needs the ink clearance)
     # Bars end AT the content right edge: _barcode_x reserves a 20-dot quiet
     # zone after the last bar, so pass right+20 and let the (blank) trailing
     # quiet zone fall past the edge — the printed bars end exactly at `right`
@@ -199,33 +227,39 @@ def generate_zpl(
     event_block = ""
     if event_name:
         event_block = (
-            f"^FT{origin},{event_y}^A0N,{ROW_FONT},{ROW_FONT}^FD{event_name}^FS\n"
+            f"^FT{origin},{event_y}{_PLAIN}^FD{event_name}^FS\n"
         )
 
-    # Identifier (barcode / large text) — top band, unchanged (barcode
-    # mode: ^FO-anchored bars ending at the right edge; text mode: the
-    # large code right-aligned via ^FB — no repeated identifier row).
+    # Identifier (barcode / big code text) — top band (barcode mode: ^FO-
+    # anchored bars ending at the right edge; text mode: the big code right-
+    # aligned via ^FB in font E ×2 — plain, integer-multiple crisp — no
+    # repeated identifier row).
     if code_as_text:
-        code_block = f"^FT{origin},{text_code_y}^FB{right - origin},1,0,R,0^A0N,50,50^FD{item.code}^FS\n"
+        code_block = f"^FT{origin},{text_code_y}^FB{right - origin},1,0,R,0^AEN,{BIG_CODE_H},{BIG_CODE_W}^FD{item.code}^FS\n"
     else:
         code_block = f"^FO{bx},{band_top_y}^BCN,{BARCODE_HEIGHT},N,N,N^FD{barcode}^FS\n"
 
-    # Price + donation flag: one composed field in the right column of the
-    # seller row (2026-10-06 v6 user directive — "place the price in the
-    # right column in the row with Y = 120, left justified, with a few
-    # spaces separating the price and the Donate Flag"): donated items
-    # print "D" + four spaces + the price, left-packed at the column edge;
-    # non-donate items print the price alone at the same edge. Barcode
-    # mode: the column edge is the barcode's x anchor (bx — the right-
-    # column band the barcode and the centered ID occupy), floored so an
-    # unusually long item code never slides the flag under the seller's
-    # code (6-char cap + the flag prefix + spacing). Text mode (no
-    # barcode): the content width's midpoint. The price leaves its v5 row
-    # below the band (y=66 now empty) and the flag leaves the ID row.
+    # Price + donation flag: the RIGHT COLUMN of the seller row (2026-10-06
+    # v6 user directive — "place the price in the right column in the row
+    # with Y = 120, left justified, with a few spaces separating the price
+    # and the Donate Flag"). v8 (2026-10-12): the flag is its OWN field in
+    # the v2–v7 BOLD font 0 ("plain script except the Donation flag"), and
+    # the plain-weight price starts FLAG_D_WIDTH + FLAG_GAP dots right of
+    # the flag's left edge — the visual equivalent of the v6 composed
+    # "D␣␣␣␣$125.00" single field. Barcode mode: the column edge is the
+    # barcode's x anchor (bx — the right-column band the barcode and the
+    # centered ID occupy), floored so an unusually long item code never
+    # slides the flag under the seller's code. Text mode (no barcode): the
+    # content width's midpoint. The price leaves its v5 row below the band
+    # (y=66 still empty); the flag left the ID row in v6.
     price_row_y  = (TEXT_ROWS_Y if code_as_text else SELLER_ROW_Y) + dy_eff
     price_col_x  = max(bx, origin + 10 * 18) if not code_as_text else (origin + right) // 2
-    flag_price   = f"D    {price_text}" if item.donate_unsold else price_text
-    price_block  = f"^FT{price_col_x},{price_row_y}^A0N,{ROW_FONT},{ROW_FONT}^FD{flag_price}^FS\n"
+    price_x      = price_col_x + (FLAG_D_WIDTH + FLAG_GAP if item.donate_unsold else 0)
+    flag_block   = (
+        f"^FT{price_col_x},{price_row_y}^A0N,{BOLD_D_FONT},{BOLD_D_FONT}^FDD^FS\n"
+        if item.donate_unsold else ""
+    )
+    price_block  = f"^FT{price_x},{price_row_y}{_PLAIN}^FD{price_text}^FS\n"
 
     # Item identifier row (barcode mode only): UNCHANGED uniform y —
     # centered under the bars. The donate flag left this row in v6 (it
@@ -235,10 +269,10 @@ def generate_zpl(
     if not code_as_text:
         number_block = (
             f"^FT{bx},{ID_ROW_Y + dy_eff}^FB{right - bx},1,0,C,0"
-            f"^A0N,{ROW_FONT},{ROW_FONT}^FD{barcode}^FS\n"
+            f"{_PLAIN}^FD{barcode}^FS\n"
         )
 
-    # Lower block: one 30pt row per field, top to bottom; on the 1" canvas a
+    # Lower block: one OCR-B row per field, top to bottom; on the 1" canvas a
     # row that would run past the media edge is dropped rather than clipped.
     lower_blocks = ""
     for text in (seller_code, cat_size, description, line2, line3):
@@ -246,7 +280,7 @@ def generate_zpl(
             continue
         if row_y + ROW_INK > LABEL_LENGTH_DOTS:
             break
-        lower_blocks += f"^FT{origin},{row_y}^A0N,{ROW_FONT},{ROW_FONT}^FD{text}^FS\n"
+        lower_blocks += f"^FT{origin},{row_y}{_PLAIN}^FD{text}^FS\n"
         row_y += ROW_PITCH
     try:
         # On-hand remaining (== intake quantity until a partial sale) —
@@ -267,6 +301,7 @@ def generate_zpl(
         "^CI0\n"
         f"{event_block}"
         f"{code_block}"
+        f"{flag_block}"
         f"{price_block}"
         f"{number_block}"
         f"{lower_blocks}"
