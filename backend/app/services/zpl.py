@@ -106,6 +106,17 @@ ROW_INK = 24           # worst-case ink depth of a 30pt row (caps + descenders)
 LABEL_DOWN_DOTS = 4    # v7 (2026-10-06 user directive: "move the whole label down
                        # by 4 dots") — print-feedback media shift applied to
                        # every field's y via dy_eff
+BARCODE_RIGHT_NUDGE = 10
+                       # v9.3 (2026-10-12 user directive: "the barcode, item id
+                       # below the barcode, the price below that all need to be
+                       # shifted by about 10 dots" — the flush-at-723 bars read as
+                       # "truncated at the end"): the whole barcode band (bars, ID
+                       # row, and the flag/price column) references the content
+                       # right edge MINUS this nudge — bars end at 713, leaving a
+                       # ~10-dot gap before the content edge (48 dots before the
+                       # tag's right edge ≈761, well inside quiet-zone spec); the
+                       # ID row re-centers on the bars' band; the floor rule for
+                       # very long codes still binds at origin+180.
 
 
 def generate_zpl(
@@ -233,13 +244,14 @@ def generate_zpl(
     band_top_y   = BAND_TOP + dy_eff      # barcode ^FO top
     text_code_y  = 34 + dy_eff            # code_as_text block top (v8: rides 6 dots higher
                                           # — the ×2 bitmap cell needs the ink clearance)
-    # Bars end AT the content right edge: _barcode_x models Code 128 exactly
-    # (11 modules/char × module 2 + the two 20-dot quiet zones), so the BARS
-    # end at `right` and the reserved trailing quiet zone falls past the edge
-    # (v9 2026-10-12: the old 30-dots/symbol estimate parked the bars ~100
-    # dots short of 723 — dead space the user directive asked to reclaim;
-    # user directive 2026-09-27: the bars end at the right content edge).
-    bx           = _barcode_x(barcode, right + 20)
+    # Bars end 10 dots INSIDE the content right edge (v9.3 BARCODE_RIGHT_NUDGE,
+    # user review 2026-10-12: the flush-at-edge bars read "truncated at the
+    # end"; ~10 dots of air finishes the edge). _barcode_x models Code 128
+    # exactly (11 modules/char × module 2 + the two 20-dot quiet zones), so
+    # the BARS end at (right − nudge) and the reserved trailing quiet zone
+    # falls past the content edge (the 2026-09-27 right-edge rule, trimmed by
+    # the reviewed 10 dots).
+    bx           = _barcode_x(barcode, right + 20 - BARCODE_RIGHT_NUDGE)
     price_text   = f"${item.price:.2f}"
 
     # Event name: takes the price's OLD top-band-left slot (2026-10-06 user
@@ -292,8 +304,9 @@ def generate_zpl(
     number_block = ""
     row_y        = (TEXT_ROWS_Y if code_as_text else SELLER_ROW_Y) + dy_eff
     if not code_as_text:
-        number_block = (
-            f"^FT{bx},{ID_ROW_Y + dy_eff}^FB{right - bx},1,0,C,0"
+        band_right = right - BARCODE_RIGHT_NUDGE   # v9.3: the ID centers on the
+        number_block = (                           # bars' band, not the raw edge
+            f"^FT{bx},{ID_ROW_Y + dy_eff}^FB{band_right - bx},1,0,C,0"
             f"{_PLAIN}^FD{barcode}^FS\n"
         )
 
