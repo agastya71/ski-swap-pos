@@ -3148,39 +3148,149 @@
       "related_bugs": [],
       "occurrences": 1,
       "last_seen": "2026-10-06T23:32:02.673Z"
-    }
-  ],
-  "entries": [
-    {
-      "id": "detached-head-push-stale-branch",
-      "timestamp": "2026-09-29T19:35:00Z",
-      "error_message": "gh pr create: could not determine current branch — repo silently in detached HEAD after a chained 'git checkout -b X && git checkout --detach'",
-      "file": "n/a (git workflow)",
-      "root_cause": "Branch-setup command chained a stray 'git checkout --detach'; commits then landed on detached HEAD, and 'git push -u origin <branch>' pushed the STALE branch ref (e0406d8), not HEAD's commits (61ab33e).",
-      "fix": "git branch -f <branch> <detached-sha>; git checkout <branch>; git merge --ff-only <sha>; push again. Verify 'git branch --show-current' is non-empty AND 'git rev-parse <branch>' == HEAD before committing.",
-      "tags": [
-        "git",
-        "detached-head",
-        "workflow"
-      ],
-      "occurrences": 1,
-      "last_seen": "2026-09-29"
     },
     {
-      "id": "bug-2026-10-06-label-v5-drift",
-      "timestamp": "2026-10-06T07:45:00",
-      "error_message": "edit oldText not found in backend/tests/test_zpl.py (PARTIAL APPLY) + worker FileNotFoundError worker/label-v4-*.zpl + render fixture barcode mismatch",
-      "file": "backend/tests/test_zpl.py; .wolf/renders/make_label_renders.py",
-      "root_cause": "(1) pi-lens prettier reformatted test_zpl.py after the v4 write — stale oldText missed (reinforces Do-Not-Repeat). (2) `python -c CODE ARG`: sys.argv[1] is ARG — no argv[0] placeholder — the extra 'worker' arg shifted the outdir. (3) case-C fixture overrode `code` without `barcode_39`, and generate_zpl prefers barcode_39 → incoherent demo label.",
-      "fix": "Re-read the verbatim reformatted region before rebuilding oldText. Drop the argv[0] placeholder and read sys.argv[1] directly. Fixture: override barcode_39 together with code. Worker asserts now catch all of these before the labels render.",
+      "id": "bug-197",
+      "timestamp": "2026-10-12T22:56:38.053Z",
+      "error_message": "Significant refactor of zpl.py",
+      "file": "backend/app/services/zpl.py",
+      "root_cause": "27 lines replaced/restructured",
+      "fix": "Rewrote 52→71 lines (27 removed)",
       "tags": [
-        "edit-drift",
-        "python-c-argv",
-        "test-fixture",
-        "label-renders"
+        "auto-detected",
+        "refactor",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-10-12T22:56:38.053Z"
+    },
+    {
+      "id": "bug-198",
+      "timestamp": "2026-10-12T22:57:11.571Z",
+      "error_message": "Missing error handling in zpl.py",
+      "file": "backend/app/services/zpl.py",
+      "root_cause": "Code path had no error handling — exceptions would propagate uncaught",
+      "fix": "Added try/catch block",
+      "tags": [
+        "auto-detected",
+        "error-handling",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-10-12T22:57:11.571Z"
+    },
+    {
+      "id": "bug-199",
+      "timestamp": "2026-10-12T22:58:05.417Z",
+      "error_message": "Significant refactor of test_zpl.py",
+      "file": "backend/tests/test_zpl.py",
+      "root_cause": "11 lines replaced/restructured",
+      "fix": "Rewrote 37→74 lines (11 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-10-12T22:58:05.417Z"
+    },
+    {
+      "id": "bug-200",
+      "timestamp": "2026-10-12T23:01:51.943Z",
+      "error_message": "Incorrect value in code",
+      "file": "backend/app/schemas/item.py",
+      "root_cause": "Had \"Code 39 barcode string to print on the item label",
+      "fix": "Changed to \"Legacy label-barcode string stored for API compat",
+      "tags": [
+        "auto-detected",
+        "wrong-value",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-10-12T23:01:51.943Z"
+    },
+    {
+      "id": 201,
+      "timestamp": "2026-10-12T18:05:00Z",
+      "error_message": "Label text printed bold (font 0 = CG Triumvirate Bold Condensed - the ZD421's only resident scalable ZPL font)",
+      "file": "backend/app/services/zpl.py",
+      "root_cause": "All v7 text fields used ^A0N (bold face); ZD421 ships NO plain scalable font - plain text must come from a resident bitmap (font E OCR-B chosen, native 28x15, integer-multiple-only scaling)",
+      "fix": "v8: all text -> ^AEN,28,15 (plain); font 0 ONLY for the donation flag D as its own field; composed 'D    $price' split into bold D + plain price 40 dots right (FLAG_D_WIDTH/FLAG_GAP constants)",
+      "tags": [
+        "zpl",
+        "label",
+        "font",
+        "zd421"
+      ],
+      "occurrences": 3,
+      "last_seen": "2026-10-12T18:05:00Z"
+    },
+    {
+      "id": 202,
+      "timestamp": "2026-10-12T18:05:00Z",
+      "error_message": "Barcode too wide (Code 128 subset B of 6-char alphanumeric legacy item codes)",
+      "file": "backend/app/services/zpl.py",
+      "root_cause": "Bars encoded item.barcode_39 or item.code - 6-char seller-prefixed legacy codes; symbology already optimal (Code 128), the PAYLOAD was the width driver",
+      "fix": "v8: bars encode item.code ONLY (barcode_39 deprecated on labels); swap.db renumbered to numeric 10000-10101 via committed idempotent scripts/renumber_item_codes.py (backup kept); 5 digits -> subset C (~22% narrower). Already-printed old labels scan dead - relabel required",
+      "tags": [
+        "barcode",
+        "label",
+        "data-migration"
       ],
       "occurrences": 1,
-      "last_seen": "2026-10-06"
+      "last_seen": "2026-10-12T18:05:00Z"
+    },
+    {
+      "id": "bug-203",
+      "timestamp": "2026-10-12T23:21:09.019Z",
+      "error_message": "Significant refactor of zpl.py",
+      "file": "backend/app/services/zpl.py",
+      "root_cause": "16 lines replaced/restructured",
+      "fix": "Rewrote 20→45 lines (16 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-10-12T23:21:09.019Z"
+    },
+    {
+      "id": "bug-204",
+      "timestamp": "2026-10-12T23:21:41.918Z",
+      "error_message": "Significant refactor of test_zpl.py",
+      "file": "backend/tests/test_zpl.py",
+      "root_cause": "8 lines replaced/restructured",
+      "fix": "Rewrote 19→40 lines (8 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-10-12T23:21:41.918Z"
+    },
+    {
+      "id": "bug-205",
+      "timestamp": "2026-10-12T23:29:49.314Z",
+      "error_message": "Significant refactor of zpl.py",
+      "file": "backend/app/services/zpl.py",
+      "root_cause": "9 lines replaced/restructured",
+      "fix": "Rewrote 15→24 lines (9 removed)",
+      "tags": [
+        "auto-detected",
+        "refactor",
+        "py"
+      ],
+      "related_bugs": [],
+      "occurrences": 1,
+      "last_seen": "2026-10-12T23:29:49.314Z"
     }
   ]
 }
