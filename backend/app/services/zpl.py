@@ -5,24 +5,29 @@ via direct USB (pyusb) or a Linux device path, with a CUPS `lp` fallback —
 the live deployment's ZD421 is owned by the CUPS queue ``ZTC-ZD421-203dpi-ZPL``
 (no raw ``/dev/usb/lp*`` node exists).
 
-Label geometry is measured and explicit (ruler-measured via
-``scripts/label_ruler.py``, 2026-09-27; media user-confirmed ≈3" wide × 1"
-tall): the media window in ``^FT`` coordinates spans
-``LABEL_LEFT_ORIGIN_DOTS`` (≈ 147) to ``LABEL_RIGHT_EDGE_DOTS`` (≈ 723) —
-the 2026-09-13 window (~275..830) had drifted/aged out, which clipped the
-barcode at the right edge and left the old left origin 130 dots inside the
-media. Text fields use ``^FT`` (field top), and ``^LS`` is NOT used:
-^FT-positioned fields ignore the label shift, so the left origin is baked
-into every x coordinate instead. Whole-label print-feedback corrections
-bake on top of the measured window at emit time — v7 ``LABEL_DOWN_DOTS``
-(+4 y) and v10 ``LABEL_LEFT_DOTS`` (−20 x) — folded into the effective
-x/y offsets every field's coordinates share (per-print ``dx``/``dy``
-nudges stack on top of them).
+LABEL TEMPLATES (v11, 2026-10-14 user request) — the layout lives OUTSIDE the
+code, in ``backend/templates/label_item.zpl`` (barcode mode) and
+``label_item_text.zpl`` (``code_as_text`` mode). Both files are re-read from
+disk on every print, so layout edits go live with NO recompile and NO service
+restart. ``; @name value`` directive lines override the renderer's geometry
+constants (a directive beats the same-named env/config default); the body is
+plain ZPL with ``{{placeholders}}`` filled per item and ``{{#key}}…{{/key}}`` /
+``{{^key}}…{{/key}}`` include/exclude blocks; unknown names, unbalanced blocks
+or a missing file FAIL the print loudly. The per-item values (exact Code 128
+bar width/model, per-row flow y's with the fit guard, char caps, truncation)
+are still computed HERE — see ``generate_zpl`` and the template headers.
+Layout-decision history (v2…v10) lives in git history and ``.wolf/cerebrum.md``.
+
+Text fields use ``^FT`` (field top), and ``^LS`` is NOT used: ^FT-positioned
+fields ignore the label shift, so positions are baked into each field instead.
 """
 
 import logging
+import os
+import re
 import subprocess
 import sys
+from pathlib import Path
 
 from app.config import (
     LABEL_DARKNESS,
@@ -33,20 +38,21 @@ from app.config import (
     LABEL_RIGHT_EDGE_DOTS,
 )
 
-_CONTENT_WIDTH = LABEL_RIGHT_EDGE_DOTS - LABEL_LEFT_ORIGIN_DOTS  # ≈ 540 dots
 _ZEBRA_VID   = 0x0A5F
 _ZEBRA_PID   = 0x0185
+
+
 def _code128_symbols(data: str) -> int:
     """Symbol-character count of ZPL ^BC's automatic Code 128 encodation.
 
     Every Code 128 character carries 11 modules (start, data, a MANDATORY
-    mod-103 check, stop — the characters chain with NO inter-character
-    gaps). Numeric data packs digit PAIRS into subset C (2 digits per
-    symbol char); an odd trailing digit costs 2 extra symbols (the subset-B
-    switch + the digit). Mixed alphanumeric data encodes subset B — ZPL's
-    auto subsetting may differ from this simple model by ±1 symbol there,
-    which only shifts the bars' LEFT edge ±22 dots (the right edge stays
-    anchored; see _barcode_x).
+    mod-103 check, stop — the characters chain with NO inter-character gaps).
+    Numeric data packs digit PAIRS into subset C (2 digits per symbol char);
+    an odd trailing digit costs 2 extra symbols (the subset-B switch + the
+    digit). Mixed alphanumeric data encodes subset B — ZPL's auto subsetting
+    may differ from this simple model by ±1 symbol there, which only shifts
+    the bars' LEFT edge ±22 dots (the right edge stays anchored; see
+    _barcode_x).
     """
     if data.isdigit():
         pairs, odd = divmod(len(data), 2)
@@ -72,60 +78,173 @@ def _barcode_x(barcode: str, right: int) -> int:
     return max(0, right - field)
 
 
-PLAIN_H = 28           # v8 (2026-10-12 user directive: "plain script except the D"): every
-PLAIN_W = 15           # text field prints in bitmap font E (OCR-B, native 28×15 — plain
-                       # weight; font 0 is CG Triumvirate BOLD Condensed, the ZD421's only
-                       # resident scalable font, which made the whole label read bold).
-                       # Native size keeps a ≈21-dot cap height (v7's font-0 30 looked the
-                       # same); E mono width 15 dots/char. The D flag alone keeps font 0.
-BOLD_D_FONT = 30       # donation flag "D": font 0 (bold) at 30 dots, as v2–v7 printed it
-FLAG_D_WIDTH = 14      # bold "D" advance in font 0 at 30 dots (render-tuned)
-FLAG_GAP = 26          # ≈ the 4 font-0 spaces the v6 composed field used; with FLAG_D_WIDTH
-                       # the plain price starts 40 dots right of the bold D's left edge
-_PLAIN = "^AEN,28,15"  # font E (OCR-B) at its native 28×15 bitmap — CRISP at native size
-                       # (bitmap fonts only scale in integer multiples; 28×15 = ×1)
-BIG_CODE_H = 56        # code_as_text band code: font E ×2 (56×30 cell, integer multiple) —
-BIG_CODE_W = 30        # the "big code" the 50-tall font-0 line used to print
-ROW_PITCH = 27         # row stride: 30pt caps ≈ 21 dots leave ~6 dots of air between rows
-BAND_TOP = 14          # barcode top — the media top sits ≈12 dots below format y=0
-                       # (ruler print 2026-09-27: the y=0 band prints off-media)
-BARCODE_HEIGHT = 46
-EVENT_ROW_Y = 33       # event row — the price's OLD top-band-left slot (2026-10-06:
-                       # event shifts up into it; the barcode occupies 14..60 to
-                       # its right). Supersedes the 2026-09-28 below-the-price
-                       # placement, which only applied while the price sat there.
-ID_ROW_Y = 86          # item-ID row, uniform on every label — centered under the
-                       # bars (the bars occupy y 14..60; v9 2026-10-12 user directive:
-                       # MORE vertical air between the ID row and the price below it —
-                       # the ID moved up 7 dots, the price keeps its row)
-SELLER_ROW_Y = 120     # seller row — the PRICE (+ the donate flag) join it in the
-                       # right column (2026-10-06 v6 user directive: "the row with
-                       # Y = 120"); all rows below unchanged from v5
-TEXT_ROWS_Y = 80       # text-mode FLOW start: the seller row — the flag+price and
-                       # the seller share it (below the 50pt code ink, ends ≈75)
+# ── Renderer-side constants ──────────────────────────────────────────────────
+# Only defaults for the template directives; the template's `; @name value`
+# lines override any of them per render (see _LABEL_DIRECTIVES / templates).
+_PLAIN_H = 28           # plain-text rows: bitmap font E (OCR-B) native 28×15
+_PLAIN_W = 15           # (^AEN,28,15) — plain weight, CRISP at ×1 (v8): font 0
+                        # is CG Triumvirate BOLD Condensed, the ZD421's only
+                        # resident scalable font, which made rows read bold
+_PLAIN = "^AEN,28,15"   # the exact font command the row builder emits
+
+_PLAIN_FONT = _PLAIN    # alias used by template values (rows are renderer-built)
+
+EVENT_ROW_Y = 33       # event row — the price's OLD top-band-left slot (v5,
+                       # 2026-10-06): event shifts up into it; the barcode
+                       # occupies 14..60 to its right
+ID_ROW_Y = 86          # item-ID row, uniform on every label — centered under
+                       # the bars (bars occupy y 14..60; v9 2026-10-12: MORE
+                       # vertical air between the ID row and the price)
+SELLER_ROW_Y = 120     # seller row — the PRICE (+ donate flag) ride its right
+                       # column (v6, 2026-10-06: "the row with Y = 120")
+TEXT_ROWS_Y = 80       # text-mode FLOW start (below the 50pt code ink, ≈75)
+TEXT_CODE_Y_BASE = 34  # text-mode band-code top (v8: rides 6 dots higher —
+                       # the ×2 bitmap cell needs the ink clearance)
 MAX_FIELD_CHARS = 28   # 28 × (0.6 × 30) ≈ 504 dots ≤ content width
-DESC_MAX_CHARS = 20    # description truncates at 20 chars (2026-10-06: directive,
-                       # originally 30)
-ROW_INK = 24           # worst-case ink depth of a 30pt row (caps + descenders)
-LABEL_DOWN_DOTS = 4    # v7 (2026-10-06 user directive: "move the whole label down
-                       # by 4 dots") — print-feedback media shift applied to
-                       # every field's y via dy_eff
-LABEL_LEFT_DOTS = -20  # v10 (2026-10-14 user directive: "the whole label needs
-                       # to be shifted 20 dots to the left") — print-feedback
-                       # media shift applied to every field's x via dx_eff
-                       # (the horizontal analogue of LABEL_DOWN_DOTS)
-BARCODE_RIGHT_NUDGE = 10
-                       # v9.3 (2026-10-12 user directive: "the barcode, item id
-                       # below the barcode, the price below that all need to be
-                       # shifted by about 10 dots" — the flush-at-723 bars read as
-                       # "truncated at the end"): the whole barcode band (bars, ID
-                       # row, and the flag/price column) references the content
-                       # right edge MINUS this nudge — v10's −20 stack bakes
-                       # in: bars end at 693, still a ~10-dot gap before the
-                       # content edge (68 dots before the tag's right edge
-                       # ≈761, well inside quiet-zone spec); the
-                       # ID row re-centers on the bars' band; the floor rule for
-                       # very long codes still binds at origin+180.
+DESC_MAX_CHARS = 20    # description truncates at 20 chars (2026-10-06 directive)
+ROW_INK = 24           # worst-case ink depth of a 30pt row (fit guard)
+ROW_PITCH = 27         # row stride: 30pt caps ≈ 21 dots leave ~6 dots of air
+BAND_TOP = 14          # barcode top — media top sits ≈12 dots below format y=0
+BARCODE_HEIGHT = 46
+BIG_CODE_H = 56        # text-mode band code: font E ×2 (56×30 integer cell)
+BIG_CODE_W = 30
+BOLD_D_FONT = 30       # donation flag "D": font 0 (bold) at 30 dots, v2–v7 style
+FLAG_D_WIDTH = 14      # bold "D" advance in font 0 at 30 dots (render-tuned)
+FLAG_GAP = 26          # ≈ the 4 font-0 spaces the v6 composed field used
+LABEL_DOWN_DOTS = 4    # v7 (2026-10-06 user: "move the whole label down by 4
+                       # dots") — print-feedback media shift
+LABEL_LEFT_DOTS = -20  # v10 (2026-10-14 user: "the whole label needs to be
+                       # shifted 20 dots to the left") — print-feedback shift
+PRICE_COL_FLOOR_OFFSET = 10 * 18   # barcode mode: the flag/price column edge
+                                   # is floored at origin + this, so an
+                                   # unusually long item code can never slide
+                                   # the flag under the seller's code
+
+
+# ── Label template engine (v11) ──────────────────────────────────────────────
+_TEMPLATES_DIR = Path(__file__).resolve().parents[2] / "templates"   # backend/templates
+TEMPLATE_ENV_VAR = "LABEL_TEMPLATE_DIR"   # per-call override of the template dir
+
+_LABEL_DIRECTIVES = {
+    # name -> renderer-side default (a template `; @name value` overrides)
+    "left_origin":       LABEL_LEFT_ORIGIN_DOTS,
+    "right_edge":        LABEL_RIGHT_EDGE_DOTS,
+    "left_dots":         LABEL_LEFT_DOTS,
+    "down_dots":         LABEL_DOWN_DOTS,
+    "bars_right_nudge":  10,  # v9.3 BARCODE_RIGHT_NUDGE
+    "event_row_y":       EVENT_ROW_Y,
+    "band_top":          BAND_TOP,
+    "id_row_y":          ID_ROW_Y,
+    "seller_row_y":      SELLER_ROW_Y,
+    "text_rows_y":       TEXT_ROWS_Y,
+    "text_code_y":       TEXT_CODE_Y_BASE,
+    "row_pitch":         ROW_PITCH,
+    "row_ink":           ROW_INK,
+    "barcode_height":    BARCODE_HEIGHT,
+    "label_length":      LABEL_LENGTH_DOTS,
+    "darkness":          LABEL_DARKNESS,
+    "desc_max_chars":    DESC_MAX_CHARS,
+    "max_field_chars":   MAX_FIELD_CHARS,
+    "flag_d_width":      FLAG_D_WIDTH,
+    "flag_gap":          FLAG_GAP,
+    "bold_d_font":       BOLD_D_FONT,
+    "big_code_h":        BIG_CODE_H,
+    "big_code_w":        BIG_CODE_W,
+}
+
+_DIRECTIVE_RX = re.compile(r"^;\s*@([A-Za-z_][A-Za-z0-9_]*)\s+(-?\d+)\s*(?:;.*)?$")
+_SECTION_RX   = re.compile(r"\{\{([#\^])([A-Za-z_][A-Za-z0-9_]*)\}\}(.*?)\{\{/\2\}\}", re.S)
+_VAR_RX       = re.compile(r"\{\{([A-Za-z_][A-Za-z0-9_]*)\}\}")
+_FIELD_XY_RX  = re.compile(r"(\^(?:FO|FT))(-?\d+),(-?\d+)")
+_PW_RX        = re.compile(r"(\^PW)(\d+)")
+
+
+def label_template_path(code_as_text: bool) -> Path:
+    """Path of the label template file for the given mode (re-read per render)."""
+    name = "label_item_text.zpl" if code_as_text else "label_item.zpl"
+    override = os.getenv(TEMPLATE_ENV_VAR, "")
+    return (Path(override) if override else _TEMPLATES_DIR) / name
+
+
+def _load_label_template(code_as_text: bool) -> tuple[str, dict[str, int]]:
+    """Read the template file — ON EVERY CALL, so file edits are live without
+    recompiling or restarting the service (2026-10-14 user request).
+
+    Returns (template_text, geometry) where geometry is the directive table
+    with the template's `; @name value` lines overriding the defaults. A
+    missing file, an unknown directive name, or a non-int value raises
+    (the print fails loudly — fix the file and print again).
+    """
+    path = label_template_path(code_as_text)
+    text = path.read_text(encoding="utf-8")
+    overrides: dict[str, int] = {}
+    for line in text.splitlines():
+        m = _DIRECTIVE_RX.match(line.strip())
+        if m:
+            overrides[m.group(1)] = int(m.group(2))
+    unknown = sorted(set(overrides) - set(_LABEL_DIRECTIVES))
+    if unknown:
+        raise ValueError(
+            f"label template {path.name}: unknown directives {unknown} "
+            f"(valid: {sorted(_LABEL_DIRECTIVES)})"
+        )
+    return text, {**_LABEL_DIRECTIVES, **overrides}
+
+
+def _render_template(text: str, values: dict) -> str:
+    """Fill the template: strip `;` comment lines FIRST (so header docs may
+    show literal `{{…}}` syntax), then include/exclude blocks, then variables,
+    then drop the lines left empty by suppressed blocks."""
+    text = "\n".join(
+        ln for ln in text.split("\n") if not ln.lstrip().startswith(";")
+    )
+
+    def _section(m: re.Match) -> str:
+        op, key, body = m.group(1), m.group(2), m.group(3)
+        if key not in values:
+            raise ValueError(
+                f"label template references block {key!r} that the renderer does not provide"
+            )
+        truthy = bool(values[key])
+        return body if (truthy if op == "#" else not truthy) else ""
+
+    text = _SECTION_RX.sub(_section, text)
+    if _SECTION_RX.search(text) is not None:
+        raise ValueError(
+            "label template has nested or unbalanced {{#…}}/{{^…}} blocks "
+            "(single level only)"
+        )
+
+    def _var(m: re.Match) -> str:
+        key = m.group(1)
+        if key not in values:
+            raise ValueError(
+                f"label template references variable {key!r} that the renderer does not provide"
+            )
+        return str(values[key])
+
+    text = _VAR_RX.sub(_var, text)
+    lines = [ln for ln in text.split("\n") if ln.strip()]
+    return "\n".join(lines) + "\n"
+
+
+def _nudge_coordinates(zpl: str, dx: int, dy: int) -> str:
+    """Shift EVERY rendered field coordinate: x + dx, y + dy, ^PW + dx.
+
+    The per-print nudge (Browser-Print agent path, 2026-09-30: agent-delivered
+    labels print 3 dots right and 3 dots high vs the server-attached printer)
+    is applied to the RENDERED ZPL — the template's static numbers hold the
+    base geometry (which already carries the v7/v10 print-feedback shifts).
+    The media's measured window ends far inside the tag edge, so the ±3 (or
+    any sane) nudge stays on-media.
+    """
+    if not (dx or dy):
+        return zpl
+    zpl = _FIELD_XY_RX.sub(
+        lambda m: f"{m.group(1)}{int(m.group(2)) + dx},{int(m.group(3)) + dy}", zpl
+    )
+    zpl = _PW_RX.sub(lambda m: f"{m.group(1)}{int(m.group(2)) + dx}", zpl)
+    return zpl
 
 
 def generate_zpl(
@@ -136,209 +255,119 @@ def generate_zpl(
     dx: int = 0,
     dy: int = 0,
 ) -> str:
-    """Generate a ZPL II label string for the ZD421 (203 dpi).
+    """Generate a ZPL II label string for the ZD421 (203 dpi) from the
+    TEMPLATE FILE for the mode (``label_item.zpl`` / ``label_item_text.zpl``
+    — re-read on every print; edits are live with no recompile/restart).
 
-    Layout (2026-10-12 v8 — plain-weight OCR-B text + the flag's own bold
-    field + the barcode encodes the item id only; v7 = +4-dot label shift;
-    v6 = price-beside-flag-in-seller-row; v5 = event into the price's old
-    band slot):
-      - Top band: Code 128 barcode top-right — anchored to the
-        ruler-measured media window (2026-09-27 fine probes, two prints
-        agreeing post-recalibration: content x 147..723, printed with
-        v10's whole-label −20 x shift baked in → 127..703); the old
-        280..850 window printed bars past the media edge; the barcode
-        starts at y=14 because the ruler print showed the media top ≈12
-        dots below format y=0
-      - Event name: takes the price's OLD top-band-left slot (y=33) — the
-        slot the price vacated when it moved below the barcode (2026-10-06
-        user directive: "shift the event name to take the place of the
-        price, and everything below shifted up"). Left column, uniform y,
-        never truncated, omitted when not provided. This supersedes the
-        2026-09-28 "always below the price / never in the band" placement,
-        which only applied while the price sat in the band
-      - Price + donation flag: the flag is its OWN bold field (font 0, as
-        v2–v7 printed everything) and the price is a separate plain-weight
-        field starting FLAG_D_WIDTH + FLAG_GAP dots right of the flag's
-        left edge (v8 2026-10-12 user directive: "plain script except for
-        the Donation flag (D)" — see the fonts bullet) — same seller-row
-        right column, left-justified at bx (floored so a very long item
-        code can never slide the flag under the seller code); text mode
-        (no barcode) splits the content width at its midpoint. Supersedes
-        v6's single composed "D␣␣␣␣$125.00" field (one font per field
-        cannot weight the flag differently), which supersedes v4/v5's
-        dedicated price row below the band (y=66 — still empty) and the
-        v4 "D below the price" placement
-      - Donation flag: rides beside the price in its own bold field (v8,
-        v6); the flag left the item-ID row, which keeps its uniform row
-        alone
-      - FONTS (v8 2026-10-12 user directive: "make the label to be printed
-        in plain script except for the Donation flag (D)"): every text
-        field — event name, item identifier row, price, seller code,
-        category + size, description, free-text lines, and the text-mode
-        band code — prints in resident bitmap font E (OCR-B, native
-        28×15: plain weight, CRISP at ×1, ≈ font-0's cap height; font 0
-        is CG Triumvirate BOLD Condensed, the ZD421's ONLY resident
-        scalable font, which is why the v7 label read bold). Bitmap fonts
-        scale only in integer multiples, so OCR-B keeps native size
-        everywhere except the code_as_text band code (×2 = 56×30). Only
-        the D flag keeps font 0 (bold)
-      - Item identifier: UNCHANGED — its own row centered under the
-        barcode, uniform y, clear of the bars (v2's 5-dot gap read as
-        "mixed up with the barcode"); skipped in ``code_as_text`` mode,
-        where the code already prints large in the band
-      - Event name: see the top-band bullet above (2026-10-06: the
-        price's old slot, above the price; consumes no lower row — the
-        seller/category/description flow is identical with or without it)
-      - Seller code, category + ``Sz:`` size, description and the optional
-        ``label_line_2``/``label_line_3`` free-text lines follow, one 30pt
-        row each, printed top-down while they still fit the 1" canvas
-        (media confirmed ≈3" × 1" — ^LL back to 203; the v2 "compact
-        regime" is gone). The description truncates to 20 characters
-        (2026-10-06 directive, originally 30); the other fields keep the
-        28-char cap
-    Text fields use ``^FT`` (field top): for scalable fonts ``^FO`` positions
-    at the BASELINE, which clipped the tops of the price/ID (print test
-    2026-09-13).
+    What the renderer computes per item (see the template headers):
+      - ``{{code}}`` — the item id ONLY (v8, 2026-10-12: never the
+        customizable ``barcode_39`` string). With the numeric 5-digit item
+        codes (2026-09-18) ^BC's automatic subset selection packs digit pairs
+        (subset C, ≈22 dots/symbol pair — the densest linear symbology in
+        ZPL). Legacy databases with alphanumeric codes keep printing subset-B
+        Code 128 as before; Code 39/Codabar would print WIDER, I2of5 pads
+        odd digit counts, 2D codes need a 2D scanner.
+      - ``{{barcode_x}}``/``{{text_fb_w}}`` — the exact Code 128 model
+        (11 modules/char × module 2 + 20-dot quiet zones per side) right-
+        aligns the bars so their INK ends at ``right_edge − bars_right_nudge``;
+        the ID row centers on that band; the flag/price column edge anchors
+        at the bars' start, floored at ``origin + 180`` so a very long code
+        never slides the flag under the seller code.
+      - ``{{rows}}`` — the lower flow (seller code, category + ``Sz:`` size,
+        description, then the optional ``label_line_2``/``label_line_3``),
+        one 27-dot-pitch row per present field, top-down, with truncation
+        (description to 20 chars, others 28) and the 1" fit guard: a row that
+        would run past ``label_length`` is dropped rather than clipped.
+      - ``{{copies}}`` — with no explicit ``copies``, an ``^PQ`` emits one tag
+        per on-hand remaining unit (the "N labels per N units" decision,
+        2026-08-29: mid-event reprints cover units still in stock); an
+        explicit ``copies`` emits exactly that many; quantity 1 emits no ^PQ.
+      - ``{{event}}`` — printed in the price's old top-band slot (v5, uniform
+        y, never truncated, omitted when not provided; consumes no flow row).
+      - ``{{price}}``/donate flag — the flag is its OWN bold field (font 0),
+        the plain OCR-B price starts ``flag_d_width + flag_gap`` right of the
+        flag's left edge (v8: "plain script except for the Donation flag (D)").
 
-    Copies: with no explicit ``copies`` an ``^PQ`` command emits one tag per
-    on-hand remaining unit — the "N labels per N units" decision from tester
-    feedback (2026-08-29), so mid-event reprints only cover units still in
-    stock. With an explicit ``copies`` the ``^PQ`` emits exactly that many
-    labels (the "print a specified number of labels per item" flow).
+    ``dx``/``dy`` — per-print nudge in dots applied AFTER rendering (x + dx,
+    y + dy, ^PW + dx); the agent path requests dx=-3, dy=3. ``^LS``/``^LT``
+    are not used because ``^FT``-positioned fields ignore them (module
+    docstring).
+    """
+    template_text, geom = _load_label_template(code_as_text)
 
-    ``code_as_text``: render the item code as text instead of a barcode
-    (option added 2026-09-12). ``event_name``: printed in the top band's
-    left slot — the price's old place, now above the price (2026-10-06;
-    below the price 2026-09-28, beside the identifier originally
-    2026-09-12; omitted when not provided).
+    # Whole-label print-feedback shifts (v7 down 4, v10 left 20) fold into the
+    # effective origin/edge/pw every field derives from. Per-print dx/dy nudge
+    # AFTER rendering (stacks on top, same as before).
+    origin = geom["left_origin"] + geom["left_dots"]
+    right  = geom["right_edge"] + geom["left_dots"]
+    down   = geom["down_dots"]
 
-    ``dx``/``dy``: optional geometry nudge in dots (203 dpi) applied to EVERY
-    field coordinate — dx negative = left, dy positive = down. Baked into
-    the coordinates because ``^FT``-positioned fields ignore ``^LS``/``^LT``
-    label shifts (see module docstring), so an offset must move each x/y.
-    Added for the client-side Browser-Print agent path (2026-09-30): the
-    Windows workstation's agent-delivered labels print 3 dots right and
-    3 dots high versus the server-attached printer, so agent mode requests
-    dx=-3, dy=3. dx=dy=0 (the default) emits byte-identical output as
-    before. ``^PW`` tracks the shifted right edge — only field positions
-    move, and only inside the media (the measured window's right edge sits
-    ≈38 dots inside the tag edge ≈761, so the −20 keeps ^PW at 703,
-    on-media). Since v10 the whole label carries the same print-feedback
-    stack the dy side has had since v7 (``LABEL_LEFT_DOTS`` −20 on x,
-    folded into the effective ``dx`` every field shares, per-print nudges
-    stacking on top).
-    barcode data (v8, 2026-10-12 user directive): the item id ONLY — always
-    the item code, never the (customizable) barcode_39 string, so a custom
-    barcode can no longer sneak a different value (or a wider alphanumeric
-    payload) into the bars. With the numeric-only item codes (2026-09-18
-    onward) the data is 5 pure digits → ^BC's automatic subset selection
-    packs digit pairs (subset C), the densest linear symbology ZPL offers:
-    ≈22 dots per symbol pair vs ≈22/code128-char for the old alphanumeric
-    subset-B codes. Code 39/Codabar would print WIDER; I2of5 pads odd digit
-    counts with a leading zero (scans to a padded value); 2D codes need a
-    2D-capable scanner. Legacy databases that still hold alphanumeric codes
-    (pre-renumber) keep printing them as subset-B Code 128, as before."""
-    barcode      = item.code                     # v8: the item id ONLY (never barcode_39)
+    barcode      = item.code
     seller_code  = item.seller.code if item.seller else ""
-    description  = (item.description or "")[:DESC_MAX_CHARS]   # 20-char cap (2026-10-06)
-    line2        = (item.label_line_2 or "")[:MAX_FIELD_CHARS]
-    line3        = (item.label_line_3 or "")[:MAX_FIELD_CHARS]
+    description  = (item.description or "")[: geom["desc_max_chars"]]
+    line2        = (item.label_line_2 or "")[: geom["max_field_chars"]]
+    line3        = (item.label_line_3 or "")[: geom["max_field_chars"]]
     category     = str(item.category or "").upper()
     size         = str(item.size or "")
     cat_size     = "  ".join(
         part for part in (category, f"Sz: {size}" if size else "") if part
-    )[:MAX_FIELD_CHARS]
-    event_name   = (event_name or "")[:MAX_FIELD_CHARS]
-    # dx/dy shift EVERY field x/y (dots). ^PW below tracks `right` — only
-    # field positions move inside the media (the measured window ends ≈38
-    # dots inside the tag edge ≈761, so the −20 keeps ^PW on-media).
-    # v7 (2026-10-06): the whole label sits LABEL_DOWN_DOTS dots lower —
-    # v10 (2026-10-14): the whole label sits LABEL_LEFT_DOTS dots left —
-    # each folded into the effective dx/dy every field shares, so the
-    # per-print dx/dy nudge (Browser-Print agent path) stacks on top.
-    dx_eff       = dx + LABEL_LEFT_DOTS
-    origin       = LABEL_LEFT_ORIGIN_DOTS + dx_eff
-    right        = LABEL_RIGHT_EDGE_DOTS + dx_eff
-    dy_eff       = dy + LABEL_DOWN_DOTS
-    band_top_y   = BAND_TOP + dy_eff      # barcode ^FO top
-    text_code_y  = 34 + dy_eff            # code_as_text block top (v8: rides 6 dots higher
-                                          # — the ×2 bitmap cell needs the ink clearance)
-    # Bars end 10 dots INSIDE the content right edge (v9.3 BARCODE_RIGHT_NUDGE,
-    # user review 2026-10-12: the flush-at-edge bars read "truncated at the
-    # end"; ~10 dots of air finishes the edge). _barcode_x models Code 128
-    # exactly (11 modules/char × module 2 + the two 20-dot quiet zones), so
-    # the BARS end at (right − nudge) and the reserved trailing quiet zone
-    # falls past the content edge (the 2026-09-27 right-edge rule, trimmed by
-    # the reviewed 10 dots).
-    bx           = _barcode_x(barcode, right + 20 - BARCODE_RIGHT_NUDGE)
+    )[: geom["max_field_chars"]]
+    event_name   = (event_name or "")[: geom["max_field_chars"]]
     price_text   = f"${item.price:.2f}"
 
-    # Event name: takes the price's OLD top-band-left slot (2026-10-06 user
-    # directive — "shift the event name to take the place of the price, and
-    # everything below shifted up"; supersedes the 2026-09-28 below-the-
-    # price placement, which only applied while the price sat there).
-    # Left column, uniform y, never truncated; it consumes no row in the
-    # lower flow — everything below shifts up exactly one pitch.
-    event_y      = EVENT_ROW_Y + dy_eff
-    event_block = ""
-    if event_name:
-        event_block = (
-            f"^FT{origin},{event_y}{_PLAIN}^FD{event_name}^FS\n"
-        )
+    values: dict = {
+        "darkness":     max(0, min(30, geom["darkness"])),
+        "label_length": geom["label_length"],
+        "pw":           right,
+        "origin":       origin,
+        "y_event":      geom["event_row_y"] + down,
+        "event":        event_name,          # falsy → block suppressed
+        "donate":       bool(item.donate_unsold),
+        "bold_d_font":  geom["bold_d_font"],
+        "big_code_h":   geom["big_code_h"],
+        "big_code_w":   geom["big_code_w"],
+        "code":         barcode,
+        "price":        price_text,
+    }
 
-    # Identifier (barcode / big code text) — top band (barcode mode: ^FO-
-    # anchored bars ending at the right edge; text mode: the big code right-
-    # aligned via ^FB in font E ×2 — plain, integer-multiple crisp — no
-    # repeated identifier row).
+    # Barcode mode: bars + centered ID row + the column underneath them.
+    # Text mode: the code as big text (font E ×2) right-aligned in the band,
+    # no identifier row, and the flag/price column at the width's midpoint.
+    bx = _barcode_x(barcode, right + 20 - geom["bars_right_nudge"])
+    band_right = right - geom["bars_right_nudge"]
     if code_as_text:
-        code_block = f"^FT{origin},{text_code_y}^FB{right - origin},1,0,R,0^AEN,{BIG_CODE_H},{BIG_CODE_W}^FD{item.code}^FS\n"
+        price_col_x = (origin + right) // 2
+        values["text_fb_w"]    = right - origin
+        values["y_text_code"]  = geom["text_code_y"] + down
     else:
-        code_block = f"^FO{bx},{band_top_y}^BCN,{BARCODE_HEIGHT},N,N,N^FD{barcode}^FS\n"
-
-    # Price + donation flag: the RIGHT COLUMN of the seller row (2026-10-06
-    # v6 user directive — "place the price in the right column in the row
-    # with Y = 120, left justified, with a few spaces separating the price
-    # and the Donate Flag"). v8 (2026-10-12): the flag is its OWN field in
-    # the v2–v7 BOLD font 0 ("plain script except the Donation flag"), and
-    # the plain-weight price starts FLAG_D_WIDTH + FLAG_GAP dots right of
-    # the flag's left edge — the visual equivalent of the v6 composed
-    # "D␣␣␣␣$125.00" single field. Barcode mode: the column edge is the
-    # barcode's x anchor (bx — the right-column band the barcode and the
-    # centered ID occupy), floored so an unusually long item code never
-    # slides the flag under the seller's code. Text mode (no barcode): the
-    # content width's midpoint. The price leaves its v5 row below the band
-    # (y=66 still empty); the flag left the ID row in v6.
-    price_row_y  = (TEXT_ROWS_Y if code_as_text else SELLER_ROW_Y) + dy_eff
-    price_col_x  = max(bx, origin + 10 * 18) if not code_as_text else (origin + right) // 2
-    price_x      = price_col_x + (FLAG_D_WIDTH + FLAG_GAP if item.donate_unsold else 0)
-    flag_block   = (
-        f"^FT{price_col_x},{price_row_y}^A0N,{BOLD_D_FONT},{BOLD_D_FONT}^FDD^FS\n"
-        if item.donate_unsold else ""
+        price_col_x = max(bx, origin + PRICE_COL_FLOOR_OFFSET)
+        values["barcode_x"]     = bx
+        values["barcode_height"] = geom["barcode_height"]
+        values["y_band_top"]    = geom["band_top"] + down
+        values["y_id"]          = geom["id_row_y"] + down
+        values["id_block_w"]    = band_right - bx
+    values["price_col_x"] = price_col_x
+    values["y_price"]     = (
+        geom["text_rows_y"] if code_as_text else geom["seller_row_y"]
+    ) + down
+    values["price_x"] = price_col_x + (
+        geom["flag_d_width"] + geom["flag_gap"] if item.donate_unsold else 0
     )
-    price_block  = f"^FT{price_x},{price_row_y}{_PLAIN}^FD{price_text}^FS\n"
 
-    # Item identifier row (barcode mode only): UNCHANGED uniform y —
-    # centered under the bars. The donate flag left this row in v6 (it
-    # rides beside the price now); the lower flow resumes below it.
-    number_block = ""
-    row_y        = (TEXT_ROWS_Y if code_as_text else SELLER_ROW_Y) + dy_eff
-    if not code_as_text:
-        band_right = right - BARCODE_RIGHT_NUDGE   # v9.3: the ID centers on the
-        number_block = (                           # bars' band, not the raw edge
-            f"^FT{bx},{ID_ROW_Y + dy_eff}^FB{band_right - bx},1,0,C,0"
-            f"{_PLAIN}^FD{barcode}^FS\n"
-        )
-
-    # Lower block: one OCR-B row per field, top to bottom; on the 1" canvas a
-    # row that would run past the media edge is dropped rather than clipped.
-    lower_blocks = ""
+    # Lower flow: one row per present field, top-down, dropped when the 1"
+    # canvas can't take its ink (rows take no pitch when absent — the flow
+    # rides up, exactly as v5+).
+    row_lines: list[str] = []
+    row_y = values["y_price"]
     for text in (seller_code, cat_size, description, line2, line3):
         if not text:
             continue
-        if row_y + ROW_INK > LABEL_LENGTH_DOTS:
+        if row_y + geom["row_ink"] > geom["label_length"]:
             break
-        lower_blocks += f"^FT{origin},{row_y}{_PLAIN}^FD{text}^FS\n"
-        row_y += ROW_PITCH
+        row_lines.append(f"^FT{origin},{row_y}{_PLAIN}^FD{text}^FS")
+        row_y += geom["row_pitch"]
+    values["rows"] = "\n".join(row_lines)
+
     try:
         # On-hand remaining (== intake quantity until a partial sale) —
         # reprints mid-event print labels only for units still in stock.
@@ -348,23 +377,9 @@ def generate_zpl(
         quantity = 1
     if copies is not None:
         quantity = max(1, copies)
-    pq = f"^PQ{max(1, quantity)}\n" if quantity > 1 else ""
+    values["copies"] = f"{quantity}" if quantity > 1 else ""
 
-    return (
-        "^XA\n"
-        f"^MD{max(0, min(30, LABEL_DARKNESS))}\n"
-        f"^LL{LABEL_LENGTH_DOTS}\n"
-        f"^PW{right}\n"
-        "^CI0\n"
-        f"{event_block}"
-        f"{code_block}"
-        f"{flag_block}"
-        f"{price_block}"
-        f"{number_block}"
-        f"{lower_blocks}"
-        f"{pq}"
-        "^XZ\n"
-    )
+    return _nudge_coordinates(_render_template(template_text, values), dx, dy)
 
 
 def send_to_printer(zpl: str, printer_path: str = LABEL_PRINTER_PATH) -> None:
