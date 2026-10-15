@@ -13,7 +13,11 @@ the 2026-09-13 window (~275..830) had drifted/aged out, which clipped the
 barcode at the right edge and left the old left origin 130 dots inside the
 media. Text fields use ``^FT`` (field top), and ``^LS`` is NOT used:
 ^FT-positioned fields ignore the label shift, so the left origin is baked
-into every x coordinate instead.
+into every x coordinate instead. Whole-label print-feedback corrections
+bake on top of the measured window at emit time — v7 ``LABEL_DOWN_DOTS``
+(+4 y) and v10 ``LABEL_LEFT_DOTS`` (−20 x) — folded into the effective
+x/y offsets every field's coordinates share (per-print ``dx``/``dy``
+nudges stack on top of them).
 """
 
 import logging
@@ -106,15 +110,20 @@ ROW_INK = 24           # worst-case ink depth of a 30pt row (caps + descenders)
 LABEL_DOWN_DOTS = 4    # v7 (2026-10-06 user directive: "move the whole label down
                        # by 4 dots") — print-feedback media shift applied to
                        # every field's y via dy_eff
+LABEL_LEFT_DOTS = -20  # v10 (2026-10-14 user directive: "the whole label needs
+                       # to be shifted 20 dots to the left") — print-feedback
+                       # media shift applied to every field's x via dx_eff
+                       # (the horizontal analogue of LABEL_DOWN_DOTS)
 BARCODE_RIGHT_NUDGE = 10
                        # v9.3 (2026-10-12 user directive: "the barcode, item id
                        # below the barcode, the price below that all need to be
                        # shifted by about 10 dots" — the flush-at-723 bars read as
                        # "truncated at the end"): the whole barcode band (bars, ID
                        # row, and the flag/price column) references the content
-                       # right edge MINUS this nudge — bars end at 713, leaving a
-                       # ~10-dot gap before the content edge (48 dots before the
-                       # tag's right edge ≈761, well inside quiet-zone spec); the
+                       # right edge MINUS this nudge — v10's −20 stack bakes
+                       # in: bars end at 693, still a ~10-dot gap before the
+                       # content edge (68 dots before the tag's right edge
+                       # ≈761, well inside quiet-zone spec); the
                        # ID row re-centers on the bars' band; the floor rule for
                        # very long codes still binds at origin+180.
 
@@ -135,7 +144,8 @@ def generate_zpl(
     band slot):
       - Top band: Code 128 barcode top-right — anchored to the
         ruler-measured media window (2026-09-27 fine probes, two prints
-        agreeing post-recalibration: content x 147..723); the old
+        agreeing post-recalibration: content x 147..723, printed with
+        v10's whole-label −20 x shift baked in → 127..703); the old
         280..850 window printed bars past the media edge; the barcode
         starts at y=14 because the ruler print showed the media top ≈12
         dots below format y=0
@@ -210,7 +220,13 @@ def generate_zpl(
     Windows workstation's agent-delivered labels print 3 dots right and
     3 dots high versus the server-attached printer, so agent mode requests
     dx=-3, dy=3. dx=dy=0 (the default) emits byte-identical output as
-    before. ``^PW`` stays the media print width — only field positions move.
+    before. ``^PW`` tracks the shifted right edge — only field positions
+    move, and only inside the media (the measured window's right edge sits
+    ≈38 dots inside the tag edge ≈761, so the −20 keeps ^PW at 703,
+    on-media). Since v10 the whole label carries the same print-feedback
+    stack the dy side has had since v7 (``LABEL_LEFT_DOTS`` −20 on x,
+    folded into the effective ``dx`` every field shares, per-print nudges
+    stacking on top).
     barcode data (v8, 2026-10-12 user directive): the item id ONLY — always
     the item code, never the (customizable) barcode_39 string, so a custom
     barcode can no longer sneak a different value (or a wider alphanumeric
@@ -233,13 +249,16 @@ def generate_zpl(
         part for part in (category, f"Sz: {size}" if size else "") if part
     )[:MAX_FIELD_CHARS]
     event_name   = (event_name or "")[:MAX_FIELD_CHARS]
-    # dx/dy shift EVERY field x/y (dots). ^PW below stays anchored to the
-    # unshifted media width — only field positions move (see docstring).
+    # dx/dy shift EVERY field x/y (dots). ^PW below tracks `right` — only
+    # field positions move inside the media (the measured window ends ≈38
+    # dots inside the tag edge ≈761, so the −20 keeps ^PW on-media).
     # v7 (2026-10-06): the whole label sits LABEL_DOWN_DOTS dots lower —
-    # folded into the effective dy every field shares, so the per-print
-    # dx/dy nudge (Browser-Print agent path) stacks on top of it.
-    origin       = LABEL_LEFT_ORIGIN_DOTS + dx
-    right        = LABEL_RIGHT_EDGE_DOTS + dx
+    # v10 (2026-10-14): the whole label sits LABEL_LEFT_DOTS dots left —
+    # each folded into the effective dx/dy every field shares, so the
+    # per-print dx/dy nudge (Browser-Print agent path) stacks on top.
+    dx_eff       = dx + LABEL_LEFT_DOTS
+    origin       = LABEL_LEFT_ORIGIN_DOTS + dx_eff
+    right        = LABEL_RIGHT_EDGE_DOTS + dx_eff
     dy_eff       = dy + LABEL_DOWN_DOTS
     band_top_y   = BAND_TOP + dy_eff      # barcode ^FO top
     text_code_y  = 34 + dy_eff            # code_as_text block top (v8: rides 6 dots higher
