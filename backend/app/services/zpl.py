@@ -126,18 +126,18 @@ _TEMPLATES_DIR = Path(__file__).resolve().parents[2] / "templates"   # backend/t
 TEMPLATE_ENV_VAR = "LABEL_TEMPLATE_DIR"   # per-call override of the template dir
 
 _LABEL_DIRECTIVES = {
-    # name -> renderer-side default (a template `; @name value` overrides)
-    "left_origin":       LABEL_LEFT_ORIGIN_DOTS,
-    "right_edge":        LABEL_RIGHT_EDGE_DOTS,
-    "left_dots":         LABEL_LEFT_DOTS,
-    "down_dots":         LABEL_DOWN_DOTS,
-    "bars_right_nudge":  10,  # v9.3 BARCODE_RIGHT_NUDGE
-    "event_row_y":       EVENT_ROW_Y,
-    "band_top":          BAND_TOP,
-    "id_row_y":          ID_ROW_Y,
-    "seller_row_y":      SELLER_ROW_Y,
-    "text_rows_y":       TEXT_ROWS_Y,
-    "text_code_y":       TEXT_CODE_Y_BASE,
+    # name -> renderer-side default. Values are the FINAL format coordinates
+    # (the v7 "+4 down" / v10 "−20 left" whole-label print-feedback shifts are
+    # already folded into these shipped numbers) — a template `; @name value`
+    # sets the number that is actually emitted; nothing stacks behind it.
+    "left_origin":       LABEL_LEFT_ORIGIN_DOTS + LABEL_LEFT_DOTS,   # 147 −20 = 127
+    "right_edge":        LABEL_RIGHT_EDGE_DOTS + LABEL_LEFT_DOTS,   # 723 −20 = 703
+    "y_event":           EVENT_ROW_Y + LABEL_DOWN_DOTS,             # 33 +4 = 37
+    "y_band_top":        BAND_TOP + LABEL_DOWN_DOTS,                # 14 +4 = 18
+    "y_id":              ID_ROW_Y + LABEL_DOWN_DOTS,                # 86 +4 = 90
+    "y_price_barcode":   SELLER_ROW_Y + LABEL_DOWN_DOTS,            # 120 +4 = 124
+    "y_price_text":      TEXT_ROWS_Y + LABEL_DOWN_DOTS,             # 80 +4 = 84
+    "y_text_code":       TEXT_CODE_Y_BASE + LABEL_DOWN_DOTS,        # 34 +4 = 38
     "row_pitch":         ROW_PITCH,
     "row_ink":           ROW_INK,
     "barcode_height":    BARCODE_HEIGHT,
@@ -150,6 +150,7 @@ _LABEL_DIRECTIVES = {
     "bold_d_font":       BOLD_D_FONT,
     "big_code_h":        BIG_CODE_H,
     "big_code_w":        BIG_CODE_W,
+    "bars_right_nudge":  10,  # v9.3 BARCODE_RIGHT_NUDGE
 }
 
 _DIRECTIVE_RX = re.compile(r"^;\s*@([A-Za-z_][A-Za-z0-9_]*)\s+(-?\d+)\s*(?:;.*)?$")
@@ -295,12 +296,12 @@ def generate_zpl(
     """
     template_text, geom = _load_label_template(code_as_text)
 
-    # Whole-label print-feedback shifts (v7 down 4, v10 left 20) fold into the
-    # effective origin/edge/pw every field derives from. Per-print dx/dy nudge
-    # AFTER rendering (stacks on top, same as before).
-    origin = geom["left_origin"] + geom["left_dots"]
-    right  = geom["right_edge"] + geom["left_dots"]
-    down   = geom["down_dots"]
+    # Directive values ARE the final format coordinates — the v7 (+4 down)
+    # and v10 (−20 left) whole-label print-feedback shifts are already inside
+    # the shipped numbers, so a template edit sets the tag's truth directly.
+    # Per-print dx/dy nudge after rendering stacks on top.
+    origin = geom["left_origin"]
+    right  = geom["right_edge"]
 
     barcode      = item.code
     seller_code  = item.seller.code if item.seller else ""
@@ -320,7 +321,7 @@ def generate_zpl(
         "label_length": geom["label_length"],
         "pw":           right,
         "origin":       origin,
-        "y_event":      geom["event_row_y"] + down,
+        "y_event":      geom["y_event"],
         "event":        event_name,          # falsy → block suppressed
         "donate":       bool(item.donate_unsold),
         "bold_d_font":  geom["bold_d_font"],
@@ -338,18 +339,18 @@ def generate_zpl(
     if code_as_text:
         price_col_x = (origin + right) // 2
         values["text_fb_w"]    = right - origin
-        values["y_text_code"]  = geom["text_code_y"] + down
+        values["y_text_code"]  = geom["y_text_code"]
     else:
         price_col_x = max(bx, origin + PRICE_COL_FLOOR_OFFSET)
         values["barcode_x"]     = bx
         values["barcode_height"] = geom["barcode_height"]
-        values["y_band_top"]    = geom["band_top"] + down
-        values["y_id"]          = geom["id_row_y"] + down
+        values["y_band_top"]    = geom["y_band_top"]
+        values["y_id"]          = geom["y_id"]
         values["id_block_w"]    = band_right - bx
     values["price_col_x"] = price_col_x
     values["y_price"]     = (
-        geom["text_rows_y"] if code_as_text else geom["seller_row_y"]
-    ) + down
+        geom["y_price_text"] if code_as_text else geom["y_price_barcode"]
+    )
     values["price_x"] = price_col_x + (
         geom["flag_d_width"] + geom["flag_gap"] if item.donate_unsold else 0
     )
