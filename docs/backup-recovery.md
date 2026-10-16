@@ -1,8 +1,10 @@
 # Database Backup & Recovery
 
-Routine for backing up the Ski Swap POS SQLite database (`backend/swap.db`),
-and the exact procedure to recover from a backup. Set up on the event machine
-(2026-09-02, branch `feat/db-backup-routine`).
+Routine for backing up the Ski Swap POS SQLite databases (every database in
+`backend/` — `registry.db`, legacy `swap.db`, and the per-event databases in
+`backend/events/`), and the exact procedure to recover from a backup. Set up
+on the event machine (2026-09-02, branch `feat/db-backup-routine`); extended
+2026-10-16 to cover the registry-mode layout (multi-database, per-stem naming).
 
 ---
 
@@ -23,12 +25,15 @@ open and consider tightening the cadence (see §5).
 
 ### How the backup is taken (and why not `cp`)
 
-The script opens `backend/swap.db` **read-only** and uses the SQLite online
+The script opens each backend database **read-only** and uses the SQLite online
 backup API (`sqlite3.Connection.backup`). That produces a consistent snapshot
 even while uvicorn is writing — a naive `cp` of a live SQLite file can tear
 pages mid-write and yield a corrupt copy. Each backup is verified with
 `PRAGMA integrity_check` before being promoted to its final
-`swap-YYYYmmdd-HHMMSS.db` name; failed/partial files are deleted, not kept.
+`<stem>-YYYYmmdd-HHMMSS.db` name (`swap-…`, `registry-…`, or
+`<event-name>-…`, one per database); failed/partial files are deleted, not
+kept. WAL-mode sources are converted back to delete-journal mode so no
+`-shm`/`-wal` sidecars linger next to backups.
 
 Manual ad-hoc backup (safe anytime, even mid-event):
 
@@ -93,9 +98,14 @@ backup carries its own `alembic_version`, so it is self-describing.
 ls -lt ~/skiswap-backups/            # newest first; filenames carry UTC timestamps
 ```
 
-Choose the newest file that predates the problem. `swap-20260903-003334.db`
-means 2026-09-03 00:33:34 UTC (cron runs on the hour: 00/06/12/18 local =
-CDT, UTC−5 here; double-check the offset against the log).
+Choose the newest file that predates the problem — per database stem:
+`swap-YYYYmmdd-HHHMMSS.db` (legacy), `registry-…` (event catalogue + login
+accounts), or `<event>-…` (one file per event, named after the event, from
+`registry.db`'s `db_filename`). `swap-20260903-003334.db` means
+2026-09-03 00:33:34 UTC (cron runs on the hour: 00/06/12/18 local = CDT,
+UTC−5 here; double-check the offset against the log). A full restore needs
+the newest `registry-…` AND the matching `<event>-…` file(s) for every event
+the registry lists — or a legacy-only layout, where `swap-…` alone suffices.
 
 ### 3.2 Stop the server
 

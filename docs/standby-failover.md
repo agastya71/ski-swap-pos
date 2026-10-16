@@ -26,7 +26,7 @@ mysl-pos.duckdns.org → DuckDNS → 72.50.207.152 (shared router WAN, hairpin N
 | repo | `~/code/ski-swap-pos` | `~/code/ski-swap-pos` |
 | app port | uvicorn on `127.0.0.1:8001`, Caddy on 80/443/8000 | stopped; on failover binds `0.0.0.0:8001` |
 | data files | `backend/*.db` (registry.db + per-event DBs; possibly legacy swap.db) + `backend/.jwt_secret` | synced copies, installed into `backend/` |
-| backups | cron every 6 h → `~/skiswap-backups/` (`backup_db.py`, covers only legacy swap-db — see §9) | timer every 15 min pulls snapshots → `~/skiswap-standby/` |
+| backups | cron every 6 h → `~/skiswap-backups/` (`backup_db.py`, all DBs per-stem since 2026-10-16) | timer every 15 min pulls snapshots → `~/skiswap-standby/` |
 | SSH | port 22 closed until §2 is done | sshd running on :22 (installed 2026-10-16 by accident — harmless; harden, see §9) |
 
 > **Rule of thumb:** anything marked `PRIMARY ▸` must run on `.136`;
@@ -201,10 +201,12 @@ sshd runs **here**, so the primary can *push* snapshots to the standby:
 - **Caddy not installed on the standby** (needs sudo). Until §7 step 3, the
   public-URL failover path is unavailable; LAN-direct (:8001) always works.
 - **Linger** — run §3's one-liner if not done yet.
-- **Primary's 6-hourly `backup_db.py` covers only legacy `swap.db`** — it does
-  NOT snapshot `registry.db` or per-event DBs. Recommend adopting the §3
-  snapshot method (or extending `backup_db.py`) on the primary so its offsite
-  plan (rclone, per docs/backup-recovery.md §2) protects all databases.
+- ~~Primary's 6-hourly `backup_db.py` covers only legacy `swap.db`~~ —
+  **resolved 2026-10-16**: `backup_db.py` now snapshots every database
+  (`registry.db` + `backend/events/*.db` + legacy `swap.db`), one file per
+  stem, cron invocation unchanged — the primary only needs `git pull`. The
+  rclone **offsite** tier (docs/backup-recovery.md §2) remains the open
+  recommendation.
 - **sshd on the standby** was installed by accident (2026-10-16) — harmless
   self-key trust, LAN-only exposure — but if Plan B is not adopted, either
   harden it (`PasswordAuthentication no`, as §2 shows for the primary) or

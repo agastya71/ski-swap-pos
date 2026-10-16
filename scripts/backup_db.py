@@ -1,23 +1,33 @@
 #!/usr/bin/env python3
-"""Scheduled online backup of the Ski Swap POS SQLite database.
+"""Scheduled online backup of ALL Ski Swap POS SQLite databases.
 
 Uses the SQLite backup API (python stdlib ``sqlite3.Connection.backup``), which
 produces a consistent snapshot even while the uvicorn server is writing — never
-copy the live ``swap.db`` file with ``cp``; that can tear pages mid-write.
+copy the live ``.db`` files with ``cp``; that can tear pages mid-write.
+
+By default backs up EVERY database in the backend layout:
+  - ``backend/*.db``            (registry.db, legacy swap.db)
+  - ``backend/events/*.db``     (per-event databases)
+Each is written to ``<dest>/<stem>-YYYYmmdd-HHMMSS.db`` (e.g. ``swap-20261016-
+170001.db``, ``registry-20261016-170001.db``, or ``test_swap_pos_2026-...``),
+so the snapshot set always matches the registry's event catalogue. ``--db``
+limits the run to a single source file (named by its own stem). Backups of
+WAL-mode sources are converted back to delete-journal mode after the copy so
+no ``-shm``/``-wal`` sidecars linger.
 
 Each run:
-  1. Opens the source database read-only (busy_timeout guards against locks).
-  2. Backs it up to ``<dest>/swap-YYYYmmdd-HHMMSS.db``.
-  3. Verifies the copy with ``PRAGMA integrity_check`` and a table count.
-  4. Prunes backups older than the retention window (default 30 days).
-
-The default destination is ``~/skiswap-backups/`` — deliberately outside the
-repository, so wiping/re-cloning the repo cannot destroy the backups.
+  1. Opens each source database read-only (busy_timeout guards against locks).
+  2. Backs it up to ``<dest>/<stem>-<stamp>.db`` via the online backup API.
+  3. Converts the copy out of WAL mode and verifies with
+     ``PRAGMA integrity_check`` before promoting ``.partial`` to its final
+     name; failed/partial files are deleted, not kept.
+  4. Prunes backups (per database stem) older than the retention window.
 
 Usage:
-    python3 scripts/backup_db.py [--dest DIR] [--keep-days N] [--quiet]
+    python3 scripts/backup_db.py [--db PATH] [--dest DIR] [--keep-days N] [--quiet]
 
-Cron (installed for user ramdev-wudali, every 6 hours):
+Cron (installed for user ramdev-wudali, every 6 hours — invocation unchanged
+since the single-DB era; it now covers every database):
     0 */6 * * *  flock -n /tmp/skiswap-backup.lock /usr/bin/python3 \
         /home/ramdev-wudali/code/ski-swap-pos/scripts/backup_db.py --quiet \
         >> /home/ramdev-wudali/skiswap-backups/backup.log 2>&1
@@ -38,18 +48,21 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DB = REPO_ROOT / "backend" / "swap.db"
+BACKEND_DIR = DEFAULT_DB.parent
+EVENTS_SUBDIR = "events"
 DEFAULT_DEST = Path.home() / "skiswap-backups"
 DEFAULT_KEEP_DAYS = 30
 BUSY_TIMEOUT_MS = 10_000
 
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Online backup of backend/swap.db")
+    p = argparse.ArgumentParser(description="Online backup of all backend SQLite databases")
     p.add_argument(
         "--db",
         type=Path,
-        default=DEFAULT_DB,
-        help=f"source database (default: {DEFAULT_DB})",
+        default=None,
+        help="back up a single source database instead of the whole backend set "
+             f"(default: scan {BACKEND_DIR} and {BACKEND_DIR / EVENTS_SUBDIR})",
     )
     p.add_argument(
         "--dest",
@@ -67,6 +80,22 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
+def discover_backends(backend_dir: Path) -> list[Path]:
+    """Every database in the backend layout, or an empty list if none exist."""
+    sidecars = ("-wal", "-shm")
+    dbs = [
+        p for p in sorted(backend_dir.glob("*.db"))
+        if not p.name.endswith(sidecars)
+    ]
+    events = backend_dir / EVENTS_SUBDIR
+    if events.is_dir():
+        dbs += [
+            p for p in sorted(events.glob("*.db"))
+            if not p.name.endswith(sidecars)
+        ]
+    return dbs
+
+
 def table_count(db_path: Path) -> int:
     try:
         with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=BUSY_TIMEOUT_MS / 1000) as con:
@@ -77,31 +106,35 @@ def table_count(db_path: Path) -> int:
         sys.exit(1)
 
 
-def backup(args: argparse.Namespace) -> Path:
-    if not args.db.is_file():
-        print(f"ERROR: source database not found: {args.db}", file=sys.stderr)
-        sys.exit(1)
+def backup_one(src: Path, stem: str, dest: Path, stamp: str, quiet: bool) -> bool:
+    """Back up one source DB. Returns True on success; False otherwise."""
+    if not src.is_file():
+        print(f"ERROR: source database not found: {src}", file=sys.stderr)
+        return False
 
-    args.dest.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    target = args.dest / f"swap-{stamp}.db"
-    partial = target.with_suffix(".db.partial")
+    target = dest / f"{stem}-{stamp}.db"
+    partial = dest / f"{stem}-{stamp}.db.partial"
 
-    # Read-only source connection: guarantees the backup never mutates swap.db.
-    src = sqlite3.connect(f"file:{args.db}?mode=ro", uri=True, timeout=BUSY_TIMEOUT_MS / 1000)
-    src.execute(f"PRAGMA busy_timeout = {BUSY_TIMEOUT_MS}")
+    # Read-only source connection: never mutates the live database.
+    src_con = sqlite3.connect(f"file:{src}?mode=ro", uri=True, timeout=BUSY_TIMEOUT_MS / 1000)
     try:
         dst = sqlite3.connect(partial)
         try:
-            src.backup(dst)  # online backup API: consistent under concurrent writes
+            src_con.backup(dst)  # online backup API: consistent under concurrent writes
+            # WAL-mode sources leave the copy WAL-flagged; convert it so the
+            # backup needs no -shm/-wal sidecars on later reads/inspection.
+            journal = dst.execute("PRAGMA journal_mode").fetchone()[0]
+            if str(journal).lower() == "wal":
+                dst.execute("PRAGMA journal_mode = DELETE")
         finally:
             dst.close()
     except sqlite3.Error as exc:
-        partial.unlink(missing_ok=True)
-        print(f"ERROR: backup failed: {exc}", file=sys.stderr)
-        sys.exit(1)
+        for p in (partial, dest / f"{partial.name}-wal", dest / f"{partial.name}-shm"):
+            p.unlink(missing_ok=True)
+        print(f"ERROR: backup of {src.name} failed: {exc}", file=sys.stderr)
+        return False
     finally:
-        src.close()
+        src_con.close()
 
     # Verify before promoting the .partial to its final name.
     try:
@@ -110,39 +143,74 @@ def backup(args: argparse.Namespace) -> Path:
         if status != "ok":
             raise sqlite3.DatabaseError(f"integrity_check returned: {status}")
     except sqlite3.Error as exc:
-        partial.unlink(missing_ok=True)
-        print(f"ERROR: backup verification failed: {exc}", file=sys.stderr)
-        sys.exit(1)
+        for p in (partial, dest / f"{partial.name}-wal", dest / f"{partial.name}-shm"):
+            p.unlink(missing_ok=True)
+        print(f"ERROR: backup verification failed for {src.name}: {exc}", file=sys.stderr)
+        return False
     partial.rename(target)
 
-    pruned = prune(args.dest, args.keep_days)
-    if not args.quiet:
-        src_kb = args.db.stat().st_size / 1024
+    if not quiet:
+        src_kb = src.stat().st_size / 1024
         dst_kb = target.stat().st_size / 1024
         print(
             f"{datetime.now(timezone.utc).isoformat(timespec='seconds')} "
-            f"OK swap.db ({src_kb:.0f}K) -> {target} ({dst_kb:.0f}K, "
-            f"{table_count(target)} tables, integrity ok); pruned {pruned} old backup(s)"
+            f"OK {src.name} ({src_kb:.0f}K) -> {target.name} ({dst_kb:.0f}K, "
+            f"{table_count(target)} tables, integrity ok)"
         )
-    return target
+    return True
 
 
-def prune(dest: Path, keep_days: int) -> int:
-    """Delete backup files older than the retention window (never the newest)."""
+def prune(dest: Path, stems: set[str], keep_days: int) -> int:
+    """Delete backup files older than the retention window (per stem, never the newest)."""
     cutoff = time.time() - keep_days * 24 * 3600
-    backups = sorted(dest.glob("swap-*.db"), key=lambda p: p.stat().st_mtime)
     removed = 0
-    for path in backups[:-1] if len(backups) > 1 else []:
-        if path.stat().st_mtime < cutoff:
-            path.unlink()
-            removed += 1
-    for stale in dest.glob("swap-*.db.partial"):  # clean crashed-run leftovers
-        # age check protects a concurrent manual run that is mid-backup
-        if stale.stat().st_mtime < time.time() - 3600:
-            stale.unlink()
-            removed += 1
+    for stem in stems:
+        backups = sorted(dest.glob(f"{stem}-*.db"), key=lambda p: p.stat().st_mtime)
+        # keep the newest of each stem even if past the window
+        for path in backups[:-1] if len(backups) > 1 else []:
+            if path.stat().st_mtime < cutoff:
+                path.unlink()
+                removed += 1
+    never = time.time()
+    for path in dest.iterdir():  # clean crashed-run leftovers, any stem
+        name = path.name
+        if (name.endswith(".db.partial") or name.endswith(".db.partial-wal")
+                or name.endswith(".db.partial-shm")):
+            # age check protects a concurrent manual run that is mid-backup
+            if path.stat().st_mtime < never - 3600:
+                path.unlink()
+                removed += 1
     return removed
 
 
+def main() -> None:
+    args = parse_args()
+    args.dest.mkdir(parents=True, exist_ok=True)
+    failures = 0
+
+    if args.db is not None:
+        targets = [(args.db, args.db.stem)]
+    else:
+        targets = [(p, p.stem) for p in discover_backends(BACKEND_DIR)]
+        if not targets:
+            print(f"ERROR: no databases found under {BACKEND_DIR}", file=sys.stderr)
+            sys.exit(1)
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    for src, stem in targets:
+        if not backup_one(src, stem, args.dest, stamp, args.quiet):
+            failures += 1
+
+    pruned = prune(args.dest, {stem for _, stem in targets}, args.keep_days)
+    if not args.quiet:
+        print(
+            f"{datetime.now(timezone.utc).isoformat(timespec='seconds')} "
+            f"backup run: {len(targets) - failures}/{len(targets)} database(s) OK, "
+            f"pruned {pruned} old file(s)"
+        )
+    if failures:
+        sys.exit(1)
+
+
 if __name__ == "__main__":
-    backup(parse_args())
+    main()
