@@ -73,8 +73,11 @@ Verify from the standby (§4).
 How the sync works (why it is safe against a live primary):
 
 1. Uses the **SQLite online backup API on the primary** for *every*
-   `backend/*.db` — snapshots are consistent even while uvicorn writes.
-   (Never `rsync`/`cp` a live SQLite file.)
+   `backend/*.db` plus every per-event database listed in `registry.db`
+   (which live in `backend/events/` — discovered live from the registry, so
+   new events are covered automatically; stale sqlite sidecars `-wal/-shm`
+   are purged from the install). Snapshots are consistent even while
+   uvicorn writes. (Never `rsync`/`cp` a live SQLite file.)
 2. `PRAGMA integrity_check` on the primary, and again after download.
 3. Also copies `backend/.jwt_secret` — so after failover, tokens issued by
    the primary keep working here.
