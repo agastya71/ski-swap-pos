@@ -22,9 +22,17 @@ labels) and `docs/standby-failover.md`.
 **One-sentence form: the app and its front door (Caddy + cert) are
 IP-agnostic; only name resolution + routing need a move-day answer.**
 
+> **DECISION (2026-10-16): Option B — server joins the venue Wifi directly.
+> The venue will not provide router admin**, so: staff devices reach the box
+> via a per-device hostname pin (hosts file) or the LAN-IP with one accepted
+> browser warning; the DuckDNS cron is stopped for the event window (no
+> forward is possible, so flipping the public record serves nothing); the
+> `ufw` venue-subnet rule is added on arrival. Option A below remains
+> documented for reconsideration (e.g. a future event with venue admin).
+
 ---
 
-## 2. Option A (RECOMMENDED) — bring a travel router, clone the home subnet
+## 2. Option A (considered — NOT chosen) — bring a travel router, clone the home subnet
 
 A ~$30 travel router (GL.iNet etc.) configured **at home, tested once**.
 Server + workstations join ITS network; its WAN uplinks to the venue Wifi (or
@@ -61,7 +69,7 @@ changes.
 
 ---
 
-## 3. Option B (fallback) — server joins the venue Wifi directly
+## 3. Option B (CHOSEN) — server joins the venue Wifi directly
 
 Use when no travel router. Accept rougher edges; staff devices are few.
 
@@ -85,10 +93,12 @@ Use when no travel router. Accept rougher edges; staff devices are few.
      works for anyone on the internet — **and locally only via hairpin**,
      which consumer/venue routers usually lack. Prefer 3b locally even if 3c
      is available.
-4. **DuckDNS decision (internet present):** the cron repoints the public
-   record to the venue's WAN within 5 min. If you do NOT want the POS domain
-   advertised from the venue, stop it for the day:
-   `crontab -e` → comment the `~/duckdns/duck.sh` line → restore at home.
+4. **DuckDNS cron — STOP for the event window (decided):** with no router
+   admin there is nothing to forward to, so repointing the public record
+   serves nothing — and the flip would break locally-resolved-domain clients
+   (they'd get the venue's public IP with no hairpin). `crontab -e` → comment
+   the `~/duckdns/duck.sh` line → uncomment at home. Staff devices are covered
+   by the hosts pin from step 3b regardless.
 5. **Firewall:** if `ufw` scopes 443/8000 to the home subnet, allow the venue
    subnet (user-run): `sudo ufw allow from <venue-cidr> to any port 443,8000
    proto tcp` — see the pre-flight check below.
