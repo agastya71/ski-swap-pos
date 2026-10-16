@@ -195,6 +195,22 @@ def main() -> None:
         if not targets:
             print(f"ERROR: no databases found under {BACKEND_DIR}", file=sys.stderr)
             sys.exit(1)
+        # de-duplicate stems so two different files (e.g. backend/swap.db and
+        # backend/events/swap.db) can never overwrite one another's backup
+        seen: dict[str, Path] = {}
+        deduped = []
+        for src, stem in targets:
+            if stem in seen:
+                new_stem = f"{src.parent.name}-{stem}"
+                print(f"INFO: duplicate stem '{stem}' ({seen[stem]} and {src}) "
+                      f"— second file recorded as '{new_stem}'")
+                stem = new_stem
+            if stem in seen:
+                print(f"ERROR: cannot disambiguate backup names for {src}", file=sys.stderr)
+                sys.exit(1)
+            seen[stem] = src
+            deduped.append((src, stem))
+        targets = deduped
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     for src, stem in targets:
