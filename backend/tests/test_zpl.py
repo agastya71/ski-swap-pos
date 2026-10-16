@@ -127,6 +127,62 @@ def test_generate_zpl_whole_label_left_20(item):
     assert "^FO453,18^BCN,46,N,N,N^FDABC-001^FS" in zpl  # barcode band −20
 
 
+# ── Template-file rendering (v11: live layout edits, no recompile/restart) ───
+
+
+def test_label_template_edits_are_live(item, tmp_path, monkeypatch):
+    """THE v11 point (2026-10-14 user request): the template is re-read ON
+    EVERY GENERATION, so a hand edit — including a `; @` directive change —
+    applies to the next print with no recompile and no service restart. Here:
+    a copy with left_origin 117 (vs the shipped 127) emits every field 10
+    dots further left — directive values are FINAL, nothing stacks behind."""
+    from app.services.zpl import generate_zpl, label_template_path
+
+    tdir = tmp_path / "templates"
+    tdir.mkdir()
+    shipped = label_template_path(False).read_text(encoding="utf-8")
+    (tdir / "label_item.zpl").write_text(
+        shipped.replace("; @left_origin 127", "; @left_origin 117"), encoding="utf-8"
+    )
+    monkeypatch.setenv("LABEL_TEMPLATE_DIR", str(tdir))
+    shifted = _field_coords(generate_zpl(item))
+    monkeypatch.delenv("LABEL_TEMPLATE_DIR")
+    base = _field_coords(generate_zpl(item))
+
+    assert len(shifted) == len(base)
+    for (x0, y0), (x1, y1) in zip(base, shifted):
+        assert y1 == y0
+        # left_origin-anchored fields (the left column, x=127) move −10;
+        # right_edge-anchored fields (barcode band, price column, ID row at
+        # x=453) stay — they derive from right_edge, not left_origin.
+        assert x1 == (x0 - 10 if x0 == 127 else x0)
+
+
+def test_label_template_missing_fails_loudly(item, tmp_path, monkeypatch):
+    """No silent fallback: an unreadable/missing template fails the print with
+    the reason logged — never a stale-layout label."""
+    from app.services.zpl import generate_zpl
+
+    monkeypatch.setenv("LABEL_TEMPLATE_DIR", str(tmp_path))  # no template inside
+    with pytest.raises(FileNotFoundError):
+        generate_zpl(item)
+
+
+def test_label_template_unknown_placeholder_fails_loudly(item, tmp_path, monkeypatch):
+    """A typo'd {{placeholder}} fails the render instead of printing junk."""
+    from app.services.zpl import generate_zpl, label_template_path
+
+    tdir = tmp_path / "templates"
+    tdir.mkdir()
+    shipped = label_template_path(False).read_text(encoding="utf-8")
+    (tdir / "label_item.zpl").write_text(
+        shipped.replace("^XZ", "^FD{{bogus_var}}^FS\n^XZ"), encoding="utf-8"
+    )
+    monkeypatch.setenv("LABEL_TEMPLATE_DIR", str(tdir))
+    with pytest.raises(ValueError):
+        generate_zpl(item)
+
+
 def test_generate_zpl_contains_barcode(item):
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item)
