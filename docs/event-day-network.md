@@ -72,6 +72,8 @@ changes.
 ## 3. Option B (CHOSEN) — server joins the venue Wifi directly
 
 Use when no travel router. Accept rougher edges; staff devices are few.
+**Execution runbook with the exact commands (pre-flight, day-of, staff
+devices, verification, rollback): `docs/event-day-option-b-runbook.md`.**
 
 1. **Discover the box's venue IP** (venue router admin panel, or from the
    server: `ip -4 addr show` / `nmcli -f DEVICE,IP4.ADDRESS device show`).
