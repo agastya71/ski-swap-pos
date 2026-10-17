@@ -239,32 +239,37 @@ export const searchItems = (q: string) =>
  apiFetch<ItemLookupResponse[]>(`/items/search?q=${encodeURIComponent(q)}`);
 
 /**
- * Trigger a download of the blank Excel import template.
- * Opens the file in the browser's native download handler.
+ * Trigger a download of the blank Excel import template, per seller type.
+ * Vendors get the Company-block worksheet (Quantity … Sell Price); everyone
+ * else the Required-Info worksheet (Qty … Donate?). Opens the file in the
+ * browser's native download handler.
+ * @param vendor - true downloads the vendor template, false the non-vendor one.
  * @throws {Error} if the request fails or the server returns a non-OK status.
  */
-export function downloadImportTemplate(): Promise<void> {
- const token = getToken();
- return fetch("/items/import-template", {
-  headers: token ? { Authorization: `Bearer ${token}` } : {},
- })
-  .then(async (r) => {
-   if (!r.ok) throw new Error(`Template download failed: ${r.statusText}`);
-   const buf = await r.arrayBuffer();
-   return new Blob([buf], {
-    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-   });
+export function downloadImportTemplate(vendor = false): Promise<void> {
+  const token = getToken();
+  return fetch(`/items/import-template?vendor=${vendor}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
   })
-  .then((blob) => {
-   const url = URL.createObjectURL(blob);
-   const link = document.createElement("a");
-   link.href = url;
-   link.download = "import-template.xlsx";
-   document.body.appendChild(link);
-   link.click();
-   document.body.removeChild(link);
-   setTimeout(() => URL.revokeObjectURL(url), 5000);
-  });
+    .then(async (r) => {
+      if (!r.ok) throw new Error(`Template download failed: ${r.statusText}`);
+      const buf = await r.arrayBuffer();
+      return new Blob([buf], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+    })
+    .then((blob) => {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = vendor
+        ? "import-template-vendor.xlsx"
+        : "import-template-non-vendor.xlsx";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    });
 }
 
 /**

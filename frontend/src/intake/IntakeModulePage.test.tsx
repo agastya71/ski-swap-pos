@@ -133,7 +133,10 @@ describe("IntakeModulePage — Download Template button (functional)", () => {
   it("is always visible in the tab bar", () => {
     renderPage();
     expect(
-      screen.getByRole("button", { name: /download template/i }),
+      screen.getByRole("button", { name: /download vendor template/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /download non-vendor template/i }),
     ).toBeInTheDocument();
   });
 
@@ -158,14 +161,44 @@ describe("IntakeModulePage — Download Template button (functional)", () => {
 
     renderPage();
 
-    fireEvent.click(screen.getByRole("button", { name: /download template/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /download non-vendor template/i }),
+    );
 
     await waitFor(() => expect(capturedRequest).not.toBeNull());
-    expect(capturedRequest!.url).toContain("/items/import-template");
+    expect(capturedRequest!.url).toContain("/items/import-template?vendor=false");
     expect(capturedRequest!.url).not.toContain("/api/");
     expect(capturedRequest!.headers.get("authorization")).toBe(
       `Bearer ${ADMIN_TOKEN}`,
     );
+  });
+
+  it("requests the vendor variant from the vendor template button", async () => {
+    setToken(ADMIN_TOKEN);
+    let capturedRequest: Request | null = null;
+    server.use(
+      http.get("/items/import-template", ({ request }) => {
+        capturedRequest = request;
+        return new HttpResponse(new ArrayBuffer(8), {
+          headers: {
+            "Content-Type":
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          },
+        });
+      }),
+    );
+
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:test");
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+
+    renderPage();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /download vendor template/i }),
+    );
+
+    await waitFor(() => expect(capturedRequest).not.toBeNull());
+    expect(capturedRequest!.url).toContain("/items/import-template?vendor=true");
   });
 
   /** Verifies the Search tab renders the intake item search page. */

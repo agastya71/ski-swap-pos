@@ -17,13 +17,17 @@ import type { ImportResult } from "../types";
 
 /**
  * @param props.intakeId - ID of the intake session to import items into.
+ * @param props.vendor - Whether the intake's seller is a vendor; selects which
+ *   template the Download Template button fetches (vendor vs non-vendor layout).
  * @param props.onImported - Callback invoked with the import result after a successful import (e.g. to refresh the item list).
  */
 export function ImportItemsButton({
   intakeId,
+  vendor = false,
   onImported,
 }: {
   intakeId: number;
+  vendor?: boolean;
   onImported: (result: ImportResult) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -48,7 +52,7 @@ export function ImportItemsButton({
 
   async function handleDownloadTemplate() {
     try {
-      await downloadImportTemplate();
+      await downloadImportTemplate(vendor);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Template download failed");
     }
@@ -67,7 +71,7 @@ export function ImportItemsButton({
         <button
           type="button"
           onClick={handleDownloadTemplate}
-          title="Download the blank .xlsx bulk-import template to fill out"
+          title="Download the blank .xlsx bulk-import template to fill out (vendor or non-vendor layout, matching this seller)"
           style={BUTTON_STYLE}
         >
           Download Template

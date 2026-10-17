@@ -121,13 +121,13 @@ If the printer is unavailable, a red message explains it; nothing is marked prin
 
 ### 2.7 Importing items from Excel
 
-For large consignments, use **Import from Excel** on the intake tab:
+For large consignments, use **Import Seller Worksheet** on the intake tab:
 
-1. **Download Template** — fetch the blank 12-column template.
-2. Fill one row per item: Description, Category, Brand, Type, Color, Size, Gender/Age, Year, Price, Used, Donate if Unsold, Quantity.
-3. **Import** the file. Every row is validated; valid rows are created and invalid rows are listed with row numbers and reasons (fix the file and re-import).
+1. **Download Vendor Template** (Company block, item columns Quantity → Sell Price) or **Download Non-Vendor Template** (Required Info block, item columns Qty → Donate?) — pick the seller's type. The per-intake **Import Items** button inside a seller's intake downloads the matching template for that seller automatically.
+2. Fill the seller block and one row per item (each template carries only the fields it needs; optional extras like Color, Gender/Age, Year and Used are intentionally absent).
+3. **Import the file.** Columns are matched by header name, so the downloaded templates round-trip anywhere. Every populated row is validated (fully-blank rows are ignored); valid rows are created and invalid rows are listed with row numbers and reasons (fix the file and re-import).
 
-Prices round UP to whole dollars. Brand names are matched to existing brands when they are close (typos snap to the known brand).
+Prices round UP to whole dollars. Brand names are matched to existing brands when they are close (typos snap to the known brand). A vendor worksheet's Company row marks the created seller as a vendor.
 
 ### 2.8 The Search tab
 

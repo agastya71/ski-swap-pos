@@ -44,19 +44,33 @@ describe('downloadImportTemplate', () => {
     expect(lastRequest?.headers.get('authorization')).toBe(`Bearer ${ADMIN_TOKEN}`)
   })
 
-  it('requests /items/import-template — no /api/ prefix', async () => {
+  it('requests /items/import-template with vendor=false by default', async () => {
     setToken(ADMIN_TOKEN)
     await downloadImportTemplate()
-    expect(lastRequest?.url).toMatch(/\/items\/import-template$/)
+    expect(lastRequest?.url).toMatch(/\/items\/import-template\?vendor=false$/)
     expect(lastRequest?.url).not.toContain('/api/')
   })
 
-  it('triggers a file download via an anchor element', async () => {
+  it('requests the vendor variant when vendor=true', async () => {
+    setToken(ADMIN_TOKEN)
+    await downloadImportTemplate(true)
+    expect(lastRequest?.url).toMatch(/\/items\/import-template\?vendor=true$/)
+  })
+
+  it('triggers a file download via an anchor element (non-vendor filename)', async () => {
     setToken(ADMIN_TOKEN)
     const mockLink = { href: '', download: '', click: vi.fn() } as unknown as HTMLAnchorElement
     vi.spyOn(document, 'createElement').mockReturnValue(mockLink)
     await downloadImportTemplate()
-    expect(mockLink.download).toBe('import-template.xlsx')
+    expect(mockLink.download).toBe('import-template-non-vendor.xlsx')
     expect(mockLink.click).toHaveBeenCalledOnce()
+  })
+
+  it('names the vendor file for the vendor template', async () => {
+    setToken(ADMIN_TOKEN)
+    const mockLink = { href: '', download: '', click: vi.fn() } as unknown as HTMLAnchorElement
+    vi.spyOn(document, 'createElement').mockReturnValue(mockLink)
+    await downloadImportTemplate(true)
+    expect(mockLink.download).toBe('import-template-vendor.xlsx')
   })
 })
