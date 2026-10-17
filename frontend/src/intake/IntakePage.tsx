@@ -334,6 +334,7 @@ export function IntakePage() {
           <div style={{ margin: "12px 0" }}>
             <ImportItemsButton
               intakeId={intake.id}
+              vendor={seller?.is_vendor ?? false}
               onImported={() => refreshItems()}
             />
           </div>

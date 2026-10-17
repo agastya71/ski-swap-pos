@@ -148,7 +148,7 @@ export function IntakeModulePage() {
             }}
           />
           <button
-            onClick={() => downloadImportTemplate()}
+            onClick={() => downloadImportTemplate(true)}
             style={{
               border: "1px solid #1a237e",
               color: "#1a237e",
@@ -159,7 +159,21 @@ export function IntakeModulePage() {
               fontSize: 13,
             }}
           >
-            Download Template
+            Download Vendor Template
+          </button>
+          <button
+            onClick={() => downloadImportTemplate(false)}
+            style={{
+              border: "1px solid #1a237e",
+              color: "#1a237e",
+              background: "none",
+              padding: "4px 10px",
+              cursor: "pointer",
+              borderRadius: 3,
+              fontSize: 13,
+            }}
+          >
+            Download Non-Vendor Template
           </button>
         </div>
       </div>

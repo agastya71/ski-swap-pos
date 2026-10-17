@@ -2,17 +2,31 @@
 or TSV) and creates item rows for an intake, applying brand closest-matching and
 collecting per-row errors.
 
-Columns (12): Description, Category, Brand, Type, Color, Size, Gender/Age, Year,
-Price, Used, Donate if Unsold, Quantity. Rows from an older 11-column template
-(without Quantity) are accepted — quantity defaults to 1. Price is rounded UP
-to the nearest whole dollar (whole-dollar pricing decision).
+Item layouts (three, all accepted):
+- Vendor template (GET /items/import-template?vendor=true): seller block starts
+  with Company (then Last, First, Address, City, State, Zip, Phone 1, Phone 2,
+  Email) and the item header is Quantity, Category, Brand, Description, Size,
+  Sell Price.
+- Non-vendor template (GET /items/import-template): "Required Info:" seller
+  block (Last, First, Address, City, State, Zip, Phone, Email) and the item
+  header is Qty, Category, Type, Brand, Description, Size, Sell Price, Donate?.
+- Legacy plain/12-column: header row 1 (Description, Category, Brand, Type,
+  Color, Size, Gender/Age, Year, Price, Used, Donate if Unsold, Quantity), data
+  from row 2. Rows from an older 11-column template are accepted too.
 
-Semantics: every row is validated; valid rows are committed in a single
-transaction and invalid rows are reported back in an error list (the caller can
-render/download the error report). Brand values are replaced with the closest
-existing brand (normalized edit distance ≤ 2) when a close match exists.
-Category and Type are case-insensitively normalized to the canonical casing
-(never rejected); Quantity defaults to 1 when blank.
+When the item header is recognized by name (it always is for the two
+downloadable templates), columns are mapped by header name — order and missing
+optional columns are handled automatically (Quantity defaults to 1, Used to
+yes, Donate inherits the intake). Only the legacy path is positional. Price is
+rounded UP to the nearest whole dollar (whole-dollar pricing decision).
+
+Semantics: every populated row is validated; fully-blank rows (typical styled
+trailing rows in real worksheets) are ignored; valid rows are committed in a
+single transaction and invalid rows are reported back in an error list (the
+caller can render/download the error report). Brand values are replaced with
+the closest existing brand (normalized edit distance ≤ 2) when a close match
+exists. Category and Type are case-insensitively normalized to the canonical
+casing (never rejected); Quantity defaults to 1 when blank.
 """
 
 import csv
@@ -40,11 +54,13 @@ from app.services.codes import next_item_code, next_seller_code
 
 
 def parse_upload(filename: str, data: bytes) -> list[list[Any]]:
-    """Parse an uploaded template file into a list of data rows (no header).
+    """Parse an uploaded template file into ALL grid rows, header region included.
 
     Detects format by extension: .xlsx via openpyxl, .csv/.tsv via the stdlib
     csv module (delimiter sniffed). Raises ValueError for unsupported formats or
-    unreadable files.
+    unreadable files. Row 1 is retained — the seller-block flows need it (the
+    vendor template carries Company there); the legacy plain import drops it
+    itself, preserving its header-in-row-1 contract.
     """
     name = (filename or "").lower()
     if name.endswith(".xlsx"):
@@ -55,18 +71,16 @@ def parse_upload(filename: str, data: bytes) -> list[list[Any]]:
         ws = wb.active
         if ws is None:
             raise ValueError("Uploaded xlsx has no readable sheet")
-        return [list(row) for row in ws.iter_rows(min_row=2, values_only=True)]
+        return [list(row) for row in ws.iter_rows(values_only=True)]
     if name.endswith(".csv") or name.endswith(".tsv"):
         delimiter = "\t" if name.endswith(".tsv") else ","
         text = data.decode("utf-8-sig", errors="replace")
         reader = csv.reader(io.StringIO(text), delimiter=delimiter)
-        rows = list(reader)
-        return rows[1:]  # drop header
+        return list(reader)
     # Unknown extension: try CSV as a forgiving fallback, else xlsx bytes.
     try:
         text = data.decode("utf-8-sig", errors="replace")
-        rows = list(csv.reader(io.StringIO(text)))
-        return rows[1:]
+        return list(csv.reader(io.StringIO(text)))
     except Exception as exc:  # noqa: BLE001
         raise ValueError("Unsupported import format (use .xlsx, .csv, or .tsv)") from exc
 
@@ -91,13 +105,17 @@ def _import_rows(
     username: str,
     rows: list[list[Any]],
     first_row_no: int,
+    header_cells: list[Any] | None = None,
 ) -> ImportResult:
     """Create item rows from parsed data rows (shared by both import flows).
 
     ``first_row_no`` is the sheet row number of the first data row, used for
-    per-row error reporting.
+    per-row error reporting. ``header_cells`` selects header-name-driven column
+    mapping (the vendor / non-vendor templates — any recognized subset in any
+    order); None keeps the legacy positional 12-column contract.
     """
     brands_pool = _existing_brands(db, seller)
+    col_map = _header_col_map(header_cells) if header_cells is not None else None
 
     # Item codes are numeric-only (2026-09-18): five digits starting at
     # 10000, unique within the event database. Rows added below reserve their
@@ -110,11 +128,27 @@ def _import_rows(
     skipped = 0
 
     for i, row in enumerate(rows, start=first_row_no):  # header row(s) above
-        padded = (list(row) + [None] * 12)[:12]
-        (
-            description, category, brand, type_, color, size, gender_age,
-            year, price, used_str, donate_str, quantity_val,
-        ) = padded
+        if all(v is None or (isinstance(v, str) and v.strip() == "") for v in row):
+            continue  # untouched trailing rows (real worksheets carry styled empties) are not errors
+        if col_map is not None:
+            description = _mapped(row, col_map, "description")
+            category = _mapped(row, col_map, "category")
+            brand = _mapped(row, col_map, "brand")
+            type_ = _mapped(row, col_map, "type")
+            color = _mapped(row, col_map, "color")
+            size = _mapped(row, col_map, "size")
+            gender_age = _mapped(row, col_map, "gender_age")
+            year = _mapped(row, col_map, "year")
+            price = _mapped(row, col_map, "price")
+            used_str = _mapped(row, col_map, "used")
+            donate_str = _mapped(row, col_map, "donate")
+            quantity_val = _mapped(row, col_map, "quantity")
+        else:
+            padded = (list(row) + [None] * 12)[:12]
+            (
+                description, category, brand, type_, color, size, gender_age,
+                year, price, used_str, donate_str, quantity_val,
+            ) = padded
 
         if not description or price is None:
             errors.append(ImportRowError(row=i, reason="Missing required field: Description or Price"))
@@ -228,21 +262,26 @@ def import_items(
 ) -> ImportResult:
     """Import items from an uploaded template into the given intake session.
 
-    Legacy/standard layout: the item header is the first row and data starts
-    on row 2. The seller is fixed by the intake. For worksheets that carry a
-    seller-info block (Last / First / ... rows above the item header), use
-    ``import_items_with_seller`` instead.
+    The seller is fixed by the intake. When the file carries a seller block
+    (any of the downloadable templates), the block is redundant and skipped —
+    import starts at the recognized item header with header-driven columns.
+    Otherwise the legacy layout applies: item header in sheet row 1, positional
+    12-column data from row 2.
     """
     try:
         rows = parse_upload(filename, data)
     except ValueError as exc:
         raise exc
-    return _import_rows(db, intake, seller, username, rows, first_row_no=2)
+    block = _find_seller_block(rows)
+    if block is not None:
+        _info, header_idx, header_cells = block
+        return _import_rows(
+            db, intake, seller, username, rows[header_idx + 1:], header_idx + 2, header_cells
+        )
+    return _import_rows(db, intake, seller, username, rows[1:], first_row_no=2)
 
 
 # ── Seller worksheet import (seller-info block + item table) ─────────────────
-
-_SELLER_LABELS = ("last", "first", "address", "city", "state", "zip", "phone", "email")
 
 
 def _norm(value: Any) -> str:
@@ -263,31 +302,133 @@ def _cell(row: list[Any], col: int) -> Any:
     return row[col] if len(row) > col else None
 
 
-def _find_seller_block(rows: list[list[Any]]) -> tuple[dict[str, str | None], int] | None:
-    """Locate the enriched-template seller block (added 2026-09-12).
+# Seller-block labels (column A) → info keys. The vendor template uses Phone 1
+# (primary) and Phone 2 (fallback — the seller model has a single phone field),
+# the non-vendor template a single Phone.
+_SELLER_LABEL_ALIASES = {
+    "company": "company",
+    "last": "last",
+    "last name": "last",
+    "first": "first",
+    "first name": "first",
+    "address": "address",
+    "city": "city",
+    "state": "state",
+    "zip": "zip",
+    "zip code": "zip",
+    "phone": "phone",
+    "phone 1": "phone",
+    "phone 2": "phone2",
+    "email": "email",
+    "e-mail": "email",
+}
 
-    Layout: consecutive rows whose column A reads Last, First, Address, City,
-    State, Zip, Phone, Email (values in column B), followed by the item table
-    header (first cell 'Description'). Returns the seller info dict and the
-    item-header row index, or None when the file is the legacy layout (item
-    header in the first row, no seller block).
+# Item-header names (any column) → canonical field, used to map data columns by
+# header name so the vendor / non-vendor / legacy templates (any recognized
+# subset, any order) all round-trip.
+_ITEM_HEADER_ALIASES = {
+    "description": "description",
+    "desc": "description",
+    "item description": "description",
+    "category": "category",
+    "brand": "brand",
+    "type": "type",
+    "item type": "type",
+    "color": "color",
+    "size": "size",
+    "gender/age": "gender_age",
+    "gender-age": "gender_age",
+    "gender age": "gender_age",
+    "gender": "gender_age",
+    "age": "gender_age",
+    "year": "year",
+    "price": "price",
+    "sell price": "price",
+    "asking price": "price",
+    "used": "used",
+    "donate": "donate",
+    "donate?": "donate",
+    "donate if unsold": "donate",
+    "quantity": "quantity",
+    "qty": "quantity",
+}
+
+
+def _norm_label(value: Any) -> str:
+    """Normalized seller-block label (columns A): collapsed, casefolded, no trailing punctuation."""
+    return _norm(value).rstrip("?:.,").strip()
+
+
+def _norm_header(value: Any) -> str:
+    """Normalized item-header cell ("Donate? " → "donate", "Qty" → "qty")."""
+    return _norm(value).rstrip("?:.,").strip()
+
+
+def _header_col_map(cells: list[Any]) -> dict[str, int] | None:
+    """Map canonical item fields to column indexes from a header row.
+
+    Returns None when fewer than two cells are recognized (not an item header).
     """
-    limit = min(10, len(rows))
+    col_map: dict[str, int] = {}
+    for idx, cell in enumerate(cells):
+        field = _ITEM_HEADER_ALIASES.get(_norm_header(cell))
+        if field is not None and field not in col_map:
+            col_map[field] = idx
+    return col_map if len(col_map) >= 2 else None
+
+
+def _mapped(row: list[Any], col_map: dict[str, int], field: str) -> Any:
+    """Header-driven cell read; None for fields the template omits."""
+    idx = col_map.get(field)
+    return _cell(row, idx) if idx is not None else None
+
+
+def _find_seller_block(
+    rows: list[list[Any]],
+) -> tuple[dict[str, str | None], int, list[Any]] | None:
+    """Locate the seller block and the item header row below it.
+
+    Layouts: the vendor template starts at a Company row (then Last, First,
+    Address, City, State, Zip, Phone 1, Phone 2, Email in column A, values in
+    column B); the non-vendor and legacy enriched templates start at a Last row
+    followed by a First row (Phone 1/Phone 2 absent, one Phone instead). Any
+    unrecognized column-A row (blank row, instruction notes) ends the block.
+    Returns (seller info, item-header row index, item-header cells), where the
+    header is the first row below the block with ≥2 recognized item-column
+    names. Returns None when no seller block is present.
+    """
+    limit = min(12, len(rows))
+    start = None
     for idx in range(limit):
-        if _norm(_cell(rows[idx], 0)) != "last":
-            continue
-        if idx + 1 >= len(rows) or _norm(_cell(rows[idx + 1], 0)) != "first":
-            continue
-        info: dict[str, str | None] = {}
-        for j, label in enumerate(_SELLER_LABELS):
-            raw = _cell(rows[idx + j], 1) if idx + j < len(rows) else None
-            text = str(raw).strip() if raw is not None and str(raw).strip() != "" else None
-            info[label] = text
-        for k in range(idx + len(_SELLER_LABELS), len(rows)):
-            if _norm(_cell(rows[k], 0)) == "description":
-                return info, k
-        raise ValueError("Template item header row (Description, ...) not found below the seller block")
-    return None
+        label = _norm_label(_cell(rows[idx], 0))
+        if label == "company":
+            start = idx
+            break
+        if label == "last" and idx + 1 < len(rows) and _norm_label(_cell(rows[idx + 1], 0)) == "first":
+            start = idx
+            break
+    if start is None:
+        return None
+    info: dict[str, str | None] = {}
+    j = start
+    while j < len(rows):
+        field = _SELLER_LABEL_ALIASES.get(_norm_label(_cell(rows[j], 0)))
+        if field is None:
+            break
+        raw = _cell(rows[j], 1)
+        text = str(raw).strip() if raw is not None and str(raw).strip() != "" else None
+        info[field] = text
+        j += 1
+    if not info.get("phone") and info.get("phone2"):
+        info["phone"] = info["phone2"]
+    info.pop("phone2", None)
+    for k in range(j, len(rows)):
+        if _header_col_map(rows[k]) is not None:
+            return info, k, list(rows[k])
+    raise ValueError(
+        "Template item header row (e.g. Quantity, Category, Brand, Description, Size, Sell Price) "
+        "not found below the seller block"
+    )
 
 
 def _seller_display_name(seller: Seller) -> str | None:
@@ -375,19 +516,26 @@ def _find_seller_candidates(
 
 
 def _create_seller_from_block(db: Session, event, info: dict[str, str | None]) -> Seller:
-    """Create a new seller from the worksheet seller block (code via ``next_seller_code``)."""
+    """Create a new seller from the worksheet seller block (code via ``next_seller_code``).
+
+    A Company row (vendor template) marks the seller as a vendor; individuals
+    keep the default is_vendor=False.
+    """
+    company = info.get("company")
+    is_vendor = bool(company and company.strip())
     new_seller = Seller(
         event_id=event.id,
-        code=next_seller_code(db, info.get("first"), info.get("last"), None, False),
+        code=next_seller_code(db, info.get("first"), info.get("last"), company, is_vendor),
         first_name=info.get("first"),
         last_name=info.get("last"),
+        company=company,
+        is_vendor=is_vendor,
         address=info.get("address"),
         city=info.get("city"),
         state=info.get("state"),
         zip=info.get("zip"),
         phone=info.get("phone"),
         email=info.get("email"),
-        is_vendor=False,
     )
     db.add(new_seller)
     db.flush()
@@ -451,14 +599,15 @@ def import_items_with_seller(
     block = _find_seller_block(rows)
     if block is None:
         raise ValueError(
-            "No seller info block found in the worksheet (expected rows starting with Last / First "
-            "above the item header). Use the per-intake import for the plain 12-column template."
+            "No seller info block found in the worksheet (expected rows starting with Company or "
+            "Last / First above the item header). Use the per-intake import for the plain "
+            "12-column template."
         )
-    info, header_idx = block
-    if not info.get("first") and not info.get("last"):
+    info, header_idx, header_cells = block
+    if not (info.get("first") or info.get("last") or info.get("company")):
         raise ValueError(
-            "Seller info is missing from the worksheet (fill in Last / First in the seller block), "
-            "or use the per-intake import with the plain template."
+            "Seller info is missing from the worksheet (fill in Last / First — or Company for a "
+            "vendor — in the seller block), or use the per-intake import with the plain template."
         )
 
     matched_by: str | None
@@ -510,7 +659,9 @@ def import_items_with_seller(
         matched_by = None
         created = True
     intake, intake_created = _resolve_intake(db, seller)
-    result = _import_rows(db, intake, seller, username, rows[header_idx + 1:], first_row_no=header_idx + 2)
+    result = _import_rows(
+        db, intake, seller, username, rows[header_idx + 1:], header_idx + 2, header_cells
+    )
     seller_name = " ".join(
         part
         for part in (

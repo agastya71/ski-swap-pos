@@ -281,38 +281,75 @@ def export_intake_search(
     )
 
 @router.get("/import-template")
-def download_import_template(_user: User = Depends(_INTAKE_ADMIN)):
-    """Return a blank Excel template for bulk item import.
+def download_import_template(vendor: bool = False, _user: User = Depends(_INTAKE_ADMIN)):
+    """Return a blank Excel template for bulk item import, per seller type.
 
-    Enriched layout (2026-09-12): a seller-info block (Last, First, Address,
-    City, State, Zip, Phone, Email — values in column B) followed by the item
-    table. Importing this template via POST /items/import-worksheet
-    finds-or-creates the seller (deduplicated by name/email/phone), reuses or
-    creates the seller's intake, and imports the item rows below the header.
-    The plain layout (item header only) remains valid for the per-intake
-    import endpoint: Description, Category, Brand, Type, Color, Size,
-    Gender/Age, Year, Price, Used, Donate if Unsold, Quantity. Quantity
-    (blank = 1) represents how many identical units one row covers.
+    vendor=True mirrors the vendor worksheet: a Company seller block (Last,
+    First, Address, City, State, Zip, Phone 1, Phone 2, Email — values in
+    column B, vendor notes in column E) and item columns Quantity, Category,
+    Brand, Description, Size, Sell Price. The default mirrors the individual
+    consignor worksheet: "Required Info:" block (Last, First, ..., Phone,
+    Email) and item columns Qty, Category, Type, Brand, Description, Size,
+    Sell Price, Donate?. Optional app fields (Color, Gender/Age, Year, Used)
+    are intentionally absent from both. The importer maps columns by header
+    name, so filling and re-uploading either template round-trips via
+    POST /items/import-worksheet (or the per-intake import, which skips the
+    redundant seller block). Example data rows are omitted.
     """
     wb = openpyxl.Workbook()
     ws = wb.active
     if ws is None:  # openpyxl stubs type .active as Optional; can't happen for a new workbook
         raise HTTPException(status_code=500, detail="Template workbook has no active sheet")
-    ws.append(["Seller Info (finds or creates the seller — fill in column B):", None])
-    for label in ["Last", "First", "Address", "City", "State", "Zip", "Phone", "Email"]:
-        ws.append([label, None])
-    ws.append([None])
-    ws.append([
-        "Description", "Category", "Brand", "Type", "Color",
-        "Size", "Gender/Age", "Year", "Price", "Used", "Donate if Unsold", "Quantity",
-    ])
+    if vendor:
+        ws["A1"] = "Company"
+        labels = ["Last", "First", "Address", "City", "State", "Zip", "Phone 1", "Phone 2", "Email"]
+        for row_no, label in enumerate(labels, start=2):
+            ws.cell(row=row_no, column=1, value=label)
+        notes = [
+            "Notes for Vendors:",
+            "1. No boot boxes",
+            "2. Tie boots together through the bindings",
+            "3. No back country gear or snow shoes",
+            "4. Use all fields. Do not combine columns.",
+            "5. Store employees are welcome to stay ",
+            "   and help during the sale (it helps your sales)",
+            "6. Use the quantity field for multiples of the same item",
+            "7. Rename the sheet with your company name",
+        ]
+        for row_no, note in enumerate(notes, start=2):
+            ws.cell(row=row_no, column=5, value=note)
+        ws.cell(row=12, column=6, value="Whole numbers")
+        for col_no, header in enumerate(
+            ["Quantity", "Category", "Brand", "Description", "Size", "Sell Price"], start=1
+        ):
+            ws.cell(row=13, column=col_no, value=header)
+        filename = "import-template-vendor.xlsx"
+    else:
+        ws["A1"] = "Required Info:"
+        labels = ["Last", "First", "Address", "City", "State", "Zip", "Phone", "Email"]
+        for row_no, label in enumerate(labels, start=2):
+            ws.cell(row=row_no, column=1, value=label)
+        notes = [
+            "Please do not re-order or delete any of the columns, even if you do not fill them all in!!!",
+            "Donate? This column indicates if you would like to donate unsold items (highly recommended!)",
+            "Please price in whole dollars only.",
+            "Sizing should be cm for skis or poles. Euro for ski boots.",
+        ]
+        for row_no, note in enumerate(notes, start=11):
+            ws.cell(row=row_no, column=1, value=note)
+        for col_no, header in enumerate(
+            ["Qty", "Category", "Type", "Brand", "Description", "Size", "Sell Price", "Donate?"],
+            start=1,
+        ):
+            ws.cell(row=16, column=col_no, value=header)
+        filename = "import-template-non-vendor.xlsx"
     buf = BytesIO()
     wb.save(buf)
     buf.seek(0)
     return StreamingResponse(
         buf,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=import-template.xlsx"},
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 

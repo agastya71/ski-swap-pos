@@ -584,27 +584,55 @@ def test_import_rejects_nonfinite_and_negative_prices(client, active_event, admi
     assert [it["price"] for it in listed] == [50.0]
 
 
-def test_import_template_has_quantity_column(client, admin_token):
-    """GET /items/import-template pins the 12-column item header, incl. Quantity —
-    the parser is positional, so the template header is the contract. The
-    enriched template places it below the seller-info block."""
+def test_import_template_vendor_layout(client, admin_token):
+    """GET /items/import-template?vendor=true pins the vendor worksheet: Company
+    block with Phone 1/Phone 2, vendor notes in column E, and the reference
+    item-column order (Quantity … Sell Price) — no optional fields, no example rows."""
+    import io
+    import openpyxl
+    resp = client.get(
+        "/items/import-template?vendor=true", headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert resp.status_code == 200
+    wb = openpyxl.load_workbook(io.BytesIO(resp.content))
+    ws = wb.active
+    assert ws is not None, "template workbook has no active sheet"
+    assert ws["A1"].value == "Company"
+    assert [ws.cell(row=r, column=1).value for r in range(2, 11)] == [
+        "Last", "First", "Address", "City", "State", "Zip", "Phone 1", "Phone 2", "Email",
+    ]
+    assert ws["E2"].value == "Notes for Vendors:"
+    assert ws["E9"].value == "6. Use the quantity field for multiples of the same item"
+    assert ws["F12"].value == "Whole numbers"
+    assert [ws.cell(row=13, column=c).value for c in range(1, 7)] == [
+        "Quantity", "Category", "Brand", "Description", "Size", "Sell Price",
+    ]
+    assert ws.cell(row=14, column=1).value is None  # no example data rows
+
+
+def test_import_template_nonvendor_layout(client, admin_token):
+    """The default template mirrors the individual-consignor worksheet:
+    Required Info block, instruction notes, and the reference item-column
+    order (Qty … Donate?) — Color, Gender/Age, Year and Used stay absent."""
     import io
     import openpyxl
     resp = client.get("/items/import-template", headers={"Authorization": f"Bearer {admin_token}"})
     assert resp.status_code == 200
     wb = openpyxl.load_workbook(io.BytesIO(resp.content))
     ws = wb.active
-    assert ws is not None, "template workbook has no active sheet"
-    headers_row = None
-    for row in ws.iter_rows(min_row=1, max_row=ws.max_row):
-        if row[0].value == "Description":
-            headers_row = [c.value for c in row]
-            break
-    assert headers_row is not None, "item header row missing from template"
-    assert headers_row == [
-        "Description", "Category", "Brand", "Type", "Color",
-        "Size", "Gender/Age", "Year", "Price", "Used", "Donate if Unsold", "Quantity",
+    assert ws is not None
+    assert ws["A1"].value == "Required Info:"
+    assert [ws.cell(row=r, column=1).value for r in range(2, 10)] == [
+        "Last", "First", "Address", "City", "State", "Zip", "Phone", "Email",
     ]
+    assert (ws["A11"].value or "").startswith("Please do not re-order")
+    assert (ws["A12"].value or "").startswith("Donate?")
+    assert (ws["A13"].value or "").startswith("Please price in whole dollars")
+    assert (ws["A14"].value or "").startswith("Sizing should be cm")
+    header = [ws.cell(row=16, column=c).value for c in range(1, 9)]
+    assert header == ["Qty", "Category", "Type", "Brand", "Description", "Size", "Sell Price", "Donate?"]
+    for absent in ("Color", "Gender/Age", "Year", "Used"):
+        assert absent not in header
 
 
 def test_brands_catalog_offered_for_ski_poles_even_with_no_items(client, admin_token, active_event):
@@ -701,24 +729,184 @@ def _worksheet_bytes(
     return buf.getvalue()
 
 
-def test_import_template_includes_seller_block(client, admin_token):
-    """The downloadable template now carries the seller-info block above the item header."""
+def _vendor_worksheet_bytes(
+    company: str | None = "North Ski Supply",
+    first: str | None = "Andy",
+    last: str | None = "Nordic",
+    phone1: str | None = "6125550101",
+    phone2: str | None = None,
+    email: str | None = "sales@northski.example",
+    item_rows: list[list] | None = None,
+) -> bytes:
+    """Build a vendor-template worksheet (Company block, Phone 1/Phone 2, Quantity-first header)."""
     import io
 
     import openpyxl
 
-    r = client.get("/items/import-template", headers={"Authorization": f"Bearer {admin_token}"})
-    assert r.status_code == 200
-    wb = openpyxl.load_workbook(io.BytesIO(r.content))
+    wb = openpyxl.Workbook()
     ws = wb.active
-    assert ws is not None  # openpyxl stubs .active as Optional; the template always has a sheet
-    assert ws["A2"].value == "Last"
-    assert ws["A3"].value == "First"
-    assert ws["A9"].value == "Email"
-    header_row = 11
-    header = [ws.cell(row=header_row, column=c).value for c in range(1, 13)]
-    assert header[0] == "Description"
-    assert header[-1] == "Quantity"
+    assert ws is not None  # openpyxl stubs .active as Optional; always set on a new workbook
+    ws.append(["Company", company])
+    labels = ["Last", "First", "Address", "City", "State", "Zip", "Phone 1", "Phone 2", "Email"]
+    values = [last, first, None, None, None, None, phone1, phone2, email]
+    for label, value in zip(labels, values):
+        ws.append([label, value])
+    ws.append([None])
+    ws.append(["Quantity", "Category", "Brand", "Description", "Size", "Sell Price"])
+    for row in (
+        item_rows
+        if item_rows is not None
+        else [[3, "Skis", "Atomic", "World Cup Skate", "188", 200]]
+    ):
+        ws.append(row)
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def _nonvendor_worksheet_bytes(
+    first: str | None = "Nora",
+    last: str | None = "Nakamura",
+    email: str | None = "nora@example.org",
+    phone: str | None = "6125550000",
+    item_rows: list[list] | None = None,
+) -> bytes:
+    """Build a non-vendor-template worksheet (Required Info block, Qty-first header, Donate? last)."""
+    import io
+
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    assert ws is not None
+    ws.append(["Required Info:"])
+    for label, value in zip(
+        ["Last", "First", "Address", "City", "State", "Zip", "Phone", "Email"],
+        [last, first, None, None, None, None, phone, email],
+    ):
+        ws.append([label, value])
+    ws.append([None])
+    ws.append(["Please do not re-order or delete any of the columns, even if you do not fill them all in!!!"])
+    ws.append(["Donate? This column indicates if you would like to donate unsold items."])
+    ws.append(["Please price in whole dollars only."])
+    ws.append(["Sizing should be cm for skis or poles. Euro for ski boots."])
+    ws.append([None])
+    ws.append(["Qty", "Category", "Type", "Brand", "Description", "Size", "Sell Price", "Donate?"])
+    for row in (
+        item_rows
+        if item_rows is not None
+        else [[2, "Skis", "Skate", "Salomon", "S/Max Vent", "27.5", 60, "Yes"]]
+    ):
+        ws.append(row)
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def test_worksheet_import_vendor_template_round_trip(client, active_event, admin_token):
+    """The vendor template round-trips: Company block creates a vendor seller
+    (Phone 1 wins over Phone 2), and the Quantity-first item header maps by name."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    data = _vendor_worksheet_bytes(phone2="6125550102")
+    r = client.post(
+        "/items/import-worksheet",
+        files={"file": ("vendor.xlsx", data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["seller_created"] is True
+    assert body["imported"] == 1
+    seller = next(
+        s for s in client.get("/sellers", headers=headers).json() if s["code"] == body["seller_code"]
+    )
+    assert seller["is_vendor"] is True
+    assert seller["company"] == "North Ski Supply"
+    assert seller["phone"] == "6125550101"
+    items = client.get(f"/intakes/{body['intake_id']}", headers=headers).json()["items"]
+    assert len(items) == 1
+    item = items[0]
+    assert item["quantity"] == 3
+    assert item["category"] == "Skis"
+    assert item["brand"] == "Atomic"
+    assert item["description"] == "World Cup Skate"
+    assert item["size"] == "188"
+    assert item["price"] == 200.0
+    assert item["type"] is None  # vendor template has no Type column
+    assert item["used"] is True
+
+
+def test_worksheet_import_nonvendor_template_round_trip(client, active_event, admin_token):
+    """The non-vendor template round-trips: Qty-first header with Type and
+    Donate? maps by name; the seller stays an individual (no Company row)."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    data = _nonvendor_worksheet_bytes()
+    r = client.post(
+        "/items/import-worksheet",
+        files={"file": ("consignor.xlsx", data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["seller_created"] is True
+    assert body["imported"] == 1
+    seller = next(
+        s for s in client.get("/sellers", headers=headers).json() if s["code"] == body["seller_code"]
+    )
+    assert seller["is_vendor"] is False
+    assert seller["company"] is None
+    items = client.get(f"/intakes/{body['intake_id']}", headers=headers).json()["items"]
+    item = items[0]
+    assert item["quantity"] == 2
+    assert item["category"] == "Skis"
+    assert item["type"] == "Skate"
+    assert item["description"] == "S/Max Vent"
+    assert item["price"] == 60.0
+    assert item["donate_unsold"] is True
+    assert item["used"] is True  # Used column omitted → defaults to yes
+
+
+def test_worksheet_vendor_company_only_creates_vendor(client, active_event, admin_token):
+    """A vendor worksheet with Company but no personal names still creates the
+    vendor (names stay empty; the code derives from the company)."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    data = _vendor_worksheet_bytes(first=None, last=None)
+    r = client.post(
+        "/items/import-worksheet",
+        files={"file": ("vendor.xlsx", data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["seller_created"] is True
+    assert body["imported"] == 1
+    seller = next(
+        s for s in client.get("/sellers", headers=headers).json() if s["code"] == body["seller_code"]
+    )
+    assert seller["is_vendor"] is True
+    assert seller["company"] == "North Ski Supply"
+    assert seller["first_name"] is None
+    assert seller["last_name"] is None
+
+
+def test_per_intake_import_skips_seller_block(client, active_event, admin_token, seller, intake):
+    """The per-intake import accepts a filled vendor template: the redundant
+    seller block is skipped and the item header maps by name."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    data = _vendor_worksheet_bytes(item_rows=[[1, "Boots", "Salomon", "Pro Combi Pilot", "43", 75]])
+    r = client.post(
+        f"/intakes/{intake.id}/items/import",
+        files={"file": ("vendor.xlsx", data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["imported"] == 1
+    assert body["skipped"] == 0
+    items = client.get(f"/intakes/{intake.id}", headers=headers).json()["items"]
+    assert items[0]["description"] == "Pro Combi Pilot"
+    assert items[0]["quantity"] == 1
+    assert items[0]["price"] == 75.0
 
 
 def test_import_worksheet_creates_new_seller_and_intake(client, active_event, admin_token):
