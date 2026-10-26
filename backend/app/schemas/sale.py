@@ -98,3 +98,44 @@ class SaleWithItemsResponse(SaleResponse):
         default=[],
         description="All line items included in this sale transaction.",
     )
+
+
+class SaleLineEdit(BaseModel):
+    """Payload for editing one existing line of a completed sale (transaction
+    editing). Omitted fields are left unchanged."""
+
+    quantity: Optional[int] = Field(default=None, ge=1, description="New number of units for this line; must not exceed the item's remaining on-hand units (when increasing) and must not re-stock beyond the intake quantity (when decreasing).")
+    sell_price: Optional[float] = Field(default=None, ge=0, description="New per-unit price for this line (0 allowed for a free item).")
+    notes: Optional[str] = Field(default=None, description="Replacement cashier notes for this line.")
+
+
+class SaleUpdate(BaseModel):
+    """Payload for editing the payment/customer fields of a completed sale.
+
+    Omitted fields are left unchanged. Payment amounts are re-tendered as a
+    whole: total_paid and balance_due are recomputed on save.
+    """
+
+    customer_name: Optional[str] = Field(default=None, description="Replacement buyer name, or an empty string to clear it.")
+    customer_email: Optional[str] = Field(default=None, description="Replacement buyer email, or an empty string to clear it.")
+    notes: Optional[str] = Field(default=None, description="Replacement general notes, or an empty string to clear them.")
+    cash_amount: Optional[float] = Field(default=None, ge=0, description="Replacement cash tender.")
+    check_amount: Optional[float] = Field(default=None, ge=0, description="Replacement check tender.")
+    check_number: Optional[str] = Field(default=None, description="Replacement/updated check number; required when check_amount > 0.")
+    cc_amount: Optional[float] = Field(default=None, ge=0, description="Replacement card tender.")
+    cc_transaction_id: Optional[str] = Field(default=None, description="Replacement card transaction/reference id.")
+
+
+class SaleEditResponse(BaseModel):
+    """One audited edit action on a sale (newest-first in sale history)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int = Field(description="Auto-generated primary key for the audit row.")
+    sale_id: int = Field(description="ID of the edited sale.")
+    sale_item_id: Optional[int] = Field(default=None, description="Sale-line reference at edit time; may point at a line that has since been removed.")
+    action: str = Field(description="Edit action: add_line, update_line, remove_line, update_payments, or update_info.")
+    before: Optional[dict] = Field(default=None, description="Snapshot of the affected line/fields before the change (None for add_line).")
+    after: Optional[dict] = Field(default=None, description="Snapshot after the change (None for remove_line).")
+    edited_by: str = Field(description="Username that performed the edit.")
+    edited_at: datetime.datetime = Field(description="UTC timestamp of the edit.")

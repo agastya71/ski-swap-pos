@@ -5,5 +5,6 @@ from app.models.intake import Intake
 from app.models.item import Item
 from app.models.sale import Sale
 from app.models.sale_item import SaleItem
+from app.models.sale_edit import SaleEdit
 
-__all__ = ["Event", "User", "Seller", "Intake", "Item", "Sale", "SaleItem"]
+__all__ = ["Event", "User", "Seller", "Intake", "Item", "Sale", "SaleItem", "SaleEdit"]

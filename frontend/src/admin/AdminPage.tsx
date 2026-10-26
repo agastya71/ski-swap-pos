@@ -6,14 +6,16 @@ import { ReportsPage } from './ReportsPage'
 import { EndOfDayPage } from './EndOfDayPage'
 import { SellerListPage } from './SellerListPage'
 import { SellerDetailPage } from './SellerDetailPage'
+import { TransactionsPage } from './TransactionsPage'
 import type { Seller } from '../types'
 
-type AdminSection = 'events' | 'users' | 'reports' | 'eod' | 'sellers'
+type AdminSection = 'events' | 'users' | 'sellers' | 'transactions' | 'reports' | 'eod'
 
 const SECTIONS: { key: AdminSection; label: string }[] = [
   { key: 'events', label: 'Event Setup' },
   { key: 'users', label: 'Users' },
   { key: 'sellers', label: 'Sellers' },
+  { key: 'transactions', label: 'Transactions' },
   { key: 'reports', label: 'Reports' },
   { key: 'eod', label: 'End of Day' },
 ]
@@ -60,6 +62,7 @@ export function AdminPage() {
       {section === 'events' && <EventSetup />}
       {section === 'users' && <UserManagement />}
       {section === 'sellers' && <SellersSection eventId={eventId} />}
+      {section === 'transactions' && <TransactionsPage />}
       {section === 'reports' && <ReportsPage eventId={eventId} />}
       {section === 'eod' && <EndOfDayPage eventId={eventId} />}
     </div>

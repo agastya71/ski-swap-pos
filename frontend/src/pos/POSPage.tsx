@@ -24,6 +24,7 @@ import { Cart, type CartLine } from "./Cart";
 import { PaymentForm, type PaymentSubmit } from "./PaymentForm";
 import { SquarePayment } from "./SquarePayment";
 import type { ItemLookupResponse, SaleWithItemsResponse } from "../types";
+import { TransactionEditor } from "./TransactionEditor";
 
 const CART_KEY = "pos_cart";
 /** localStorage key preserving the completed sale across reloads. Without it,
@@ -105,6 +106,8 @@ export function POSPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [expandedSaleId, setExpandedSaleId] = useState<number | null>(null);
+  // Open editor for one of the cashier's own (non-voided) transactions.
+  const [editingSaleId, setEditingSaleId] = useState<number | null>(null);
 
   /** Loads the cashier's transaction history (once per session open). */
   async function handleToggleHistory() {
@@ -399,7 +402,32 @@ export function POSPage() {
                     </span>
                   </div>
                   {expandedSaleId === s.id && (
+                    editingSaleId === s.id ? (
+                      <TransactionEditor
+                        saleId={s.id}
+                        onClose={() => setEditingSaleId(null)}
+                        onSaved={(updated) =>
+                          setHistorySales((prev) =>
+                            prev.map((x) => (x.id === updated.id ? updated : x)),
+                          )
+                        }
+                      />
+                    ) : (
                     <div style={{ marginTop: 8, fontSize: 13 }}>
+                      {!s.is_voided && (
+                        <div style={{ marginBottom: 8 }}>
+                          <button
+                            onClick={() => setEditingSaleId(s.id)}
+                            aria-label={`edit sale ${s.id}`}
+                            style={{ ...BUTTON_STYLE, fontSize: 13 }}
+                          >
+                            Edit
+                          </button>
+                          <span style={{ color: "#64748b", marginLeft: 8, fontSize: 12 }}>
+                            correct items, prices, or payments
+                          </span>
+                        </div>
+                      )}
                       <div>
                         Date:{" "}
                         {s.date_of_sale
@@ -509,6 +537,7 @@ export function POSPage() {
                         </tbody>
                       </table>
                     </div>
+                    )
                   )}
                 </div>
               ))}
