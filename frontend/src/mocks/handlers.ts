@@ -412,8 +412,111 @@ export const handlers = [
 
         /** POST /sales — creates a new sale transaction, returns the SALE fixture. */
         http.post("/sales", () => HttpResponse.json(SALE)),
+        /** GET /sales — admin list of the active event's sales (editable transactions). */
+        http.get("/sales", () => HttpResponse.json([SALE])),
         /** GET /sales/:id — fetches a sale by ID, returns the SALE fixture. */
         http.get("/sales/:id", () => HttpResponse.json(SALE)),
+        /** PATCH /sales/:id — edits a sale's payment/customer fields, returns the merged SALE. */
+        http.patch("/sales/:id", async ({ request }) => {
+                const body = (await request.json()) as Record<string, unknown>;
+                return HttpResponse.json({ ...SALE, ...body });
+        }),
+        /** POST /sales/:id/lines — appends a line to a completed sale, echoes the merged SALE. */
+        http.post("/sales/:id/lines", async ({ request }) => {
+                const body = (await request.json()) as {
+                        item_id?: number;
+                        quantity?: number;
+                        sell_price?: number;
+                        notes?: string | null;
+                };
+                const sale = { ...SALE, sale_items: [...SALE.sale_items] } as {
+                        id: number;
+                        sale_total: number;
+                        mysl_total: number;
+                        seller_total: number;
+                        sale_items: Record<string, unknown>[];
+                };
+                const quantity = body.quantity ?? 1;
+                const price = body.sell_price ?? 50;
+                const extended = Math.round(price * quantity * 100) / 100;
+                sale.sale_items = [
+                        ...sale.sale_items,
+                        {
+                                id: 900 + sale.sale_items.length,
+                                sale_id: sale.id,
+                                item_id: body.item_id ?? 1,
+                                item_code: "10003",
+                                line_number: sale.sale_items.length + 1,
+                                quantity,
+                                sell_price: price,
+                                extended_price: extended,
+                                notes: body.notes ?? null,
+                                created_at: "2026-04-04T10:00:00",
+                        },
+                ];
+                sale.sale_total = 50 + extended;
+                sale.mysl_total = 15;
+                sale.seller_total = sale.sale_total - sale.mysl_total;
+                return HttpResponse.json({ ...SALE, ...sale });
+        }),
+        /** PATCH /sales/:id/lines/:lineId — edits one sale line, echoes the merged SALE. */
+        http.patch("/sales/:id/lines/:lineId", async ({ request }) => {
+                const body = (await request.json()) as {
+                        quantity?: number;
+                        sell_price?: number;
+                        notes?: string;
+                };
+                const items = SALE.sale_items as unknown as Record<string, unknown>[];
+                return HttpResponse.json({
+                        ...SALE,
+                        sale_items: items.map((si, index) =>
+                                typeof body.quantity === "number" && index === 0
+                                        ? {
+                                                  ...si,
+                                                  quantity: body.quantity,
+                                                  extended_price:
+                                                        Math.round(
+                                                                (body.sell_price ?? Number(si.sell_price)) *
+                                                                        body.quantity *
+                                                                        100,
+                                                        ) / 100,
+                                          }
+                                        : si,
+                        ),
+                });
+        }),
+        /** DELETE /sales/:id/lines/:lineId — removes the first matching line, echoes the merged SALE. */
+        http.delete("/sales/:id/lines/:lineId", () =>
+                HttpResponse.json({
+                        ...SALE,
+                        sale_items: SALE.sale_items.slice(1),
+                }),
+        ),
+        /** GET /sales/:id/edits — audit history, newest first. */
+        http.get("/sales/:id/edits", () =>
+                HttpResponse.json([
+                        {
+                                id: 5,
+                                sale_id: 1,
+                                sale_item_id: 11,
+                                action: "update_payments",
+                                before: { cash_amount: 0, check_amount: 0, cc_amount: 50 },
+                                after: { cash_amount: 50, check_amount: 0, cc_amount: 0 },
+                                edited_by: "cashier1",
+                                edited_at: "2026-04-04T11:00:00",
+                        },
+                        {
+                                id: 4,
+                                sale_id: 1,
+                                sale_item_id: 11,
+                                action: "update_line",
+                                before: { item_code: "10003", sell_price: 20, extended_price: 20 },
+                                after: { item_code: "10003", sell_price: 18, extended_price: 18 },
+                                edited_by: "cashier1",
+                                edited_at: "2026-04-04T10:30:00",
+                        },
+                ]),
+        ),
         /** POST /sales/:id/void — voids a sale, returns the SALE fixture with is_voided true. */
         http.post("/sales/:id/void", () =>
                 HttpResponse.json({ ...SALE, is_voided: true }),

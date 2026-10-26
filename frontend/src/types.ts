@@ -559,6 +559,48 @@ export interface SaleWithItemsResponse {
  sale_items: SaleItemResponse[];
 }
 
+/** Payload for editing one existing line of a completed sale; omitted fields are unchanged. */
+export interface SaleLineEdit {
+ /** New number of units for this line (≥ 1); must fit the item's remaining stock. */
+ quantity?: number;
+ /** New per-unit price for this line (≥ 0). */
+ sell_price?: number;
+ /** Replacement notes for this line. */
+ notes?: string;
+}
+
+/** Payload for editing a completed sale's payment/customer fields; omitted fields are unchanged. */
+export interface SaleUpdate {
+ customer_name?: string;
+ customer_email?: string;
+ notes?: string;
+ cash_amount?: number;
+ check_amount?: number;
+ check_number?: string;
+ cc_amount?: number;
+ cc_transaction_id?: string;
+}
+
+/** One audited edit action on a sale (line add/update/remove or payment/info change). */
+export interface SaleEditResponse {
+ /** Auto-generated primary key for the audit row. */
+ id: number;
+ /** ID of the edited sale. */
+ sale_id: number;
+ /** Sale-line reference at edit time; may point at a since-removed line. */
+ sale_item_id: number | null;
+ /** Edit action: add_line, update_line, remove_line, update_payments, update_info. */
+ action: string;
+ /** Snapshot before the change (null for add_line). */
+ before: Record<string, unknown> | null;
+ /** Snapshot after the change (null for remove_line). */
+ after: Record<string, unknown> | null;
+ /** Username that performed the edit. */
+ edited_by: string;
+ /** UTC timestamp of the edit. */
+ edited_at: string;
+}
+
 // Reports
 /** Seller contact and settlement details shown on the payout report. */
 export interface SellerPayoutSellerInfo {

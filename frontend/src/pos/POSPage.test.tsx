@@ -423,4 +423,37 @@ describe("POSPage", () => {
     const reasonNodes = screen.getAllByText(/Price adj\.: /);
     expect(reasonNodes).toHaveLength(1);
   });
+
+  /** My Transactions: the Edit button opens the shared editor for the
+   *  cashier's own (non-voided) sale; closing returns to the read-only view. */
+  it("opens the transaction editor from My Transactions", async () => {
+    const lines = [
+      {
+        id: 11,
+        sale_id: 1,
+        item_id: 5,
+        item_code: "10003",
+        line_number: 1,
+        quantity: 1,
+        sell_price: 20,
+        extended_price: 20,
+        notes: null,
+        created_at: "2026-04-04T10:00:00",
+      },
+    ];
+    server.use(
+      http.get("/sales/mine", () => HttpResponse.json([{ ...SALE, sale_items: lines } as typeof SALE])),
+      http.get("/sales/:id", () => HttpResponse.json({ ...SALE, sale_items: lines } as typeof SALE)),
+      http.get("/sales/:id/edits", () => HttpResponse.json([])),
+    );
+    renderPOS();
+    fireEvent.click(screen.getByRole("button", { name: /my transactions/i }));
+    await waitFor(() => screen.getByText(/Sale #1/));
+    fireEvent.click(screen.getByRole("button", { name: /transaction 1 details/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /edit sale 1/i }));
+    expect(await screen.findByText(/Edit sale #1/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /close editor/i }));
+    // Back to the read-only receipt view.
+    expect(await screen.findByRole("button", { name: /edit sale 1/i })).toBeInTheDocument();
+  });
 });
