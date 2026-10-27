@@ -76,7 +76,7 @@ def export_sellers_payouts_zip(
     """Download a ZIP containing one Excel workbook and one PDF per seller.
 
     Each seller's payout is exported as ``{seller_code}_payout.xlsx`` (three
-    sheets: Summary, Sales, Unsold Items) and ``{seller_code}_payout.pdf``,
+    sheets: Summary, Items, Sales Detail) and ``{seller_code}_payout.pdf``,
     so every seller's settlement can be distributed individually.
     """
     report = report_svc.get_all_seller_payouts(db, event_id)

@@ -89,17 +89,17 @@ def _to_csv(report: BaseModel, filename_base: str) -> Response:
         w.writerow([report.items_consigned, report.items_sold, report.items_unsold,
                     report.items_donated, report.gross_sales, report.seller_total])
         w.writerow([])
-        w.writerow(["SALES", "item_code", "description", "date_of_sale", "quantity_sold",
+        w.writerow(["ITEMS", "item_code", "category", "brand", "description",
+                    "size", "sell_price", "quantity", "remaining"])
+        for it in report.items:
+            w.writerow(["ITEMS", it.item_code, it.category, it.brand,
+                        it.description, it.size, it.price, it.quantity, it.remaining])
+        w.writerow([])
+        w.writerow(["SALES DETAIL", "item_code", "description", "date_of_sale", "quantity_sold",
                     "sell_price", "extended_price", "price_adjustment_reason", "due_seller", "commission_rate"])
         for s in report.sales:
-            w.writerow(["SALES", s.item_code, s.description, s.date_of_sale, s.quantity_sold,
+            w.writerow(["SALES DETAIL", s.item_code, s.description, s.date_of_sale, s.quantity_sold,
                         s.sell_price, s.extended_price, s.price_adjustment_reason, s.seller_share, s.commission_rate])
-        w.writerow([])
-        w.writerow(["UNSOLD", "item_code", "description", "quantity", "remaining", "price",
-                    "status", "donate_unsold"])
-        for u in report.unsold_items:
-            w.writerow(["UNSOLD", u.item_code, u.description, u.quantity, u.remaining,
-                        u.price, u.status, u.donate_unsold])
     elif isinstance(report, DonationsReport):
         w.writerow(["seller_code", "item_code", "description", "quantity", "remaining", "price", "donation_type"])
         for item in report.items:
@@ -183,7 +183,16 @@ def _to_md(report: BaseModel, filename_base: str) -> Response:
             f"| {report.items_consigned} | {report.items_sold} | {report.items_unsold} | "
             f"{report.items_donated} | ${report.gross_sales:.2f} | "
             f"${report.seller_total:.2f} |",
-            "", "## Sales",
+            "",
+            "## Items",
+            "| Item Code | Category | Brand | Description | Size | Sell Price | Quantity | Remaining |",
+            "|-----------|----------|-------|-------------|------|------------|----------|-----------|",
+        ]
+        for it in report.items:
+            lines.append(f"| {it.item_code} | {it.category or ''} | {it.brand or ''} | "
+                         f"{it.description or ''} | {it.size or ''} | ${it.price:.2f} | "
+                         f"{it.quantity:G} | {it.remaining:G} |")
+        lines += ["", "## Sales Detail",
             "| Item Code | Description | Date Sold | Qty | Sell Price | Extended | Adj. Reason | Due Seller | Rate |",
             "|-----------|-------------|-----------|-----|------------|----------|-------------|------------|------|",
         ]
@@ -193,13 +202,6 @@ def _to_md(report: BaseModel, filename_base: str) -> Response:
                          f"${s.sell_price:.2f} | ${s.extended_price:.2f} | "
                          f"{s.price_adjustment_reason or ''} | "
                          f"${s.seller_share:.2f} | {s.commission_rate:.0%} |")
-        lines += ["", "## Unsold Items",
-                  "| Item Code | Description | Qty | Remaining | Price | Status | Donate if Unsold |",
-                  "|-----------|-------------|-----|-----------|-------|--------|------------------|",
-        ]
-        for u in report.unsold_items:
-            lines.append(f"| {u.item_code} | {u.description or ''} | {u.quantity:G} | {u.remaining:G} | "
-                         f"${u.price:.2f} | {u.status} | {u.donate_unsold} |")
     elif isinstance(report, VendorEquipmentSummaryReport):
         lines += [
             f"# Vendor Equipment Summary: {report.seller_name} ({report.seller_code})",
@@ -376,7 +378,39 @@ def _to_pdf(report: BaseModel, filename_base: str) -> Response:
             pdf.cell(45, 6, val, border=1)
         pdf.ln(10)
         pdf.set_font("Helvetica", "B", 10)
-        pdf.cell(0, 6, "Sales")
+        pdf.cell(0, 6, "Items")
+        pdf.ln(6)
+        # Single item list in the intake-worksheet layout + Item Code, with
+        # original/remaining quantity columns — replaces the old Sales/Unsold
+        # split's Unsold table (sold rows carry remaining 0).
+        items_cols = [("Item Code", 18), ("Category", 20), ("Brand", 20),
+                      ("Description", 42), ("Size", 14), ("Sell", 14),
+                      ("Qty", 9), ("Rem", 9)]
+
+        def _items_row(cells: list[str], bold: bool = False) -> None:
+            if pdf.get_y() > 260:
+                pdf.add_page()
+                _items_row([hdr for hdr, _ in items_cols], bold=True)
+            pdf.set_font("Helvetica", "B" if bold else "", 10 if bold else 9)
+            for text, (_, width) in zip(cells, items_cols):
+                pdf.cell(width, 6, text, border=1)
+            pdf.ln()
+
+        _items_row([hdr for hdr, _ in items_cols], bold=True)
+        for it in report.items:
+            _items_row([
+                _safe(it.item_code),
+                _safe((it.category or "")[:14]),
+                _safe((it.brand or "")[:14]),
+                _safe((it.description or "")[:26]),
+                _safe((it.size or "")[:10]),
+                f"${it.price:.2f}",
+                f"{it.quantity:G}",
+                f"{it.remaining:G}",
+            ])
+        pdf.ln(8)
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.cell(0, 6, "Sales Detail")
         pdf.ln(6)
         # Shared column geometry: headers, data rows and page-break headers all
         # render through the same width list, so they can never drift apart.
@@ -408,33 +442,6 @@ def _to_pdf(report: BaseModel, filename_base: str) -> Response:
                 _safe((s.price_adjustment_reason or "")[:20]),
                 f"${s.seller_share:.2f}",
                 f"{s.commission_rate:.0%}",
-            ])
-        pdf.ln(8)
-        pdf.set_font("Helvetica", "B", 10)
-        pdf.cell(0, 6, "Unsold Items")
-        pdf.ln(6)
-        unsold_cols = [("Item Code", 24), ("Description", 44), ("Qty", 10),
-                       ("Rem", 10), ("Price", 16), ("Status", 18), ("Donate", 14)]
-
-        def _unsold_row(cells: list[str], bold: bool = False) -> None:
-            if pdf.get_y() > 260:
-                pdf.add_page()
-                _unsold_row([hdr for hdr, _ in unsold_cols], bold=True)
-            pdf.set_font("Helvetica", "B" if bold else "", 10 if bold else 9)
-            for text, (_, width) in zip(cells, unsold_cols):
-                pdf.cell(width, 6, text, border=1)
-            pdf.ln()
-
-        _unsold_row([hdr for hdr, _ in unsold_cols], bold=True)
-        for u in report.unsold_items:
-            _unsold_row([
-                _safe(u.item_code),
-                _safe((u.description or "")[:26]),
-                f"{u.quantity:G}",
-                f"{u.remaining:G}",
-                f"${u.price:.2f}",
-                _safe(u.status),
-                str(u.donate_unsold),
             ])
 
     elif isinstance(report, VendorEquipmentSummaryReport):
@@ -617,9 +624,10 @@ def _to_pdf(report: BaseModel, filename_base: str) -> Response:
 def _payout_xlsx_bytes(report: SellerPayoutReport) -> bytes:
     """Build an Excel workbook for one seller's payout.
 
-    Sheets: "Summary" (seller contact information + totals), "Sales" (every
-    non-voided sale line with prices and commission shares) and "Unsold
-    Items" (every item still on hand, with its donate election).
+    Sheets: "Summary" (seller contact information + totals), "Items" (the
+    single consigned-items list in the intake worksheet layout + Item Code,
+    with original/remaining quantity columns) and "Sales Detail" (every
+    non-voided sale line with prices and commission shares).
     """
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -648,7 +656,16 @@ def _payout_xlsx_bytes(report: SellerPayoutReport) -> bytes:
     ws.append(["Gross Sales", report.gross_sales])
     ws.append(["Due Seller", report.seller_total])
 
-    ws_sales = wb.create_sheet("Sales")
+    ws_items = wb.create_sheet("Items")
+    ws_items.append(["Item Code", "Category", "Brand", "Description", "Size",
+                     "Sell Price", "Quantity", "Remaining"])
+    for it in report.items:
+        ws_items.append([it.item_code, it.category, it.brand, it.description,
+                         it.size, it.price, it.quantity, it.remaining])
+    ws_items.append([])
+    ws_items.append(["Items consigned", len(report.items)])
+
+    ws_sales = wb.create_sheet("Sales Detail")
     ws_sales.append(["Item Code", "Description", "Date Sold", "Qty", "Sell Price",
                      "Extended", "Adj. Reason", "Due Seller", "Rate"])
     for s in report.sales:
@@ -658,15 +675,6 @@ def _payout_xlsx_bytes(report: SellerPayoutReport) -> bytes:
     ws_sales.append([])
     ws_sales.append(["Sales Total", "", "", "", "", round(report.gross_sales, 2),
                      "", round(report.seller_total, 2)])
-
-    ws_unsold = wb.create_sheet("Unsold Items")
-    ws_unsold.append(["Item Code", "Description", "Qty", "Remaining", "Price",
-                      "Status", "Donate if Unsold"])
-    for u in report.unsold_items:
-        ws_unsold.append([u.item_code, u.description, u.quantity, u.remaining,
-                          u.price, u.status, u.donate_unsold])
-    ws_unsold.append([])
-    ws_unsold.append(["Items on hand", len(report.unsold_items)])
 
     buf = io.BytesIO()
     wb.save(buf)

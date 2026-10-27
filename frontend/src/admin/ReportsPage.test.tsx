@@ -50,7 +50,9 @@ describe('ReportsPage', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: /get payout/i })).not.toBeDisabled())
     fireEvent.submit(screen.getByRole('button', { name: /get payout/i }).closest('form')!)
     await waitFor(() => expect(screen.getByText(/Jane Smith/)).toBeInTheDocument())
-    await waitFor(() => expect(screen.getByText('Atomic skis')).toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getAllByText('Atomic skis').length).toBeGreaterThan(0),
+    )
   })
 
   /** Verifies that CSV download buttons are rendered for each collapsible section even when collapsed. */

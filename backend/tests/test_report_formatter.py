@@ -6,10 +6,10 @@ from fastapi.responses import JSONResponse
 
 from app.schemas.reports import (
     EndOfDayReport,
+    SellerPayoutItemLine,
     SellerPayoutReport,
     SellerPayoutSaleLine,
     SellerPayoutSellerInfo,
-    SellerPayoutUnsoldLine,
 )
 
 
@@ -36,18 +36,21 @@ def _payout():
         ),
         items_consigned=2, items_sold=1, items_unsold=1, items_donated=0,
         gross_sales=20.00, mysl_total=6.00, seller_total=14.00,
+        items=[
+            # Single list: sold AND unsold rows, worksheet layout + quantities.
+            SellerPayoutItemLine(item_code="ABC-001", category="Skis",
+                                 brand="Atomic", description="Skis", size="160cm",
+                                 price=20.00, quantity=1.0, remaining=0.0),
+            SellerPayoutItemLine(item_code="ABC-002", category="Ski Boots",
+                                 brand="Alpina", description="Boots", size="EU 42",
+                                 price=10.00, quantity=1.0, remaining=1.0),
+        ],
         sales=[
             SellerPayoutSaleLine(item_code="ABC-001", description="Skis",
                                  date_of_sale=datetime.now(timezone.utc),
                                  quantity_sold=1.0, sell_price=20.00, extended_price=20.00,
                                  price_adjustment_reason="Price match",
                                  mysl_share=6.0, seller_share=14.0, commission_rate=0.30),
-        ],
-        unsold_items=[
-            SellerPayoutUnsoldLine(item_code="ABC-002", description="Boots",
-                                   quantity=1.0, remaining=1.0, price=10.00,
-                                   status="available", donate_unsold=False,
-                                   mysl_share=0.0, seller_share=0.0, commission_rate=0.30),
         ],
         generated_at=datetime.now(timezone.utc),
     )
@@ -66,13 +69,37 @@ def test_format_csv_content_type():
     assert b"gross_revenue" in resp.body
 
 
-def test_format_csv_payout_has_sales_and_unsold_sections():
+def test_format_csv_payout_has_items_and_sales_detail():
     from app.services.report_formatter import format_report
     resp = format_report(_payout(), "csv", "payout_test")
     assert b"ABC-001" in resp.body
-    assert b"SALES" in resp.body
-    assert b"UNSOLD" in resp.body
+    assert b"ITEMS" in resp.body
+    assert b"SALES DETAIL" in resp.body
+    assert b"UNSOLD" not in resp.body
     assert b"612-555-0100" in resp.body  # seller contact info
+
+
+def test_format_csv_payout_items_list_single_list_with_quantities():
+    """The single ITEMS list carries EVERY consigned item (sold + unsold) in
+    the worksheet layout with the two quantity columns, sorted by code."""
+    import csv as _csv
+    import io
+
+    from app.services.report_formatter import format_report
+    resp = format_report(_payout(), "csv", "payout_items")
+    rows = list(_csv.reader(io.StringIO(bytes(resp.body).decode())))
+    hdr_index = next(i for i, r in enumerate(rows) if r and r[0] == "ITEMS")
+    header = rows[hdr_index]
+    assert header[1:] == ["item_code", "category", "brand", "description",
+                          "size", "sell_price", "quantity", "remaining"]
+    data_rows = [r for r in rows[hdr_index + 1:] if r and r[0] == "ITEMS"]
+    codes = [r[1] for r in data_rows]
+    assert codes == ["ABC-001", "ABC-002"]          # sorted, BOTH rows present
+    by_code = {r[1]: dict(zip(header[1:], r[1:])) for r in data_rows}
+    assert by_code["ABC-001"]["category"] == "Skis"
+    assert by_code["ABC-001"]["quantity"] == "1.0" and by_code["ABC-001"]["remaining"] == "0.0"
+    assert by_code["ABC-002"]["quantity"] == "1.0" and by_code["ABC-002"]["remaining"] == "1.0"
+    assert by_code["ABC-002"]["sell_price"] == "10.0"
 
 
 def test_format_md_content_type():
@@ -113,9 +140,40 @@ def test_payout_md_includes_adjustment_reason_column():
     assert "Price match" in body
 
 
+def test_payout_md_single_items_list_and_sales_detail():
+    """The payout MD has ONE items list (worksheet layout, both quantity
+    columns) plus the retained Sales Detail section — no Unsold section."""
+    from app.services.report_formatter import format_report
+    body = bytes(format_report(_payout(), "md", "payout_md_items").body).decode()
+    assert "## Items" in body
+    assert ("| Item Code | Category | Brand | Description | Size | "
+            "Sell Price | Quantity | Remaining |") in body
+    assert "| ABC-001 | Skis | Atomic | Skis | 160cm | $20.00 | 1 | 0 |" in body
+    assert "| ABC-002 | Ski Boots | Alpina | Boots | EU 42 | $10.00 | 1 | 1 |" in body
+    assert "## Sales Detail" in body
+    assert "## Unsold Items" not in body
+
+
+def test_payout_pdf_items_list_and_sales_detail():
+    """PDF content is compressed — verify via pypdf text extraction."""
+    import io
+
+    from pypdf import PdfReader
+
+    from app.services.report_formatter import format_report
+    resp = format_report(_payout(), "pdf", "payout_pdf_items")
+    assert resp.media_type == "application/pdf"
+    text = "\n".join((page.extract_text() or "") for page in PdfReader(io.BytesIO(resp.body)).pages)
+    assert "Items" in text
+    assert "Sales Detail" in text
+    assert "160cm" in text
+    assert "Unsold Items" not in text
+
+
 def test_payout_xlsx_includes_adjustment_reason_column():
-    """The per-seller XLSX workbook's Sales sheet carries the reason and keeps
-    the totals row aligned under Extended / Due Seller."""
+    """The per-seller XLSX workbook's Sales Detail sheet carries the reason and
+    keeps the totals row aligned under Extended / Due Seller; the Items sheet
+    holds the single worksheet-layout list with both quantity columns."""
     import io
 
     import openpyxl
@@ -133,7 +191,8 @@ def test_payout_xlsx_includes_adjustment_reason_column():
     })
     resp = format_report(payout, "xlsx", "payout")
     wb = openpyxl.load_workbook(io.BytesIO(resp.body))
-    ws = wb["Sales"]
+    assert wb.sheetnames == ["Summary", "Items", "Sales Detail"]
+    ws = wb["Sales Detail"]
     headers = [c.value for c in ws[1]]
     assert "Adj. Reason" in headers
     reason_col = headers.index("Adj. Reason")
@@ -141,6 +200,13 @@ def test_payout_xlsx_includes_adjustment_reason_column():
     totals = [c.value for c in ws[ws.max_row]]
     assert totals[headers.index("Extended")] == 20.00
     assert totals[headers.index("Due Seller")] == 14.00
+    items = wb["Items"]
+    item_headers = [c.value for c in items[1]]
+    assert item_headers == ["Item Code", "Category", "Brand", "Description",
+                            "Size", "Sell Price", "Quantity", "Remaining"]
+    rows = {r[0]: r for r in items.iter_rows(min_row=2, max_row=3, values_only=True)}
+    assert rows["ABC-001"][5:7] == (20.0, 1.0) and rows["ABC-001"][7] == 0.0
+    assert rows["ABC-002"][1] == "Ski Boots" and rows["ABC-002"][7] == 1.0
 
 
 def test_format_unsold_report_donate_column():

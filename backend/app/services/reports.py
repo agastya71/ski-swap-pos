@@ -25,10 +25,10 @@ from app.schemas.reports import (
     TransactionsByUserReport,
     TransactionRow,
     UserSalesSummary,
+    SellerPayoutItemLine,
     SellerPayoutReport,
     SellerPayoutSaleLine,
     SellerPayoutSellerInfo,
-    SellerPayoutUnsoldLine,
     SellersPayoutsReport,
     UnsoldItem,
     UnsoldItemsReport,
@@ -110,24 +110,23 @@ def _build_seller_payout(db: Session, event: Event, seller: Seller) -> SellerPay
         ))
     sales.sort(key=lambda s: (s.date_of_sale or datetime.min, s.item_code))
 
-    # ── UNSOLD ITEMS section: items still on hand (available / returned / donated).
-    unsold_items: list[SellerPayoutUnsoldLine] = []
+    # ── ITEMS section (single list, worksheet layout + Item Code): EVERY
+    # consigned item — sold and unsold — with original/remaining quantity
+    # columns, sorted by item code. Replaces the old SALES/UNSOLD split's
+    # "Unsold Items" table (sold rows now show remaining 0).
+    item_list: list[SellerPayoutItemLine] = []
     for it in items:
-        if it.status == "sold":  # pyright: ignore[reportGeneralTypeIssues]
-            continue
-        unsold_items.append(SellerPayoutUnsoldLine(
+        item_list.append(SellerPayoutItemLine(
             item_code=it.code,  # pyright: ignore[reportArgumentType]
+            category=it.category,  # pyright: ignore[reportArgumentType]
+            brand=it.brand,  # pyright: ignore[reportArgumentType]
             description=it.description,  # pyright: ignore[reportArgumentType]
+            size=it.size,  # pyright: ignore[reportArgumentType]
+            price=it.price,  # pyright: ignore[reportArgumentType]
             quantity=it.quantity,  # pyright: ignore[reportArgumentType]
             remaining=it.remaining,  # pyright: ignore[reportArgumentType]
-            price=it.price,  # pyright: ignore[reportArgumentType]
-            status=it.status,  # pyright: ignore[reportArgumentType]
-            donate_unsold=it.donate_unsold,  # pyright: ignore[reportArgumentType]
-            mysl_share=0.0,
-            seller_share=0.0,
-            commission_rate=rate,  # pyright: ignore[reportArgumentType]
         ))
-    unsold_items.sort(key=lambda u: u.item_code)
+    item_list.sort(key=lambda i: i.item_code)
 
     seller_info = SellerPayoutSellerInfo(
         seller_code=seller.code,  # pyright: ignore[reportArgumentType]
@@ -158,8 +157,8 @@ def _build_seller_payout(db: Session, event: Event, seller: Seller) -> SellerPay
         gross_sales=gross_sales,
         mysl_total=round(mysl_total, 2),  # pyright: ignore[reportArgumentType,reportCallIssue]
         seller_total=round(seller_total_amt, 2),
+        items=item_list,
         sales=sales,
-        unsold_items=unsold_items,
         generated_at=_now(),
     )
 

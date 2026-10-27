@@ -423,11 +423,14 @@ def test_all_sellers_payouts_json(client, admin_token, active_event, rpt_sale, r
     # Seller contact info included.
     assert p["seller_info"]["seller_name"] == "Report Seller"
     assert "email" in p["seller_info"]
-    # SALES + UNSOLD ITEMS sections.
+    # Sales detail + the single ITEMS list.
     assert len(p["sales"]) == 1
     assert p["sales"][0]["item_code"] == rpt_item.code
     assert p["sales"][0]["extended_price"] == 25.00
-    assert len(p["unsold_items"]) == 0
+    assert len(p["items"]) == 1
+    assert p["items"][0]["item_code"] == rpt_item.code
+    assert p["items"][0]["quantity"] == 1.0
+    assert p["items"][0]["remaining"] == 0.0
 
 
 def test_all_sellers_payouts_csv(client, admin_token, active_event, rpt_sale, rpt_seller):
@@ -440,7 +443,8 @@ def test_all_sellers_payouts_csv(client, admin_token, active_event, rpt_sale, rp
     assert b"RPT" in resp.content
 
 
-def test_all_sellers_payouts_includes_unsold_items(client, admin_token, active_event, rpt_seller, rpt_item, db):
+def test_all_sellers_payouts_single_items_list_includes_unsold(client, admin_token, active_event, rpt_seller, rpt_item, db):
+    """The single items list carries sold AND unsold items (both quantity columns)."""
     from app.models.item import Item
     extra = Item(intake_id=rpt_item.intake_id, seller_id=rpt_seller.id, code="RPT-02",
                  description="Unsold boots", price=40.00, quantity=1.0, remaining=1.0,
@@ -453,8 +457,11 @@ def test_all_sellers_payouts_includes_unsold_items(client, admin_token, active_e
     )
     assert resp.status_code == 200
     p = resp.json()["sellers"][0]
-    assert len(p["unsold_items"]) == 1
-    assert p["unsold_items"][0]["item_code"] == "RPT-02"
+    assert len(p["items"]) == 2
+    assert p["items"][0]["item_code"] == "RPT-001"  # sorted by code, sold row remaining 0
+    assert p["items"][0]["remaining"] == 0.0
+    assert p["items"][1]["item_code"] == "RPT-02"
+    assert p["items"][1]["remaining"] == 1.0
     assert p["items_consigned"] == 2
 
 
@@ -496,12 +503,12 @@ def test_sellers_payouts_zip_contains_xlsx_and_pdf_per_seller(client, admin_toke
     # The xlsx entry opens via openpyxl and carries the three payout sheets.
     import openpyxl
     wb = openpyxl.load_workbook(io.BytesIO(zf.read("RPT_payout.xlsx")))
-    assert wb.sheetnames == ["Summary", "Sales", "Unsold Items"]
+    assert wb.sheetnames == ["Summary", "Items", "Sales Detail"]
     summary = wb["Summary"]
     assert summary.cell(row=1, column=2).value == "Report Seller"
     assert any(c.value == "EJOH" or (isinstance(c.value, str) and "payout" in str(c.value).lower()) or True
                for c in summary["A"])  # columns exist
-    sales = wb["Sales"]
+    sales = wb["Sales Detail"]
     assert sales.cell(row=2, column=1).value == "RPT-001"
     # The pdf entry is a valid PDF.
     assert zf.read("RPT_payout.pdf")[:4] == b"%PDF"
@@ -527,8 +534,8 @@ def test_single_seller_payout_xlsx_format(client, admin_token, active_event, rpt
     assert resp.status_code == 200
     assert resp.headers["content-type"] == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     wb = openpyxl.load_workbook(io.BytesIO(resp.content))
-    assert wb.sheetnames == ["Summary", "Sales", "Unsold Items"]
-    sales_ws = wb["Sales"]
+    assert wb.sheetnames == ["Summary", "Items", "Sales Detail"]
+    sales_ws = wb["Sales Detail"]
     assert sales_ws.cell(row=2, column=1).value == "RPT-001"
 
 
