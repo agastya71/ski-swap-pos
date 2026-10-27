@@ -90,6 +90,11 @@ export function POSPage() {
   const [squareToken, setSquareToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [eventName, setEventName] = useState<string | null>(null);
+  // PaymentForm owns its field state internally (cash/check/card/check-number/
+  // notes) and stays mounted across a checkout cancel — bumping this key
+  // REMOUNTS it so a cancelled transaction never leaks amounts (and refs)
+  // into the next customer's checkout.
+  const [formResetKey, setFormResetKey] = useState(0);
 
   // The event name labels every checkout transaction (header + receipt banner).
   // Non-critical: if it can't be fetched, the screens render without it.
@@ -219,11 +224,12 @@ export function POSPage() {
     persistSale(null);
     setSquareToken(null);
     setError(null);
+    setFormResetKey((k) => k + 1);
   }
 
-  /** Abandons the whole checkout: clears the cart and returns to lookup state.
-   *  Asks for confirmation while the cart holds items so a full cart cannot be
-   *  wiped by a stray click. */
+  /** Abandons the whole checkout: clears the cart, clears any entered payment
+   *  fields (form remount), and returns to lookup state. Asks for confirmation
+   *  while the cart holds items so a full cart cannot be wiped by a stray click. */
   function handleCancelCheckout() {
     if (
       lines.length > 0 &&
@@ -235,6 +241,7 @@ export function POSPage() {
     setLines([]);
     setSquareToken(null);
     setError(null);
+    setFormResetKey((k) => k + 1);
   }
 
   const total = lines.reduce((sum, l) => sum + l.sell_price * l.quantity, 0);
@@ -332,6 +339,7 @@ export function POSPage() {
               </div>
             )}
             <PaymentForm
+              key={formResetKey}
               total={total}
               onSubmit={handlePayment}
               onCancel={handleCancelCheckout}
