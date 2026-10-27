@@ -1,23 +1,23 @@
 /**
- * Admin seller detail page — contact card with inline edit, items table,
- * Add Item form, Excel import, and inline payout panel.
+ * Admin seller detail page — contact card with inline edit, the intake-style
+ * items view (ItemList reused per intake session: same columns, row actions,
+ * label printing, and expand-below edit panel), Add Item form, Excel import,
+ * and inline payout panel.
  *
  * @module SellerDetailPage
  */
-import { Fragment, useState, useEffect, useRef, type ChangeEvent } from "react";
+import { useState, useEffect, useRef, type ChangeEvent } from "react";
 import { updateSeller, listSellerItems } from "../api/sellers";
 import { sellerDisplayName, sellerTypeLabel } from "../lib/sellerDisplay";
 import { getSellerIntakes, createIntake, importItems } from "../api/intakes";
-import { deleteItem, updateItem } from "../api/items";
 import { ItemForm } from "../intake/ItemForm";
+import { ItemList } from "../intake/ItemList";
 import { SellerPayoutPanel } from "./SellerPayoutPanel";
 import { SellerEquipmentSummaryPanel } from "./SellerEquipmentSummaryPanel";
-import { ITEM_TYPES, SIZE_OPTIONS } from "../lib/itemSizes";
 import { US_STATES } from "../lib/usStates";
-import type { Seller, Item, Intake, ImportResult, ItemUpdate } from "../types";
+import type { Seller, Item, Intake, ImportResult } from "../types";
 
 const NAVY = "#1e3a8a";
-const GENDER_AGE_OPTIONS = ["Adult", "Youth", "Toddler", "Unisex"];
 
 export function SellerDetailPage({
   seller: initialSeller,
@@ -38,27 +38,21 @@ export function SellerDetailPage({
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [showPayout, setShowPayout] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [expandedEditId, setExpandedEditId] = useState<number | null>(null);
-  const [draft, setDraft] = useState({
-    description: "",
-    price: "",
-    brand: "",
-    type: "",
-    size: "",
-    gender_age: "",
-    color: "",
-  });
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
 
-  useEffect(() => {
+  /** Re-fetches the seller's items after any ItemList mutation. */
+  function refreshItems() {
     listSellerItems(seller.id)
       .then(setItems)
       .catch(() => {});
+  }
+
+  useEffect(() => {
+    refreshItems();
     getSellerIntakes(seller.id)
       .then(setIntakes)
       .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seller.id]);
 
   async function handleSaveEdit() {
@@ -122,63 +116,6 @@ export function SellerDetailPage({
       );
     }
   }
-
-  async function handleDeleteItem(itemId: number) {
-    try {
-      await deleteItem(itemId);
-      setItems((prev) => prev.filter((i) => i.id !== itemId));
-      setExpandedEditId(null);
-    } catch {
-      // deletion failed — leave item in list
-    }
-  }
-
-  function openItemEdit(item: Item) {
-    if (expandedEditId === item.id) {
-      setExpandedEditId(null);
-      return;
-    }
-    setExpandedEditId(item.id);
-    setDraft({
-      description: item.description ?? "",
-      price: String(item.price),
-      brand: item.brand ?? "",
-      type: item.type ?? "",
-      size: item.size ?? "",
-      gender_age: item.gender_age ?? "",
-      color: item.color ?? "",
-    });
-    setSaveError(null);
-  }
-
-  async function handleItemSave(itemId: number) {
-    setSaving(true);
-    setSaveError(null);
-    try {
-      const original = items.find((i) => i.id === itemId)!;
-      const update: Record<string, string | number> = {};
-      if (draft.description !== (original.description ?? ""))
-        update.description = draft.description;
-      if (parseFloat(draft.price) !== original.price)
-        update.price = parseFloat(draft.price);
-      if (draft.brand !== (original.brand ?? "")) update.brand = draft.brand;
-      if (draft.type !== (original.type ?? "")) update.type = draft.type;
-      if (draft.size !== (original.size ?? "")) update.size = draft.size;
-      if (draft.gender_age !== (original.gender_age ?? ""))
-        update.gender_age = draft.gender_age;
-      if (draft.color !== (original.color ?? "")) update.color = draft.color;
-      await updateItem(itemId, update as ItemUpdate);
-      setExpandedEditId(null);
-      listSellerItems(seller.id)
-        .then(setItems)
-        .catch(() => {});
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Failed to save");
-    } finally {
-      setSaving(false);
-    }
-  }
-
   async function getOrCreateIntakeId(): Promise<number> {
     if (intakes.length > 0) return intakes[0].id;
     const intake = await createIntake({ seller_id: seller.id });
@@ -655,413 +592,44 @@ export function SellerDetailPage({
         </div>
       )}
 
-      {/* Items table */}
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead>
-          <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
-            {["Code", "Description", "Category", "Price", "Status", ""].map(
-              (h) => (
-                <th
-                  key={h}
-                  style={{
-                    textAlign: "left",
-                    padding: "6px 8px",
-                    fontSize: 13,
-                  }}
-                >
-                  {h}
-                </th>
-              ),
-            )}
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => (
-            <Fragment key={item.id}>
-              <tr
+      {/* Items — grouped per intake session, EXACT intake view/actions
+          (shared ItemList: same columns, Print All/Print N, Edit panel with
+          quantity adjust, Donate toggle, row Delete, label-printer selector,
+          code-as-text, bulk Print All, totals). */}
+      {(() => {
+        const intakeIds = Array.from(
+          new Set(items.map((i) => i.intake_id)),
+        ).sort((a, b) => a - b);
+        if (intakeIds.length === 0)
+          return (
+            <p style={{ color: "#94a3b8", padding: 8 }}>
+              No items yet — use Add Item or Import Items.
+            </p>
+          );
+        return intakeIds.map((id) => {
+          const intake = intakes.find((it) => it.id === id);
+          return (
+            <div key={id} style={{ marginBottom: 24 }}>
+              <h5
                 style={{
-                  borderBottom:
-                    expandedEditId === item.id ? "none" : "1px solid #f1f5f9",
+                  margin: "0 0 6px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "#64748b",
                 }}
               >
-                <td
-                  style={{
-                    padding: "7px 8px",
-                    fontFamily: "monospace",
-                    color: NAVY,
-                  }}
-                >
-                  {item.code}
-                </td>
-                <td style={{ padding: "7px 8px" }}>
-                  {item.description ?? "—"}
-                </td>
-                <td style={{ padding: "7px 8px", color: "#64748b" }}>
-                  {item.category ?? "—"}
-                </td>
-                <td style={{ padding: "7px 8px" }}>${item.price.toFixed(2)}</td>
-                <td style={{ padding: "7px 8px" }}>
-                  <span
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                      color: item.status === "sold" ? "#16a34a" : "#64748b",
-                    }}
-                  >
-                    {item.status === "sold" && item.remaining > 0
-                      ? `partially sold (${item.remaining} left)`
-                      : item.status === "sold" && item.remaining <= 0
-                        ? "fully sold"
-                        : item.status}
-                  </span>
-                </td>
-                <td style={{ padding: "7px 8px" }}>
-                  <button
-                    aria-label="Edit item"
-                    onClick={() => openItemEdit(item)}
-                    style={{
-                      border: `1px solid ${NAVY}`,
-                      color: NAVY,
-                      background: "none",
-                      padding: "2px 8px",
-                      cursor: "pointer",
-                      borderRadius: 3,
-                      fontSize: 12,
-                    }}
-                  >
-                    Edit
-                  </button>
-                </td>
-              </tr>
-              {expandedEditId === item.id && (
-                <tr>
-                  <td
-                    colSpan={6}
-                    style={{
-                      padding: "8px 16px 14px",
-                      background: "#f8fafc",
-                      borderBottom: "1px solid #e2e8f0",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr 1fr 1fr",
-                        gap: 8,
-                        marginBottom: 8,
-                      }}
-                    >
-                      <div>
-                        <label
-                          style={{
-                            display: "block",
-                            fontSize: 12,
-                            color: "#64748b",
-                            marginBottom: 2,
-                          }}
-                        >
-                          Description
-                        </label>
-                        <input
-                          value={draft.description}
-                          maxLength={99}
-                          onChange={(e) =>
-                            setDraft((d) => ({
-                              ...d,
-                              description: e.target.value,
-                            }))
-                          }
-                          style={{
-                            width: "100%",
-                            padding: "4px 6px",
-                            boxSizing: "border-box",
-                            fontSize: 13,
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <label
-                          style={{
-                            display: "block",
-                            fontSize: 12,
-                            color: "#64748b",
-                            marginBottom: 2,
-                          }}
-                        >
-                          Price
-                        </label>
-                        <input
-                          type="number"
-                          min={0}
-                          step={0.01}
-                          value={draft.price}
-                          onChange={(e) =>
-                            setDraft((d) => ({ ...d, price: e.target.value }))
-                          }
-                          style={{
-                            width: "100%",
-                            padding: "4px 6px",
-                            boxSizing: "border-box",
-                            fontSize: 13,
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <label
-                          style={{
-                            display: "block",
-                            fontSize: 12,
-                            color: "#64748b",
-                            marginBottom: 2,
-                          }}
-                        >
-                          Brand
-                        </label>
-                        <input
-                          value={draft.brand}
-                          onChange={(e) =>
-                            setDraft((d) => ({ ...d, brand: e.target.value }))
-                          }
-                          style={{
-                            width: "100%",
-                            padding: "4px 6px",
-                            boxSizing: "border-box",
-                            fontSize: 13,
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <label
-                          style={{
-                            display: "block",
-                            fontSize: 12,
-                            color: "#64748b",
-                            marginBottom: 2,
-                          }}
-                        >
-                          Type
-                        </label>
-                        <select
-                          value={draft.type}
-                          onChange={(e) =>
-                            setDraft((d) => ({
-                              ...d,
-                              type: e.target.value,
-                              size: d.type ? "" : d.size,
-                            }))
-                          }
-                          style={{
-                            width: "100%",
-                            padding: "4px 6px",
-                            boxSizing: "border-box",
-                            fontSize: 13,
-                          }}
-                        >
-                          <option value="">— select type —</option>
-                          {ITEM_TYPES.map((t) => (
-                            <option key={t} value={t}>
-                              {t}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label
-                          style={{
-                            display: "block",
-                            fontSize: 12,
-                            color: "#64748b",
-                            marginBottom: 2,
-                          }}
-                        >
-                          Size
-                        </label>
-                        {SIZE_OPTIONS[draft.type] ? (
-                          <select
-                            value={draft.size}
-                            onChange={(e) =>
-                              setDraft((d) => ({ ...d, size: e.target.value }))
-                            }
-                            style={{
-                              width: "100%",
-                              padding: "4px 6px",
-                              boxSizing: "border-box",
-                              fontSize: 13,
-                            }}
-                          >
-                            <option value="">— select size —</option>
-                            {SIZE_OPTIONS[draft.type].map((s) => (
-                              <option key={s} value={s}>
-                                {s}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <input
-                            value={draft.size}
-                            onChange={(e) =>
-                              setDraft((d) => ({ ...d, size: e.target.value }))
-                            }
-                            style={{
-                              width: "100%",
-                              padding: "4px 6px",
-                              boxSizing: "border-box",
-                              fontSize: 13,
-                            }}
-                          />
-                        )}
-                      </div>
-                      <div>
-                        <label
-                          style={{
-                            display: "block",
-                            fontSize: 12,
-                            color: "#64748b",
-                            marginBottom: 2,
-                          }}
-                        >
-                          Gender/Age
-                        </label>
-                        <select
-                          value={draft.gender_age}
-                          onChange={(e) =>
-                            setDraft((d) => ({
-                              ...d,
-                              gender_age: e.target.value,
-                            }))
-                          }
-                          style={{
-                            width: "100%",
-                            padding: "4px 6px",
-                            boxSizing: "border-box",
-                            fontSize: 13,
-                          }}
-                        >
-                          <option value="">— select —</option>
-                          {GENDER_AGE_OPTIONS.map((g) => (
-                            <option key={g} value={g}>
-                              {g}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label
-                          style={{
-                            display: "block",
-                            fontSize: 12,
-                            color: "#64748b",
-                            marginBottom: 2,
-                          }}
-                        >
-                          Color
-                        </label>
-                        <input
-                          value={draft.color}
-                          onChange={(e) =>
-                            setDraft((d) => ({ ...d, color: e.target.value }))
-                          }
-                          style={{
-                            width: "100%",
-                            padding: "4px 6px",
-                            boxSizing: "border-box",
-                            fontSize: 13,
-                          }}
-                        />
-                      </div>
-                    </div>
-                    {saveError && (
-                      <p
-                        role="alert"
-                        style={{
-                          color: "#ef4444",
-                          fontSize: 12,
-                          margin: "0 0 8px",
-                        }}
-                      >
-                        {saveError}
-                      </p>
-                    )}
-                    <div
-                      style={{ display: "flex", gap: 8, alignItems: "center" }}
-                    >
-                      <button
-                        onClick={() => handleItemSave(item.id)}
-                        disabled={saving}
-                        style={{
-                          background: NAVY,
-                          color: "#fff",
-                          border: "none",
-                          padding: "4px 12px",
-                          cursor: saving ? "default" : "pointer",
-                          borderRadius: 3,
-                          fontSize: 13,
-                        }}
-                      >
-                        {saving ? "Saving…" : "Save"}
-                      </button>
-                      <button
-                        onClick={() => setExpandedEditId(null)}
-                        style={{
-                          border: "1px solid #94a3b8",
-                          color: "#64748b",
-                          background: "none",
-                          padding: "4px 12px",
-                          cursor: "pointer",
-                          borderRadius: 3,
-                          fontSize: 13,
-                        }}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={() => handleDeleteItem(item.id)}
-                        disabled={
-                          item.label_printed || item.status !== "available"
-                        }
-                        title={
-                          item.label_printed
-                            ? "Cannot delete after labels are printed"
-                            : item.status !== "available"
-                              ? "Cannot delete sold items"
-                              : ""
-                        }
-                        style={{
-                          marginLeft: "auto",
-                          border: "none",
-                          background: "none",
-                          fontSize: 13,
-                          color:
-                            item.label_printed || item.status !== "available"
-                              ? "#94a3b8"
-                              : "#ef4444",
-                          cursor:
-                            item.label_printed || item.status !== "available"
-                              ? "default"
-                              : "pointer",
-                        }}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </Fragment>
-          ))}
-          {items.length === 0 && (
-            <tr>
-              <td
-                colSpan={6}
-                style={{ padding: 16, textAlign: "center", color: "#94a3b8" }}
-              >
-                No items yet
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+                Intake #{id}
+                {intake?.date_entered ? ` — entered ${intake.date_entered}` : ""}
+              </h5>
+              <ItemList
+                items={items.filter((i) => i.intake_id === id)}
+                intakeId={id}
+                onItemsChanged={refreshItems}
+              />
+            </div>
+          );
+        });
+      })()}
 
       {/* Payout panel */}
       {showPayout && (

@@ -182,7 +182,7 @@ Create cashier and intake accounts (username, password, role), **reset passwords
 
 ### 4.3 Sellers
 
-The seller directory: search, open a seller, see their items and payout status, and open their **Due Seller** payout.
+The seller directory: search, open a seller, see their items and payout status, and open their **Due Seller** payout. Items are shown **grouped per intake session**, using the exact same view and actions as the intake module: full columns (Qty, Total Price, Donate?, On Hand, Label), per-item label printing (Print All Labels / Print N), the expand-below edit panel with on-hand quantity adjust, row Delete, and the label-printer selector with bulk **Print Labels for All Items** per intake.
 
 ### 4.4 Reports
 
