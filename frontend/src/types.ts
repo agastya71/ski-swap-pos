@@ -652,31 +652,31 @@ export interface SellerPayoutSaleLine {
  commission_rate: number;
 }
 
-/** A single row in the UNSOLD ITEMS section of a seller payout. */
-export interface SellerPayoutUnsoldLine {
+/** A single row of the seller payout's single ITEM list — the intake
+ *  worksheet layout (category/brand/description/size/sell price) plus the
+ *  item code, for EVERY consigned item (sold and unsold) with the original
+ *  and remaining quantity columns. */
+export interface SellerPayoutItemLine {
  /** Item code. */
  item_code: string;
+ /** Canonical category (e.g. 'Skis'); null when not recorded. */
+ category: string | null;
+ /** Manufacturer brand; null when not recorded. */
+ brand: string | null;
  /** Item description; null if not provided at intake. */
  description: string | null;
+ /** Item size (cm, EU, S/M/L, …); null when not recorded. */
+ size: string | null;
+ /** Listed (asking) price per unit set at intake. */
+ price: number;
  /** Original intake quantity. */
  quantity: number;
  /** On-hand units still not sold. */
  remaining: number;
- /** Original asking price. */
- price: number;
- /** Lifecycle status (available / donated / returned). */
- status: string;
- /** True when the seller elected to donate this item if unsold. */
- donate_unsold: boolean;
- /** MYSL commission (always 0 for unsold items). */
- mysl_share: number;
- /** Seller payout (always 0 for unsold items). */
- seller_share: number;
- /** Commission rate that would apply if this item sold. */
- commission_rate: number;
 }
 
-/** Full payout report for a single seller with SALES and UNSOLD ITEMS sections. */
+/** Full payout report for a single seller with the single ITEMS list and the
+ *  retained SALES detail section. */
 export interface SellerPayoutReport {
  /** ID of the event this report covers. */
  event_id: number;
@@ -706,10 +706,10 @@ export interface SellerPayoutReport {
  mysl_total: number;
  /** Amount owed to the seller after commission. */
  seller_total: number;
- /** SALES section: every non-voided sale line for this seller's items. */
+ /** ITEMS section (single list in worksheet layout): every consigned item with original + remaining quantities, sorted by code. */
+ items: SellerPayoutItemLine[];
+ /** Sales detail: every non-voided sale line for this seller's items. */
  sales: SellerPayoutSaleLine[];
- /** UNSOLD ITEMS section: every item still on hand. */
- unsold_items: SellerPayoutUnsoldLine[];
  /** ISO 8601 timestamp when this report was generated. */
  generated_at: string;
 }

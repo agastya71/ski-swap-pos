@@ -24,8 +24,9 @@ const tdNum = { padding: "4px 8px", textAlign: "right" as const, fontSize: 12 };
 
 /**
  * Renders the detail sections of a payout report: seller contact information,
- * the SALES section (every non-voided sale line with prices and commission
- * shares) and the UNSOLD ITEMS section (every item still on hand).
+ * the single ITEMS list (every consigned item in the intake worksheet layout
+ * with original/remaining quantities) and the SALES DETAIL section (every
+ * non-voided sale line with prices and commission shares).
  * Exported so the all-sellers batch view can reuse it.
  */
 export function SellerPayoutDetails({
@@ -126,8 +127,79 @@ export function SellerPayoutDetails({
                 </tbody>
             </table>
 
-            {/* ── SALES section ───────────────────────────────────────────── */}
-            <h4 style={{ margin: "0 0 4px" }}>Sales</h4>
+            {/* ── ITEMS (single list, worksheet layout) ───────────────────── */}
+            <h4 style={{ margin: "0 0 4px" }}>Items</h4>
+            {payout.items.length > 0 ? (
+                <table
+                    style={{
+                        width: "100%",
+                        borderCollapse: "collapse",
+                        marginBottom: 16,
+                    }}
+                >
+                    <thead>
+                        <tr style={{ borderBottom: "2px solid #ccc" }}>
+                            {(
+                                [
+                                    "Item Code",
+                                    "Category",
+                                    "Brand",
+                                    "Description",
+                                    "Size",
+                                    "Sell Price",
+                                    "Quantity",
+                                    "Remaining",
+                                ] as const
+                            ).map((h) => (
+                                <th
+                                    key={h}
+                                    style={{
+                                        ...th,
+                                        textAlign: [
+                                            "Sell Price",
+                                            "Quantity",
+                                            "Remaining",
+                                        ].includes(h)
+                                            ? "right"
+                                            : "left",
+                                    }}
+                                >
+                                    {h}
+                                </th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {payout.items.map((it, i) => (
+                            <tr
+                                key={`${it.item_code}-${i}`}
+                                style={{
+                                    borderBottom: "1px solid #eee",
+                                    color: it.remaining === 0 ? "#64748b" : undefined,
+                                }}
+                            >
+                                <td style={td}>{it.item_code}</td>
+                                <td style={td}>{it.category ?? "—"}</td>
+                                <td style={td}>{it.brand ?? "—"}</td>
+                                <td style={td}>{it.description ?? "—"}</td>
+                                <td style={td}>{it.size ?? "—"}</td>
+                                <td style={tdNum}>
+                                    ${it.price.toFixed(2)}
+                                </td>
+                                <td style={tdNum}>{it.quantity}</td>
+                                <td style={tdNum}>{it.remaining}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            ) : (
+                <p style={{ color: "#64748b", fontSize: 13, marginBottom: 16 }}>
+                    No items consigned.
+                </p>
+            )}
+
+            {/* ── SALES DETAIL ──────────────────────────────────────────────── */}
+            <h4 style={{ margin: "0 0 4px" }}>Sales Detail</h4>
             {payout.sales.length > 0 ? (
                 <table
                     style={{
@@ -235,66 +307,6 @@ export function SellerPayoutDetails({
             ) : (
                 <p style={{ color: "#64748b", fontSize: 13, marginBottom: 16 }}>
                     No sales in this event.
-                </p>
-            )}
-
-            {/* ── UNSOLD ITEMS ─────────────────────────────────────────────── */}
-            <h4 style={{ margin: "0 0 4px" }}>Unsold Items</h4>
-            {payout.unsold_items.length > 0 ? (
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                    <thead>
-                        <tr style={{ borderBottom: "2px solid #ccc" }}>
-                            {(
-                                [
-                                    "Item Code",
-                                    "Description",
-                                    "Qty",
-                                    "Remaining",
-                                    "Price",
-                                    "Status",
-                                    "Donate if Unsold",
-                                ] as const
-                            ).map((h) => (
-                                <th
-                                    key={h}
-                                    style={{
-                                        ...th,
-                                        textAlign: [
-                                            "Qty",
-                                            "Remaining",
-                                            "Price",
-                                        ].includes(h)
-                                            ? "right"
-                                            : "left",
-                                    }}
-                                >
-                                    {h}
-                                </th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {payout.unsold_items.map((u, i) => (
-                            <tr
-                                key={`${u.item_code}-${i}`}
-                                style={{ borderBottom: "1px solid #eee" }}
-                            >
-                                <td style={td}>{u.item_code}</td>
-                                <td style={td}>{u.description ?? "—"}</td>
-                                <td style={tdNum}>{u.quantity}</td>
-                                <td style={tdNum}>{u.remaining}</td>
-                                <td style={tdNum}>${u.price.toFixed(2)}</td>
-                                <td style={td}>{u.status}</td>
-                                <td style={td}>
-                                    {u.donate_unsold ? "Yes" : "No"}
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            ) : (
-                <p style={{ color: "#64748b", fontSize: 13 }}>
-                    No unsold items — everything sold.
                 </p>
             )}
         </div>

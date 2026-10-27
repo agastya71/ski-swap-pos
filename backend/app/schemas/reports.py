@@ -40,28 +40,31 @@ class SellerPayoutSaleLine(BaseModel):
     commission_rate: float = Field(description="Commission rate applied to this sale line.")
 
 
-class SellerPayoutUnsoldLine(BaseModel):
-    """A single row within the UNSOLD ITEMS section of a seller's payout report."""
+class SellerPayoutItemLine(BaseModel):
+    """One row of the seller payout's single ITEM list.
+
+    Mirrors the intake worksheet layout (category / brand / description /
+    size / sell price) plus the item code, for EVERY consigned item — sold
+    and unsold — with the original and remaining quantity columns.
+    """
 
     item_code: str = Field(description="Unique item code identifying the consigned item.")
+    category: Optional[str] = Field(default=None, description="Canonical category (e.g. 'Skis'); null when not recorded.")
+    brand: Optional[str] = Field(default=None, description="Manufacturer brand; null when not recorded.")
     description: Optional[str] = Field(default=None, description="Free-text description of the item.")
+    size: Optional[str] = Field(default=None, description="Item size (cm, EU, S/M/L, …); null when not recorded.")
+    price: float = Field(description="Listed (asking) price per unit set at intake.")
     quantity: float = Field(description="Original intake quantity of the item.")
     remaining: float = Field(description="On-hand units still available for sale.")
-    price: float = Field(description="Original asking price set by the seller.")
-    status: str = Field(description="Current status of the item (e.g., 'available', 'donated', 'returned').")
-    donate_unsold: bool = Field(description="True when the seller elected to donate this item if unsold.")
-    mysl_share: float = Field(default=0.0, description="MYSL commission for this item (always 0 for unsold items).")
-    seller_share: float = Field(default=0.0, description="Seller payout for this item (always 0 for unsold items).")
-    commission_rate: float = Field(description="Commission rate that would apply if this item sold.")
 
 
 class SellerPayoutReport(BaseModel):
     """Complete payout summary for a single seller at the close of an event.
 
-    Structured in two detail sections: ``sales`` (every sold unit, with the
-    sale transaction line, prices, and commission shares) and
-    ``unsold_items`` (every item still on hand at close, including donated
-    and returned items).
+    Structured in two detail sections: ``items`` — a SINGLE list of every
+    consigned item (sold and unsold) in the intake worksheet layout with
+    original + remaining quantity columns — and ``sales`` (the retained sale
+    detail: transaction lines with dates, prices, and commission shares).
     """
 
     event_id: int = Field(description="ID of the event this payout report covers.")
@@ -78,8 +81,8 @@ class SellerPayoutReport(BaseModel):
     gross_sales: float = Field(description="Total revenue generated from the seller's sold items.")
     mysl_total: float = Field(description="MYSL's commission share from this seller's sales.")
     seller_total: float = Field(description="Amount to be paid out to the seller after commission.")
-    sales: list[SellerPayoutSaleLine] = Field(description="SALES section: every non-voided sale line for this seller's items.")
-    unsold_items: list[SellerPayoutUnsoldLine] = Field(description="UNSOLD ITEMS section: every item still on hand (available, donated, or returned).")
+    items: list[SellerPayoutItemLine] = Field(description="ITEMS section (single list in worksheet layout): every consigned item with original + remaining quantities, sorted by item code.")
+    sales: list[SellerPayoutSaleLine] = Field(description="Sales detail: every non-voided sale line for this seller's items.")
     generated_at: datetime = Field(description="UTC timestamp when this report was generated.")
 
 

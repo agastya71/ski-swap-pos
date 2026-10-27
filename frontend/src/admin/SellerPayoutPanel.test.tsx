@@ -44,21 +44,31 @@ describe("SellerPayoutPanel", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders the SALES and UNSOLD ITEMS sections after data loads", async () => {
+  it("renders the Items list and Sales Detail sections after data loads", async () => {
     render(<SellerPayoutPanel eventId={1} sellerId={1} />);
     await waitFor(() =>
-      expect(screen.getByText("Atomic skis")).toBeInTheDocument(),
+      expect(screen.getAllByText("Atomic skis").length).toBeGreaterThan(0),
     );
-    expect(screen.getByText("Boots")).toBeInTheDocument();
-    expect(screen.getByText("A001-1")).toBeInTheDocument();
-    expect(screen.getByText("A001-2")).toBeInTheDocument();
-    // Section headings.
-    expect(screen.getByRole("heading", { name: /sales/i })).toBeInTheDocument();
+    expect(screen.getAllByText("Boots").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("A001-1").length).toBeGreaterThanOrEqual(2); // Items + Sales Detail (sold)
+    expect(screen.getByText("A001-2")).toBeInTheDocument(); // Items only (unsold)
+    // Section headings: ONE items list + the retained Sales Detail.
+    expect(screen.getByRole("heading", { name: /items/i })).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: /unsold items/i }),
+      screen.getByRole("heading", { name: /sales detail/i }),
     ).toBeInTheDocument();
-    // Unsold item carries its donate election.
-    expect(screen.getByText(/donate if unsold/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: /unsold items/i }),
+    ).not.toBeInTheDocument();
+    // Worksheet-layout columns with BOTH quantity headers (Items table; the
+    // Sell Price header also exists in Sales Detail).
+    expect(screen.getAllByText(/sell price/i).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText(/quantity/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/remaining/i).length).toBeGreaterThan(0);
+    // Sold row shows remaining 0 and is greyed out (findable via its size,
+    // which only appears in the Items row).
+    const soldRow = screen.getByText("160cm").closest("tr")!;
+    expect(soldRow).toHaveStyle({ color: "#64748b" });
   });
 
   it("shows error message when API fails", async () => {
@@ -76,7 +86,7 @@ describe("SellerPayoutPanel", () => {
   it("shows the price-adjustment reason on SALES lines", async () => {
     render(<SellerPayoutPanel eventId={1} sellerId={1} />);
     await waitFor(() =>
-      expect(screen.getByText("Atomic skis")).toBeInTheDocument(),
+      expect(screen.getAllByText("Atomic skis").length).toBeGreaterThan(0),
     );
     expect(
       screen.getByText(/Price adj.: Zipper broken - \$5 off/),

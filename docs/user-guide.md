@@ -188,7 +188,7 @@ The seller directory: search, open a seller, see their items and payout status, 
 
 All reports support **CSV / Markdown / PDF / Excel** downloads.
 
-- **Due Seller** (per seller) — search a seller and download their statement as XLSX or PDF. The statement includes the seller's contact information, a **Sales** section (every sale line with date, prices, and the amount due), and an **Unsold Items** section (everything still on hand, including donated and returned items). Sellers whose intake elected **Donate Proceeds** show $0 due — their proceeds went to MYSL.
+- **Due Seller** (per seller) — search a seller and download their statement as XLSX or PDF. The statement includes the seller's contact information, a single **Items** list in the same layout as the intake worksheet (Item Code, Category, Brand, Description, Size, Sell Price) with **Quantity** (original) and **Remaining** columns for every consigned item — sold items show remaining 0 — plus a **Sales Detail** section (every sale line with date, per-line prices, and commissions). Sellers whose intake elected **Donate Proceeds** show $0 due — their proceeds went to MYSL.
 - **Generate All Due Sellers** — payouts for every seller at once, with grand totals, per-seller **Download XLSX / PDF** buttons, **Download CSV (all)**, and **Download ZIP (Excel + PDF per seller)** — one Excel workbook and one PDF per seller, ready to hand out individually.
 - **Event Revenue** — totals by payment type (cash / check / credit card), MYSL vs seller shares, voided sales.
 - **Donations** — items and proceeds donated to MYSL.

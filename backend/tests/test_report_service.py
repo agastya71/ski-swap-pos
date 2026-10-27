@@ -263,16 +263,15 @@ def test_seller_payout_per_item_shares(db, active_event, sale):
     assert s.commission_rate == 0.30
 
 
-def test_seller_payout_non_sold_item_zero_shares(db, active_event, seller, intake, available_item):
-    """An UNSOLD ITEMS row shows zero shares but still carries the applicable rate."""
+def test_seller_payout_items_list_includes_unsold_item(db, active_event, seller, intake, available_item):
+    """The single ITEMS list covers unsold items with original/remaining quantities."""
     from app.services.reports import get_seller_payout
     report = get_seller_payout(db, active_event.id, seller.id)
-    avail = [li for li in report.unsold_items if li.item_code == available_item.code]
+    avail = [li for li in report.items if li.item_code == available_item.code]
     assert len(avail) == 1
-    assert avail[0].mysl_share == 0.0
-    assert avail[0].seller_share == 0.0
-    assert avail[0].commission_rate == 0.30   # individual rate
+    assert avail[0].quantity == 1.0
     assert avail[0].remaining == 1.0
+    assert avail[0].price == available_item.price
 
 
 def test_seller_payout_donate_proceeds_item_full_to_mysl(db, active_event, donate_sale):
