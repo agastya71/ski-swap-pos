@@ -30,7 +30,13 @@ export function LookupField({ onFound }: { onFound: (item: ItemLookupResponse) =
   const [results, setResults] = useState<ItemLookupResponse[] | null>(null)
   const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null)
 
-  useEffect(() => { inputRef.current?.focus() }, [])
+  // Keep the scan target focused: on mount AND after every lookup completes.
+  // The explicit focus() in handleKeyDown's finally is a NO-OP because the
+  // input is still disabled=true in the DOM at that instant (React hasn't
+  // re-rendered) — so refocus waits for the `loading` flag to settle.
+  useEffect(() => {
+    if (!loading) inputRef.current?.focus()
+  }, [loading])
 
   useEffect(() => {
     const trimmed = value.trim()
@@ -140,8 +146,7 @@ export function LookupField({ onFound }: { onFound: (item: ItemLookupResponse) =
         setValue('')
       }
     } finally {
-      setLoading(false)
-      inputRef.current?.focus()
+      setLoading(false)  // refocus happens in the loading-effect (post-rerender)
     }
   }
 
