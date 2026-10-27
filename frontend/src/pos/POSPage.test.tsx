@@ -117,6 +117,10 @@ describe("POSPage", () => {
       expect(screen.getByText("A001-001")).toBeInTheDocument(),
     );
     expect(screen.getAllByText("$75.00").length).toBeGreaterThan(0);
+    // The cursor goes back to the scan field so the cashier can scan the next item.
+    expect(screen.getByPlaceholderText(/scan barcode/i)).toBe(
+      document.activeElement,
+    );
   });
 
   it("removes item from cart when Remove is clicked", async () => {
@@ -422,6 +426,38 @@ describe("POSPage", () => {
     // Only the adjusted line carries the reason label.
     const reasonNodes = screen.getAllByText(/Price adj\.: /);
     expect(reasonNodes).toHaveLength(1);
+  });
+
+  /** Cancelling a checkout must clear EVERYTHING for the next customer —
+   *  cart AND the payment fields (cash/check/check-number/card/notes kept
+   *  internal state in the payment form and leaked across cancels). */
+  it("clears payment fields along with the cart when the checkout is cancelled", async () => {
+    lookupReturns(ITEM_A);
+    renderPOS();
+    scan("A001-001");
+    await waitFor(() =>
+      expect(screen.getByText("A001-001")).toBeInTheDocument(),
+    );
+    fireEvent.change(screen.getByLabelText(/cash/i), { target: { value: "50" } });
+    fireEvent.change(screen.getByLabelText(/check/i), { target: { value: "25" } });
+    // Present while a check amount is entered...
+    expect(screen.getByLabelText(/check number/i)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/check number/i), { target: { value: "1001" } });
+    fireEvent.change(screen.getByLabelText(/credit card/i), { target: { value: "5" } });
+    fireEvent.change(screen.getByLabelText(/sale notes/i), { target: { value: "stale note" } });
+
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => {
+      expect(screen.getByLabelText(/cash/i)).not.toHaveValue(50);
+      expect(screen.getByLabelText(/check/i)).not.toHaveValue(25);
+      expect(screen.getByLabelText(/credit card/i)).not.toHaveValue(5);
+      expect(screen.getByLabelText(/sale notes/i)).toHaveValue("");
+    });
+    // ...and gone again (remount) once the check amount is cleared.
+    expect(screen.queryByLabelText(/check number/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/cart is empty/i)).toBeInTheDocument();
+    confirmSpy.mockRestore();
   });
 
   /** My Transactions: the Edit button opens the shared editor for the

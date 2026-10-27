@@ -37,6 +37,18 @@ describe('LookupField', () => {
     expect(document.activeElement).toBe(screen.getByRole('textbox'))
   })
 
+  /** Verifies the cursor returns to the scan field after a lookup adds an item
+   *  (the input is disabled during the lookup and the old finally-focus was a
+   *  no-op against the still-disabled DOM — the loading-effect handles it). */
+  it('returns focus to the scan field after a lookup completes', async () => {
+    server.use(http.get('/items/lookup', () => HttpResponse.json(FOUND)))
+    const onFound = vi.fn()
+    render(<LookupField onFound={onFound} />)
+    enter('A001-001')
+    await waitFor(() => expect(onFound).toHaveBeenCalledWith(FOUND))
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('textbox')))
+  })
+
   /** Verifies onFound is called with the matching item when the exact lookup API returns a result. */
   it('calls onFound with the item when exact lookup succeeds', async () => {
     server.use(http.get('/items/lookup', () => HttpResponse.json(FOUND)))
