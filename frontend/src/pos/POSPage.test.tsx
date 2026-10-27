@@ -117,6 +117,10 @@ describe("POSPage", () => {
       expect(screen.getByText("A001-001")).toBeInTheDocument(),
     );
     expect(screen.getAllByText("$75.00").length).toBeGreaterThan(0);
+    // The cursor goes back to the scan field so the cashier can scan the next item.
+    expect(screen.getByPlaceholderText(/scan barcode/i)).toBe(
+      document.activeElement,
+    );
   });
 
   it("removes item from cart when Remove is clicked", async () => {
