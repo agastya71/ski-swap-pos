@@ -28,6 +28,16 @@ const seller = {
   created_at: "2026-01-01T00:00:00Z",
 };
 
+const SELLER_ITEM = {
+  id: 1, intake_id: 1, seller_id: 1, code: "001-01", category: "Skis",
+  brand: "Atomic", type: null, description: "Atomic skis 160cm", color: null,
+  size: null, uom: null, gender_age: null, year: null, used: true,
+  price: 120.0, quantity: 1, remaining: 1, barcode_39: "001-01",
+  label_line_2: null, label_line_3: null, donate_unsold: false,
+  status: "available", label_printed: false, is_deleted: false,
+  vendor_item_id: null, created_at: "2026-04-04T10:00:00",
+};
+
 /** Click the contact-card Edit button (distinguished from per-item "Edit item" buttons). */
 function clickContactEdit() {
   const btn = screen
@@ -250,29 +260,28 @@ describe("SellerDetailPage", () => {
     );
   });
 
-  /** Verifies that an Edit item button appears for each item row once items load. */
+  /** Verifies the intake-style per-ITEM Edit button appears once items load
+   *  (the shared ItemList reuses the intake view: contact Edit + item Edit). */
   it("shows Edit button for each item row", async () => {
     render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />);
     await waitFor(() => expect(screen.getByText("001-01")).toBeInTheDocument());
-    expect(
-      screen.getByRole("button", { name: /edit item/i }),
-    ).toBeInTheDocument();
+    // Contact-card Edit + the item-row Edit (both plain "Edit" buttons).
+    const editButtons = screen.getAllByRole("button", { name: "Edit" });
+    expect(editButtons.length).toBeGreaterThanOrEqual(2);
   });
 
-  /** Verifies the edit panel opens with pre-filled description and price. */
-  it("clicking Edit opens panel with pre-filled description and price", async () => {
+  /** clicking the item Edit opens the intake-style panel with pre-filled
+   *  description and price. */
+  it("clicking item Edit opens panel with pre-filled description and price", async () => {
     render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />);
-    await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: /edit item/i }),
-      ).toBeInTheDocument(),
-    );
-    fireEvent.click(screen.getByRole("button", { name: /edit item/i }));
+    await waitFor(() => expect(screen.getByText("001-01")).toBeInTheDocument());
+    const editButtons = screen.getAllByRole("button", { name: "Edit" });
+    fireEvent.click(editButtons[editButtons.length - 1]); // item-row Edit (after contact card)
     expect(screen.getByDisplayValue("Atomic skis 160cm")).toBeInTheDocument();
     expect(screen.getByDisplayValue("120")).toBeInTheDocument();
   });
 
-  /** Verifies Save calls PATCH /items/:id with the updated price and closes the panel. */
+  /** Save PATCHes /items/:id with only the changed fields and closes the panel. */
   it("clicking Save calls PATCH /items/:id with updated fields", async () => {
     let capturedBody: Record<string, unknown> | null = null;
     server.use(
@@ -308,12 +317,9 @@ describe("SellerDetailPage", () => {
       }),
     );
     render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />);
-    await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: /edit item/i }),
-      ).toBeInTheDocument(),
-    );
-    fireEvent.click(screen.getByRole("button", { name: /edit item/i }));
+    await waitFor(() => expect(screen.getByText("001-01")).toBeInTheDocument());
+    const editButtons = screen.getAllByRole("button", { name: "Edit" });
+    fireEvent.click(editButtons[editButtons.length - 1]);
     fireEvent.change(screen.getByDisplayValue("120"), {
       target: { value: "100" },
     });
@@ -324,7 +330,7 @@ describe("SellerDetailPage", () => {
     ).not.toBeInTheDocument();
   });
 
-  /** Verifies Cancel closes the panel without any API call. */
+  /** Cancel closes the panel without any API call. */
   it("clicking Cancel closes panel without calling the API", async () => {
     let patchCalled = false;
     server.use(
@@ -334,12 +340,9 @@ describe("SellerDetailPage", () => {
       }),
     );
     render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />);
-    await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: /edit item/i }),
-      ).toBeInTheDocument(),
-    );
-    fireEvent.click(screen.getByRole("button", { name: /edit item/i }));
+    await waitFor(() => expect(screen.getByText("001-01")).toBeInTheDocument());
+    const editButtons = screen.getAllByRole("button", { name: "Edit" });
+    fireEvent.click(editButtons[editButtons.length - 1]);
     fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
     expect(
       screen.queryByDisplayValue("Atomic skis 160cm"),
@@ -347,22 +350,77 @@ describe("SellerDetailPage", () => {
     expect(patchCalled).toBe(false);
   });
 
-  /** Verifies Delete in the edit panel calls DELETE /items/:id and removes the item. */
-  it("Delete in edit panel calls DELETE /items/:id and removes item from list", async () => {
+  /** The intake edit-panel Delete calls DELETE /items/:id and the refresh
+   *  (which returns nothing after deletion) empties the view. */
+  it("Delete in the edit panel calls DELETE /items/:id and removes item from list", async () => {
+    let deleted = false;
     server.use(
-      http.delete("/items/:id", () => new HttpResponse(null, { status: 204 })),
+      http.delete("/items/:id", () => {
+        deleted = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+      http.get("/sellers/:id/items", () =>
+        HttpResponse.json(deleted ? [] : [SELLER_ITEM]),
+      ),
     );
     render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />);
-    await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: /edit item/i }),
-      ).toBeInTheDocument(),
-    );
-    fireEvent.click(screen.getByRole("button", { name: /edit item/i }));
+    await waitFor(() => expect(screen.getByText("001-01")).toBeInTheDocument());
+    const editButtons = screen.getAllByRole("button", { name: "Edit" });
+    fireEvent.click(editButtons[editButtons.length - 1]);
     fireEvent.click(screen.getByRole("button", { name: /^delete$/i }));
     await waitFor(() =>
       expect(screen.queryByText("001-01")).not.toBeInTheDocument(),
     );
+    expect(deleted).toBe(true);
+  });
+
+  /** The seller view now mirrors the intake view EXACTLY per intake session:
+   *  the shared ItemList toolbar (printer-location selector, code-as-text,
+   *  bulk Print Labels for All Items) — and items are grouped under their
+   *  intake when the seller has several intakes. */
+  it("renders intake-grouped ItemList with the full intake toolbar", async () => {
+    server.use(
+      http.get("/sellers/:id/intakes", () =>
+        HttpResponse.json([
+          { id: 1, seller_id: 1, date_entered: "2026-04-04", donate_unsold: false, donate_proceeds: false, total: 0, mysl_total: 0, seller_total: 0, created_at: "2026-04-04T10:00:00", created_by: "intake1" },
+          { id: 2, seller_id: 1, date_entered: "2026-04-05", donate_unsold: false, donate_proceeds: false, total: 0, mysl_total: 0, seller_total: 0, created_at: "2026-04-05T10:00:00", created_by: "intake1" },
+        ]),
+      ),
+      http.get("/sellers/:id/items", () =>
+        HttpResponse.json([
+          {
+            id: 1, intake_id: 1, seller_id: 1, code: "001-01", category: "Skis",
+            brand: "Atomic", type: null, description: "Atomic skis 160cm", color: null,
+            size: "160cm", uom: null, gender_age: null, year: null, used: true,
+            price: 120.0, quantity: 1, remaining: 1, barcode_39: "001-01",
+            label_line_2: null, label_line_3: null, donate_unsold: false,
+            status: "available", label_printed: false, is_deleted: false,
+            vendor_item_id: null, created_at: "2026-04-04T10:00:00",
+          },
+          {
+            id: 2, intake_id: 2, seller_id: 1, code: "001-02", category: "Ski Boots",
+            brand: "Alpina", type: null, description: "Alpina boots", color: null,
+            size: "EU 42", uom: null, gender_age: null, year: null, used: true,
+            price: 40.0, quantity: 1, remaining: 1, barcode_39: "001-02",
+            label_line_2: null, label_line_3: null, donate_unsold: false,
+            status: "available", label_printed: false, is_deleted: false,
+            vendor_item_id: null, created_at: "2026-04-05T10:00:00",
+          },
+        ]),
+      ),
+    );
+    render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />);
+    // One group per intake session, with the intake date.
+    expect(await screen.findByText(/Intake #1 — entered 2026-04-04/)).toBeInTheDocument();
+    expect(screen.getByText(/Intake #2 — entered 2026-04-05/)).toBeInTheDocument();
+    // Full intake toolbar per group: printer-location selector + bulk print.
+    expect(screen.getAllByLabelText(/label printer location/i).length).toBe(2);
+    expect(
+      screen.getAllByRole("button", { name: /print labels for all items/i }).length,
+    ).toBe(2);
+    // Items landed in their own groups.
+    expect(screen.getByText("001-01")).toBeInTheDocument();
+    expect(screen.getByText("001-02")).toBeInTheDocument();
   });
 });
 
