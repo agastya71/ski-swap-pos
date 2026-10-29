@@ -98,6 +98,12 @@ def _existing_brands(db: Session, seller: Seller) -> list[str]:
     return [r[0] for r in rows if r[0]]
 
 
+def _is_blank_cell(value: Any) -> bool:
+    """True for a None cell or a whitespace-only string cell (openpyxl empty
+    cells arrive as None; csv/tsv blanks arrive as "")."""
+    return value is None or (isinstance(value, str) and value.strip() == "")
+
+
 def _import_rows(
     db: Session,
     intake: Intake,
@@ -116,6 +122,15 @@ def _import_rows(
     """
     brands_pool = _existing_brands(db, seller)
     col_map = _header_col_map(header_cells) if header_cells is not None else None
+    # Vendor worksheets (2026-10-28): mandatory item fields (Brand /
+    # Description / Sell Price) may be left EMPTY — vendor bulk exports often
+    # carry rows with only quantity/category. Blank description/brand import
+    # as empty fields and a blank price imports as $0.00 (price editable
+    # later; cashier price-override at checkout). Malformed values (e.g.
+    # "TBD" in the price column) are still errors, and every relaxation is
+    # scoped to the seller's is_vendor flag — individual sellers keep the
+    # strict contract.
+    is_vendor = bool(seller.is_vendor)
 
     # Item codes are numeric-only (2026-09-18): five digits starting at
     # 10000, unique within the event database. Rows added below reserve their
@@ -150,14 +165,20 @@ def _import_rows(
                 year, price, used_str, donate_str, quantity_val,
             ) = padded
 
-        if not description or price is None:
-            errors.append(ImportRowError(row=i, reason="Missing required field: Description or Price"))
-            skipped += 1
-            continue
-        if not brand or not str(brand).strip():
-            errors.append(ImportRowError(row=i, reason="Missing required field: Brand"))
-            skipped += 1
-            continue
+        description_blank = _is_blank_cell(description)
+        price_blank = _is_blank_cell(price)
+        brand_blank = _is_blank_cell(brand)
+        if not is_vendor:
+            # Individual sellers keep the strict contract: Description, Price
+            # and Brand are mandatory (verbatim legacy expressions).
+            if not description or price is None:
+                errors.append(ImportRowError(row=i, reason="Missing required field: Description or Price"))
+                skipped += 1
+                continue
+            if not brand or not str(brand).strip():
+                errors.append(ImportRowError(row=i, reason="Missing required field: Brand"))
+                skipped += 1
+                continue
 
         # Quantity: blank/None = 1; otherwise a positive integer (rows from an
         # older 11-column template simply have nothing in this slot).
@@ -174,38 +195,49 @@ def _import_rows(
                 skipped += 1
                 continue
 
-        try:
-            price_float = float(price)
-        except (TypeError, ValueError):
-            errors.append(ImportRowError(row=i, reason=f"Invalid Price value: {price!r}"))
-            skipped += 1
-            continue
-        # Whole-dollar pricing: round UP to the nearest dollar (decision
-        # 2026-08-29) so consignment prices never carry cents from templates.
-        # Reject non-finite (NaN/inf) and negative values first — ceil(NaN)
-        # raises ValueError and ceil(inf) OverflowError, which would otherwise
-        # fail the whole file with an unhandled 500 or cryptic message.
-        if not math.isfinite(price_float):
-            errors.append(ImportRowError(row=i, reason=f"Invalid Price value: {price!r} (must be a real number)"))
-            skipped += 1
-            continue
-        if price_float < 0:
-            errors.append(ImportRowError(row=i, reason=f"Invalid Price value: {price!r} (must be ≥ 0)"))
-            skipped += 1
-            continue
-        # Whole-dollar pricing: round UP to the nearest dollar (decision
-        # 2026-08-29). math.ceil returns an int for finite input; the Float
-        # column coerces on flush, so no redundant float() call (which the
-        # analyzer's unchecked-throwing-call rule would flag).
-        price_float = math.ceil(price_float)
+        if is_vendor and price_blank:
+            # Vendor rows may leave Sell Price empty → $0.00 (price editable
+            # later via the item edit screen; cashier price-override at checkout).
+            price_float = 0.0
+        else:
+            try:
+                price_float = float(price)
+            except (TypeError, ValueError):
+                errors.append(ImportRowError(row=i, reason=f"Invalid Price value: {price!r}"))
+                skipped += 1
+                continue
+            # Whole-dollar pricing: round UP to the nearest dollar (decision
+            # 2026-08-29) so consignment prices never carry cents from templates.
+            # Reject non-finite (NaN/inf) and negative values first — ceil(NaN)
+            # raises ValueError and ceil(inf) OverflowError, which would otherwise
+            # fail the whole file with an unhandled 500 or cryptic message.
+            if not math.isfinite(price_float):
+                errors.append(ImportRowError(row=i, reason=f"Invalid Price value: {price!r} (must be a real number)"))
+                skipped += 1
+                continue
+            if price_float < 0:
+                errors.append(ImportRowError(row=i, reason=f"Invalid Price value: {price!r} (must be ≥ 0)"))
+                skipped += 1
+                continue
+            # Whole-dollar pricing: round UP to the nearest dollar (decision
+            # 2026-08-29). math.ceil returns an int for finite input; the Float
+            # column coerces on flush, so no redundant float() call (which the
+            # analyzer's unchecked-throwing-call rule would flag).
+            price_float = math.ceil(price_float)
 
         # Brand closest-match: replace with an existing brand if one is close.
-        brand_str = str(brand).strip()
-        matched = closest_brand(brand_str, brands_pool)
-        if matched is not None:
-            brand_str = matched
-        elif brand_str not in brands_pool:
-            brands_pool.append(brand_str)  # later rows can match this newly-seen brand
+        # Vendor rows may omit Brand entirely → stored as NULL (skipped by the
+        # matcher, which only runs on non-empty values).
+        brand_str: str | None
+        if brand_blank:
+            brand_str = None
+        else:
+            brand_str = str(brand).strip()
+            matched = closest_brand(brand_str, brands_pool)
+            if matched is not None:
+                brand_str = matched
+            elif brand_str not in brands_pool:
+                brands_pool.append(brand_str)  # later rows can match this newly-seen brand
 
         item_code = next_item_code(db, reserved)
         used = str(used_str).strip().lower() != "no" if used_str is not None else True
@@ -227,7 +259,7 @@ def _import_rows(
             seller_id=seller.id,
             code=item_code,
             barcode_39=item_code,
-            description=str(description),
+            description=None if is_vendor and description_blank else str(description),
             # Category/Type normalize case-insensitively to canonical casing
             # ("skis" → "Skis", "ALPINE SKI" → "Alpine Ski"); unknown values
             # are stored as typed, never rejected.

@@ -169,6 +169,42 @@ def test_import_items_from_excel(client, active_event, admin_token):
     assert len(items_r.json()) == 2
 
 
+def test_import_vendor_seller_allows_blank_mandatory_fields(client, active_event, admin_token):
+    """Per-intake bulk import with a vendor seller also relaxes the mandatory
+    item fields: blank/description/price rows import (price → $0.00)."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post(
+        "/sellers", json=valid_seller_create(company="Pioneer Sports", is_vendor=True), headers=headers
+    )
+    intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
+    intake_id = intake_r.json()["id"]
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    assert ws is not None, "workbook has no active sheet"
+    ws.append(["Description", "Category", "Brand", "Type", "Color", "Size", "Gender/Age", "Year", "Price", "Used", "Donate if Unsold"])
+    ws.append(["Good row", None, "Atomic", None, None, None, None, None, 30.0, "Yes", "No"])
+    ws.append([None, "Skis", None, None, None, None, None, None, None, "Yes", "No"])  # all mandatory fields blank
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    r = client.post(
+        f"/intakes/{intake_id}/items/import",
+        files={"file": ("items.xlsx", buf, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["imported"] == 2
+    assert body["skipped"] == 0
+    items_r = client.get(f"/sellers/{seller_r.json()['id']}/items", headers=headers)
+    items = items_r.json()
+    blank_row = next(it for it in items if it["description"] is None)
+    assert blank_row["price"] == 0.0
+    assert blank_row["brand"] is None
+
+
 def test_import_skips_rows_missing_price(client, active_event, admin_token):
     headers = {"Authorization": f"Bearer {admin_token}"}
     seller_r = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)

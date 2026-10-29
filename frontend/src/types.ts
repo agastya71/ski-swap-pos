@@ -527,18 +527,21 @@ export interface SaleWithItemsResponse {
  customer_name: string | null;
  /** Customer email; null if not collected. */
  customer_email: string | null;
- /** Sum of all line item extended prices. */
- sale_total: number;
- /** MYSL's commission share of this sale's proceeds. */
- mysl_total: number;
- /** Sellers' combined share of this sale's proceeds after commission. */
- seller_total: number;
- /** Cash amount tendered. */
- cash_amount: number;
- /** Check amount tendered. */
- check_amount: number;
- /** Credit/debit card amount charged via Square. */
- cc_amount: number;
+  /** Sum of all line item extended prices plus any card fee. */
+  sale_total: number;
+  /** MYSL's commission share of this sale's proceeds (plus the card fee when card payment was used). */
+  mysl_total: number;
+  /** Sellers' combined share of this sale's proceeds after commission. */
+  seller_total: number;
+  /** Cash amount tendered. */
+  cash_amount: number;
+  /** Check amount tendered. */
+  check_amount: number;
+  /** Credit/debit card amount charged via Square. */
+  cc_amount: number;
+  /** Buyer-paid 3% card transaction fee on the card-financed portion; part of
+   *  sale_total and retained by MYSL. */
+  cc_fee: number;
  /** Check number; null if payment was not by check. */
  check_number: string | null;
  /** Square transaction id / card reference; null if payment was not by card. */

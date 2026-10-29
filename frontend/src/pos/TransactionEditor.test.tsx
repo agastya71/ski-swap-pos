@@ -55,6 +55,7 @@ const SALE: SaleWithItemsResponse = {
   cash_amount: 35,
   check_amount: 0,
   cc_amount: 0,
+  cc_fee: 0,
   check_number: null,
   cc_transaction_id: null,
   total_paid: 35,

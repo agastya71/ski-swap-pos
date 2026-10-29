@@ -18,6 +18,27 @@ from app.models.sale_item import SaleItem
 from app.models.seller import Seller
 from app.schemas.sale import SaleCreate
 
+# 3% buyer-paid card transaction fee (2026-10-28). The buyer's card charge
+# INCLUDES the fee: the terminal runs for items×1.03 (rounded on the fee), so
+# the fee is derived from the recorded card charge — fee = charge × 3/103 —
+# which keeps sale_total and the tendered breakdown exactly reconciled.
+# Retained by MYSL to cover the processor's transaction costs; seller payout
+# shares are computed on line prices only and never inflated by the fee.
+CC_FEE_RATE = 0.03
+
+
+def compute_card_fee(cc_amount: float) -> float:
+    """Derive the buyer-paid card fee from the recorded card terminal charge.
+
+    ``cc_amount`` is the amount actually run on the card, which covers both
+    the card-financed item subtotal and this fee: an all-card sale of $100.00
+    of items is charged $103.00 on the terminal, and this returns $3.00.
+    Returns 0.0 for a non-positive charge (no card tender / re-tender edits).
+    """
+    if cc_amount <= 0:
+        return 0.0
+    return round(cc_amount * CC_FEE_RATE / (1 + CC_FEE_RATE), 2)
+
 
 def compute_commission(
     item_price: float, donate_proceeds: bool, commission_rate: float
@@ -153,9 +174,16 @@ def create_sale_atomic(
         mysl_total += mysl_share
         seller_total += seller_share
 
-    sale.sale_total = round(sale_total, 2)  # pyright: ignore[reportAttributeAccessIssue]
-    sale.mysl_total = round(mysl_total, 2)  # pyright: ignore[reportAttributeAccessIssue]
+    # Totals: the card fee (when the buyer charged any amount to a card) is
+    # an explicit buyer-paid charge on top of the line totals; it is part of
+    # sale_total and is retained by MYSL (added to mysl_total), while
+    # seller_total stays the pure commission split of the line prices.
+    cc_fee = compute_card_fee(payload.cc_amount)
+
+    sale.sale_total = round(sale_total + cc_fee, 2)  # pyright: ignore[reportAttributeAccessIssue]
+    sale.mysl_total = round(mysl_total + cc_fee, 2)  # pyright: ignore[reportAttributeAccessIssue]
     sale.seller_total = round(seller_total, 2)  # pyright: ignore[reportAttributeAccessIssue]
+    sale.cc_fee = cc_fee  # pyright: ignore[reportAttributeAccessIssue]
     sale.total_paid = round(  # pyright: ignore[reportCallIssue,reportArgumentType,reportAttributeAccessIssue]
         payload.cash_amount + payload.check_amount + payload.cc_amount, 2
     )

@@ -25,6 +25,7 @@ function sale(id: number, creator: string, total: number, isVoided = false): Sal
     cash_amount: total,
     check_amount: 0,
     cc_amount: 0,
+    cc_fee: 0,
     check_number: null,
     cc_transaction_id: null,
     total_paid: total,

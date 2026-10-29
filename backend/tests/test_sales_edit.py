@@ -520,6 +520,52 @@ def test_update_payments_recompute_totals(client, cashier_token, active_event, s
     assert data["sale_total"] == 35.00
 
 
+def test_update_card_payment_recomputes_fee_and_totals(
+    client, cashier_token, active_event, item, item2
+):
+    created = client.post(
+        "/sales",
+        json={"items": [{"item_id": item.id}, {"item_id": item2.id}], "cc_amount": 36.05},
+        headers=_hr(cashier_token),
+    ).json()
+    # 35.00 of items × 1.03 = 36.05 terminal charge → fee 1.05
+    assert created["cc_fee"] == 1.05
+    assert created["sale_total"] == 36.05
+
+    resp = client.patch(
+        f"/sales/{created['id']}", json={"cc_amount": 15.45}, headers=_hr(cashier_token)
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["cc_fee"] == 0.45
+    assert data["sale_total"] == 35.45     # 35.00 items + 0.45 fee
+    assert data["mysl_total"] == 10.95     # 10.50 commission + 0.45 fee
+    assert data["seller_total"] == 24.50   # untouched by the fee
+    assert data["total_paid"] == 15.45
+    assert data["balance_due"] == 20.00
+
+
+def test_add_line_keeps_card_fee_in_totals(client, cashier_token, active_event, item, item2):
+    created = client.post(
+        "/sales",
+        json={"items": [{"item_id": item.id}], "cc_amount": 20.60},
+        headers=_hr(cashier_token),
+    ).json()
+    assert created["cc_fee"] == 0.60
+
+    resp = client.post(
+        f"/sales/{created['id']}/lines",
+        json={"item_id": item2.id},
+        headers=_hr(cashier_token),
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["cc_fee"] == 0.60          # recorded card charge unchanged
+    assert data["sale_total"] == 35.60     # 20 + 15 items + 0.60 fee
+    assert data["mysl_total"] == 11.10     # 6 + 4.5 commission + 0.60 fee
+    assert data["seller_total"] == 24.50
+
+
 def test_update_payments_overpay_negative_balance_due(client, cashier_token, active_event, sale):
     resp = client.patch(
         f"/sales/{sale['id']}",
