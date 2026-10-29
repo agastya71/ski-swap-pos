@@ -363,3 +363,89 @@ def test_update_individual_cannot_blank_names(client, admin_token, seller):
     )
     assert resp.status_code == 422
     assert "Last name is required" in resp.json()["detail"]
+
+
+# ── DELETE /sellers/{id} (admin, erroneous records) ──────────────────────────
+
+def _add_intake(db, seller_id):
+    intake = Intake(seller_id=seller_id, donate_unsold=False, donate_proceeds=False, created_by="admin")
+    db.add(intake)
+    db.commit()
+    db.refresh(intake)
+    return intake
+
+
+def test_delete_erroneous_seller_without_items(client, db, active_event, admin_token, seller):
+    """An item-less seller (incl. the auto-created empty intakes from worksheet
+    imports) hard-deletes together with its intake sessions."""
+    intake_a = _add_intake(db, seller.id)
+    intake_b = _add_intake(db, seller.id)
+    headers = {"Authorization": f"Bearer {admin_token}"}
+
+    resp = client.delete(f"/sellers/{seller.id}", headers=headers)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["deleted"] == seller.id
+    assert data["code"] == "001"
+    assert data["name"] == "Jane Smith"
+
+    assert client.get(f"/sellers/{seller.id}", headers=headers).status_code == 404
+    assert db.query(Intake).filter(Intake.seller_id == seller.id).count() == 0
+    assert db.query(Seller).filter(Seller.id == seller.id).count() == 0
+
+
+def test_delete_seller_with_items_is_409(client, db, active_event, admin_token, seller):
+    """A seller whose intake holds items cannot be deleted — the items (and
+    any sales/labels behind them) must be removed or reassigned first."""
+    intake = _add_intake(db, seller.id)
+    db.add(Item(intake_id=intake.id, seller_id=seller.id, code="001-001", price=25.00, created_by="admin"))
+    db.commit()
+    headers = {"Authorization": f"Bearer {admin_token}"}
+
+    resp = client.delete(f"/sellers/{seller.id}", headers=headers)
+    assert resp.status_code == 409
+    assert "still has 1 item" in resp.json()["detail"]
+    # Nothing deleted
+    assert client.get(f"/sellers/{seller.id}", headers=headers).status_code == 200
+
+
+def test_delete_seller_with_soft_deleted_items_is_409(client, db, active_event, admin_token, seller):
+    """Soft-deleted items keep the record undeletable (they preserve audit
+    history: printed labels / sale lines still hang off them)."""
+    intake = _add_intake(db, seller.id)
+    db.add(Item(
+        intake_id=intake.id, seller_id=seller.id, code="001-001", price=25.00,
+        is_deleted=True, label_printed=True, created_by="admin",
+    ))
+    db.commit()
+    resp = client.delete(f"/sellers/{seller.id}", headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 409
+    assert "soft-deleted" in resp.json()["detail"]
+
+
+def test_delete_seller_not_found(client, admin_token):
+    resp = client.delete("/sellers/99999", headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 404
+
+
+def test_delete_seller_requires_admin(client, intake_token, seller):
+    """Intake (and below) roles get 403 — deletion is an admin-only action."""
+    resp = client.delete(f"/sellers/{seller.id}", headers={"Authorization": f"Bearer {intake_token}"})
+    assert resp.status_code == 403
+
+
+def test_delete_seller_scoped_to_active_event(client, db, active_event, admin_token):
+    """A seller that exists only in another (inactive) event is invisible to
+    the route — 404 rather than a cross-event deletion."""
+    from app.models.event import Event
+    ev2 = Event(name="Other Swap", year=2025, commission_rate=0.30, is_active=False)
+    db.add(ev2)
+    db.commit()
+    db.refresh(ev2)
+    ghost = Seller(event_id=ev2.id, code="001", first_name="Ghost", last_name="Seller", is_vendor=False)
+    db.add(ghost)
+    db.commit()
+    db.refresh(ghost)
+
+    resp = client.delete(f"/sellers/{ghost.id}", headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 404

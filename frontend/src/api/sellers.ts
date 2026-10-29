@@ -56,3 +56,22 @@ export const updateSeller = (id: number, data: SellerUpdate) =>
  */
 export const listSellerItems = (sellerId: number) =>
   apiFetch<Item[]>(`/sellers/${sellerId}/items`)
+
+/**
+ * Permanently delete an erroneous seller record (admin only, backend-enforced).
+ *
+ * Intended for records created by mistake (mis-typed name, duplicate
+ * registration). The backend hard-deletes the seller together with its
+ * (empty) intake sessions and refuses with 409 while the seller still has
+ * any items — those must be deleted or reassigned first.
+ *
+ * @param id - Primary key of the seller to delete.
+ * @returns Summary of what was removed (id, code, display name).
+ * @throws {ApiError} 409 if the seller still has items (including soft-deleted ones).
+ * @throws {ApiError} 404 if no seller with the given ID exists in the active event.
+ * @throws {ApiError} 403 if the signed-in role is not admin.
+ */
+export const deleteSeller = (id: number) =>
+  apiFetch<{ deleted: number; code: string; name: string }>(`/sellers/${id}`, {
+    method: 'DELETE',
+  })

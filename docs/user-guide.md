@@ -195,6 +195,8 @@ Create cashier and intake accounts (username, password, role), **reset passwords
 
 The seller directory: search, open a seller, see their items and payout status, and open their **Due Seller** payout. Items are shown **grouped per intake session**, using the exact same view and actions as the intake module: full columns (Qty, Total Price, Donate?, On Hand, Label), per-item label printing (Print All Labels / Print N), the expand-below edit panel with on-hand quantity adjust, row Delete, and the label-printer selector with bulk **Print Labels for All Items** per intake.
 
+**Delete an erroneous seller record** (2026-10-28): each row has a **Delete** button (confirmation-gated). Use it for records created by mistake — a mis-typed name or a duplicate registration. The record and its empty intake sessions are permanently removed. A seller that still has items (including items later deleted from intake) is refused with a clear message — delete or reassign those items first; nothing that ever produced a label or a sale can be deleted this way.
+
 ### 4.4 Reports
 
 All reports support **CSV / Markdown / PDF / Excel** downloads.
