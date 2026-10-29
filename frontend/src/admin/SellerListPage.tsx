@@ -1,6 +1,6 @@
 import { useState, useEffect, Fragment } from "react";
 import { BUTTON_STYLE } from "../lib/buttons";
-import { searchSellers } from "../api/sellers";
+import { searchSellers, deleteSeller } from "../api/sellers";
 import { SellerForm } from "../intake/SellerForm";
 import { SellerPayoutPanel } from "./SellerPayoutPanel";
 import type { Seller } from "../types";
@@ -9,7 +9,9 @@ const NAVY = "#1e3a8a";
 
 /**
  * Admin seller list page — debounced search, tabular display, drill-in navigation.
- * Each row has View (navigate to detail) and Payout (inline payout panel) actions.
+ * Each row has View (navigate to detail), Payout (inline payout panel) and Delete
+ * (confirm-gated; only item-less erroneous records — the backend refuses 409
+ * otherwise) actions.
  */
 export function SellerListPage({
   onSelectSeller,
@@ -22,6 +24,7 @@ export function SellerListPage({
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [expandedPayoutId, setExpandedPayoutId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -37,6 +40,28 @@ export function SellerListPage({
     setSellers((prev) =>
       [...prev, seller].sort((a, b) => a.code.localeCompare(b.code)),
     );
+  }
+
+  /** Permanently deletes an erroneous seller record (confirm-gated; the
+   *  backend refuses with 409 while the seller still has items). */
+  async function handleDelete(s: Seller) {
+    const displayName =
+      s.company ||
+      [s.first_name, s.last_name].filter(Boolean).join(" ") ||
+      s.code;
+    const ok = window.confirm(
+      `Delete seller "${displayName} (${s.code})"? This permanently removes ` +
+        "the record and its empty intake sessions. Sellers with items cannot " +
+        "be deleted. There is no undo.",
+    );
+    if (!ok) return;
+    setError(null);
+    try {
+      await deleteSeller(s.id);
+      setSellers((prev) => prev.filter((x) => x.id !== s.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete seller");
+    }
   }
 
   if (showCreate) {
@@ -76,6 +101,11 @@ export function SellerListPage({
           boxSizing: "border-box",
         }}
       />
+      {error && (
+        <div role="alert" style={{ color: "red", marginBottom: 12 }}>
+          {error}
+        </div>
+      )}
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
           <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
@@ -130,6 +160,13 @@ export function SellerListPage({
                       style={BUTTON_STYLE}
                     >
                       Payout
+                    </button>
+                    <button
+                      onClick={() => handleDelete(s)}
+                      aria-label={`delete seller ${s.code}`}
+                      style={BUTTON_STYLE}
+                    >
+                      Delete
                     </button>
                   </div>
                 </td>

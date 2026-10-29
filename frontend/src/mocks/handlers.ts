@@ -285,6 +285,15 @@ export const handlers = [
         http.get("/sellers/:id", () => HttpResponse.json(SELLER)),
         /** PATCH /sellers/:id — returns the shared SELLER fixture unchanged. */
         http.patch("/sellers/:id", () => HttpResponse.json(SELLER)),
+        /** DELETE /sellers/:id — deletes an erroneous item-less seller (the backend
+         *  refuses 409 while the seller still has items; tests override for 409). */
+        http.delete("/sellers/:id", ({ params }) =>
+                HttpResponse.json({
+                        deleted: Number(params.id),
+                        code: "001",
+                        name: "Jane Smith",
+                }),
+        ),
 
         /** POST /intakes — creates a new intake session, returns the INTAKE fixture. */
         http.post("/intakes", () => HttpResponse.json(INTAKE)),
