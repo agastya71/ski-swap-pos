@@ -129,6 +129,8 @@ For large consignments, use **Import Seller Worksheet** on the intake tab:
 
 Prices round UP to whole dollars. Brand names are matched to existing brands when they are close (typos snap to the known brand). A vendor worksheet's Company row marks the created seller as a vendor.
 
+**Vendor worksheets may leave item fields blank** (2026-10-28): for vendor sellers, Brand, Description and Sell Price may be empty — blank description/brand import as empty fields and a blank price imports as **$0.00** (correct the price later on the item edit screen, or let the cashier price-override at checkout). Malformed values (e.g. `TBD` in the price column) are still rejected. Individual consignors keep the strict rules: Description, Price and Brand are required.
+
 ### 2.8 The Search tab
 
 The **Search** tab finds items across the whole event by any field: code, description, category, brand, type, colour, size, gender/age, year, price, quantity, status, and seller name/code. Filter by status and download the results as Excel.
@@ -157,9 +159,18 @@ The payment form splits the tender across:
 
 - **Cash ($)** — the cash amount.
 - **Check ($)** — plus a **Check Number** (required when a check is used).
-- **Credit Card ($)** — the card amount, entered manually.
+- **Credit Card ($)** — the amount run on the card, entered manually.
 
-The tendered total must meet the sale total before the sale can complete. The Square card-reader integration is pending and hidden.
+**Card buyers pay a 3% transaction fee** (2026-10-28): the card charge covers the
+items plus the fee — e.g. $100.00 of items charged to a card means running the
+card for **$103.00**. The form shows the fee as an explicit line
+("Card fee (3%): $3.00") and the **buyer total** (items + fee); the tendered
+breakdown must meet that total. With split tenders, only the card-financed
+portion is charged the fee — $50.00 of a $100.00 sale on the card means a
+$51.50 card charge with a $1.50 fee. The fee is kept by MYSL to cover the card
+processor's costs; seller payouts are not affected.
+
+The Square card-reader integration is pending and hidden.
 
 ### 3.4 Completing the sale
 
@@ -212,6 +223,7 @@ From Event Setup, inactive events can be permanently deleted. The active event, 
 | Item shows sold out | All on-hand units are sold. Check On Hand on the item in the intake list. |
 | "Amount due $0.00" on a payout | The seller's intake elected **Donate Proceeds** — the gross went to MYSL as a donation. |
 | Check payment rejected | Enter the **Check Number**; it is required whenever a check amount is used. |
+| Card sale total is higher than the items total | That is the buyer-paid 3% card fee (shown as its own line at payment) — run the card for the fee-inclusive total, e.g. $100.00 of items → $103.00 charge. |
 | "Printer unavailable" when printing labels | The label printer is not reachable at the configured device. Retry after checking the printer/USB connection. |
 | Cannot delete an item | Items that are label-printed or sold cannot be deleted (tags are in the field). |
 | Need yesterday's data | Backups run every 6 hours to `~/skiswap-backups/`; recovery steps are in `docs/backup-recovery.md`. |

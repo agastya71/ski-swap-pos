@@ -82,6 +82,7 @@ const SALE = {
         cash_amount: 50,
         check_amount: 0,
         cc_amount: 0,
+        cc_fee: 0,
         check_number: null,
         total_paid: 50,
         balance_due: 0,

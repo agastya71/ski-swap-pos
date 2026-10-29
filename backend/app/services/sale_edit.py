@@ -36,7 +36,7 @@ from app.models.sale_edit import SaleEdit
 from app.models.sale_item import SaleItem
 from app.models.user import User
 from app.schemas.sale import SaleItemCreate, SaleLineEdit, SaleUpdate
-from app.services.checkout import compute_commission
+from app.services.checkout import compute_commission, compute_card_fee
 
 
 def _now() -> datetime.datetime:
@@ -67,6 +67,7 @@ def _payment_snapshot(sale: Sale) -> dict:
         "check_amount": sale.check_amount,
         "check_number": sale.check_number,
         "cc_amount": sale.cc_amount,
+        "cc_fee": sale.cc_fee,
         "cc_transaction_id": sale.cc_transaction_id,
     }
 
@@ -157,7 +158,10 @@ def _recompute_totals(db: Session, sale: Sale, event: Event) -> None:
 
     Queries the DB (post-flush) instead of the in-memory ``sale.sale_items``
     collection — a just-added or just-deleted line may not be reflected in
-    the relationship's loaded state."""
+    the relationship's loaded state. As in checkout, the card fee (derived
+    from the recorded card charge) rides on top of the line totals in
+    ``sale_total`` and is retained by MYSL inside ``mysl_total``; seller
+    payouts stay the commission split of the line prices only."""
     rows = db.query(SaleItem).filter(SaleItem.sale_id == sale.id).all()
     sale_total = 0.0
     mysl_total = 0.0
@@ -171,8 +175,10 @@ def _recompute_totals(db: Session, sale: Sale, event: Event) -> None:
         sale_total += extended
         mysl_total += mysl_share
         seller_total += seller_share
-    sale.sale_total = round(sale_total, 2)
-    sale.mysl_total = round(mysl_total, 2)
+    cc_fee = compute_card_fee(sale.cc_amount or 0.0)
+    sale.cc_fee = cc_fee
+    sale.sale_total = round(sale_total + cc_fee, 2)
+    sale.mysl_total = round(mysl_total + cc_fee, 2)
     sale.seller_total = round(seller_total, 2)
 
 
@@ -349,6 +355,10 @@ def update_sale(db: Session, event: Event, sale_id: int, current_user: User, pay
         if new_check > 0 and not (sale.check_number and str(sale.check_number).strip()):
             db.rollback()
             raise HTTPException(status_code=422, detail="check_number is required when check_amount > 0")
+        if "cc_amount" in payment_changes:
+            # The card fee is derived from the card terminal charge, which just
+            # changed — recompute line-fee totals exactly like checkout.
+            _recompute_totals(db, sale, event)
         sale.total_paid = round(
             (sale.cash_amount or 0.0) + (sale.check_amount or 0.0) + (sale.cc_amount or 0.0), 2
         )

@@ -13,9 +13,12 @@ class Sale(Base):
 
     A sale belongs to one event and contains one or more sale items. Financial
     totals are pre-computed and stored for reporting: sale_total is the full
-    purchase amount, mysl_total is MYSL's commission portion, and seller_total
-    is the remainder owed to sellers. Payment may be split across cash, check,
-    and credit card. Voided sales are retained for audit purposes.
+    purchase amount (line items plus any credit-card transaction fee),
+    mysl_total is MYSL's commission portion (plus the card fee, which is
+    retained by MYSL), and seller_total is the remainder owed to sellers.
+    Payment may be split across cash, check, and credit card; cc_fee records
+    the 3% card transaction fee explicitly. Voided sales are retained for
+    audit purposes.
     """
 
     __tablename__ = "sale"
@@ -31,6 +34,9 @@ class Sale(Base):
     cash_amount = Column(Float, default=0.0)
     check_amount = Column(Float, default=0.0)
     cc_amount = Column(Float, default=0.0)
+    cc_fee = Column(Float, nullable=False, default=0.0)
+    """3% buyer-paid transaction fee on the card-financed portion (retained
+    by MYSL); derived from the card terminal charge, not entered."""
     check_number = Column(String)
     cc_transaction_id = Column(String)  # Square transaction id / card reference
     total_paid = Column(Float, default=0.0)

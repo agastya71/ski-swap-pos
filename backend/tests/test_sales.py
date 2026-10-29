@@ -216,7 +216,50 @@ def test_create_sale_payment_split(client, cashier_token, active_event, item):
     assert data["check_number"] == "1234"
     assert data["cc_transaction_id"] == "sq-txn-123"
     assert data["total_paid"] == 20.00
+    # The 3% card fee rides on top of the line totals (see checkout.py): 5.00
+    # charged on the card → fee = round(5 × 3/103, 2) = 0.15, so the sale
+    # settles 0.15 higher than the items alone.
+    assert data["cc_fee"] == 0.15
+    assert data["sale_total"] == 20.15
+    assert data["mysl_total"] == 6.15   # 30% commission 6.00 + card fee 0.15
+    assert data["seller_total"] == 14.00
+    assert data["balance_due"] == 0.15
+
+
+def test_create_sale_full_card_paid_includes_fee(client, cashier_token, active_event, item):
+    """All-card sale: the buyer is charged items × 103% (fee included in the
+    terminal charge) — enter that charge and the sale settles exactly."""
+    resp = client.post(
+        "/sales",
+        json={
+            "items": [{"item_id": item.id}],
+            "cc_amount": 20.60,  # 20.00 items × 1.03
+            "cc_transaction_id": "sq-txn-777",
+        },
+        headers={"Authorization": f"Bearer {cashier_token}"},
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["cc_fee"] == 0.60          # round(20.60 × 3/103, 2)
+    assert data["sale_total"] == 20.60     # 20.00 items + 0.60 fee
+    assert data["mysl_total"] == 6.60      # 6.00 commission + 0.60 fee
+    assert data["seller_total"] == 14.00   # seller untouched by the fee
+    assert data["total_paid"] == 20.60
     assert data["balance_due"] == 0.00
+
+
+def test_create_sale_no_card_fee_for_cash_sale(client, cashier_token, active_event, item):
+    resp = client.post(
+        "/sales",
+        json={"items": [{"item_id": item.id}], "cash_amount": 20.00},
+        headers={"Authorization": f"Bearer {cashier_token}"},
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["cc_fee"] == 0.00
+    assert data["sale_total"] == 20.00
+    assert data["mysl_total"] == 6.00
+    assert data["seller_total"] == 14.00
 
 
 def test_create_sale_balance_due(client, cashier_token, active_event, item):

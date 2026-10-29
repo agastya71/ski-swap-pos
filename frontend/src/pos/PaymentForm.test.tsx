@@ -1,6 +1,7 @@
 /**
  * Tests for {@link PaymentForm} — covers field rendering (cash, check, credit
- * card), cash-only and split submissions with check numbers, under-tender
+ * card), cash-only and split submissions with check numbers, the explicit 3%
+ * card fee (added to the total whenever a card charge is entered), under-tender
  * validation error, credit-card tender, and the Cancel callback. The Square
  * SDK integration is pending and hidden, so no Square-specific fields appear.
  */
@@ -65,24 +66,70 @@ describe("PaymentForm", () => {
     });
   });
 
-  /** Verifies a credit-card tender is included in the submitted breakdown. */
-  it("submits a credit-card payment", () => {
+  /** Verifies a credit-card tender is included in the submitted breakdown —
+   *  the card charge carries the buyer's 3% fee, so charging $115.00 of items
+   *  means a $118.45 terminal charge (fee $3.45) covers the total exactly. */
+  it("submits a credit-card payment with the fee-inclusive charge", () => {
     const onSubmit = vi.fn();
     render(<PaymentForm total={115} onSubmit={onSubmit} onCancel={vi.fn()} />);
     fireEvent.change(screen.getByLabelText(/credit card/i), {
-      target: { value: "115" },
+      target: { value: "118.45" },
     });
     fireEvent.click(screen.getByRole("button", { name: /complete sale/i }));
     expect(onSubmit).toHaveBeenCalledWith({
       cash: 0,
       check: 0,
-      credit_card: 115,
+      credit_card: 118.45,
       checkNumber: null,
       notes: null,
     });
   });
 
-  /** Verifies a credit-card tender combines with cash in a split payment. */
+  /** Verifies the card fee line + fee-inclusive total appear the moment a card
+   *  charge is entered ($100 of items, $103.00 terminal charge → fee $3.00). */
+  it("shows an explicit card fee line and updates the total", () => {
+    render(<PaymentForm total={100} onSubmit={vi.fn()} onCancel={vi.fn()} />);
+    // Nothing on card yet → no fee line, total stays at the items subtotal.
+    expect(screen.queryByTestId("card-fee-line")).not.toBeInTheDocument();
+    expect(screen.getByText(/payment — total: \$100\.00/i)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/credit card/i), {
+      target: { value: "103" },
+    });
+    const feeLine = screen.getByTestId("card-fee-line");
+    expect(feeLine).toHaveTextContent(/items: \$100\.00/i);
+    expect(feeLine).toHaveTextContent(/card fee \(3%\): \$3\.00/i);
+    expect(feeLine).toHaveTextContent(/buyer total: \$103\.00/i);
+    expect(screen.getByText(/payment — total: \$103\.00/i)).toBeInTheDocument();
+  });
+
+  /** Verifies under-tender validation compares against the fee-inclusive total:
+   *  $100 of items with a $100.00 card charge is short the $2.91 fee. */
+  it("shows the short error against the fee-inclusive total", () => {
+    render(<PaymentForm total={100} onSubmit={vi.fn()} onCancel={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText(/credit card/i), {
+      target: { value: "100" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /complete sale/i }));
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      /less than total \(\$102\.91\)/i,
+    );
+  });
+
+  /** Verifies the change-due block uses the fee-inclusive total: $100 of items
+   *  with a $200.00 card charge → fee $5.83, total $105.83, change $94.17. */
+  it("applies the card fee when computing change due", () => {
+    render(<PaymentForm total={100} onSubmit={vi.fn()} onCancel={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText(/credit card/i), {
+      target: { value: "200" },
+    });
+    expect(
+      screen.getByText(/change due to buyer: \$94\.17/i),
+    ).toBeInTheDocument();
+  });
+
+  /** Verifies a credit-card tender combines with cash in a split payment —
+   *  the card carries its $1.95 fee for financing the remaining $65.00
+   *  ($66.95 terminal charge) and the split settles exactly. */
   it("submits a split cash + credit-card payment", () => {
     const onSubmit = vi.fn();
     render(<PaymentForm total={115} onSubmit={onSubmit} onCancel={vi.fn()} />);
@@ -90,13 +137,13 @@ describe("PaymentForm", () => {
       target: { value: "50" },
     });
     fireEvent.change(screen.getByLabelText(/credit card/i), {
-      target: { value: "65" },
+      target: { value: "66.95" },
     });
     fireEvent.click(screen.getByRole("button", { name: /complete sale/i }));
     expect(onSubmit).toHaveBeenCalledWith({
       cash: 50,
       check: 0,
-      credit_card: 65,
+      credit_card: 66.95,
       checkNumber: null,
       notes: null,
     });

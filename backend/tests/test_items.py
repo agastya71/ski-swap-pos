@@ -866,6 +866,86 @@ def test_worksheet_import_nonvendor_template_round_trip(client, active_event, ad
     assert item["used"] is True  # Used column omitted → defaults to yes
 
 
+def test_worksheet_vendor_allows_blank_mandatory_item_fields(client, active_event, admin_token):
+    """Vendor worksheets may leave Brand / Description / Sell Price EMPTY
+    (2026-10-28): blank description/brand import as empty fields and a blank
+    price imports as $0.00 — including a row with only a quantity."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    data = _vendor_worksheet_bytes(item_rows=[
+        [3, "Skis", "Atomic", "World Cup Skate", "188", 200],  # fully filled
+        [4, "Skis", None, None, "180", None],                  # blank brand+desc+price
+        [10, "Helmet"],                                        # quantity-only row
+    ])
+    r = client.post(
+        "/items/import-worksheet",
+        files={"file": ("vendor.xlsx", data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["imported"] == 3
+    assert body["skipped"] == 0
+    assert body["errors"] == []
+    items = client.get(f"/intakes/{body['intake_id']}", headers=headers).json()["items"]
+    assert len(items) == 3
+    filled = next(it for it in items if it["quantity"] == 3)
+    blank = next(it for it in items if it["quantity"] == 4)
+    only_qty = next(it for it in items if it["quantity"] == 10)
+    assert blank["description"] is None
+    assert blank["brand"] is None
+    assert blank["price"] == 0.0
+    assert blank["remaining"] == 4
+    assert blank["category"] == "Skis"
+    assert only_qty["description"] is None
+    assert only_qty["price"] == 0.0
+    assert only_qty["brand"] is None
+    assert only_qty["category"] == "Helmet"
+    assert filled["price"] == 200.0
+    assert filled["brand"] == "Atomic"
+    assert filled["description"] == "World Cup Skate"
+
+
+def test_worksheet_nonvendor_still_requires_brand_description_price(client, active_event, admin_token):
+    """The strict contract stays for individual sellers: rows missing Brand or
+    Description/Price are skipped with per-row errors (vendor relaxation only)."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    data = _nonvendor_worksheet_bytes(item_rows=[
+        [2, "Skis", None, None, None, "27.5", None, "Yes"],                # no brand/desc/price
+        [1, "Skis", "Skate", None, "Pro", "190", 100, "No"],               # no brand
+        [1, "Skis", "Classic", "Salomon", None, "170", 50, "Yes"],         # no description
+    ])
+    r = client.post(
+        "/items/import-worksheet",
+        files={"file": ("consignor.xlsx", data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["imported"] == 0
+    assert body["skipped"] == 3
+    reasons = [e["reason"] for e in body["errors"]]
+    assert reasons[0] == "Missing required field: Description or Price"
+    assert reasons[1] == "Missing required field: Brand"
+    assert reasons[2] == "Missing required field: Description or Price"
+
+
+def test_worksheet_vendor_malformed_price_still_errors(client, active_event, admin_token):
+    """The vendor relaxation covers EMPTY fields only — a malformed price like
+    "TBD" is still a per-row error, not a silent $0."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    data = _vendor_worksheet_bytes(item_rows=[[4, "Skis", None, None, "180", "TBD"]])
+    r = client.post(
+        "/items/import-worksheet",
+        files={"file": ("vendor.xlsx", data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["imported"] == 0
+    assert body["skipped"] == 1
+    assert body["errors"] == [{"row": 13, "reason": "Invalid Price value: 'TBD'"}]
+
+
 def test_worksheet_vendor_company_only_creates_vendor(client, active_event, admin_token):
     """A vendor worksheet with Company but no personal names still creates the
     vendor (names stay empty; the code derives from the company)."""
