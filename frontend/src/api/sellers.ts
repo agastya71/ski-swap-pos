@@ -1,8 +1,8 @@
 /**
- * Sellers API — search, fetch, register, and update consignment sellers.
- * Requires admin or intake role.
+ * Sellers API — search, fetch, register, update, and reprint labels.
+ * Admin-only features: delete, seller-level label reprint.
  */
-import { apiFetch } from './client'
+import { apiFetch, apiFetchText } from './client'
 import type { Seller, SellerCreate, SellerUpdate, Item } from '../types'
 
 /**
@@ -75,3 +75,55 @@ export const deleteSeller = (id: number) =>
   apiFetch<{ deleted: number; code: string; name: string }>(`/sellers/${id}`, {
     method: 'DELETE',
   })
+
+/**
+ * Print every remaining item's labels across ALL of a seller's intake
+ * sessions on the server-attached Zebra — the admin seller-level reprint.
+ *
+ * One tag per on-hand remaining unit; sold-out and soft-deleted items emit
+ * nothing. Reprints never touch `label_printed` (see the seller router).
+ *
+ * @param sellerId - Primary key of the seller.
+ * @param codeAsText - When true, each item's code prints as large text instead
+ *   of a barcode (`?code_as_text=true`).
+ * @returns Object with `seller_id` and `printed` count of label batches sent.
+ * @throws {ApiError} 404 if the seller is unknown in the active event or has
+ *   nothing left in stock.
+ * @throws {ApiError} 403 if the signed-in role is not admin.
+ * @throws {ApiError} 503 if the label printer is unavailable.
+ */
+export const printSellerLabels = (sellerId: number, codeAsText?: boolean) =>
+  apiFetch<{ seller_id: number; printed: number }>(
+    `/sellers/${sellerId}/labels${codeAsText ? '?code_as_text=true' : ''}`,
+    { method: 'POST' },
+  )
+
+/**
+ * Fetch the concatenated raw ZPL for every remaining item across ALL of a
+ * seller's intake sessions, WITHOUT sending it to the server printer
+ * (client-side printing path, mirrors the intake labels.zpl endpoint).
+ *
+ * Read-only: reprints have no ack companion, so nothing marks state.
+ *
+ * @param sellerId - Primary key of the seller.
+ * @param codeAsText - When true, each item's code prints as large text.
+ * @param dx - Optional geometry nudge (dots) for the Browser-Print agent path.
+ * @param dy - Optional geometry nudge (dots) for the Browser-Print agent path.
+ * @returns Raw ZPL text.
+ * @throws {ApiError} 404 if the seller is unknown in the active event or has
+ *   nothing left in stock.
+ * @throws {ApiError} 403 if the signed-in role is not admin.
+ */
+export const fetchSellerLabelsZpl = (
+  sellerId: number,
+  codeAsText?: boolean,
+  dx?: number,
+  dy?: number,
+) => {
+  const params = new URLSearchParams()
+  if (codeAsText) params.set('code_as_text', 'true')
+  if (dx) params.set('dx', String(dx))
+  if (dy) params.set('dy', String(dy))
+  const qs = params.toString()
+  return apiFetchText(`/sellers/${sellerId}/labels.zpl${qs ? `?${qs}` : ''}`)
+}

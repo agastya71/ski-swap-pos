@@ -424,6 +424,132 @@ describe("SellerDetailPage", () => {
   });
 });
 
+describe("SellerDetailPage — admin seller-level label reprint", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    setToken(null);
+  });
+
+  /** The whole-seller reprint control renders in the action bar next to
+   *  Payout/Add Item and is enabled once items with remaining stock load. */
+  it("renders the reprint control enabled with on-hand stock", async () => {
+    render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />);
+    await waitFor(() => expect(screen.getByText("001-01")).toBeInTheDocument());
+    expect(
+      screen.getByRole("button", { name: /reprint labels \(all intakes\)/i }),
+    ).toBeEnabled();
+  });
+
+  /** Nothing on hand (all sold/remaining 0) → button disabled even though
+   *  items exist (backend would 404 — no stock). */
+  it("disables the reprint control when nothing remains on hand", async () => {
+    server.use(
+      http.get("/sellers/:id/items", () =>
+        HttpResponse.json([{ ...SELLER_ITEM, remaining: 0 }]),
+      ),
+    );
+    render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />);
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: /reprint labels \(all intakes\)/i }),
+      ).toBeDisabled(),
+    );
+  });
+
+  /** Confirm-gated reprint: on confirm the workstation's printer mode decides
+   *  the delivery — default (server) POSTs /sellers/:id/labels and the status
+   *  line reports the backend's printed count. */
+  it("reprints on the server printer after confirmation", async () => {
+    setToken(ADMIN_TOKEN);
+    let request: Request | null = null;
+    server.use(
+      http.post("/sellers/:id/labels", ({ request: req }) => {
+        request = req;
+        return HttpResponse.json({ seller_id: 1, printed: 2 });
+      }),
+    );
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />);
+    await waitFor(() => expect(screen.getByText("001-01")).toBeInTheDocument());
+    fireEvent.click(
+      screen.getByRole("button", { name: /reprint labels \(all intakes\)/i }),
+    );
+    await waitFor(() => expect(request).not.toBeNull());
+    expect(request!.url).toMatch(/\/sellers\/1\/labels$/);
+    expect(request!.url).not.toContain("code_as_text");
+    await waitFor(() =>
+      expect(
+        screen.getByText(/reprinted labels for 2 items/i),
+      ).toBeInTheDocument(),
+    );
+  });
+
+  /** Checking "Codes as text" propagates to the ?code_as_text=true query. */
+  it("sends code_as_text=true when the codes-as-text checkbox is checked", async () => {
+    setToken(ADMIN_TOKEN);
+    let request: Request | null = null;
+    server.use(
+      http.post("/sellers/:id/labels", ({ request: req }) => {
+        request = req;
+        return HttpResponse.json({ seller_id: 1, printed: 1 });
+      }),
+    );
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />);
+    await waitFor(() => expect(screen.getByText("001-01")).toBeInTheDocument());
+    fireEvent.click(
+      screen.getByLabelText(/reprint item codes as text/i),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: /reprint labels \(all intakes\)/i }),
+    );
+    await waitFor(() => expect(request).not.toBeNull());
+    expect(request!.url).toContain("code_as_text=true");
+  });
+
+  /** Cancelling the confirm dialog makes no API call. */
+  it("keeps quiet when the confirm dialog is cancelled", async () => {
+    let called = false;
+    server.use(
+      http.post("/sellers/:id/labels", () => {
+        called = true;
+        return HttpResponse.json({ seller_id: 1, printed: 1 });
+      }),
+    );
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />);
+    await waitFor(() => expect(screen.getByText("001-01")).toBeInTheDocument());
+    fireEvent.click(
+      screen.getByRole("button", { name: /reprint labels \(all intakes\)/i }),
+    );
+    expect(called).toBe(false);
+  });
+
+  /** Printer failure (503 "printer down") surfaces in the alert line. */
+  it("surfaces a printer-down failure in the alert line", async () => {
+    setToken(ADMIN_TOKEN);
+    server.use(
+      http.post("/sellers/1/labels", () =>
+        HttpResponse.json(
+          { detail: "Label printer is down." },
+          { status: 503 },
+        ),
+      ),
+    );
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />);
+    await waitFor(() => expect(screen.getByText("001-01")).toBeInTheDocument());
+    fireEvent.click(
+      screen.getByRole("button", { name: /reprint labels \(all intakes\)/i }),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        /label printer is down/i,
+      ),
+    );
+  });
+});
+
 describe("SellerDetailPage — Import Items button (functional)", () => {
   afterEach(() => {
     vi.restoreAllMocks();

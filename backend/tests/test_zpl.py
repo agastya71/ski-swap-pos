@@ -117,14 +117,16 @@ def test_generate_zpl_whole_label_left_20(item):
     """v10 (2026-10-14 user directive: "the whole label needs to be shifted
     20 dots to the left"): LABEL_LEFT_DOTS=-20 folds into dx_eff — the
     horizontal analogue of v7's LABEL_DOWN_DOTS in dy_eff — so every field
-    x sits 20 dots left of the ruler window and ^PW tracks the narrowed
-    right edge (703)."""
+    x sits 40 dots left of the ruler window (v10 −20 + the 2026-10-16 user
+    tune's further −20 per side) — ^PW tracks the narrowed right edge 683
+    (703 after v10).
+    """
     from app.services.zpl import generate_zpl
 
     zpl = generate_zpl(item)
-    assert "^PW703" in zpl
-    assert "^FT127,124^AEN,28,15^FDABC^FS" in zpl        # left origin 147−20
-    assert "^FO453,18^BCN,46,N,N,N^FDABC-001^FS" in zpl  # barcode band −20
+    assert "^PW683" in zpl
+    assert "^FT107,124^AEN,28,15^FDABC^FS" in zpl        # left origin 147−40
+    assert "^FO433,18^BCN,46,N,N,N^FDABC-001^FS" in zpl  # barcode band −40
 
 
 # ── Template-file rendering (v11: live layout edits, no recompile/restart) ───
@@ -416,14 +418,14 @@ def test_generate_zpl_emits_explicit_format_commands(item):
     assert "^MD20" in zpl
     assert "^LL203" in zpl
     assert "^LS" not in zpl  # ^FT fields ignore the label shift — the origin is baked into x
-    assert "^PW703" in zpl
+    assert "^PW683" in zpl
     assert "^CI0" in zpl
 
 
 def test_generate_zpl_code_as_text_also_carries_format_commands(item):
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item, code_as_text=True)
-    assert "^PW703" in zpl
+    assert "^PW683" in zpl
     assert "^MD20" in zpl
     assert "^BCN" not in zpl
 
@@ -468,25 +470,23 @@ def test_send_to_printer_cups_unavailable_raises_oserror(tmp_path):
 def test_generate_zpl_price_right_column_seller_row(item):
     """The price prints in the RIGHT COLUMN of the seller row (y=120), left
     justified at the barcode's x anchor (2026-10-06 v6 user directive). For
-    the 7-char code the anchor is 713 - (10 syms × 22 + 40 quiet) = 453
-    dots (v9 exact model, v10's −20 baked in) — the same column edge the
-    barcode and centered ID occupy. The bars end exactly at 693 (the 703
-    right edge − the 10-dot v9.3 nudge)."""
+    the 7-char code the anchor is 693 - (10 syms × 22 + 40 quiet) = 433
+    dots (v9 exact model, v10 −20 + user tune −20 baked in) — the same
+    column edge the barcode and centered ID occupy. The bars end exactly
+    at 673 (the 683 right edge − the 10-dot v9.3 nudge)."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item)
-    assert "^FT453,124^AEN,28,15^FD$25.00^FS" in zpl
-    assert "^FO453,18^BCN,46,N,N,N^FDABC-001^FS" in zpl
+    assert "^FT433,124^AEN,28,15^FD$25.00^FS" in zpl
+    assert "^FO433,18^BCN,46,N,N,N^FDABC-001^FS" in zpl
 
 
 def test_generate_zpl_item_id_row_below_barcode(item):
     """The item identifier repeats at the price's font size, centered under
     the barcode — always one pitch below the event slot, a uniform y on
-    every label, full row clear of the bars (print feedback: v2's 5-dot gap
-    read as "mixed up with the barcode"). Bars end at y=60; the row is at
     y=93 with or without an event name."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item)
-    assert "^FT453,90^FB240,1,0,C,0^AEN,28,15^FDABC-001^FS" in zpl
+    assert "^FT433,90^FB240,1,0,C,0^AEN,28,15^FDABC-001^FS" in zpl
 
 
 def test_generate_zpl_user_id_below_price(item):
@@ -494,7 +494,7 @@ def test_generate_zpl_user_id_below_price(item):
     price's font size, top-anchored via ^FT."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item)
-    assert "^FT127,124^AEN,28,15^FDABC^FS" in zpl
+    assert "^FT107,124^AEN,28,15^FDABC^FS" in zpl
 
 
 def test_generate_zpl_label_lines_print_while_they_fit(item):
@@ -504,7 +504,7 @@ def test_generate_zpl_label_lines_print_while_they_fit(item):
     and is dropped rather than clipped."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item)
-    assert "^FT127,178^AEN,28,15^FDSize 8^FS" in zpl
+    assert "^FT107,178^AEN,28,15^FDSize 8^FS" in zpl
     assert "Adult" not in zpl
 
 
@@ -513,9 +513,9 @@ def test_generate_zpl_category_and_size_row(clean_item):
     row between the seller code and the description."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(clean_item)
-    assert "^FT127,151^AEN,28,15^FDPOLES  Sz: 115cm^FS" in zpl
-    assert "^FT127,124^AEN,28,15^FDABC^FS" in zpl
-    assert "^FT127,178^AEN,28,15^FDSki boots^FS" in zpl
+    assert "^FT107,151^AEN,28,15^FDPOLES  Sz: 115cm^FS" in zpl
+    assert "^FT107,124^AEN,28,15^FDABC^FS" in zpl
+    assert "^FT107,178^AEN,28,15^FDSki boots^FS" in zpl
 
 
 def test_generate_zpl_category_size_row_skipped_when_absent(item):
@@ -523,7 +523,7 @@ def test_generate_zpl_category_size_row_skipped_when_absent(item):
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item)
     assert "Sz: " not in zpl
-    assert "^FT127,151^AEN,28,15^FDSki boots^FS" in zpl
+    assert "^FT107,151^AEN,28,15^FDSki boots^FS" in zpl
 
 
 def test_generate_zpl_prints_event_name(item):
@@ -533,9 +533,9 @@ def test_generate_zpl_prints_event_name(item):
     seller flows directly below the uniform ID row."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item, event_name="Ski Swap 2026")
-    assert "^FT127,37^AEN,28,15^FDSki Swap 2026^FS" in zpl
-    assert "^FT453,90^FB240,1,0,C,0^AEN,28,15^FDABC-001^FS" in zpl
-    assert "^FT127,124^AEN,28,15^FDABC^FS" in zpl
+    assert "^FT107,37^AEN,28,15^FDSki Swap 2026^FS" in zpl
+    assert "^FT433,90^FB240,1,0,C,0^AEN,28,15^FDABC-001^FS" in zpl
+    assert "^FT107,124^AEN,28,15^FDABC^FS" in zpl
 
 
 def test_generate_zpl_event_row_drops_overflowing_lines(item):
@@ -544,8 +544,8 @@ def test_generate_zpl_event_row_drops_overflowing_lines(item):
     the description fits at 127 and line2 at 178; line3 (205) is dropped."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item, event_name="Ski Swap 2026")
-    assert "^FT127,151^AEN,28,15^FDSki boots^FS" in zpl
-    assert "^FT127,178^AEN,28,15^FDSize 8^FS" in zpl
+    assert "^FT107,151^AEN,28,15^FDSki boots^FS" in zpl
+    assert "^FT107,178^AEN,28,15^FDSize 8^FS" in zpl
     assert "Adult" not in zpl
 
 
@@ -555,7 +555,7 @@ def test_generate_zpl_event_in_price_slot_in_both_modes(item):
     barcode and text modes."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item, event_name="MYSL 2020")
-    assert "^FT127,37^AEN,28,15^FDMYSL 2020^FS" in zpl
+    assert "^FT107,37^AEN,28,15^FDMYSL 2020^FS" in zpl
     zpl = generate_zpl(item, code_as_text=True, event_name="MYSL 2020")
     assert "^FT127,37^AEN,28,15^FDMYSL 2020^FS" in zpl
 
@@ -564,12 +564,12 @@ def test_generate_zpl_text_mode_code_top_right(item):
     """Text-mode item code sits in the barcode's place (top-right, right-
     aligned via ^FB) with no repeated identifier row below it; the price
     (+ flag) prints on the seller row (y=80), left-justified at the content
-    width's midpoint (415) — text mode has no barcode anchor."""
+    width's midpoint (405) — text mode has no barcode anchor."""
     from app.services.zpl import generate_zpl
     zpl = generate_zpl(item, code_as_text=True, event_name="Ski Swap 2026")
-    assert "^FT127,38^FB576,1,0,R,0^AEN,56,30^FDABC-001^FS" in zpl
+    assert "^FT127,38^FB556,1,0,R,0^AEN,56,30^FDABC-001^FS" in zpl
     assert "^FT127,37^AEN,28,15^FDSki Swap 2026^FS" in zpl
-    assert "^FT415,84^AEN,28,15^FD$25.00^FS" in zpl
+    assert "^FT405,84^AEN,28,15^FD$25.00^FS" in zpl
     assert "^BCN" not in zpl
     assert "^FT453," not in zpl  # no identifier row under the (absent) barcode
 
@@ -584,18 +584,18 @@ def test_generate_zpl_donation_flag_beside_price(item):
     from app.services.zpl import generate_zpl
     item.donate_unsold = True
     zpl = generate_zpl(item)
-    assert "^FT453,124^A0N,30,30^FDD^FS" in zpl
-    assert "^FT493,124^AEN,28,15^FD$25.00^FS" in zpl
+    assert "^FT433,124^A0N,30,30^FDD^FS" in zpl
+    assert "^FT473,124^AEN,28,15^FD$25.00^FS" in zpl
     # the flag left the ID row: the ID is centered there alone, and the
     # seller row keeps its slot (the flag costs no row either way)
-    assert "^FT453,90^FB240,1,0,C,0^AEN,28,15^FDABC-001^FS" in zpl
-    assert "^FT127,124^AEN,28,15^FDABC^FS" in zpl
+    assert "^FT433,90^FB240,1,0,C,0^AEN,28,15^FDABC-001^FS" in zpl
+    assert "^FT107,124^AEN,28,15^FDABC^FS" in zpl
     assert zpl.count("^FDD^FS") == 1          # exactly one D field, at the price row
     item.donate_unsold = False
     zpl = generate_zpl(item)
-    assert "^FT453,124^AEN,28,15^FD$25.00^FS" in zpl
+    assert "^FT433,124^AEN,28,15^FD$25.00^FS" in zpl
     assert zpl.count("^FDD^FS") == 0
-    assert "^FT127,124^AEN,28,15^FDABC^FS" in zpl
+    assert "^FT107,124^AEN,28,15^FDABC^FS" in zpl
 
 
 def test_generate_zpl_price_column_floored_for_long_codes(item):
@@ -611,27 +611,27 @@ def test_generate_zpl_price_column_floored_for_long_codes(item):
     item.code = "LONGCODE-1234"
     item.donate_unsold = True
     zpl = generate_zpl(item)
-    assert "^FT321,124^A0N,30,30^FDD^FS" in zpl
-    assert "^FT361,124^AEN,28,15^FD$25.00^FS" in zpl
+    assert "^FT301,124^A0N,30,30^FDD^FS" in zpl
+    assert "^FT341,124^AEN,28,15^FD$25.00^FS" in zpl
     item.code = "LONGCODE-1234567"
     zpl = generate_zpl(item)
-    assert "^FT307,124^A0N,30,30^FDD^FS" in zpl
-    assert "^FT347,124^AEN,28,15^FD$25.00^FS" in zpl
+    assert "^FT287,124^A0N,30,30^FDD^FS" in zpl
+    assert "^FT327,124^AEN,28,15^FD$25.00^FS" in zpl
 
 
 def test_generate_zpl_numeric_id_bars_end_at_right_edge(item):
     """v9 (2026-10-12 user directive: use more of the label width): with the
     numeric 5-digit item ids the exact Code 128 model parks the bars at the
     content right edge — 7 syms (start C + 2 pairs + B-switch pair + check +
-    stop) × 22 = 154-dot ink ending at 693, bx = 713 - 194 = 519 — and the
+    stop) × 22 = 154-dot ink ending at 673, bx = 693 - 194 = 499 — and the
     price/ID column anchors at that (true) bars start instead of floating
     ~100 dots left of them as the v7 estimate did."""
     from app.services.zpl import generate_zpl
     item.code = "10042"
     zpl = generate_zpl(item)
-    assert "^FO519,18^BCN,46,N,N,N^FD10042^FS" in zpl
-    assert "^FT519,124^AEN,28,15^FD$25.00^FS" in zpl
-    assert "^FT519,90^FB174,1,0,C,0^AEN,28,15^FD10042^FS" in zpl
+    assert "^FO499,18^BCN,46,N,N,N^FD10042^FS" in zpl
+    assert "^FT499,124^AEN,28,15^FD$25.00^FS" in zpl
+    assert "^FT499,90^FB174,1,0,C,0^AEN,28,15^FD10042^FS" in zpl
 
 
 def test_generate_zpl_text_mode_donation_flag_rides_price(item):
@@ -641,12 +641,12 @@ def test_generate_zpl_text_mode_donation_flag_rides_price(item):
     from app.services.zpl import generate_zpl
     item.donate_unsold = True
     zpl = generate_zpl(item, code_as_text=True, event_name="MYSL 2020")
-    assert "^FT415,84^A0N,30,30^FDD^FS" in zpl
-    assert "^FT455,84^AEN,28,15^FD$25.00^FS" in zpl
+    assert "^FT405,84^A0N,30,30^FDD^FS" in zpl
+    assert "^FT445,84^AEN,28,15^FD$25.00^FS" in zpl
     assert "^FT127,84^AEN,28,15^FDABC^FS" in zpl
     item.donate_unsold = False
     zpl = generate_zpl(item, code_as_text=True, event_name="MYSL 2020")
-    assert "^FT415,84^AEN,28,15^FD$25.00^FS" in zpl
+    assert "^FT405,84^AEN,28,15^FD$25.00^FS" in zpl
     assert "^FT127,84^AEN,28,15^FDABC^FS" in zpl
     assert "^FT127,37^AEN,28,15^FDMYSL 2020^FS" in zpl
 
@@ -659,7 +659,7 @@ def test_generate_zpl_barcode_encodes_item_code_only(item):
     from app.services.zpl import generate_zpl
     item.barcode_39 = "CUSTOM-39"
     zpl = generate_zpl(item)
-    assert "^FO453,18^BCN,46,N,N,N^FDABC-001^FS" in zpl
+    assert "^FO433,18^BCN,46,N,N,N^FDABC-001^FS" in zpl
     assert "CUSTOM-39" not in zpl
 
 
@@ -671,7 +671,7 @@ def test_generate_zpl_plain_font_except_donation_flag(item, clean_item):
     item.donate_unsold = True
     zpl = generate_zpl(item)
     assert zpl.count("^A0N") == 1                       # only the flag
-    assert "^FT453,124^A0N,30,30^FDD^FS" in zpl
+    assert "^FT433,124^A0N,30,30^FDD^FS" in zpl
     assert zpl.count("^AEN,28,15") >= 4                  # every other text row
     item.donate_unsold = False
     assert "^A0N" not in generate_zpl(item)
@@ -692,3 +692,198 @@ def test_generate_zpl_description_truncated_to_20_chars(clean_item):
     zpl = generate_zpl(clean_item)
     assert 20 * "x" in zpl
     assert 21 * "x" not in zpl
+
+
+# ── Vendor brand prefix + admin seller-level reprint (2026-11-06) ───────────
+
+
+@pytest.fixture
+def vendor_seller(db, active_event):
+    s = Seller(
+        event_id=active_event.id,
+        code="VCO",
+        company="Acme Outfitters",
+        is_vendor=True,
+    )
+    db.add(s)
+    db.commit()
+    db.refresh(s)
+    return s
+
+
+def _vendor_item(db, vendor_seller, **overrides):
+    """Vendor item on a fresh intake (brand-capable), ready for label rendering."""
+    i = Intake(
+        seller_id=vendor_seller.id,
+        date_entered=datetime.date.today(),
+        donate_unsold=False,
+        donate_proceeds=False,
+    )
+    db.add(i)
+    db.commit()
+    db.refresh(i)
+    fields = dict(
+        intake_id=i.id,
+        seller_id=vendor_seller.id,
+        code="VEN-100",
+        price=25.00,
+        description="Skis 170cm",
+        brand="Atomic",
+        category="Skis",
+        size="170cm",
+        quantity=1.0,
+        remaining=1.0,
+        status="available",
+        label_printed=False,
+    )
+    fields.update(overrides)
+    it = Item(**fields)
+    db.add(it)
+    db.commit()
+    db.refresh(it)
+    return it
+
+
+def test_generate_zpl_vendor_brand_prints_before_description(db, vendor_seller):
+    it = _vendor_item(db, vendor_seller)
+    from app.services.zpl import generate_zpl
+
+    zpl = generate_zpl(it)
+    # Brand FIRST on the combined description row; the row is replaced.
+    assert "^FDAtomic Skis 170cm^FS" in zpl
+    assert "^FDSkis 170cm^FS" not in zpl
+
+
+def test_generate_zpl_vendor_brand_capped_at_field_max(db, vendor_seller):
+    it = _vendor_item(
+        db, vendor_seller, brand="BrandnameIsVeryLong", description="D" * 40
+    )
+    from app.services.zpl import generate_zpl
+
+    zpl = generate_zpl(it)
+    # desc[:20] first, then "brand desc" capped at max_field_chars (28):
+    # 19-char brand + space + 8 of the 20 D's.
+    expected = "BrandnameIsVeryLong" + " " + "D" * 8
+    assert f"^FD{expected}^FS" in zpl
+    # nothing past the 28-char cap
+    assert f"^FD{expected}D^FS" not in zpl
+
+
+def test_generate_zpl_nonvendor_brand_ignored(db, seller, intake):
+    it = Item(
+        intake_id=intake.id,
+        seller_id=seller.id,
+        code="ABC-010",
+        price=25.00,
+        description="Ski boots",
+        brand="Atomic",
+        status="available",
+        label_printed=False,
+    )
+    db.add(it)
+    db.commit()
+    db.refresh(it)
+    from app.services.zpl import generate_zpl
+
+    zpl = generate_zpl(it)
+    assert "^FDSki boots^FS" in zpl
+    assert "Atomic" not in zpl
+
+
+def test_generate_zpl_vendor_without_brand_description_only(db, vendor_seller):
+    it = _vendor_item(db, vendor_seller, brand=None)
+    from app.services.zpl import generate_zpl
+
+    zpl = generate_zpl(it)
+    assert "^FDSkis 170cm^FS" in zpl
+    assert "Atomic" not in zpl
+
+
+def test_generate_zpl_vendor_brand_without_description(db, vendor_seller):
+    # Import relaxation (2026-10-14) allows vendor worksheets with a blank
+    # description; a brand alone still prints on the description row.
+    it = _vendor_item(db, vendor_seller, description="")
+    from app.services.zpl import generate_zpl
+
+    zpl = generate_zpl(it)
+    assert "^FDAtomic^FS" in zpl
+    assert "^FDSkis 170cm^FS" not in zpl
+
+
+def test_seller_labels_zpl_concatenates_remaining_only(
+    client, admin_token, db, vendor_seller
+):
+    """GET /sellers/{id}/labels.zpl — every intake at once; sold-out items
+    emit nothing; one tag per on-hand remaining unit (^PQ)."""
+    it1 = _vendor_item(db, vendor_seller, code="VEN-A", quantity=2.0, remaining=2.0)
+    _vendor_item(db, vendor_seller, code="VEN-B", remaining=0.0)
+    resp = client.get(
+        f"/sellers/{vendor_seller.id}/labels.zpl",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    assert "VEN-A" in resp.text
+    assert "^PQ2" in resp.text
+    assert "VEN-B" not in resp.text  # remaining 0 → no tag
+    assert resp.text.count("^XA") == 1
+
+
+def test_seller_labels_zpl_unknown_seller_404(client, admin_token):
+    resp = client.get(
+        "/sellers/999999/labels.zpl",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 404
+
+
+def test_seller_labels_zpl_no_remaining_items_404(client, admin_token, db, vendor_seller):
+    # Item-less vendor AND sold-out-only stock both land on the same answer.
+    for resp in (
+        client.get(
+            f"/sellers/{vendor_seller.id}/labels.zpl",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        ),
+        client.post(
+            f"/sellers/{vendor_seller.id}/labels",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        ),
+    ):
+        assert resp.status_code == 404
+
+
+def test_seller_labels_zpl_requires_admin(client, intake_token, vendor_seller):
+    """Intake role is NOT enough for seller-level reprints; no token → 403."""
+    for headers in ({}, {"Authorization": f"Bearer {intake_token}"}):
+        resp = client.get(
+            f"/sellers/{vendor_seller.id}/labels.zpl", headers=headers
+        )
+        assert resp.status_code == 403
+
+
+def test_print_seller_labels_success(client, admin_token, db, vendor_seller):
+    """POST /sellers/{id}/labels — server-attached reprint spans all intakes,
+    counts ITEM batches, and never touches label_printed (reprint ≠ first print)."""
+    _vendor_item(db, vendor_seller, code="VEN-A", quantity=2.0, remaining=2.0)
+    _vendor_item(db, vendor_seller, code="VEN-B", remaining=0.0)
+    with patch("app.routers.sellers.send_to_printer") as mock_send:
+        resp = client.post(
+            f"/sellers/{vendor_seller.id}/labels",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+    assert resp.status_code == 200
+    assert resp.json() == {"seller_id": vendor_seller.id, "printed": 1}
+    assert mock_send.call_count == 1
+
+
+def test_print_seller_labels_printer_unavailable_503(
+    client, admin_token, db, vendor_seller
+):
+    _vendor_item(db, vendor_seller)
+    with patch(
+        "app.routers.sellers.send_to_printer", side_effect=OSError("no printer")
+    ):
+        resp = client.post(
+            f"/sellers/{vendor_seller.id}/labels",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+    assert resp.status_code == 503

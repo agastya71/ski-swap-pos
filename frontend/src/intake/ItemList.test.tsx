@@ -5,7 +5,7 @@
  *
  * @module ItemList.test
  */
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { server } from "../mocks/server";
 import { http, HttpResponse } from "msw";
 import { ItemList } from "./ItemList";
@@ -369,6 +369,28 @@ it("shows the donate flag per line item", () => {
   expect(
     screen.getByRole("checkbox", { name: "Donate if unsold for A001-002" }),
   ).toBeChecked();
+});
+
+/** Regression (2026-11-02 user report): the Donate? and On Hand columns were flipped —
+ *  the row's remaining value sat under "Donate?" and the checkbox under "On Hand". */
+it("aligns Donate and On Hand values with their headers", () => {
+  const stock: Item = { ...ITEM, quantity: 3, remaining: 2 };
+  render(<ItemList items={[stock]} intakeId={5} onItemsChanged={vi.fn()} />);
+  const donateIndex = (
+    screen.getByRole("columnheader", { name: "Donate?" }) as HTMLTableCellElement
+  ).cellIndex;
+  const onHandIndex = (
+    screen.getByRole("columnheader", { name: "On Hand" }) as HTMLTableCellElement
+  ).cellIndex;
+  const cells = Array.from(
+    screen.getByText("A001-001").closest("tr")!.children,
+  ) as HTMLElement[];
+  expect(
+    within(cells[donateIndex]).getByRole("checkbox", {
+      name: "Donate if unsold for A001-001",
+    }),
+  ).not.toBeChecked();
+  expect(within(cells[onHandIndex]).getByText("2")).toBeInTheDocument();
 });
 
 /** Verifies the inline donate toggle PATCHes donate_unsold immediately and refreshes. */

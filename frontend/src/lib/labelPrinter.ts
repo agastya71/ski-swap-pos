@@ -25,6 +25,10 @@ import {
   printIntakeLabels,
 } from "../api/intakes";
 import {
+  fetchSellerLabelsZpl,
+  printSellerLabels,
+} from "../api/sellers";
+import {
   ackLabelPrinted,
   fetchLabelZpl,
   printLabel,
@@ -241,4 +245,40 @@ export async function dispatchIntakeLabels(
   const device = await findAgentPrinter();
   await writeZplToAgent(device, zpl);
   await ackIntakeLabels(intakeId);
+}
+
+/** Whole-seller (admin) reprint dispatch — labels for every remaining unit
+ *  across ALL of the seller's intake sessions as one concatenated ZPL
+ *  payload. Mirrors {@link dispatchIntakeLabels} for agent/download
+ *  delivery, but there is NO ack: reprints never touch `label_printed` (the
+ *  first-print intake flows own that flag — mirror of the seller router,
+ *  where the reprint endpoints deliberately have no ack companion).
+ *
+ *  @returns In "server" mode the backend's `printed` count (number of items
+ *  whose labels were printed, each carrying its ^PQ quantity), null for the
+ *  agent/download paths (delivery is local; nothing to count). */
+export async function dispatchSellerLabels(
+  mode: LabelPrinterMode,
+  sellerId: number,
+  codeAsText: boolean,
+  filename: string,
+): Promise<number | null> {
+  if (mode === "server") {
+    // Server-attached reprint: a single POST spanning every intake.
+    const { printed } = await printSellerLabels(sellerId, codeAsText);
+    return printed;
+  }
+  // Same agent geometry nudge as the other dispatchers, agent mode only.
+  const zpl =
+    mode === "agent"
+      ? await fetchSellerLabelsZpl(sellerId, codeAsText, AGENT_ZPL_DX_DOTS, AGENT_ZPL_DY_DOTS)
+      : await fetchSellerLabelsZpl(sellerId, codeAsText);
+  if (mode === "download") {
+    downloadZplFile(zpl, filename);
+    return null;
+  }
+  const device = await findAgentPrinter();
+  await writeZplToAgent(device, zpl);
+  // Deliberately NO ack — this is a reprint path (see the docstring).
+  return null;
 }

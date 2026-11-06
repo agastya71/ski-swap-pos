@@ -15,14 +15,15 @@
 ; HORIZONTAL (x) — carries the v10 whole-label shift (−20):
 ;   left_origin = 147 (Sep-27 window origin) − 20 = 127 (margin to the edge:
 ;               12 dots ≈ 1.5 mm — keep ~10 dots or more when editing).
-;   right_edge  = 723 (Sep-27 content edge) − 20 = 703.
+;   right_edge  = 723 (Sep-27 content edge) − 20 (v10) − 20 (user tune
+;               2026-10-16) = 683.
 ;   text_fb_w (computed) = right_edge − left_origin = 576 — the band code's
 ;               ^FB right-aligns into this width.
-;   price_col_x (computed) = (left_origin + right_edge) // 2 = 415 — the
+;   price_col_x (computed) = (left_origin + right_edge) // 2 = 395 — the
 ;               content width's midpoint; text mode has no barcode anchor.
 ;   price_x (computed, donate items only) = price_col_x + flag_d_width (14)
 ;               + flag_gap (26) = col + 40.
-;   pw (^PW, computed) = right_edge = 703.
+;   pw (^PW, computed) = right_edge = 683.
 ;
 ; VERTICAL (y) — format y=0 sits ≈12 dots ABOVE the media top; the v7
 ; whole-label shift (+4) is already inside every y below:
@@ -39,10 +40,16 @@
 ;
 ; CHAR CAPS: description truncates to desc_max_chars (20); other fields to
 ;   max_field_chars (28).
+;   Vendor items with a brand print the description row as "BRAND DESC"
+;   (brand first, combined + capped at max_field_chars = 28) — the flow
+;   never gains a row; non-vendors / blank brand keep the description-only
+;   row. (2026-11-06)
 ;
 ; ─── DIRECTIVES (values are FINAL format coordinates — nothing stacks) ───────
-; @left_origin 127        ; = 147 (Sep-27 window origin) − 20 (v10 shift)
-; @right_edge 703         ; = 723 (Sep-27 content edge) − 20 (v10 shift)
+; @left_origin 127        ; = 147 (Sep-27 window origin) − 20 (v10 shift);
+                         ; NOTE: text mode has NOT been user-tuned — the
+                         ; barcode file now uses 107 (off-media ⚠, its own warn)
+; @right_edge 683         ; = 723 (Sep-27) − 20 (v10) − 20 (user tune 2026-10-16)
 ; @y_event 37             ; = 33 (v5 price's old slot) + 4 (v7 down)
 ; @y_text_code 38         ; = 34 (v8 ×2-cell clearance) + 4
 ; @y_price_text 84        ; = 80 (flow start under the band code) + 4

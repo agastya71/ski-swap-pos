@@ -2,7 +2,7 @@
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -17,6 +17,7 @@ from app.schemas.intake import IntakeResponse
 from app.schemas.item import ItemResponse
 from app.schemas.seller import SellerCreate, SellerResponse, SellerUpdate
 from app.services.codes import next_seller_code
+from app.services.zpl import generate_zpl, send_to_printer
 
 router = APIRouter(prefix="/sellers", tags=["sellers"])
 
@@ -216,6 +217,119 @@ def list_seller_items(
         .all()
     )
     return items
+
+
+# ── Admin reprint: the whole seller's remaining labels (2026-11-06) ───────
+
+
+def _get_seller_or_404(db: Session, seller_id: int) -> Seller:
+    """Return the event-scoped seller, or 404 for an unknown/ghost id."""
+    event = _active_event(db)
+    seller = (
+        db.query(Seller)
+        .filter(Seller.id == seller_id, Seller.event_id == event.id)
+        .first()
+    )
+    if not seller:
+        raise HTTPException(status_code=404, detail="Seller not found")
+    return seller
+
+
+def _seller_remaining_items(db: Session, seller: Seller) -> list[Item]:
+    """The seller's in-stock items across ALL intakes, intake-then-code order.
+
+    Reprints cover REMAINING units only: a sold-out item (remaining 0) and
+    soft-deleted rows emit nothing (generate_zpl prints one tag per on-hand
+    unit per item, so the ^PQ count comes out right for multi-unit rows).
+    """
+    return (
+        db.query(Item)
+        .join(Intake, Item.intake_id == Intake.id)
+        .filter(
+            Item.seller_id == seller.id,
+            Item.is_deleted.is_(False),
+            Item.remaining > 0,
+        )
+        .order_by(Intake.id, Item.code)
+        .all()
+    )
+
+
+@router.get("/{seller_id}/labels.zpl", response_class=Response)
+def get_seller_labels_zpl(
+    seller_id: int,
+    code_as_text: bool = False,
+    dx: int = 0,
+    dy: int = 0,
+    db: Session = Depends(get_db),
+    _user: User = Depends(_ADMIN),
+):
+    """Admin reprint: raw ZPL for the seller's remaining items across all intakes.
+
+    Seller-level companion of ``GET /intakes/{intake_id}/labels.zpl`` — one
+    action covers every intake session at once, for re-tagging a seller's
+    stock after a label-format change (e.g. the vendor-brand prefix on the
+    description row, 2026-11-06). One tag per on-hand remaining unit;
+    sold-out and soft-deleted items emit nothing. Read-only: there is NO
+    label-ack companion — reprints never touch ``label_printed`` (the
+    first-print intake flows own that flag).
+
+    Optional ``dx``/``dy`` geometry nudge in dots (±50; see
+    ``zpl.generate_zpl``) — the Browser-Print agent path.
+    """
+    if not -50 <= dx <= 50 or not -50 <= dy <= 50:
+        raise HTTPException(status_code=422, detail="dx/dy must be within ±50 dots")
+    seller = _get_seller_or_404(db, seller_id)
+    items = _seller_remaining_items(db, seller)
+    if not items:
+        raise HTTPException(
+            status_code=404,
+            detail="No in-stock (remaining) items to label for this seller",
+        )
+    event = _active_event(db)
+    zpl = "".join(
+        generate_zpl(
+            item,
+            code_as_text=code_as_text,
+            event_name=str(event.name),
+            dx=dx,
+            dy=dy,
+        )
+        for item in items
+    )
+    return Response(content=zpl, media_type="text/plain; charset=utf-8")
+
+
+@router.post("/{seller_id}/labels")
+def print_seller_labels(
+    seller_id: int,
+    code_as_text: bool = False,
+    db: Session = Depends(get_db),
+    _user: User = Depends(_ADMIN),
+):
+    """Admin reprint: print the seller's remaining labels on the server printer.
+
+    Mirrors ``POST /intakes/{intake_id}/labels`` (server-attached Zebra) but
+    spans every intake of the seller at once; prints one tag per on-hand
+    remaining unit. ``label_printed`` is NOT set — this is the reprint path,
+    not a first print. 404 for a ghost seller or when nothing remains in
+    stock; 503 when the printer is unavailable.
+    """
+    seller = _get_seller_or_404(db, seller_id)
+    items = _seller_remaining_items(db, seller)
+    if not items:
+        raise HTTPException(
+            status_code=404,
+            detail="No in-stock (remaining) items to label for this seller",
+        )
+    event = _active_event(db)
+    for item in items:
+        zpl = generate_zpl(item, code_as_text=code_as_text, event_name=str(event.name))
+        try:
+            send_to_printer(zpl)
+        except OSError as e:
+            raise HTTPException(status_code=503, detail=f"Printer unavailable: {e}")
+    return {"seller_id": seller_id, "printed": len(items)}
 
 
 @router.patch("/{seller_id}", response_model=SellerResponse)
