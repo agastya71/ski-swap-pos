@@ -294,6 +294,17 @@ export const handlers = [
                         name: "Jane Smith",
                 }),
         ),
+        /** GET /sellers/:id/labels.zpl — concatenated ZPL for every remaining
+         *  item across ALL of the seller's intakes (read-only reprint source). */
+        http.get("/sellers/:id/labels.zpl", () =>
+                HttpResponse.text("^XA^FO30,50^A0N,28,15^FDSellerLabelsZPL^FS^XZ\n"),
+        ),
+        /** POST /sellers/:id/labels — server-attached reprint of the whole
+         *  seller's remaining labels (reprints never touch label_printed;
+         *  `printed` counts the items whose labels were printed). */
+        http.post("/sellers/:id/labels", () =>
+                HttpResponse.json({ seller_id: 1, printed: 2 }),
+        ),
 
         /** POST /intakes — creates a new intake session, returns the INTAKE fixture. */
         http.post("/intakes", () => HttpResponse.json(INTAKE)),

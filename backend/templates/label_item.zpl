@@ -18,10 +18,15 @@
 ;   left_origin = 147 (the 2026-09-27 calibration's content origin, chosen
 ;               inside the measured edge zone as edge + ~31-dot margin)
 ;               + (−20)  = 127.  Margin over today's edge: 127 − 115 = 12
-;               dots ≈ 1.5 mm. To move the column: change THIS value; keep
-;               it ≥ ~10 dots inside the left edge (115).
-;   right_edge  = 723 (2026-09-27 content edge) + (−20) = 703.
-;   bars' ink ends at right_edge − bars_right_nudge = 703 − 10 = 693
+;               dots ≈ 1.5 mm. 2026-10-16 user tune: −20 more = 107 —
+;               ⚠ that sits 8 dots LEFT of the media edge (≈115): the
+;               column's first ink clips on paper. On this media keep the
+;               origin ≥ ~120 (edge ≈115 + air). Change THIS value to move
+;               the column.
+;   right_edge  = 723 (2026-09-27 content edge) + (−20 v10) = 703, then
+;               − 20 more (2026-10-16 user: right band matches the left
+;               column tune) = 683.
+;   bars' ink ends at right_edge − bars_right_nudge = 683 − 10 = 673
 ;               (v9.3: ~10 dots of air so bars don't read "truncated").
 ;   barcode_x (computed per item — shown for verification) = (right_edge
 ;               + 20 − nudge) − field, where field = 20 (lead quiet) + ink
@@ -29,13 +34,13 @@
 ;               2-dot module). Symbols: 1 start + ⌈digits/2⌉ pairs + 2 extra
 ;               if odd count (subset-B switch + digit) + 1 check + 1 stop;
 ;               alphanumeric text = 1 + chars + 2.
-;               5-digit code: 7 syms → ink 154 → field 194 → bx = 519.
-;   id_block_w (computed) = (right_edge − nudge) − barcode_x = 713 − 519 = 174.
+;               5-digit code: 7 syms → ink 154 → field 194 → bx = 499.
+;   id_block_w (computed) = (right_edge − nudge) − barcode_x = 673 − 499 = 174.
 ;   price_col_x (computed) = max(barcode_x, left_origin + 180) — the floor
 ;               keeps the flag from ever sliding under the seller code.
 ;   price_x (computed, donate items only) = price_col_x + flag_d_width (14)
 ;               + flag_gap (26) = col + 40.
-;   pw (^PW, computed) = right_edge = 703.
+;   pw (^PW, computed) = right_edge = 683.
 ;
 ; VERTICAL (y) — format y=0 sits ≈12 dots ABOVE the media top; the v7
 ; whole-label shift (+4) is already inside every y below:
@@ -59,6 +64,11 @@
 ; CHAR CAPS: description truncates to desc_max_chars (20 chars); every other
 ;   field to max_field_chars (28 chars — 28 × 15-dot OCR-B advance ≈ 420..504
 ;   dots, within the ~576-dot content width).
+;   Vendor items with a brand print the description row as "BRAND DESC"
+;   (brand first, combined + capped at max_field_chars = 28) — so the flow
+;   never gains a row (a separate brand row would push the description off
+;   the 1" media via the fit guard). Non-vendors / blank brand keep the
+;   description-only row. (2026-11-06)
 ;
 ; ─── HOW IT WORKS ────────────────────────────────────────────────────────────
 ;   `; @name value` lines set the geometry. The values ARE the final format
@@ -74,8 +84,10 @@
 ;   Per-item fills (do NOT hardcode): {{code}} {{price}} {{event}} {{rows}}
 ;   {{copies}} {{barcode_x}} {{id_block_w}} {{price_col_x}} {{price_x}} {{pw}}.
 ;
-; @left_origin 127        ; = 147 (Sep-27 window origin) − 20 (v10 shift)
-; @right_edge 703         ; = 723 (Sep-27 content edge) − 20 (v10 shift)
+; @left_origin 107        ; user tune 2026-10-16 (127 = 147 − 20 v10) — ⚠
+                         ; 107 is 8 dots LEFT of the edge ≈115: text clips.
+                         ; Suggested floor on this media: ≈118 or more.
+; @right_edge 683         ; = 723 (Sep-27) − 20 (v10) − 20 (user tune 2026-10-16)
 ; @y_event 37             ; = 33 (v5 price's old slot) + 4 (v7 down)
 ; @y_band_top 18          ; = 14 (first safe row under the top edge) + 4
 ; @y_id 90                ; = 86 (uniform ID row; v9 raised it 7) + 4

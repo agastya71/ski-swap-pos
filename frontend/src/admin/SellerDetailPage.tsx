@@ -12,6 +12,7 @@ import { sellerDisplayName, sellerTypeLabel } from "../lib/sellerDisplay";
 import { getSellerIntakes, createIntake, importItems } from "../api/intakes";
 import { ItemForm } from "../intake/ItemForm";
 import { ItemList } from "../intake/ItemList";
+import { getLabelPrinterMode, dispatchSellerLabels } from "../lib/labelPrinter";
 import { SellerPayoutPanel } from "./SellerPayoutPanel";
 import { SellerEquipmentSummaryPanel } from "./SellerEquipmentSummaryPanel";
 import { US_STATES } from "../lib/usStates";
@@ -39,6 +40,10 @@ export function SellerDetailPage({
   const [showPayout, setShowPayout] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [editError, setEditError] = useState<string | null>(null);
+  const [reprintCodeAsText, setReprintCodeAsText] = useState(false);
+  const [reprinting, setReprinting] = useState(false);
+  const [reprintError, setReprintError] = useState<string | null>(null);
+  const [reprintStatus, setReprintStatus] = useState<string | null>(null);
 
   /** Re-fetches the seller's items after any ItemList mutation. */
   function refreshItems() {
@@ -123,6 +128,47 @@ export function SellerDetailPage({
     return intake.id;
   }
 
+  /** Admin seller-level reprint: one tag per on-hand unit across ALL of the
+   *  seller's intake sessions, dispatched on the workstation's label-printer
+   *  setting (getLabelPrinterMode). Confirm-gated — the server path queues a
+   *  real print job the moment it answers, and a vendor can have hundreds of
+   *  units on hand. A reprint never changes `label_printed`; the status line
+   *  reflects the mode (server = backend's counted items, agent = delivered
+   *  locally without ack, download = file saved for manual printing). */
+  async function handleReprintLabels() {
+    const onHand = items.reduce((sum, it) => sum + it.remaining, 0);
+    const ok = window.confirm(
+      `Reprint ${onHand} label${onHand !== 1 ? "s" : ""} (one per on-hand ` +
+        `unit across all intake sessions) for ${sellerDisplayName(seller)} ` +
+        `(${seller.code})? These are reprints — the printed status is not ` +
+        "changed.",
+    );
+    if (!ok) return;
+    setReprintError(null);
+    setReprintStatus(null);
+    setReprinting(true);
+    try {
+      const mode = getLabelPrinterMode();
+      const printed = await dispatchSellerLabels(
+        mode,
+        seller.id,
+        reprintCodeAsText,
+        `labels-seller-${seller.code}.zpl`,
+      );
+      setReprintStatus(
+        printed === null
+          ? mode === "download"
+            ? "Label ZPL saved for manual printing."
+            : "Reprint delivered to the locally attached label printer."
+          : `Reprinted labels for ${printed} item${printed !== 1 ? "s" : ""} on the server printer.`,
+      );
+    } catch (err) {
+      setReprintError(err instanceof Error ? err.message : "Reprint failed");
+    } finally {
+      setReprinting(false);
+    }
+  }
+
   async function handleImportFile(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -136,6 +182,10 @@ export function SellerDetailPage({
     }
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
+
+  /** On-hand unit count across every intake — gates the seller-level reprint
+   *  button (nothing left to print → disabled, mirroring backend 404). */
+  const onHandUnits = items.reduce((sum, it) => sum + it.remaining, 0);
 
   const contactField = (label: string, value: string | null) => (
     <div style={{ marginBottom: 4 }}>
@@ -503,6 +553,46 @@ export function SellerDetailPage({
           >
             Payout
           </button>
+          {/* Admin seller-level reprint: one tag per on-hand unit across ALL
+              intake sessions (the per-intake ItemList bulk buttons only span
+              their own group). Uses the workstation's label-printer location
+              setting; code-as-text mirrors the intake toolbar's option. */}
+          <label
+            htmlFor="reprint-code-as-text"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              fontSize: 13,
+              whiteSpace: "nowrap",
+            }}
+          >
+            <input
+              id="reprint-code-as-text"
+              type="checkbox"
+              checked={reprintCodeAsText}
+              disabled={reprinting}
+              onChange={(e) => setReprintCodeAsText(e.target.checked)}
+              aria-label="Reprint item codes as text instead of barcode"
+            />
+            Codes as text
+          </label>
+          <button
+            onClick={handleReprintLabels}
+            disabled={reprinting || onHandUnits === 0}
+            style={{
+              border: `1px solid ${NAVY}`,
+              color: NAVY,
+              background: "none",
+              padding: "4px 10px",
+              cursor:
+                reprinting || onHandUnits === 0 ? "not-allowed" : "pointer",
+              borderRadius: 3,
+              fontSize: 13,
+            }}
+          >
+            Reprint Labels (All Intakes)
+          </button>
           <button
             onClick={async () => {
               const id = await getOrCreateIntakeId();
@@ -552,6 +642,21 @@ export function SellerDetailPage({
           >
             ×
           </button>
+        </div>
+      )}
+
+      {/* Reprint feedback */}
+      {reprintError && (
+        <div
+          role="alert"
+          style={{ color: "red", marginBottom: 8, fontSize: 13 }}
+        >
+          {reprintError}
+        </div>
+      )}
+      {reprintStatus && (
+        <div style={{ color: "#1a7f37", marginBottom: 8, fontSize: 13 }}>
+          {reprintStatus}
         </div>
       )}
 
