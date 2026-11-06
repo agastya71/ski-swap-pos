@@ -33,6 +33,7 @@ import csv
 import datetime
 import io
 import math
+import re
 from io import BytesIO
 from typing import Any
 
@@ -96,6 +97,34 @@ def _existing_brands(db: Session, seller: Seller) -> list[str]:
         .all()
     )
     return [r[0] for r in rows if r[0]]
+
+
+# Whole-number float artifacts produced by spreadsheet tools: "120.0" typed as
+# TEXT in a cell (or a numeric cell from a producer that stores floats) arrives
+# verbatim and must read back as the number the person typed ("120"), while a
+# real decimal ("179.5") and leading-zero text ("05419") stay untouched.
+_FLOAT_ARTIFACT_RE = re.compile(r"^-?\d+\.0+$")
+
+
+def _cell_text(value: Any) -> str | None:
+    """Normalize a worksheet cell to its human text form.
+
+    Spreadsheet writers keep plain numbers as numeric (or float-typed) cells;
+    openpyxl hands back ``170`` / ``170.0`` / ``"170.0"`` / ``"05419"``
+    depending on the producing tool. This renders all of them as the text the
+    person sees: whole numbers lose the float artifact ("170.0" → "170"),
+    decimals keep their precision ("179.5"), non-numeric strings ("40 2/3",
+    "140cm") pass through verbatim, and ZIP-style leading zeros are preserved
+    (""05419.0" → "05419"" — the artifact is dropped, the zero is not).
+    """
+    if value is None:
+        return None
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return str(int(value)) if float(value) == int(value) else str(value)
+    text = str(value).strip()
+    if text and _FLOAT_ARTIFACT_RE.match(text):
+        text = text[: text.index(".")]
+    return text if text else None
 
 
 def _is_blank_cell(value: Any) -> bool:
@@ -232,7 +261,7 @@ def _import_rows(
         if brand_blank:
             brand_str = None
         else:
-            brand_str = str(brand).strip()
+            brand_str = _cell_text(brand) or ""
             matched = closest_brand(brand_str, brands_pool)
             if matched is not None:
                 brand_str = matched
@@ -259,16 +288,16 @@ def _import_rows(
             seller_id=seller.id,
             code=item_code,
             barcode_39=item_code,
-            description=None if is_vendor and description_blank else str(description),
+            description=None if is_vendor and description_blank else _cell_text(description),
             # Category/Type normalize case-insensitively to canonical casing
             # ("skis" → "Skis", "ALPINE SKI" → "Alpine Ski"); unknown values
             # are stored as typed, never rejected.
-            category=canonicalize_category(str(category)) if category else None,
+            category=canonicalize_category(_cell_text(category) or "") if not _is_blank_cell(category) else None,
             brand=brand_str,
-            type=canonicalize_type(str(type_)) if type_ else None,
-            color=str(color) if color else None,
-            size=str(size) if size else None,
-            gender_age=str(gender_age) if gender_age else None,
+            type=canonicalize_type(_cell_text(type_) or "") if not _is_blank_cell(type_) else None,
+            color=_cell_text(color) if not _is_blank_cell(color) else None,
+            size=_cell_text(size) if not _is_blank_cell(size) else None,
+            gender_age=_cell_text(gender_age) if not _is_blank_cell(gender_age) else None,
             year=year_int,
             price=price_float,
             quantity=quantity,
@@ -448,7 +477,7 @@ def _find_seller_block(
         if field is None:
             break
         raw = _cell(rows[j], 1)
-        text = str(raw).strip() if raw is not None and str(raw).strip() != "" else None
+        text = _cell_text(raw)
         info[field] = text
         j += 1
     if not info.get("phone") and info.get("phone2"):

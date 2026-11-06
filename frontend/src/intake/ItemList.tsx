@@ -350,9 +350,6 @@ export function ItemList({
                 <td style={{ padding: "4px 8px", textAlign: "right" }}>
                   ${(item.price * item.quantity).toFixed(2)}
                 </td>
-                <td style={{ padding: "4px 8px", textAlign: "right" }}>
-                  {item.remaining}
-                </td>
                 <td style={{ padding: "4px 8px" }}>
                   <input
                     type="checkbox"
@@ -361,6 +358,9 @@ export function ItemList({
                     disabled={donatePendingId === item.id}
                     onChange={() => void handleToggleDonate(item)}
                   />
+                </td>
+                <td style={{ padding: "4px 8px", textAlign: "right" }}>
+                  {item.remaining}
                 </td>
                 <td style={{ padding: "4px 8px" }}>
                   {item.label_printed ? "✓ printed" : "—"}
