@@ -1,17 +1,33 @@
-def test_login_success(client, active_event, admin_user):
-    response = client.post("/auth/login", json={"username": "admin", "password": "admin123"})
+def test_login_success(client, active_event, admin_user, caplog):
+    import logging as _logging
+
+    with caplog.at_level(_logging.INFO, logger="app.routers.auth"):
+        response = client.post("/auth/login", json={"username": "admin", "password": "admin123"})
     assert response.status_code == 200
     data = response.json()
     assert "access_token" in data
     assert data["token_type"] == "bearer"
     assert data["role"] == "admin"
     assert data["event_id"] == active_event.id
+    # Audit log line: username + role + client IP (POS hardening 2026-11-14)
+    audit = [r for r in caplog.records if "login OK" in r.getMessage()]
+    assert audit, "expected a 'login OK' audit record"
+    assert "user=admin role=admin" in audit[-1].getMessage()
+    assert "ip=" in audit[-1].getMessage()
 
 
-def test_login_wrong_password(client, active_event, admin_user):
-    response = client.post("/auth/login", json={"username": "admin", "password": "wrong"})
+def test_login_wrong_password(client, active_event, admin_user, caplog):
+    import logging as _logging
+
+    with caplog.at_level(_logging.INFO, logger="app.routers.auth"):
+        response = client.post("/auth/login", json={"username": "admin", "password": "wrong"})
     assert response.status_code == 401
     assert "detail" in response.json()
+    # Failed attempts are audited too, with the SUPPLIED username + client IP
+    audit = [r for r in caplog.records if "login FAILED" in r.getMessage()]
+    assert audit, "expected a 'login FAILED' audit record"
+    assert "user=admin" in audit[-1].getMessage()
+    assert "ip=" in audit[-1].getMessage()
 
 
 def test_login_unknown_user(client, active_event):

@@ -1,6 +1,8 @@
 """Authentication router — handles login and current-user introspection; accessible to all roles."""
 
-from fastapi import APIRouter, Depends, HTTPException
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.database import get_registry_db
@@ -13,11 +15,13 @@ from app.services.auth import create_access_token, generate_password, hash_passw
 # (prevents timing oracle that would reveal valid usernames)
 _DUMMY_HASH = hash_password("dummy-constant-time-placeholder")
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(body: LoginRequest, db: Session = Depends(get_registry_db)):
+def login(body: LoginRequest, request: Request, db: Session = Depends(get_registry_db)):
     """Authenticate a user and return a signed JWT access token.
 
     Phase G: accounts live in the shared REGISTRY (valid across all events);
@@ -45,11 +49,13 @@ def login(body: LoginRequest, db: Session = Depends(get_registry_db)):
         user.password_hash if user else _DUMMY_HASH,  # pyright: ignore[reportArgumentType]
     )
     if not user or not password_ok:
+        logger.warning("login FAILED user=%s ip=%s", body.username, request.client.host if request.client else "?")
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     # Column attrs are runtime scalars (untyped Column declarations) — the
     # argument-type flags are static-analysis artifacts of that idiom.
     token = create_access_token(user.id, user.username, user.role, event.id)  # pyright: ignore[reportArgumentType]
+    logger.info("login OK user=%s role=%s ip=%s", body.username, user.role, request.client.host if request.client else "?")
     return TokenResponse(access_token=token, role=user.role, event_id=event.id)  # pyright: ignore[reportArgumentType]
 
 

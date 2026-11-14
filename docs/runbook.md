@@ -105,6 +105,31 @@ sudo systemctl restart ski-swap-pos  # pick up code changes
 sudo systemctl disable --now ski-swap-pos   # stop + disable boot start
 ```
 
+### 2.1 Where the logs live
+
+Three layers, all timestamped:
+
+| Layer | Written by | Where | Retention |
+|---|---|---|---|
+| systemd journal | start.sh + uvicorn stdout/stderr | `journalctl -u ski-swap-pos` | persisted to disk, rotates by size (all units share 3–4 GB pool) |
+| **App log file** | same stream, piped through `tee` in start.sh | `backend/logs/pos.log` (+ `.1` after rotation) | 10 MB × 2, never auto-deleted by the journal |
+| Caddy access log | public edge (requests that never reach the app) | `/var/log/caddy/access.log` / `access-8000.log` (JSON) | 50 MB × 2 |
+
+- The file copy survives journal rotation — treat `backend/logs/pos.log` as the
+  durable record; it is gitignored and does not accompany DB backups.
+- Login attempts are audited by the app at INFO/WARNING:
+  `login OK user=<name> role=<role> ip=<addr>` / `login FAILED user=<supplied> ip=<addr>`.
+  Failed-login lines never include the password.
+- Root log level for app loggers is controlled by `APP_LOG_LEVEL`
+  (uvicorn's own loggers are untouched); default INFO. Set `APP_LOG_LEVEL=DEBUG`
+  to see per-print ZPL render traces (`services/zpl.py`).
+- To pull history spanning journal rotation: `cat backend/logs/pos.log*`.
+- Caddy logs are root-owned; view with `sudo tail -f /var/log/caddy/access.log`.
+  The `log { ... }` blocks live in `deploy/Caddyfile` (installed copy at
+  `/etc/caddy/Caddyfile` — re-run `deploy/install-caddy.sh` after editing).
+- No log is synced to the standby machine; DB backups (`~/skiswap-backups/`)
+  carry their own `backup.log` only.
+
 - Unit source (template with `__PLACEHOLDER__`s): `deploy/ski-swap-pos.service`;
   installed copy: `/etc/systemd/system/ski-swap-pos.service`. Re-run the
   installer after editing the template.

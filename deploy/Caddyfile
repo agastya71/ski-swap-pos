@@ -17,6 +17,19 @@
 # Install: see ../deploy/install-caddy.sh  (copies this file to /etc/caddy/Caddyfile)
 
 mysl-pos.duckdns.org {
+	# Access log — captures requests BEFORE they reach the app (401/403 rejections
+	# from auth boundaries, scanner noise, TLS-failed probes). File logger with
+	# 50 MB rotation, one generation kept. Reload after an install with:
+	#     sudo systemctl reload caddy
+	# Live view:  sudo tail -f /var/log/caddy/access.log   (JSON lines)
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 50MiB
+			roll_keep 1
+		}
+		format json
+	}
+
 	reverse_proxy 127.0.0.1:8001
 
 	# Optional: hide the public Swagger docs from the open internet.
@@ -34,5 +47,13 @@ mysl-pos.duckdns.org {
 # TLS alternate entry on port 8000 (same Let's Encrypt cert as :443).
 # Use the https:// scheme:  https://mysl-pos.duckdns.org:8000
 https://mysl-pos.duckdns.org:8000 {
+	log {
+		output file /var/log/caddy/access-8000.log {
+			roll_size 50MiB
+			roll_keep 1
+		}
+		format json
+	}
+
 	reverse_proxy 127.0.0.1:8001
 }
