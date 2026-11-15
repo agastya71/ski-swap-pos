@@ -950,3 +950,20 @@ export interface TransactionsByUserReport {
  seller_total: number;
  generated_at: string;
 }
+
+export interface LoginSession {
+  id: number;
+  /** Owning account's id (registry-level). */
+  user_id: number;
+  /** Denormalized for display without a join. */
+  username: string;
+  role: string;
+  event_id: number;
+  /** ISO timestamps from the backend. */
+  created_at: string;
+  last_seen_at: string | null;
+  revoked_at: string | null;
+  revoked_by: string | null;
+  login_ip: string | null;
+  user_agent: string | null;
+}

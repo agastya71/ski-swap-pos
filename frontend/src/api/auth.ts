@@ -3,8 +3,8 @@
  * Unlike other api/ modules, login does not use {@link apiFetch} because
  * no Bearer token exists before the user authenticates.
  */
-import { getToken } from './client'
-import type { TokenResponse } from '../types'
+import { getToken, apiFetch } from './client'
+import type { TokenResponse, LoginSession } from '../types'
 
 /**
  * Authenticate with the backend and return a JWT access token.
@@ -66,3 +66,25 @@ export async function generatePassword(): Promise<string> {
   }
   return ((await res.json()) as { password: string }).password
 }
+
+// ── Login sessions ───────────────────────────────────────────────────────────
+
+/** Lists the authenticated user's own login sessions (newest first). */
+export const getMySessions = () => apiFetch<LoginSession[]>('/auth/sessions/mine')
+
+/** Revokes one of the authenticated user's OWN sessions (sign out a device). */
+export const revokeMySession = (sessionId: number) =>
+  apiFetch<{ ok: boolean }>(`/auth/sessions/mine/${sessionId}/revoke`, { method: 'POST' })
+
+/** Lists every user's login sessions (admin only, newest first). */
+export const getAllSessions = () => apiFetch<LoginSession[]>('/auth/sessions')
+
+/** Revoke any session (admin only); the owning token dies within one request. */
+export const revokeSession = (sessionId: number) =>
+  apiFetch<{ ok: boolean }>(`/auth/sessions/${sessionId}/revoke`, { method: 'POST' })
+
+/** Revoke ALL live sessions for one user (admin only; e.g. offboarding). */
+export const revokeUserSessions = (userId: number) =>
+  apiFetch<{ ok: boolean; revoked: number }>(`/auth/users/${userId}/revoke-sessions`, {
+    method: 'POST',
+  })

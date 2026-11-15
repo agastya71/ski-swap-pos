@@ -51,3 +51,31 @@ class RegistryUser(RegistryBase):
     password_hash = Column(String, nullable=False)
     role = Column(String, nullable=False)  # admin / intake / cashier / cashier_intake (combined)
     is_active = Column(Boolean, nullable=False, default=True)
+
+
+class RegistrySession(RegistryBase):
+    """One login session (2026-11-15): a row per successful /auth/login.
+
+    The JWT embeds the row id as the ``sid`` claim; ``dependencies.get_current_user``
+    checks the row on every request, so an admin REVOKED session (revoked_at set)
+    invalidates that token immediately — no waiting for the 8-hour expiry.
+    Tokens issued before this change carry no ``sid`` and keep working until they
+    expire (backward compatible; they simply are not revocable).
+
+    Stored in the REGISTRY (accounts are shared across events; sessions too).
+    Rows older than 90 days are pruned at login time (see services/auth.py).
+    """
+
+    __tablename__ = "login_session"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, nullable=False, index=True)  # RegistryUser.id
+    username = Column(String, nullable=False)  # denormalized: survives user deletion in the audit view
+    role = Column(String, nullable=False)  # role at login time
+    event_id = Column(Integer, nullable=False)  # active event at login time
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), index=True)
+    last_seen_at = Column(DateTime, nullable=True)  # updated on authenticated requests (throttled)
+    revoked_at = Column(DateTime, nullable=True, index=True)  # set ⇒ token rejected
+    revoked_by = Column(String, nullable=True)  # username of the revoking admin (NULL = self/expiry cleanup)
+    login_ip = Column(String, nullable=True)  # client IP at login
+    user_agent = Column(String, nullable=True)  # client device hint at login, truncated
