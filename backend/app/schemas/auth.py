@@ -1,5 +1,7 @@
 """Pydantic schemas for authentication — login request and token response."""
 
+from datetime import datetime
+
 from pydantic import BaseModel, Field, field_validator
 
 from app.services.auth import validate_password
@@ -31,3 +33,19 @@ class TokenResponse(BaseModel):
     token_type: str = Field(default="bearer", description="Token scheme; always 'bearer'.")
     role: str = Field(description="Role assigned to the authenticated user (admin, intake, or cashier).")
     event_id: int = Field(description="ID of the active event the user is scoped to for this session.")
+
+
+class SessionInfo(BaseModel):
+    """One login session as exposed to the admin UI / the owning user."""
+
+    id: int
+    user_id: int
+    username: str
+    role: str
+    event_id: int
+    created_at: datetime
+    last_seen_at: datetime | None = None
+    revoked_at: datetime | None = None
+    revoked_by: str | None = None
+    login_ip: str | None = None
+    user_agent: str | None = None

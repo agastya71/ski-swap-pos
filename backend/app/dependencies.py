@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_registry_db
 from app.models.registry import RegistryUser
-from app.services.auth import decode_access_token
+from app.services.auth import decode_access_token, session_is_valid, touch_session
 
 bearer_scheme = HTTPBearer()
 
@@ -18,6 +18,11 @@ def get_current_user(
 
     Phase G: user accounts live in the registry database — one set of accounts
     works for every event; switching the active event never invalidates tokens.
+
+    Login sessions (2026-11-15): tokens issued via /auth/login carry a ``sid``
+    claim pointing at the caller's ``login_session`` row. If that row has been
+    revoked (admin action) the token is rejected immediately. Tokens without
+    ``sid`` (pre-sessions legacy) expire on time only, unchanged.
     """
     try:
         payload = decode_access_token(credentials.credentials)
@@ -29,13 +34,18 @@ def get_current_user(
     except (KeyError, TypeError, ValueError):
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
-    user = (
-        db.query(RegistryUser)
-        .filter(RegistryUser.id == user_id, RegistryUser.is_active == True)  # pi-lens-ignore: python-sql-injection  (ORM parameterized filter — the sink rule misfires on the == comparison)
-        .first()
-    )
-    if not user:
+    # Session enforcement: a sid that is revoked or deleted kills the token.
+    session_id = payload.get("sid")
+    if session_id is not None:
+        if not session_is_valid(db, int(session_id)):
+            raise HTTPException(status_code=401, detail="Session revoked")
+
+    user = db.get(RegistryUser, user_id)  # pk lookup, no query-string sink
+    if not user or user.is_active is not True:
         raise HTTPException(status_code=401, detail="User not found or inactive")
+
+    if session_id is not None:
+        touch_session(db, int(session_id))  # advisory last_seen (throttled, best-effort)
     return user
 
 

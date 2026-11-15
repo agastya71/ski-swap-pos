@@ -503,13 +503,15 @@ try:
             sale.sale_total   = round(sale_total, 2)  # pyright: ignore[reportAttributeAccessIssue]
             # Card sales include the buyer-paid 3% fee (kept by MYSL), exactly
             # like the checkout service — seed history reconciles the same way.
+            # (pyright ignores below: Column-attribute idiom; the mixed
+            # Column/float arithmetic trips round()'s overload probe only here.)
             cc_fee = compute_card_fee(cc)
-            sale.cc_fee       = cc_fee
-            sale.sale_total   = round(sale.sale_total + cc_fee, 2)  # pyright: ignore[reportAttributeAccessIssue]
-            sale.mysl_total   = round(mysl_total + cc_fee, 2)  # pyright: ignore[reportAttributeAccessIssue]
+            sale.cc_fee       = cc_fee  # pyright: ignore[reportAttributeAccessIssue]
+            sale.sale_total   = round(sale.sale_total + cc_fee, 2)  # pyright: ignore[reportAttributeAccessIssue, reportCallIssue, reportArgumentType]
+            sale.mysl_total   = round(mysl_total + cc_fee, 2)  # pyright: ignore[reportAttributeAccessIssue, reportCallIssue, reportArgumentType]
             sale.seller_total = round(seller_total, 2)  # pyright: ignore[reportAttributeAccessIssue]
             sale.total_paid   = round(cash + check_amt + cc, 2)
-            sale.balance_due  = round(sale.sale_total - sale.total_paid, 2)
+            sale.balance_due  = round(sale.sale_total - sale.total_paid, 2)  # pyright: ignore[reportAttributeAccessIssue, reportCallIssue, reportArgumentType]
             db.commit()
             created["sales"] += 1
 

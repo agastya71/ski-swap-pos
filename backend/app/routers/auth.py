@@ -6,10 +6,18 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.database import get_registry_db
-from app.dependencies import get_current_user
-from app.models.registry import RegistryEvent, RegistryUser
-from app.schemas.auth import LoginRequest, PasswordChange, TokenResponse
-from app.services.auth import create_access_token, generate_password, hash_password, verify_password
+from app.dependencies import get_current_user, require_roles
+from app.models.registry import RegistryEvent, RegistrySession, RegistryUser
+from app.schemas.auth import LoginRequest, PasswordChange, SessionInfo, TokenResponse
+from app.services.auth import (
+    create_access_token,
+    create_login_session,
+    generate_password,
+    hash_password,
+    revoke_all_for_user,
+    revoke_session,
+    verify_password,
+)
 
 # Precomputed dummy hash — ensures bcrypt runs even for unknown usernames
 # (prevents timing oracle that would reveal valid usernames)
@@ -54,8 +62,18 @@ def login(body: LoginRequest, request: Request, db: Session = Depends(get_regist
 
     # Column attrs are runtime scalars (untyped Column declarations) — the
     # argument-type flags are static-analysis artifacts of that idiom.
-    token = create_access_token(user.id, user.username, user.role, event.id)  # pyright: ignore[reportArgumentType]
-    logger.info("login OK user=%s role=%s ip=%s", body.username, user.role, request.client.host if request.client else "?")
+    client_ip = request.client.host if request.client else None
+    session_id = create_login_session(
+        db, user, event.id, client_ip, request.headers.get("user-agent")  # pyright: ignore[reportArgumentType]
+    )
+    token = create_access_token(user.id, user.username, user.role, event.id, session_id)  # pyright: ignore[reportArgumentType]
+    logger.info(
+        "login OK user=%s role=%s ip=%s session=%s",
+        body.username,
+        user.role,
+        client_ip if client_ip else "?",
+        session_id,
+    )
     return TokenResponse(access_token=token, role=user.role, event_id=event.id)  # pyright: ignore[reportArgumentType]
 
 
@@ -104,3 +122,85 @@ def change_password(
     current_user.password_hash = hash_password(body.new_password)  # pyright: ignore[reportAttributeAccessIssue]
     db.commit()
     return {"ok": True}
+
+# ---------------------------------------------------------------------------
+# Login sessions (2026-11-15) — every /auth/login creates a `login_session`
+# row and embeds its id as the token's `sid` claim; get_current_user rejects
+# tokens whose session row has been revoked. Routes are sorted so the
+# parameterized `/{session_id}` paths never shadow the static ones.
+# ---------------------------------------------------------------------------
+
+def _session_to_info(s: RegistrySession) -> SessionInfo:
+    """Map a login_session row to its API shape (username/role denormalized).
+
+    from_attributes reads the ORM columns at runtime — avoids the 14-line
+    Column[int]/int pyright-idiom suppression a field-by-field constructor
+    would need (cerebrum idiom).
+    """
+    return SessionInfo.model_validate(s, from_attributes=True)
+
+
+@router.get("/sessions/mine")
+def my_sessions(
+    current_user: RegistryUser = Depends(get_current_user),
+    db: Session = Depends(get_registry_db),
+):
+    """List the current user's own login sessions (newest first)."""
+    rows = (
+        db.query(RegistrySession)
+        .filter(RegistrySession.user_id == current_user.id)
+        .order_by(RegistrySession.created_at.desc())
+        .all()
+    )
+    return [_session_to_info(s) for s in rows]
+
+
+@router.post("/sessions/mine/{session_id}/revoke")
+def revoke_my_session(
+    session_id: int,
+    current_user: RegistryUser = Depends(get_current_user),
+    db: Session = Depends(get_registry_db),
+):
+    """Let a user revoke one of their OWN sessions (e.g. sign out a device)."""
+    if not revoke_session(
+        db,
+        session_id,
+        revoked_by=current_user.username,  # pyright: ignore[reportArgumentType]  (Column idiom)
+        user_id=current_user.id,  # pyright: ignore[reportArgumentType]  (Column idiom)
+    ):
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {"ok": True}
+
+
+@router.get("/sessions")
+def list_all_sessions(
+    _admin: RegistryUser = Depends(require_roles("admin")),
+    db: Session = Depends(get_registry_db),
+):
+    """List every user's login sessions (admin only, newest first)."""
+    rows = db.query(RegistrySession).order_by(RegistrySession.created_at.desc()).all()
+    return [_session_to_info(s) for s in rows]
+
+
+@router.post("/sessions/{session_id}/revoke")
+def admin_revoke_session(
+    session_id: int,
+    admin: RegistryUser = Depends(require_roles("admin")),
+    db: Session = Depends(get_registry_db),
+):
+    """Revoke any session (admin only). The owning token dies within one request.
+	"""
+    if not revoke_session(db, session_id, revoked_by=admin.username):  # pyright: ignore[reportArgumentType]  (Column idiom)
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {"ok": True}
+
+
+@router.post("/users/{user_id}/revoke-sessions")
+def admin_revoke_user_sessions(
+    user_id: int,
+    admin: RegistryUser = Depends(require_roles("admin")),
+    db: Session = Depends(get_registry_db),
+):
+    """Revoke ALL live sessions for one user (admin only; e.g. offboarding)."""
+    count = revoke_all_for_user(db, user_id, revoked_by=admin.username)  # pyright: ignore[reportArgumentType]  (Column idiom)
+    return {"ok": True, "revoked": count}

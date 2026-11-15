@@ -44,7 +44,7 @@ The right side of the bar shows who you are, your role badge, and buttons for **
 ### 1.3 Your account
 
 - **Change Password** (top-right) — change your own password at any time.
-- **Sign Out** — ends your session. Do this at the end of a shift, especially on shared computers.
+- **Sign Out** — ends your session. Do this at the end of a shift, especially on shared computers. For a lost/stolen device, ask an admin to use **Login Sessions → Revoke** — it signs that device out within one request (see §4.3).
 
 ---
 
@@ -191,13 +191,22 @@ Admins can use everything above (Intake and Checkout), plus the **Admin** page w
 
 Create cashier and intake accounts (username, password, role), **reset passwords**, and **deactivate** users. Deactivated users cannot sign in.
 
-### 4.3 Sellers
+### 4.3 Login Sessions
+
+Every sign-in creates a **login session** tied to the exact device that signed in (browser + IP recorded). This admin tab lists all sessions — newest first — with the user, sign-in time, last-seen time, IP, device, and status.
+
+- **Revoke** — signs one device out immediately (the device's next request is rejected). Use it for a lost/stolen device or a session that shouldn't exist.
+- **Revoke all user sessions** (per user, confirmation-gated) — signs that account out of every device at once, e.g. after offboarding or a password reset.
+
+Sessions older than **90 days** are pruned automatically. Signing out normally (Sign Out button) does not revoke the server-side session — revoked sessions are the admin's tool; a password change does NOT invalidate existing sessions. If you suspect account misuse, revoke, then reset the password.
+
+### 4.4 Sellers
 
 The seller directory: search, open a seller, see their items and payout status, and open their **Due Seller** payout. Items are shown **grouped per intake session**, using the exact same view and actions as the intake module: full columns (Qty, Total Price, Donate?, On Hand, Label), per-item label printing (Print All Labels / Print N), the expand-below edit panel with on-hand quantity adjust, row Delete, and the label-printer selector with bulk **Print Labels for All Items** per intake.
 
 **Delete an erroneous seller record** (2026-10-28): each row has a **Delete** button (confirmation-gated). Use it for records created by mistake — a mis-typed name or a duplicate registration. The record and its empty intake sessions are permanently removed. A seller that still has items (including items later deleted from intake) is refused with a clear message — delete or reassign those items first; nothing that ever produced a label or a sale can be deleted this way.
 
-### 4.4 Reports
+### 4.5 Reports
 
 All reports support **CSV / Markdown / PDF / Excel** downloads.
 
@@ -208,11 +217,11 @@ All reports support **CSV / Markdown / PDF / Excel** downloads.
 - **Unsold Items** — everything still on hand at close.
 - **Transactions by User** — every sale grouped by the cashier who recorded it.
 
-### 4.5 End of Day
+### 4.6 End of Day
 
 The daily summary (sales, voided, revenue by payment type) plus a full **database backup download** (a ZIP with the SQLite database and a JSON export).
 
-### 4.6 Deleting an event
+### 4.7 Deleting an event
 
 From Event Setup, inactive events can be permanently deleted. The active event, and the event your own account belongs to, are protected. Treat deletion as a year-end cleanup action only.
 

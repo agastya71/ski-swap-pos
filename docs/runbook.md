@@ -118,8 +118,14 @@ Three layers, all timestamped:
 - The file copy survives journal rotation — treat `backend/logs/pos.log` as the
   durable record; it is gitignored and does not accompany DB backups.
 - Login attempts are audited by the app at INFO/WARNING:
-  `login OK user=<name> role=<role> ip=<addr>` / `login FAILED user=<supplied> ip=<addr>`.
-  Failed-login lines never include the password.
+  `login OK user=<name> role=<role> ip=<addr> session=<id>` / `login FAILED user=<supplied> ip=<addr>`.
+  Failed-login lines never include the password. Every successful login also
+  creates a `login_session` row (registry DB, `login_session` table) with
+  username/role/IP/UA; the JWT embeds its id as the `sid` claim, and
+  `get_current_user` rejects any token whose `sid` row is revoked (401
+  "Session revoked"). Tokens issued before 2026-11-15 have no `sid` and keep
+  working until they expire. Sessions older than 90 days are pruned at the
+  next login (see `app/services/auth.py`, `SESSION_RETENTION_DAYS`).
 - Root log level for app loggers is controlled by `APP_LOG_LEVEL`
   (uvicorn's own loggers are untouched); default INFO. Set `APP_LOG_LEVEL=DEBUG`
   to see per-print ZPL render traces (`services/zpl.py`).
@@ -227,7 +233,12 @@ the repair step will clear it.
 
 | Method | Path | Notes |
 | -------- | ------ | ------- |
-| POST | `/auth/login` | `{username,password}` → `{access_token}` |
+| POST | `/auth/login` | `{username,password}` → `{access_token}` (also creates a `login_session` row; the JWT carries a `sid` claim) |
+| GET | `/auth/sessions/mine` | the caller's own login sessions (newest first) |
+| POST | `/auth/sessions/mine/{id}/revoke` | user revokes one of their own sessions |
+| GET | `/auth/sessions` | admin: every login session |
+| POST | `/auth/sessions/{id}/revoke` | admin: revoke any session (token dies within one request) |
+| POST | `/auth/users/{user_id}/revoke-sessions` | admin: revoke all live sessions of one user |
 | GET | `/events` | requires auth |
 | POST | `/events/{id}/activate` | set active event |
 | DELETE | `/events/{id}` | admin-only. Permanently deletes an inactive event + all its data (sales, items, intakes, sellers, users). Blocked for the active event and for the event the caller belongs to. Returns per-type deleted counts. |
