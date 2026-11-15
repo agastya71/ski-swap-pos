@@ -35,6 +35,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 install -m 0644 "${SCRIPT_DIR}/Caddyfile" /etc/caddy/Caddyfile
 echo "    Caddyfile: $(caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile 2>&1 | tail -2)"
 
+# Access-log files live under /var/log/caddy (owned by the service user). Any
+# stale files from a root-run `caddy validate` are root-owned mode 0600 and
+# would make `caddy run` fail with permission denied at config load.
+mkdir -p /var/log/caddy
+chown caddy:caddy /var/log/caddy
+for f in access.log access-8000.log; do
+  if [[ -e "/var/log/caddy/$f" ]] && ! chown caddy:caddy "/var/log/caddy/$f" 2>/dev/null; then
+    echo "    Removing stale root-owned /var/log/caddy/$f (service user will recreate it)"
+    rm -f "/var/log/caddy/$f"
+  fi
+done
+
 echo "==> [4/4] Enabling + (re)starting Caddy ..."
 systemctl enable --now caddy
 systemctl restart caddy
