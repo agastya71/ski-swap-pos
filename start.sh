@@ -64,4 +64,23 @@ if [[ "$APP_HOST" == "127.0.0.1" && "$APP_PORT" == "8001" ]]; then
 fi
 echo "      Local docs: http://localhost:${APP_PORT}/docs"
 echo ""
-uvicorn app.main:app --host "${APP_HOST}" --port "${APP_PORT}"
+
+# ── 5. Persist app output to a rotating file (in ADDITION to the journal) ──
+# The systemd journal already captures stdout/stderr, but it rotates by SIZE
+# across ALL units and can silently drop old entries. Everything uvicorn and
+# this script print is therefore also appended to backend/logs/pos.log.
+# backend/logs/ rotates at 10 MB: pos.log -> pos.log.1 (one generation kept).
+# journalctl -u ski-swap-pos -f   stays the live-follow tool; the file is the
+# durable record (see docs/runbook.md §2).
+LOG_DIR="$(pwd)/logs"
+mkdir -p "$LOG_DIR"
+LOG_FILE="$LOG_DIR/pos.log"
+if (( $(stat -c%s "$LOG_FILE" 2>/dev/null || echo 0) >= 10 * 1024 * 1024 )); then
+  mv -f "$LOG_FILE" "$LOG_FILE.1"
+fi
+
+echo "      App log file: $LOG_FILE (rotates at 10 MB)"
+# tee keeps the journal copy (stdout) AND appends to the file. The pipeline
+# is the service's main process: systemd's SIGINT (KillSignal) goes to every
+# member, so uvicorn still shuts down gracefully and tee exits with it.
+uvicorn app.main:app --host "${APP_HOST}" --port "${APP_PORT}" 2>&1 | tee -a "$LOG_FILE"

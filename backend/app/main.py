@@ -1,3 +1,4 @@
+import logging
 import os
 
 from fastapi import FastAPI, HTTPException
@@ -8,6 +9,16 @@ from app.routers import auth, events, users, sellers, intakes, items
 from app.routers.sales import router as sales_router
 from app.routers.reports import router as reports_router
 from app.routers.admin import router as admin_router
+
+# Root logging config: uvicorn configures its OWN loggers only, so app-level
+# logging.getLogger(__name__) calls (admin.py, services/zpl.py, audit lines in
+# services/auth.py) would otherwise be discarded below WARNING. APP_LOG_LEVEL
+# overrides the root level (DEBUG|INFO|WARNING|ERROR; default INFO).
+logging.basicConfig(
+    level=os.getenv("APP_LOG_LEVEL", "INFO").upper(),
+    format="%(levelname)s:%(name)s:%(message)s",
+)
+logging.getLogger("app").setLevel(os.getenv("APP_LOG_LEVEL", "INFO").upper())
 
 app = FastAPI(title="Ski Swap POS", version="1.0.0")
 
