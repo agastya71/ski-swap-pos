@@ -2,7 +2,7 @@
  * Intakes API — create and manage seller intake sessions and add items.
  * Requires admin or intake role.
  */
-import { apiFetch, apiFetchText, getToken } from "./client";
+import { ApiError, apiFetch, apiFetchText, extractApiErrorMessage, getToken } from "./client";
 import type {
  Intake,
  IntakeWithItems,
@@ -142,7 +142,11 @@ export const ackIntakeLabels = (intakeId: number) =>
  *
  * @param intakeId - Primary key of the intake to import into.
  * @param file - The .xlsx file using the standard import template.
- * @returns Import summary with counts and any row-level errors.
+ * @returns Import summary with counts, row-level errors and non-fatal warnings.
+ * @throws {ApiError} 422 when the file itself cannot be read or has no item
+ *   header row — the message carries the backend's `detail` (e.g. "Invalid or
+ *   unreadable xlsx file") so the intake user sees why, not just "Failed".
+ * @throws {ApiError} 401 if the session token is invalid.
  */
 export async function importItems(
  intakeId: number,
@@ -157,6 +161,14 @@ export async function importItems(
   headers: token ? { Authorization: `Bearer ${token}` } : {},
   body: form,
  });
- if (!res.ok) throw new Error(`Import failed: ${res.statusText}`);
+ if (!res.ok) {
+  // Surface the backend's whole-file rejection reason. Without this the
+  // intake user saw only "Unprocessable Entity" for an unreadable workbook.
+  const body: unknown = await res.json().catch(() => null);
+  throw new ApiError(
+   res.status,
+   extractApiErrorMessage(body) ?? `Import failed: ${res.statusText}`,
+  );
+ }
  return res.json() as Promise<ImportResult>;
 }

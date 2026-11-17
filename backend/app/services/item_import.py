@@ -35,7 +35,7 @@ import io
 import math
 import re
 from io import BytesIO
-from typing import Any
+from typing import Any, NamedTuple
 
 import openpyxl
 from sqlalchemy.orm import Session
@@ -133,6 +133,145 @@ def _is_blank_cell(value: Any) -> bool:
     return value is None or (isinstance(value, str) and value.strip() == "")
 
 
+def _dup_signature(
+    description: str | None, brand: str | None, size: str | None, price: float
+) -> tuple[str, str, str, float]:
+    """Comparison key for re-import detection: the fields a seller's item carries."""
+    return (
+        (description or "").strip().lower(),
+        (brand or "").strip().lower(),
+        (size or "").strip().lower(),
+        round(float(price), 2),
+    )
+
+
+def _existing_item_signatures(db: Session, seller: Seller) -> set[tuple[str, str, str, float]]:
+    """Signatures of the seller's already-stored (non-deleted) items.
+
+    Snapshotted BEFORE the import loop so the warning fires on rows that
+    duplicate what the seller already had — i.e. a re-upload of a file that
+    was already imported — and never on rows this same batch is adding.
+    """
+    rows = (
+        db.query(Item.description, Item.brand, Item.size, Item.price)
+        .filter(Item.seller_id == seller.id, Item.is_deleted.is_(False))
+        .all()
+    )
+    return {
+        _dup_signature(description, brand, size, price if price is not None else 0.0)
+        for (description, brand, size, price) in rows
+    }
+
+
+class _ParsedRow(NamedTuple):
+    """A worksheet row that passed validation, ready to become an Item."""
+
+    description: Any
+    category: Any
+    brand: Any
+    type_: Any
+    color: Any
+    size: Any
+    gender_age: Any
+    year: Any
+    used_str: Any
+    donate_str: Any
+    quantity: int
+    price_float: float
+    description_blank: bool
+    brand_blank: bool
+
+
+def _extract_cells(row: list[Any], col_map: dict[str, int] | None) -> tuple[Any, ...]:
+    """Pull the 12 item cells out of a row: by header name, or positionally."""
+    if col_map is not None:
+        return tuple(
+            _mapped(row, col_map, field)
+            for field in (
+                "description", "category", "brand", "type", "color", "size",
+                "gender_age", "year", "price", "used", "donate", "quantity",
+            )
+        )
+    return tuple((list(row) + [None] * 12)[:12])
+
+
+def _parse_row(
+    row: list[Any], row_no: int, col_map: dict[str, int] | None, is_vendor: bool
+) -> tuple[_ParsedRow | None, ImportRowError | None]:
+    """Validate one worksheet row.
+
+    Returns ``(parsed, None)`` when the row can be imported, or ``(None, error)``
+    describing exactly why it cannot. Every rejection is a per-row error, never
+    a thrown exception — one bad row must not abort the file.
+    """
+    (
+        description, category, brand, type_, color, size, gender_age,
+        year, price, used_str, donate_str, quantity_val,
+    ) = _extract_cells(row, col_map)
+
+    description_blank = _is_blank_cell(description)
+    price_blank = _is_blank_cell(price)
+    brand_blank = _is_blank_cell(brand)
+
+    if not is_vendor:
+        # Individual sellers keep the strict contract: Description, Price and
+        # Brand are mandatory (verbatim legacy expressions).
+        if not description or price is None:
+            return None, ImportRowError(row=row_no, reason="Missing required field: Description or Price")
+        if not brand or not str(brand).strip():
+            return None, ImportRowError(row=row_no, reason="Missing required field: Brand")
+
+    # Quantity: blank/None = 1; otherwise a positive integer (rows from an
+    # older 11-column template simply have nothing in this slot).
+    quantity = 1
+    if quantity_val is not None and str(quantity_val).strip() != "":
+        try:
+            quantity = int(quantity_val)
+        except (TypeError, ValueError):
+            return None, ImportRowError(row=row_no, reason=f"Invalid Quantity value: {quantity_val!r} (must be a whole number ≥ 1)")
+        if quantity < 1:
+            return None, ImportRowError(row=row_no, reason=f"Invalid Quantity value: {quantity!r} (must be ≥ 1)")
+
+    if is_vendor and price_blank:
+        # Vendor rows may leave Sell Price empty → $0.00 (price editable later
+        # via the item edit screen; cashier price-override at checkout).
+        price_float = 0.0
+    else:
+        try:
+            price_float = float(price)
+        except (TypeError, ValueError):
+            return None, ImportRowError(row=row_no, reason=f"Invalid Price value: {price!r}")
+        # Reject non-finite (NaN/inf) and negative values first — ceil(NaN)
+        # raises ValueError and ceil(inf) OverflowError, which would otherwise
+        # fail the whole file with an unhandled 500 or cryptic message.
+        if not math.isfinite(price_float):
+            return None, ImportRowError(row=row_no, reason=f"Invalid Price value: {price!r} (must be a real number)")
+        if price_float < 0:
+            return None, ImportRowError(row=row_no, reason=f"Invalid Price value: {price!r} (must be ≥ 0)")
+        # Whole-dollar pricing: round UP to the nearest dollar (decision
+        # 2026-08-29). math.ceil returns an int for finite input; the Float
+        # column coerces on flush, so no redundant float() call (which the
+        # analyzer's unchecked-throwing-call rule would flag).
+        price_float = math.ceil(price_float)
+
+    return _ParsedRow(
+        description=description,
+        category=category,
+        brand=brand,
+        type_=type_,
+        color=color,
+        size=size,
+        gender_age=gender_age,
+        year=year,
+        used_str=used_str,
+        donate_str=donate_str,
+        quantity=quantity,
+        price_float=price_float,
+        description_blank=description_blank,
+        brand_blank=brand_blank,
+    ), None
+
+
 def _import_rows(
     db: Session,
     intake: Intake,
@@ -168,149 +307,127 @@ def _import_rows(
     reserved: set[str] = set()
 
     errors: list[ImportRowError] = []
+    warnings: list[str] = []
     imported = 0
     skipped = 0
+
+    # Re-import detection: a row whose description/brand/size/price matches an
+    # item the seller ALREADY had is suspicious (double import of the same
+    # file). It still imports — the warning tells the intake user to check.
+    pre_existing = _existing_item_signatures(db, seller)
+    duplicate_rows: list[int] = []
 
     for i, row in enumerate(rows, start=first_row_no):  # header row(s) above
         if all(v is None or (isinstance(v, str) and v.strip() == "") for v in row):
             continue  # untouched trailing rows (real worksheets carry styled empties) are not errors
-        if col_map is not None:
-            description = _mapped(row, col_map, "description")
-            category = _mapped(row, col_map, "category")
-            brand = _mapped(row, col_map, "brand")
-            type_ = _mapped(row, col_map, "type")
-            color = _mapped(row, col_map, "color")
-            size = _mapped(row, col_map, "size")
-            gender_age = _mapped(row, col_map, "gender_age")
-            year = _mapped(row, col_map, "year")
-            price = _mapped(row, col_map, "price")
-            used_str = _mapped(row, col_map, "used")
-            donate_str = _mapped(row, col_map, "donate")
-            quantity_val = _mapped(row, col_map, "quantity")
-        else:
-            padded = (list(row) + [None] * 12)[:12]
-            (
-                description, category, brand, type_, color, size, gender_age,
-                year, price, used_str, donate_str, quantity_val,
-            ) = padded
 
-        description_blank = _is_blank_cell(description)
-        price_blank = _is_blank_cell(price)
-        brand_blank = _is_blank_cell(brand)
-        if not is_vendor:
-            # Individual sellers keep the strict contract: Description, Price
-            # and Brand are mandatory (verbatim legacy expressions).
-            if not description or price is None:
-                errors.append(ImportRowError(row=i, reason="Missing required field: Description or Price"))
-                skipped += 1
-                continue
-            if not brand or not str(brand).strip():
-                errors.append(ImportRowError(row=i, reason="Missing required field: Brand"))
-                skipped += 1
-                continue
-
-        # Quantity: blank/None = 1; otherwise a positive integer (rows from an
-        # older 11-column template simply have nothing in this slot).
-        quantity = 1
-        if quantity_val is not None and str(quantity_val).strip() != "":
-            try:
-                quantity = int(quantity_val)
-            except (TypeError, ValueError):
-                errors.append(ImportRowError(row=i, reason=f"Invalid Quantity value: {quantity_val!r} (must be a whole number ≥ 1)"))
-                skipped += 1
-                continue
-            if quantity < 1:
-                errors.append(ImportRowError(row=i, reason=f"Invalid Quantity value: {quantity!r} (must be ≥ 1)"))
-                skipped += 1
-                continue
-
-        if is_vendor and price_blank:
-            # Vendor rows may leave Sell Price empty → $0.00 (price editable
-            # later via the item edit screen; cashier price-override at checkout).
-            price_float = 0.0
-        else:
-            try:
-                price_float = float(price)
-            except (TypeError, ValueError):
-                errors.append(ImportRowError(row=i, reason=f"Invalid Price value: {price!r}"))
-                skipped += 1
-                continue
-            # Whole-dollar pricing: round UP to the nearest dollar (decision
-            # 2026-08-29) so consignment prices never carry cents from templates.
-            # Reject non-finite (NaN/inf) and negative values first — ceil(NaN)
-            # raises ValueError and ceil(inf) OverflowError, which would otherwise
-            # fail the whole file with an unhandled 500 or cryptic message.
-            if not math.isfinite(price_float):
-                errors.append(ImportRowError(row=i, reason=f"Invalid Price value: {price!r} (must be a real number)"))
-                skipped += 1
-                continue
-            if price_float < 0:
-                errors.append(ImportRowError(row=i, reason=f"Invalid Price value: {price!r} (must be ≥ 0)"))
-                skipped += 1
-                continue
-            # Whole-dollar pricing: round UP to the nearest dollar (decision
-            # 2026-08-29). math.ceil returns an int for finite input; the Float
-            # column coerces on flush, so no redundant float() call (which the
-            # analyzer's unchecked-throwing-call rule would flag).
-            price_float = math.ceil(price_float)
+        parsed, row_error = _parse_row(row, i, col_map, is_vendor)
+        if row_error is not None:
+            errors.append(row_error)
+            skipped += 1
+            continue
+        assert parsed is not None  # _parse_row returns one or the other
 
         # Brand closest-match: replace with an existing brand if one is close.
         # Vendor rows may omit Brand entirely → stored as NULL (skipped by the
         # matcher, which only runs on non-empty values).
         brand_str: str | None
-        if brand_blank:
+        if parsed.brand_blank:
             brand_str = None
         else:
-            brand_str = _cell_text(brand) or ""
+            brand_str = _cell_text(parsed.brand) or ""
             matched = closest_brand(brand_str, brands_pool)
             if matched is not None:
                 brand_str = matched
             elif brand_str not in brands_pool:
                 brands_pool.append(brand_str)  # later rows can match this newly-seen brand
 
-        item_code = next_item_code(db, reserved)
-        used = str(used_str).strip().lower() != "no" if used_str is not None else True
+        try:
+            item_code = next_item_code(db, reserved)
+        except ValueError as exc:
+            # Code space exhausted (after 99999) — isolate the row instead of
+            # aborting the whole file with a 422 and losing valid rows.
+            errors.append(ImportRowError(row=i, reason=str(exc)))
+            skipped += 1
+            continue
+
+        price_float = parsed.price_float
+        quantity = parsed.quantity
+        used = str(parsed.used_str).strip().lower() != "no" if parsed.used_str is not None else True
         # Inherit donate_unsold from the intake when the row leaves it blank.
-        if donate_str is None or str(donate_str).strip() == "":
+        if parsed.donate_str is None or str(parsed.donate_str).strip() == "":
             donate = intake.donate_unsold
         else:
-            donate = str(donate_str).strip().lower() == "yes"
+            donate = str(parsed.donate_str).strip().lower() == "yes"
 
         year_int = None
-        if year is not None:
+        if parsed.year is not None:
             try:
-                year_int = int(year)
+                year_int = int(parsed.year)
             except (TypeError, ValueError):
                 year_int = None
 
-        db.add(Item(
-            intake_id=intake.id,
-            seller_id=seller.id,
-            code=item_code,
-            barcode_39=item_code,
-            description=None if is_vendor and description_blank else _cell_text(description),
-            # Category/Type normalize case-insensitively to canonical casing
-            # ("skis" → "Skis", "ALPINE SKI" → "Alpine Ski"); unknown values
-            # are stored as typed, never rejected.
-            category=canonicalize_category(_cell_text(category) or "") if not _is_blank_cell(category) else None,
-            brand=brand_str,
-            type=canonicalize_type(_cell_text(type_) or "") if not _is_blank_cell(type_) else None,
-            color=_cell_text(color) if not _is_blank_cell(color) else None,
-            size=_cell_text(size) if not _is_blank_cell(size) else None,
-            gender_age=_cell_text(gender_age) if not _is_blank_cell(gender_age) else None,
-            year=year_int,
-            price=price_float,
-            quantity=quantity,
-            remaining=quantity,
-            used=used,
-            donate_unsold=donate,
-            created_by=username,
-        ))
+        description_value = None if is_vendor and parsed.description_blank else _cell_text(parsed.description)
+        size_value = _cell_text(parsed.size) if not _is_blank_cell(parsed.size) else None
+
+        # Per-row savepoint: an unexpected failure on ONE row (e.g. a unique
+        # constraint hit) must not roll back the whole batch. Without this the
+        # single db.commit() at the end turns any bad row into a 500 and the
+        # intake user loses every valid row above it.
+        try:
+            with db.begin_nested():
+                db.add(Item(
+                    intake_id=intake.id,
+                    seller_id=seller.id,
+                    code=item_code,
+                    barcode_39=item_code,
+                    description=description_value,
+                    # Category/Type normalize case-insensitively to canonical casing
+                    # ("skis" → "Skis", "ALPINE SKI" → "Alpine Ski"); unknown values
+                    # are stored as typed, never rejected.
+                    category=canonicalize_category(_cell_text(parsed.category) or "") if not _is_blank_cell(parsed.category) else None,
+                    brand=brand_str,
+                    type=canonicalize_type(_cell_text(parsed.type_) or "") if not _is_blank_cell(parsed.type_) else None,
+                    color=_cell_text(parsed.color) if not _is_blank_cell(parsed.color) else None,
+                    size=size_value,
+                    gender_age=_cell_text(parsed.gender_age) if not _is_blank_cell(parsed.gender_age) else None,
+                    year=year_int,
+                    price=price_float,
+                    quantity=quantity,
+                    remaining=quantity,
+                    used=used,
+                    donate_unsold=donate,
+                    created_by=username,
+                ))
+                # Flush inside the savepoint so a constraint violation surfaces
+                # HERE (and rolls back only this row) rather than at the final
+                # commit where it would poison the whole batch.
+                db.flush()
+        except Exception as exc:  # noqa: BLE001 - isolate the row, keep the batch
+            errors.append(
+                ImportRowError(
+                    row=i,
+                    reason=f"Could not save this row ({exc.__class__.__name__}): {exc}",
+                )
+            )
+            skipped += 1
+            continue
+
         reserved.add(item_code)
         imported += 1
+        if _dup_signature(description_value, brand_str, size_value, price_float) in pre_existing:
+            duplicate_rows.append(i)
 
     db.commit()
-    return ImportResult(imported=imported, skipped=skipped, errors=errors)
+    if duplicate_rows:
+        shown = ", ".join(str(r) for r in duplicate_rows[:10])
+        extra = "" if len(duplicate_rows) <= 10 else f" (+{len(duplicate_rows) - 10} more)"
+        warnings.append(
+            f"{len(duplicate_rows)} row(s) match items this seller already had "
+            f"(same description, brand, size and price) — row {shown}{extra}. "
+            "They were imported; check for a duplicate re-upload."
+        )
+    return ImportResult(imported=imported, skipped=skipped, errors=errors, warnings=warnings)
 
 
 def import_items(
@@ -742,5 +859,6 @@ def import_items_with_seller(
             "imported": result.imported,
             "skipped": result.skipped,
             "errors": result.errors,
+            "warnings": result.warnings,
         }
     )

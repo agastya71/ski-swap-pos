@@ -349,6 +349,8 @@ export interface WorksheetImportResult {
  skipped: number;
  /** Details of each skipped row. */
  errors: ImportRowError[];
+ /** Non-fatal notes about rows that DID import; the import still completed. */
+ warnings?: string[];
 }
 
 /** An existing seller that looks like a duplicate of the worksheet seller. */
@@ -394,8 +396,14 @@ export interface ImportResult {
  imported: number;
  /** Number of rows that were skipped. */
  skipped: number;
- /** Details for each skipped row. */
- errors: ImportRowError[];
+  /** Details for each skipped row. */
+  errors: ImportRowError[];
+  /**
+   * Non-fatal notes about rows that DID import — e.g. a re-upload of the same
+   * file (rows matching items the seller already had) or a row isolated after
+   * an unexpected error. The import still completed; show these as a warning.
+   */
+  warnings?: string[];
 }
 
 // Intakes

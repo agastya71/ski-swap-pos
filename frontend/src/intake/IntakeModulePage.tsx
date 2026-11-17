@@ -5,6 +5,7 @@ import { SellerListPage } from "../admin/SellerListPage";
 import { SellerDetailPage } from "../admin/SellerDetailPage";
 import { downloadImportTemplate, importWorksheet } from "../api/items";
 import { getActiveEvent } from "../api/events";
+import { ImportOutcome } from "../components/ImportOutcome";
 import { useAuth } from "../auth/AuthContext";
 import type {
   Seller,
@@ -280,37 +281,39 @@ export function IntakeModulePage() {
           </button>
         </div>
       )}
-      {(importResult || importError) && (
+      {importError && (
         <div
           role="status"
           style={{
             margin: "0 0 16px",
             padding: 10,
-            border: importError ? "1px solid #fca5a5" : "1px solid #86efac",
+            border: "1px solid #fca5a5",
             borderRadius: 6,
-            background: importError ? "#fef2f2" : "#f0fdf4",
+            background: "#fef2f2",
             fontSize: 13,
           }}
         >
-          {importError ? (
-            <span style={{ color: "#b91c1c" }}>{importError}</span>
-          ) : (
-            importResult && (
-              <span>
-                <strong>{importResult.seller_name}</strong> (
-                {importResult.seller_code}) —{" "}
-                {importResult.seller_created
-                  ? "new seller created"
-                  : `existing seller matched by ${importResult.seller_matched_by}`}{" "}
-                ·{" "}
-                {importResult.intake_created ? "new intake" : "existing intake"}{" "}
-                · {importResult.imported} item(s) imported
-                {importResult.skipped > 0 &&
-                  `, ${importResult.skipped} row(s) skipped`}
-              </span>
-            )
-          )}
+          <span style={{ color: "#b91c1c" }}>{importError}</span>
         </div>
+      )}
+      {importResult && (
+        <ImportOutcome
+          result={importResult}
+          heading={
+            <>
+              <strong>{importResult.seller_name}</strong> (
+              {importResult.seller_code}) —{" "}
+              {importResult.seller_created
+                ? "new seller created"
+                : `existing seller matched by ${importResult.seller_matched_by}`}{" "}
+              ·{" "}
+              {importResult.intake_created ? "new intake" : "existing intake"}{" "}
+              · {importResult.imported} item(s) imported
+              {importResult.skipped > 0 &&
+                `, ${importResult.skipped} row(s) skipped`}
+            </>
+          }
+        />
       )}
       {tab === "intake" && <IntakePage />}
       {tab === "search" && <ItemSearchPage />}

@@ -586,3 +586,71 @@ describe("SellerDetailPage — Import Items button (functional)", () => {
     );
   });
 });
+
+describe("SellerDetailPage — Import Items error reporting", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    setToken(null);
+  });
+
+  it("renders per-row skip reasons and warnings via the shared banner", async () => {
+    setToken(ADMIN_TOKEN);
+    server.use(
+      http.post("/intakes/:intakeId/items/import", () =>
+        HttpResponse.json({
+          imported: 3,
+          skipped: 2,
+          errors: [
+            { row: 5, reason: "Invalid Quantity value: 'two' (must be a whole number ≥ 1)" },
+            { row: 7, reason: "Missing required field: Brand" },
+          ],
+          warnings: ["1 row(s) match items this seller already had — row 6."],
+        }),
+      ),
+    );
+
+    const { container } = render(
+      <SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />,
+    );
+    const input = container.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
+    fireEvent.change(input, {
+      target: { files: [new File(["x"], "items.xlsx")] },
+    });
+
+    const banner = await screen.findByRole("status");
+    expect(banner).toHaveTextContent(/imported 3 items/i);
+    const skipped = screen.getByRole("list", { name: /skipped rows/i });
+    expect(skipped).toHaveTextContent("Row 5: Invalid Quantity value");
+    expect(skipped).toHaveTextContent("Row 7: Missing required field: Brand");
+    expect(
+      screen.getByRole("list", { name: /import warnings/i }),
+    ).toHaveTextContent(/match items this seller already had/i);
+  });
+
+  it("shows an alert with the backend reason when the file cannot be read", async () => {
+    setToken(ADMIN_TOKEN);
+    server.use(
+      http.post("/intakes/:intakeId/items/import", () =>
+        HttpResponse.json(
+          { detail: "Unsupported import format (use .xlsx, .csv, or .tsv)" },
+          { status: 422 },
+        ),
+      ),
+    );
+
+    const { container } = render(
+      <SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />,
+    );
+    const input = container.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
+    fireEvent.change(input, {
+      target: { files: [new File(["x"], "items.txt")] },
+    });
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/unsupported import format/i);
+  });
+});

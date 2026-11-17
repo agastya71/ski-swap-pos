@@ -404,3 +404,81 @@ describe("IntakeModulePage — Import Seller Worksheet (functional)", () => {
     expect(banner).toHaveTextContent(/seller info is missing/i);
   });
 });
+
+describe("IntakeModulePage — worksheet import error reporting", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    setToken(null);
+  });
+
+  it("lists per-row skip reasons on a partially successful worksheet import", async () => {
+    setToken(ADMIN_TOKEN);
+    server.use(
+      http.post("/items/import-worksheet", () =>
+        HttpResponse.json({
+          seller_code: "KNOR1",
+          seller_name: "Nora Nakamura",
+          seller_created: true,
+          seller_matched_by: null,
+          intake_id: 7,
+          intake_created: true,
+          imported: 4,
+          skipped: 2,
+          errors: [
+            { row: 12, reason: "Missing required field: Brand" },
+            { row: 15, reason: "Invalid Price value: 'TBD'" },
+          ],
+          warnings: [],
+        }),
+      ),
+    );
+    renderPage();
+    fireEvent.change(screen.getByLabelText(/choose seller worksheet file/i), {
+      target: { files: [new File(["x"], "worksheet.xlsx")] },
+    });
+
+    const banner = await screen.findByRole("status");
+    // The seller/intake heading is still shown…
+    expect(banner).toHaveTextContent(/Nora Nakamura/);
+    expect(banner).toHaveTextContent(/4 item\(s\) imported/);
+    // …plus the identical skipped-row detail the other surfaces show.
+    const skipped = screen.getByRole("list", { name: /skipped rows/i });
+    expect(skipped).toHaveTextContent("Row 12: Missing required field: Brand");
+    expect(skipped).toHaveTextContent("Row 15: Invalid Price value");
+    expect(banner).toHaveTextContent(/not imported/i);
+  });
+
+  it("shows warnings for a suspected duplicate re-upload", async () => {
+    setToken(ADMIN_TOKEN);
+    server.use(
+      http.post("/items/import-worksheet", () =>
+        HttpResponse.json({
+          seller_code: "KNOR1",
+          seller_name: "Nora Nakamura",
+          seller_created: false,
+          seller_matched_by: "name",
+          intake_id: 7,
+          intake_created: false,
+          imported: 2,
+          skipped: 0,
+          errors: [],
+          warnings: [
+            "2 row(s) match items this seller already had (same description, brand, size and price) — row 8, 9. They were imported; check for a duplicate re-upload.",
+          ],
+        }),
+      ),
+    );
+    renderPage();
+    fireEvent.change(screen.getByLabelText(/choose seller worksheet file/i), {
+      target: { files: [new File(["x"], "worksheet.xlsx")] },
+    });
+
+    await screen.findByRole("status");
+    expect(
+      screen.getByRole("list", { name: /import warnings/i }),
+    ).toHaveTextContent(/duplicate re-upload/i);
+    expect(
+      screen.queryByRole("list", { name: /skipped rows/i }),
+    ).not.toBeInTheDocument();
+  });
+});
