@@ -1314,3 +1314,153 @@ def test_label_ack_idempotent(client, admin_token, item):
 def test_cashier_cannot_fetch_label_zpl(client, cashier_token, item):
     resp = client.get(f"/items/{item.id}/label.zpl", headers={"Authorization": f"Bearer {cashier_token}"})
     assert resp.status_code in (401, 403)
+
+
+def test_import_reports_row_errors_so_intake_can_fix_the_file(client, active_event, admin_token):
+    """A partially-failing import completes AND explains each skipped row.
+
+    The user's requirement: the import must not fail as a whole, but the intake
+    user must see exactly which rows were rejected and why. Row numbers are the
+    real worksheet row numbers (header is row 1), so they can be found in Excel.
+    """
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
+    iid = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers).json()["id"]
+    csv_text = (
+        "Description,Category,Brand,Type,Color,Size,Gender/Age,Year,Price,Used,Donate if Unsold,Quantity\n"
+        "Good one,Skis,Atomic,Alpine,,,170,,50.0,Yes,No,\n"
+        ",Skis,Atomic,Alpine,,,170,,50.0,Yes,No,\n"
+        "Good two,Skis,Atomic,Alpine,,,160,,not-a-number,Yes,No,\n"
+        "Good three,Skis,Atomic,Alpine,,,150,,80.0,Yes,No,\n"
+    )
+    resp = _post_import(client, iid, headers, csv_text)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["imported"] == 2
+    assert body["skipped"] == 2
+    # Row numbers point at the failing worksheet rows (1-based, header = row 1).
+    assert [e["row"] for e in body["errors"]] == [3, 4]
+    reasons = " | ".join(e["reason"] for e in body["errors"])
+    assert "Missing required field" in reasons
+    assert "Invalid Price value" in reasons
+    # `warnings` is always present so the UI can render it unconditionally.
+    assert body["warnings"] == []
+    listed = client.get(f"/sellers/{seller_r.json()['id']}/items", headers=headers).json()
+    assert sorted(it["description"] for it in listed) == ["Good one", "Good three"]
+
+
+def test_import_warns_when_the_same_file_is_imported_twice(client, active_event, admin_token):
+    """Re-importing the same sheet still imports, but returns a warning.
+
+    Previously a double upload silently doubled inventory; now the rows land and
+    the response carries a warning naming the duplicate rows so intake can undo
+    them.
+    """
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
+    iid = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers).json()["id"]
+    csv_text = (
+        "Description,Category,Brand,Type,Color,Size,Gender/Age,Year,Price,Used,Donate if Unsold,Quantity\n"
+        "Blue skis,Skis,Atomic,Alpine,Blue,170,Men,2020,110.0,Yes,No,\n"
+        "Red boots,Boots,Lange,Alpine,Red,27.5,Men,2021,150.0,Yes,No,\n"
+    )
+    first = _post_import(client, iid, headers, csv_text).json()
+    assert first["imported"] == 2
+    assert first["warnings"] == []
+
+    second = _post_import(client, iid, headers, csv_text).json()
+    assert second["imported"] == 2  # still imported — the user may genuinely mean it
+    assert len(second["warnings"]) == 1
+    warning = second["warnings"][0]
+    assert "2 row(s) match items this seller already had" in warning
+    assert "row 2, 3" in warning
+    assert "duplicate" in warning
+
+
+def test_import_warning_signature_ignores_case_and_price_cents(client, active_event, admin_token):
+    """The duplicate signature compares case-insensitively, so a lightly
+    re-saved file (different capitalization) is still flagged."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
+    iid = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers).json()["id"]
+    first_csv = (
+        "Description,Category,Brand,Type,Color,Size,Gender/Age,Year,Price,Used,Donate if Unsold,Quantity\n"
+        "Blue Skis,Skis,Atomic,Alpine,Blue,170,Men,2020,110.0,Yes,No,\n"
+    )
+    assert _post_import(client, iid, headers, first_csv).json()["warnings"] == []
+    second_csv = (
+        "Description,Category,Brand,Type,Color,Size,Gender/Age,Year,Price,Used,Donate if Unsold,Quantity\n"
+        "BLUE SKIS,Skis,atomic,Alpine,Blue,170,Men,2020,110.0,Yes,No,\n"
+    )
+    body = _post_import(client, iid, headers, second_csv).json()
+    assert body["imported"] == 1
+    assert len(body["warnings"]) == 1
+
+
+def test_import_isolates_a_row_that_fails_to_save(client, active_event, admin_token, monkeypatch):
+    """Another row's database failure rolls back only that row.
+
+    Before the per-row savepoint, one poisoned row aborted the whole batch at the
+    final commit and returned a bare 500, losing every valid row in the file.
+    Here the second row gets a duplicate item code, so its INSERT violates the
+    unique constraint at flush time.
+    """
+    from app.services import item_import
+
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json=valid_seller_create(first_name="A", last_name="B"), headers=headers)
+    iid = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers).json()["id"]
+
+    real_next_item_code = item_import.next_item_code
+    state = {"calls": 0, "first": None}
+
+    def colliding_next_item_code(db, reserved):
+        state["calls"] += 1
+        if state["calls"] == 2:
+            return state["first"]  # duplicate of row 1 -> UNIQUE constraint on insert
+        code = real_next_item_code(db, reserved)
+        if state["first"] is None:
+            state["first"] = code
+        return code
+
+    monkeypatch.setattr(item_import, "next_item_code", colliding_next_item_code)
+
+    csv_text = (
+        "Description,Category,Brand,Type,Color,Size,Gender/Age,Year,Price,Used,Donate if Unsold,Quantity\n"
+        "Row one,Skis,Atomic,Alpine,,,170,,50.0,Yes,No,\n"
+        "Row two,Skis,Atomic,Alpine,,,170,,60.0,Yes,No,\n"
+        "Row three,Skis,Atomic,Alpine,,,170,,70.0,Yes,No,\n"
+    )
+    resp = _post_import(client, iid, headers, csv_text)
+    # Not a 500: the failure stays inside the batch and is reported per row.
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["imported"] == 2
+    assert body["skipped"] == 1
+    assert body["errors"][0]["row"] == 3
+    assert "Could not save this row" in body["errors"][0]["reason"]
+    listed = client.get(f"/sellers/{seller_r.json()['id']}/items", headers=headers).json()
+    assert sorted(it["description"] for it in listed) == ["Row one", "Row three"]
+
+
+def test_import_worksheet_returns_row_errors_and_warnings(client, active_event, admin_token):
+    """The worksheet surface reports per-row errors and warnings just like the
+    per-intake import — the intake user gets the same detail either way."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    rows = [
+        # one good row, one row with an unparseable price
+        ["Blue Skis", "Skis", "Atomic", "Alpine", "Blue", "170", "Men", "2020", "110.0", "Yes", "No", "1"],
+        ["Bad price", "Skis", "Atomic", "Alpine", "", "160", "Men", "", "TBD", "Yes", "No", "1"],
+    ]
+    data = _worksheet_bytes(first="Nora", last="Nakamura", item_rows=rows)
+    r = client.post(
+        "/items/import-worksheet",
+        files={"file": ("worksheet.xlsx", data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["imported"] == 1
+    assert body["skipped"] == 1
+    assert "Invalid Price value" in body["errors"][0]["reason"]
+    assert body["warnings"] == []

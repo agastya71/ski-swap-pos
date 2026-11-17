@@ -13,6 +13,7 @@ import { useRef, useState, type ChangeEvent } from "react";
 import { BUTTON_STYLE } from "../lib/buttons";
 import { importItems } from "../api/intakes";
 import { downloadImportTemplate } from "../api/items";
+import { ImportOutcome } from "../components/ImportOutcome";
 import type { ImportResult } from "../types";
 
 /**
@@ -42,6 +43,7 @@ export function ImportItemsButton({
     try {
       const r = await importItems(intakeId, file);
       setResult(r);
+      // Always refresh the list — even a partial import created items.
       onImported(r);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Import failed");
@@ -93,25 +95,8 @@ export function ImportItemsButton({
         </div>
       )}
       {result && (
-        <div style={{ fontSize: 13, marginTop: 6, color: "#334155" }}>
-          Imported <strong>{result.imported}</strong>
-          {result.skipped > 0 && (
-            <>
-              ; skipped <strong>{result.skipped}</strong>
-            </>
-          )}
-          .
-          {result.errors.length > 0 && (
-            <ul
-              style={{ margin: "4px 0 0", paddingLeft: 20, color: "#ef4444" }}
-            >
-              {result.errors.map((er, idx) => (
-                <li key={idx}>
-                  Row {er.row}: {er.reason}
-                </li>
-              ))}
-            </ul>
-          )}
+        <div style={{ marginTop: 6 }}>
+          <ImportOutcome result={result} onDismiss={() => setResult(null)} />
         </div>
       )}
     </div>

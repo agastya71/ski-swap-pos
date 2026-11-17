@@ -14,7 +14,7 @@ import { ItemForm } from "../intake/ItemForm";
 import { ItemList } from "../intake/ItemList";
 import { getLabelPrinterMode, dispatchSellerLabels } from "../lib/labelPrinter";
 import { SellerPayoutPanel } from "./SellerPayoutPanel";
-import { SellerEquipmentSummaryPanel } from "./SellerEquipmentSummaryPanel";
+import { ImportOutcome } from "../components/ImportOutcome";import { SellerEquipmentSummaryPanel } from "./SellerEquipmentSummaryPanel";
 import { US_STATES } from "../lib/usStates";
 import type { Seller, Item, Intake, ImportResult } from "../types";
 
@@ -37,6 +37,7 @@ export function SellerDetailPage({
   const [addItemIntakeId, setAddItemIntakeId] = useState<number | null>(null);
   const [intakes, setIntakes] = useState<Intake[]>([]);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
   const [showPayout, setShowPayout] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [editError, setEditError] = useState<string | null>(null);
@@ -172,15 +173,24 @@ export function SellerDetailPage({
   async function handleImportFile(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const intakeId = await getOrCreateIntakeId();
-    const result = await importItems(intakeId, file);
-    setImportResult(result);
-    if (result.imported > 0) {
-      listSellerItems(seller.id)
-        .then(setItems)
-        .catch(() => {});
+    setImportError(null);
+    setImportResult(null);
+    try {
+      const intakeId = await getOrCreateIntakeId();
+      const result = await importItems(intakeId, file);
+      setImportResult(result);
+      if (result.imported > 0) {
+        listSellerItems(seller.id)
+          .then(setItems)
+          .catch(() => {});
+      }
+    } catch (err) {
+      // Whole-file rejection (unreadable workbook, missing header row, ...).
+      // Show the backend's reason instead of failing silently.
+      setImportError(err instanceof Error ? err.message : "Import failed");
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
-    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   /** On-hand unit count across every intake — gates the seller-level reprint
@@ -614,35 +624,17 @@ export function SellerDetailPage({
         </div>
       </div>
 
-      {/* Import result banner */}
-      {importResult && (
-        <div
-          style={{
-            background: importResult.skipped > 0 ? "#fef3c7" : "#f0fdf4",
-            border: "1px solid",
-            borderColor: importResult.skipped > 0 ? "#fcd34d" : "#86efac",
-            borderRadius: 4,
-            padding: "8px 12px",
-            marginBottom: 12,
-            fontSize: 13,
-          }}
-        >
-          Imported {importResult.imported} item
-          {importResult.imported !== 1 ? "s" : ""}.
-          {importResult.skipped > 0 &&
-            ` Skipped ${importResult.skipped} row${importResult.skipped !== 1 ? "s" : ""}: ${importResult.errors.map((e) => `row ${e.row}: ${e.reason}`).join("; ")}`}
-          <button
-            onClick={() => setImportResult(null)}
-            style={{
-              marginLeft: 8,
-              border: "none",
-              background: "none",
-              cursor: "pointer",
-            }}
-          >
-            ×
-          </button>
+      {/* Import outcome banner (shared component — identical on every surface) */}
+      {importError && (
+        <div role="alert" style={{ color: "#b91c1c", marginBottom: 12, fontSize: 13 }}>
+          {importError}
         </div>
+      )}
+      {importResult && (
+        <ImportOutcome
+          result={importResult}
+          onDismiss={() => setImportResult(null)}
+        />
       )}
 
       {/* Reprint feedback */}

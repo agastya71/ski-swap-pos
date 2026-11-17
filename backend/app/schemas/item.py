@@ -118,11 +118,25 @@ class ImportRowError(BaseModel):
 
 
 class ImportResult(BaseModel):
-    """Summary returned after a bulk Excel item import."""
+    """Summary returned after a bulk Excel item import.
+
+    ``errors`` are rows that were NOT imported; ``warnings`` are rows that WERE
+    imported (or harmless file-level quirks) worth telling the intake user
+    about. A non-empty ``warnings`` list never means the import failed — the
+    file completed, partly or wholly.
+    """
 
     imported: int = Field(description="Number of items successfully created.")
     skipped: int = Field(description="Number of rows skipped due to validation errors.")
     errors: list[ImportRowError] = Field(description="Details of each skipped row.")
+    warnings: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Non-fatal notes: rows that imported but look duplicated, rows that "
+            "hit an unexpected error and were isolated, or file-level oddities. "
+            "The import still completed."
+        ),
+    )
 
 
 class WorksheetImportResult(BaseModel):
@@ -147,6 +161,14 @@ class WorksheetImportResult(BaseModel):
     imported: int = Field(description="Number of items successfully created.")
     skipped: int = Field(description="Number of item rows skipped due to validation errors.")
     errors: list[ImportRowError] = Field(description="Details of each skipped row.")
+    warnings: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Non-fatal notes: rows that imported but look duplicated, rows that "
+            "hit an unexpected error and were isolated, or file-level oddities. "
+            "The import still completed."
+        ),
+    )
 
 
 class SellerCandidate(BaseModel):
