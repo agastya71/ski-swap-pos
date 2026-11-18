@@ -88,6 +88,30 @@ describe("ItemList", () => {
     expect(capturedBody).toMatchObject({ price: 80 });
   });
 
+  /** Size in the edit panel is free text — any printed size can be typed. */
+  it("edit panel exposes Size as a free-text input and saves it", async () => {
+    let capturedBody: Record<string, unknown> | null = null;
+    server.use(
+      http.patch("/items/:id", async ({ request }) => {
+        capturedBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(ITEM);
+      }),
+    );
+    render(<ItemList items={[ITEM]} intakeId={5} onItemsChanged={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: /edit/i }));
+
+    // Pre-filled from the item, and a plain <input> (no size dropdown).
+    const sizeEl = screen.getByDisplayValue("160");
+    expect(sizeEl.tagName).toBe("INPUT");
+    expect(screen.queryByRole("combobox", { name: /size/i })).toBeNull();
+
+    // Free text: type a Mondo boot size, something no fixed list would offer.
+    fireEvent.change(sizeEl, { target: { value: "27.5" } });
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    await waitFor(() => expect(capturedBody).not.toBeNull());
+    expect(capturedBody).toMatchObject({ size: "27.5" });
+  });
+
   /** Verifies that clicking Cancel closes the panel without making an API call. */
   it("clicking Cancel closes the panel without calling the API", async () => {
     let patchCalled = false;

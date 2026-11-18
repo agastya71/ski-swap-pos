@@ -12,7 +12,7 @@
 import { useState, type FormEvent } from "react";
 import { addItem } from "../api/intakes";
 import { fetchBrands } from "../api/items";
-import { CATEGORIES, SIZE_OPTIONS, typesForCategory } from "../lib/itemSizes";
+import { CATEGORIES, typesForCategory } from "../lib/itemSizes";
 import type { Item } from "../types";
 
 import { BUTTON_STYLE } from "../lib/buttons";
@@ -122,12 +122,6 @@ export function ItemForm({
       setLoading(false);
     }
   }
-
-  // Size options are looked up per category+type first (e.g. "Ski Boots:Classic"
-  // -> mondo sizes) so the same type name under different categories gets the
-  // right scale; unknown types fall back to a free-text size input.
-  const sizeOptions =
-    SIZE_OPTIONS[`${f.category}:${f.type}`] ?? SIZE_OPTIONS[f.type];
 
   return (
     <form onSubmit={handleSubmit}>
@@ -252,28 +246,16 @@ export function ItemForm({
           >
             Size
           </label>
-          {sizeOptions ? (
-            <select
-              id="size"
-              value={f.size}
-              onChange={(e) => set("size", e.target.value)}
-              style={{ width: "100%", padding: 5 }}
-            >
-              <option value="">— select size —</option>
-              {sizeOptions.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <input
-              id="size"
-              value={f.size}
-              onChange={(e) => set("size", e.target.value)}
-              style={{ width: "100%", padding: 5, boxSizing: "border-box" }}
-            />
-          )}
+          {/* Size is free text: the size scale varies too much per item (cm
+              lengths, Mondo boot sizes, US apparel sizes) for a fixed list to
+              cover it, and intake staff type what is printed on the item. */}
+          <input
+            id="size"
+            value={f.size}
+            onChange={(e) => set("size", e.target.value)}
+            placeholder="e.g. 170cm, 27.5, M"
+            style={{ width: "100%", padding: 5, boxSizing: "border-box" }}
+          />
         </div>
         <div style={{ marginBottom: 8 }}>
           <label
