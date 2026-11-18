@@ -133,30 +133,30 @@ describe("ItemForm", () => {
     ).toBe(true);
   });
 
-  /** Verifies that selecting a type with known sizes renders size as a <select>. */
-  it("renders size as a select when a type with known sizes is selected", () => {
+  /** Verifies size is always a free-text input, whatever the type. */
+  it("renders size as a text input for a type that used to have a fixed list", () => {
     render(<ItemForm intakeId={5} onAdded={vi.fn()} />);
     fireEvent.change(screen.getByLabelText(/^type$/i), {
       target: { value: "Alpine Ski" },
     });
     const sizeEl = screen.getByLabelText(/^size$/i);
-    expect(sizeEl.tagName).toBe("SELECT");
-    expect(sizeEl).toContainElement(
-      screen.getByRole("option", { name: "70cm" }),
-    );
-    expect(sizeEl).toContainElement(
-      screen.getByRole("option", { name: "210cm" }),
-    );
+    expect(sizeEl.tagName).toBe("INPUT");
+    // No `type` attribute — an <input> defaults to text.
+    // No dropdown anywhere in the form: the size scale varies per item.
+    expect(screen.queryByRole("combobox", { name: /^size$/i })).toBeNull();
   });
 
-  /** Verifies that selecting "Other" keeps size as a plain text input. */
-  it("renders size as a text input when type is Other", () => {
+  /** Free text accepts whatever is printed on the item (cm, Mondo, alpha). */
+  it("accepts any typed size value", () => {
     render(<ItemForm intakeId={5} onAdded={vi.fn()} />);
     fireEvent.change(screen.getByLabelText(/^type$/i), {
-      target: { value: "Other" },
+      target: { value: "Ski Boot" },
     });
-    const sizeEl = screen.getByLabelText(/^size$/i);
-    expect(sizeEl.tagName).toBe("INPUT");
+    const sizeEl = screen.getByLabelText(/^size$/i) as HTMLInputElement;
+    fireEvent.change(sizeEl, { target: { value: "27.5" } });
+    expect(sizeEl.value).toBe("27.5");
+    fireEvent.change(sizeEl, { target: { value: "170cm" } });
+    expect(sizeEl.value).toBe("170cm");
   });
 
   /** Verifies that changing type resets size to empty. */
@@ -168,29 +168,15 @@ describe("ItemForm", () => {
     fireEvent.change(screen.getByLabelText(/^size$/i), {
       target: { value: "160cm" },
     });
-    expect((screen.getByLabelText(/^size$/i) as HTMLSelectElement).value).toBe(
+    expect((screen.getByLabelText(/^size$/i) as HTMLInputElement).value).toBe(
       "160cm",
     );
     fireEvent.change(screen.getByLabelText(/^type$/i), {
       target: { value: "Helmet" },
     });
-    expect((screen.getByLabelText(/^size$/i) as HTMLSelectElement).value).toBe(
+    expect((screen.getByLabelText(/^size$/i) as HTMLInputElement).value).toBe(
       "",
     );
-  });
-
-  /** Verifies Ski Boot size options are Mondo sizing strings. */
-  it("shows Mondo sizes for Ski Boot type", () => {
-    render(<ItemForm intakeId={5} onAdded={vi.fn()} />);
-    fireEvent.change(screen.getByLabelText(/^type$/i), {
-      target: { value: "Ski Boot" },
-    });
-    expect(
-      screen.getByRole("option", { name: "15.0 (Mondo)" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("option", { name: "33.0 (Mondo)" }),
-    ).toBeInTheDocument();
   });
 
   it("description input has maxLength of 99", () => {

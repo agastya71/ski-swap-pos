@@ -21,7 +21,7 @@ import {
   setLabelPrinterMode,
   type LabelPrinterMode,
 } from "../lib/labelPrinter";
-import { CATEGORIES, SIZE_OPTIONS, typesForCategory } from "../lib/itemSizes";
+import { CATEGORIES, typesForCategory } from "../lib/itemSizes";
 import type { Item, ItemUpdate } from "../types";
 
 /**
@@ -609,41 +609,22 @@ export function ItemList({
                         >
                           Size
                         </label>
-                        {SIZE_OPTIONS[`${draft.category}:${draft.type}`] ??
-                        SIZE_OPTIONS[draft.type] ? (
-                          <select
-                            value={draft.size}
-                            onChange={(e) =>
-                              setDraft((d) => ({ ...d, size: e.target.value }))
-                            }
-                            style={{
-                              width: "100%",
-                              padding: "4px 6px",
-                              boxSizing: "border-box",
-                              fontSize: 13,
-                            }}
-                          >
-                            <option value="">— select size —</option>
-                            {SIZE_OPTIONS[draft.type].map((s) => (
-                              <option key={s} value={s}>
-                                {s}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <input
-                            value={draft.size}
-                            onChange={(e) =>
-                              setDraft((d) => ({ ...d, size: e.target.value }))
-                            }
-                            style={{
-                              width: "100%",
-                              padding: "4px 6px",
-                              boxSizing: "border-box",
-                              fontSize: 13,
-                            }}
-                          />
-                        )}
+                        {/* Free text: size scales vary per item (cm lengths,
+                            Mondo boot sizes, US apparel sizes) — intake staff
+                            type what is printed on the item. */}
+                        <input
+                          value={draft.size}
+                          onChange={(e) =>
+                            setDraft((d) => ({ ...d, size: e.target.value }))
+                          }
+                          placeholder="e.g. 170cm, 27.5, M"
+                          style={{
+                            width: "100%",
+                            padding: "4px 6px",
+                            boxSizing: "border-box",
+                            fontSize: 13,
+                          }}
+                        />
                       </div>
                     </div>
                     <div
