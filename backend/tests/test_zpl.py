@@ -577,7 +577,7 @@ def test_generate_zpl_text_mode_code_top_right(item):
 def test_generate_zpl_donation_flag_beside_price(item):
     """A donate_unsold item prints the flag as its OWN bold field (font 0,
     v8 2026-10-12 "plain script except the Donation flag") with the plain
-    price starting FLAG_D_WIDTH + FLAG_GAP = 40 dots right of it — the v6
+    price starting FLAG_D_WIDTH + FLAG_GAP = 35 dots right of it (2026-11-18 tune: gap 26→21) — the v6
     right-column edge and spacing, now as two fields. The flag costs no
     row either way; a non-donate item prints the price alone (and no
     font-0 field at all)."""
@@ -585,7 +585,7 @@ def test_generate_zpl_donation_flag_beside_price(item):
     item.donate_unsold = True
     zpl = generate_zpl(item)
     assert "^FT433,124^A0N,30,30^FDD^FS" in zpl
-    assert "^FT473,124^AEN,28,15^FD$25.00^FS" in zpl
+    assert "^FT468,124^AEN,28,15^FD$25.00^FS" in zpl
     # the flag left the ID row: the ID is centered there alone, and the
     # seller row keeps its slot (the flag costs no row either way)
     assert "^FT433,90^FB240,1,0,C,0^AEN,28,15^FDABC-001^FS" in zpl
@@ -603,8 +603,8 @@ def test_generate_zpl_price_column_floored_for_long_codes(item):
     edge is floored so it can never land under the seller code (v9 exact
     model: field = 20 + (data+4 syms)×22 + 20). A 13-char code is NOT
     floored (bx = 713 - 392 = 321 > 307): the flag prints at 321 and the
-    price 40 dots right of it. A 16-char code IS: bx = 255 < floor
-    (origin + 180 = 307) → flag at 307, price at 347. v8: bars encode
+    price 35 dots right of it. A 16-char code IS: bx = 255 < floor
+    (origin + 180 = 307) → flag at 307, price at 342. v8: bars encode
     item.code, so the test sets the code only (barcode_39 no longer
     reaches the label)."""
     from app.services.zpl import generate_zpl
@@ -612,11 +612,11 @@ def test_generate_zpl_price_column_floored_for_long_codes(item):
     item.donate_unsold = True
     zpl = generate_zpl(item)
     assert "^FT301,124^A0N,30,30^FDD^FS" in zpl
-    assert "^FT341,124^AEN,28,15^FD$25.00^FS" in zpl
+    assert "^FT336,124^AEN,28,15^FD$25.00^FS" in zpl
     item.code = "LONGCODE-1234567"
     zpl = generate_zpl(item)
     assert "^FT287,124^A0N,30,30^FDD^FS" in zpl
-    assert "^FT327,124^AEN,28,15^FD$25.00^FS" in zpl
+    assert "^FT322,124^AEN,28,15^FD$25.00^FS" in zpl
 
 
 def test_generate_zpl_numeric_id_bars_end_at_right_edge(item):
@@ -642,7 +642,7 @@ def test_generate_zpl_text_mode_donation_flag_rides_price(item):
     item.donate_unsold = True
     zpl = generate_zpl(item, code_as_text=True, event_name="MYSL 2020")
     assert "^FT405,84^A0N,30,30^FDD^FS" in zpl
-    assert "^FT445,84^AEN,28,15^FD$25.00^FS" in zpl
+    assert "^FT440,84^AEN,28,15^FD$25.00^FS" in zpl
     assert "^FT127,84^AEN,28,15^FDABC^FS" in zpl
     item.donate_unsold = False
     zpl = generate_zpl(item, code_as_text=True, event_name="MYSL 2020")
