@@ -3,6 +3,7 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Response
+from sqlalchemy import case, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -15,7 +16,7 @@ from app.models.seller import Seller
 from app.models.user import User
 from app.schemas.intake import IntakeResponse
 from app.schemas.item import ItemResponse
-from app.schemas.seller import SellerCreate, SellerResponse, SellerUpdate
+from app.schemas.seller import SellerCreate, SellerListItem, SellerResponse, SellerUpdate
 from app.services.codes import next_seller_code
 from app.services.zpl import generate_zpl, send_to_printer
 
@@ -34,13 +35,20 @@ def _active_event(db: Session) -> Event:
 
 
 
-@router.get("", response_model=list[SellerResponse])
+@router.get("", response_model=list[SellerListItem])
 def list_sellers(
     q: Optional[str] = None,
     db: Session = Depends(get_db),
     _user: User = Depends(_INTAKE_ADMIN),
 ):
-    """List sellers for the active event, with optional search by code or name."""
+    """List sellers for the active event, with optional search by code or name.
+
+    Each row carries label-printing progress (``item_count`` /
+    ``labeled_item_count``) so the list can show whether a seller's labels have
+    been printed at all, or only partially. The counts come from one grouped
+    OUTER JOIN — a seller with no items still appears, with zeros — and skip
+    soft-deleted items (see ``SellerListItem``).
+    """
     event = _active_event(db)
     query = db.query(Seller).filter(Seller.event_id == event.id)
     if q:
@@ -51,7 +59,35 @@ def list_sellers(
             | Seller.last_name.ilike(like)
             | Seller.company.ilike(like)
         )
-    return query.order_by(Seller.code).all()
+    sellers = query.order_by(Seller.code).all()
+    if not sellers:
+        return []
+
+    # One aggregate query for the whole page of sellers (never per row).
+    counts = {
+        seller_id: (item_count, labeled)
+        for seller_id, item_count, labeled in db.query(
+            Item.seller_id,
+            func.count(Item.id),
+            func.sum(case((Item.label_printed.is_(True), 1), else_=0)),
+        )
+        .filter(
+            Item.seller_id.in_([s.id for s in sellers]),
+            Item.is_deleted.is_(False),
+        )
+        .group_by(Item.seller_id)
+        .all()
+    }
+
+    rows: list[SellerListItem] = []
+    for seller in sellers:
+        item_count, labeled = counts.get(seller.id, (0, 0))
+        row = SellerListItem.model_validate(seller)
+        row.item_count = int(item_count)
+        # func.sum returns NULL (not 0) when the seller has no items at all.
+        row.labeled_item_count = int(labeled or 0)
+        rows.append(row)
+    return rows
 
 
 @router.post("", response_model=SellerResponse, status_code=201)

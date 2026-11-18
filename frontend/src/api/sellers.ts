@@ -3,17 +3,21 @@
  * Admin-only features: delete, seller-level label reprint.
  */
 import { apiFetch, apiFetchText } from './client'
-import type { Seller, SellerCreate, SellerUpdate, Item } from '../types'
+import type { Seller, SellerCreate, SellerListItem, SellerUpdate, Item } from '../types'
 
 /**
  * Search sellers by partial code, first/last name, or company.
  *
+ * Rows are {@link SellerListItem}s: each carries `item_count` and
+ * `labeled_item_count` so callers can show whether label printing has started,
+ * finished, or never happened. Both counts skip soft-deleted items.
+ *
  * @param q - Search string matched against seller code and name fields.
- * @returns Array of matching Seller records for the active event.
+ * @returns Array of matching seller rows for the active event.
  * @throws {ApiError} 401 if the session token is invalid.
  */
 export const searchSellers = (q: string) =>
-  apiFetch<Seller[]>(`/sellers?q=${encodeURIComponent(q)}`)
+  apiFetch<SellerListItem[]>(`/sellers?q=${encodeURIComponent(q)}`)
 
 /**
  * Fetch a single seller by primary key.

@@ -3,15 +3,61 @@ import { BUTTON_STYLE } from "../lib/buttons";
 import { searchSellers, deleteSeller } from "../api/sellers";
 import { SellerForm } from "../intake/SellerForm";
 import { SellerPayoutPanel } from "./SellerPayoutPanel";
-import type { Seller } from "../types";
+import type { Seller, SellerListItem } from "../types";
 
 const NAVY = "#1e3a8a";
+const MUTED = "#64748b";
+const LABEL_DONE = "#15803d";
+const LABEL_PARTIAL = "#b45309";
+const LABEL_NONE = "#b91c1c";
+
+/**
+ * Summarise a seller's label-printing progress for the list's Labels column.
+ *
+ * Distinguishes the three states intake staff care about: nothing consigned
+ * yet, items consigned but no label printed, printing started but unfinished
+ * (the common case — items arrive across several visits), and fully printed.
+ *
+ * @param s - Seller row carrying `item_count` / `labeled_item_count`.
+ * @returns Display text, colour and an aria-label spelling the state out.
+ */
+function labelStatus(s: SellerListItem): {
+  text: string;
+  color: string;
+  aria: string;
+} {
+  const total = s.item_count;
+  const printed = s.labeled_item_count;
+  if (total === 0) {
+    return { text: "—", color: "#94a3b8", aria: "no items consigned yet" };
+  }
+  if (printed === 0) {
+    return {
+      text: "Not yet",
+      color: LABEL_NONE,
+      aria: `no labels printed yet, ${total} item(s) waiting`,
+    };
+  }
+  if (printed >= total) {
+    return {
+      text: `All ${total}`,
+      color: LABEL_DONE,
+      aria: `all ${total} label(s) printed`,
+    };
+  }
+  return {
+    text: `${printed}/${total}`,
+    color: LABEL_PARTIAL,
+    aria: `partial: ${printed} of ${total} label(s) printed`,
+  };
+}
 
 /**
  * Admin seller list page — debounced search, tabular display, drill-in navigation.
  * Each row has View (navigate to detail), Payout (inline payout panel) and Delete
  * (confirm-gated; only item-less erroneous records — the backend refuses 409
- * otherwise) actions.
+ * otherwise) actions. The Labels column shows whether any price label has been
+ * printed for the seller, so staff can see at a glance who still needs tagging.
  */
 export function SellerListPage({
   onSelectSeller,
@@ -21,7 +67,7 @@ export function SellerListPage({
   eventId: number;
 }) {
   const [query, setQuery] = useState("");
-  const [sellers, setSellers] = useState<Seller[]>([]);
+  const [sellers, setSellers] = useState<SellerListItem[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [expandedPayoutId, setExpandedPayoutId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -37,8 +83,11 @@ export function SellerListPage({
 
   function handleCreated(seller: Seller) {
     setShowCreate(false);
+    // A seller that was just registered cannot have items yet, so its label
+    // counts start at zero rather than being refetched.
+    const row: SellerListItem = { ...seller, item_count: 0, labeled_item_count: 0 };
     setSellers((prev) =>
-      [...prev, seller].sort((a, b) => a.code.localeCompare(b.code)),
+      [...prev, row].sort((a, b) => a.code.localeCompare(b.code)),
     );
   }
 
@@ -109,7 +158,7 @@ export function SellerListPage({
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
           <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
-            {["Code", "Name", "Phone", "Email", ""].map((h) => (
+            {["Code", "Name", "Phone", "Email", "Labels", ""].map((h) => (
               <th
                 key={h}
                 style={{ textAlign: "left", padding: "6px 10px", fontSize: 13 }}
@@ -120,7 +169,9 @@ export function SellerListPage({
           </tr>
         </thead>
         <tbody>
-          {sellers.map((s) => (
+          {sellers.map((s) => {
+            const labels = labelStatus(s);
+            return (
             <Fragment key={s.id}>
               <tr
                 style={{
@@ -137,11 +188,25 @@ export function SellerListPage({
                   {s.first_name} {s.last_name}
                   {s.company ? ` (${s.company})` : ""}
                 </td>
-                <td style={{ padding: "8px 10px", color: "#64748b" }}>
+                <td style={{ padding: "8px 10px", color: MUTED }}>
                   {s.phone ?? "—"}
                 </td>
-                <td style={{ padding: "8px 10px", color: "#64748b" }}>
+                <td style={{ padding: "8px 10px", color: MUTED }}>
                   {s.email ?? "—"}
+                </td>
+                <td style={{ padding: "8px 10px" }}>
+                  <span
+                    aria-label={labels.aria}
+                    title={labels.aria}
+                    style={{
+                      color: labels.color,
+                      fontWeight: 600,
+                      fontSize: 13,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {labels.text}
+                  </span>
                 </td>
                 <td style={{ padding: "8px 10px" }}>
                   <div style={{ display: "flex", gap: 4 }}>
@@ -174,7 +239,7 @@ export function SellerListPage({
               {expandedPayoutId === s.id && (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     style={{
                       padding: "8px 16px 16px",
                       background: "#f8fafc",
@@ -195,11 +260,12 @@ export function SellerListPage({
                 </tr>
               )}
             </Fragment>
-          ))}
+            );
+          })}
           {sellers.length === 0 && (
             <tr>
               <td
-                colSpan={5}
+                colSpan={6}
                 style={{ padding: 16, textAlign: "center", color: "#94a3b8" }}
               >
                 No sellers found
