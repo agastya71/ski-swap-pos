@@ -159,12 +159,15 @@ def print_intake_labels(
     """Print ZPL labels for all items in an intake session.
 
     Optional ``code_as_text``: render each item's code as large text instead
-    of a barcode.
+    of a barcode. Soft-deleted items are skipped (one tag printed per item
+    row, not per unit).
     """
     event = _active_event(db)
     intake = _get_intake_for_event(intake_id, event.id, db)  # pyright: ignore[reportArgumentType]
     printed = 0
     for item in intake.items:
+        if item.is_deleted:
+            continue
         zpl = generate_zpl(item, code_as_text=code_as_text, event_name=str(event.name))
         try:
             send_to_printer(zpl)
@@ -188,10 +191,13 @@ def get_intake_labels_zpl(
     """Return the concatenated raw ZPL for ALL items in the intake, unsent.
 
     Client-side printing path (2026-10-01): mirrors ``POST /{intake_id}/labels``
-    label-for-label (same ZPL, all intake items) but hands the text to the
-    caller instead of the server-attached printer. ``label_printed`` is NOT
-    set here — the client calls ``POST /{intake_id}/labels-ack`` after its
-    local print succeeds.
+    label-for-label (same ZPL, all NON-DELETED intake items) but hands the
+    text to the caller instead of the server-attached printer.
+    ``label_printed`` is NOT set here — the client calls
+    ``POST /{intake_id}/labels-ack`` after its local print succeeds.
+
+    Soft-deleted items are skipped (mirrors ``POST /{intake_id}/labels``),
+    so the ack never flags an item whose label was not printed.
 
     Optional ``dx``/``dy`` geometry nudge in dots (±50; see
     ``zpl.generate_zpl``) — the Browser-Print agent path shifts every field
@@ -210,6 +216,7 @@ def get_intake_labels_zpl(
             dy=dy,
         )
         for item in intake.items
+        if not item.is_deleted
     )
     return Response(content=zpl, media_type="text/plain; charset=utf-8")
 
@@ -220,15 +227,20 @@ def ack_intake_labels(
     db: Session = Depends(get_db),
     _user: User = Depends(_INTAKE_ADMIN),
 ):
-    """Mark every item in the intake as label-printed (client-side ack).
+    """Mark every non-deleted item in the intake as label-printed (ack).
 
     Idempotent bulk companion of ``POST /{item_id}/label-ack`` — mirrors the
     flagging done by the server-attached printer path after a local print.
+    Skips soft-deleted items (mirrors the label-print routes), so an item
+    deleted between ``GET /labels.zpl`` and the ack stays deletable
+    (``DELETE /items/{id}`` refuses only when ``label_printed`` is set).
     """
     event = _active_event(db)
     intake = _get_intake_for_event(intake_id, event.id, db)  # pyright: ignore[reportArgumentType]
     acknowledged = 0
     for item in intake.items:
+        if item.is_deleted:
+            continue
         item.label_printed = True
         acknowledged += 1
     db.commit()

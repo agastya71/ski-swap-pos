@@ -3,6 +3,8 @@ import io
 
 import openpyxl
 import pytest
+from unittest.mock import patch
+
 from app.models.intake import Intake
 from app.models.seller import Seller
 from tests.helpers import valid_seller_create
@@ -433,3 +435,53 @@ def test_intake_labels_ack_idempotent(client, admin_token, intake):
 def test_cashier_cannot_ack_intake_labels(client, cashier_token, intake):
     resp = client.post(f"/intakes/{intake.id}/labels-ack", headers={"Authorization": f"Bearer {cashier_token}"})
     assert resp.status_code in (401, 403)
+
+
+# ── Soft-deleted items are skipped by every intake label flow ────────────
+def test_print_batch_labels_skips_deleted_items(client, admin_token, intake):
+    """POST /labels prints only live items — a soft-deleted row emits no tag.
+
+    Regression (2026-11-17): 'Print All' after deleting an item still
+    printed the deleted item's label, because the route iterated the raw
+    ``intake.items`` relationship without the ``is_deleted`` filter the
+    other listings apply.
+    """
+    h = {"Authorization": f"Bearer {admin_token}"}
+    _add_item(client, h, intake.id, "Skis")
+    deleted = _add_item(client, h, intake.id, "Deleted boots")
+    assert client.delete(f"/items/{deleted['id']}", headers=h).status_code == 204
+    with patch("app.routers.intakes.send_to_printer") as mock_send:
+        resp = client.post(f"/intakes/{intake.id}/labels", headers=h)
+    assert resp.status_code == 200
+    assert resp.json()["printed"] == 1  # only the live item
+    assert mock_send.call_count == 1
+
+
+def test_get_intake_labels_zpl_skips_deleted_items(client, admin_token, intake):
+    """GET /labels.zpl (client-side print) excludes soft-deleted items."""
+    h = {"Authorization": f"Bearer {admin_token}"}
+    live = _add_item(client, h, intake.id, "Skis")
+    deleted = _add_item(client, h, intake.id, "Deleted boots")
+    assert client.delete(f"/items/{deleted['id']}", headers=h).status_code == 204
+    resp = client.get(f"/intakes/{intake.id}/labels.zpl", headers=h)
+    assert resp.status_code == 200
+    assert str(deleted["code"]) not in resp.text
+    assert str(live["code"]) in resp.text
+    assert resp.text.count("^XZ") == 1  # one label for the one live item
+
+
+def test_intake_labels_ack_skips_deleted_items(client, admin_token, intake):
+    """POST /labels-ack counts only live items (skips soft-deleted ones).
+
+    The ack must stay label-for-label with the print routes (same
+    ``is_deleted`` skip): it acknowledges what was actually printed.
+    Asserted through the acknowledged count, which the existing suite pins
+    as "one per live item row".
+    """
+    h = {"Authorization": f"Bearer {admin_token}"}
+    _add_item(client, h, intake.id, "Skis")
+    deleted = _add_item(client, h, intake.id, "Deleted boots")
+    assert client.delete(f"/items/{deleted['id']}", headers=h).status_code == 204
+    first = client.post(f"/intakes/{intake.id}/labels-ack", headers=h)
+    assert first.status_code == 200
+    assert first.json() == {"intake_id": intake.id, "acknowledged": 1}  # live item only
