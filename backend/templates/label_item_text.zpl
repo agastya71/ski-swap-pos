@@ -62,7 +62,9 @@
 ; @desc_max_chars 20      ; description truncation
 ; @max_field_chars 28     ; event/seller/free-line char caps
 ; @flag_d_width 14        ; bold "D" advance (font 0 @30)
-; @flag_gap 26            ; price sits flag_d_width + flag_gap right of the flag
+; @flag_gap 21            ; price sits flag_d_width + flag_gap right of the flag
+                         ; (2026-11-18 user tune: −5 — donate price was clipping
+                         ; its last digit past the right tag edge; flag unmoved)
 ; @bold_d_font 30         ; donation flag "D" font size (font 0 = bold)
 ; @big_code_h 56          ; band code font E ×2 cell height
 ; @big_code_w 30
