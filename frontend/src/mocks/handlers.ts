@@ -209,6 +209,8 @@ export const handlers = [
                                 donate_proceeds_default: false,
                                 event_id: 1,
                                 created_at: "2026-01-01T00:00:00Z",
+                                item_count: 0,
+                                labeled_item_count: 0,
                         },
                 ].filter(
                         (s) =>
@@ -242,6 +244,8 @@ export const handlers = [
                                 zip: body.zip ?? null,
                                 event_id: 1,
                                 created_at: "2026-01-01T00:00:00Z",
+                                item_count: 0,
+                                labeled_item_count: 0,
                         },
                         { status: 201 },
                 );

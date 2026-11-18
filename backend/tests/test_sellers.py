@@ -449,3 +449,82 @@ def test_delete_seller_scoped_to_active_event(client, db, active_event, admin_to
 
     resp = client.delete(f"/sellers/{ghost.id}", headers={"Authorization": f"Bearer {admin_token}"})
     assert resp.status_code == 404
+
+
+def _intake_for(db, seller):
+    intake = Intake(
+        seller_id=seller.id,
+        donate_unsold=False,
+        donate_proceeds=False,
+        created_by="admin",
+    )
+    db.add(intake)
+    db.commit()
+    db.refresh(intake)
+    return intake
+
+
+def _add_item(db, intake, seller, code, labeled=False, deleted=False):
+    item = Item(
+        intake_id=intake.id,
+        seller_id=seller.id,
+        code=code,
+        price=10.0,
+        quantity=1,
+        remaining=1,
+        label_printed=labeled,
+        is_deleted=deleted,
+    )
+    db.add(item)
+    db.commit()
+    return item
+
+
+def test_list_sellers_reports_label_progress(client, db, admin_token, seller):
+    """Each list row carries item_count / labeled_item_count so the list can
+    show whether printing has started, finished, or never happened."""
+    intake = _intake_for(db, seller)
+    _add_item(db, intake, seller, "I-1", labeled=True)
+    _add_item(db, intake, seller, "I-2", labeled=True)
+    _add_item(db, intake, seller, "I-3", labeled=False)
+
+    resp = client.get("/sellers", headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 200
+    row = resp.json()[0]
+    assert row["item_count"] == 3
+    assert row["labeled_item_count"] == 2
+
+
+def test_list_sellers_excludes_soft_deleted_items_from_label_counts(
+    client, db, admin_token, seller
+):
+    """Soft-deleted items must not count: a seller whose remaining items are all
+    printed should read as fully printed, not partial."""
+    intake = _intake_for(db, seller)
+    _add_item(db, intake, seller, "I-1", labeled=True)
+    _add_item(db, intake, seller, "I-2", labeled=False, deleted=True)
+
+    resp = client.get("/sellers", headers={"Authorization": f"Bearer {admin_token}"})
+    row = resp.json()[0]
+    assert row["item_count"] == 1
+    assert row["labeled_item_count"] == 1
+
+
+def test_list_sellers_zero_items_and_no_intakes(client, admin_token, seller):
+    """A seller with no items at all still appears, with zero counts (the
+    aggregate's SUM is NULL in SQL, which must surface as 0 not null)."""
+    resp = client.get("/sellers", headers={"Authorization": f"Bearer {admin_token}"})
+    row = resp.json()[0]
+    assert row["item_count"] == 0
+    assert row["labeled_item_count"] == 0
+
+
+def test_get_seller_does_not_expose_label_counts(client, db, admin_token, seller):
+    """The counts are a list-only addition — the detail endpoint's contract is
+    unchanged so nothing else has to know about them."""
+    intake = _intake_for(db, seller)
+    _add_item(db, intake, seller, "I-1", labeled=True)
+    resp = client.get(f"/sellers/{seller.id}", headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 200
+    assert "item_count" not in resp.json()
+    assert "labeled_item_count" not in resp.json()

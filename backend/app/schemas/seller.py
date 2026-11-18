@@ -197,3 +197,29 @@ class SellerResponse(BaseModel):
     donate_unsold_default: bool = Field(description="Per-seller default pre-populating intake.donate_unsold.")
     donate_proceeds_default: bool = Field(description="Per-seller default pre-populating intake.donate_proceeds.")
     created_at: datetime = Field(description="UTC timestamp when the seller record was created.")
+
+
+class SellerListItem(SellerResponse):
+    """A seller row as shown in the admin/intake seller list.
+
+    Extends :class:`SellerResponse` with label-printing progress so the list can
+    flag which sellers have had ANY labels printed — including a partial run,
+    which is the common case when intake tags items across several visits.
+
+    Soft-deleted items are excluded from both counts, matching what the labels
+    themselves cover: a deleted item's tag no longer exists on the floor, and
+    counting it would make a fully-printed seller read as partial.
+    """
+
+    item_count: int = Field(
+        default=0,
+        description="Non-deleted items consigned by this seller, across all intakes.",
+    )
+    labeled_item_count: int = Field(
+        default=0,
+        description=(
+            "How many of those items have had a price label printed. Any value "
+            "above zero means label printing has started; below item_count means "
+            "it is only partial."
+        ),
+    )

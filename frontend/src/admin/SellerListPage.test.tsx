@@ -112,3 +112,106 @@ describe('SellerListPage', () => {
     expect(screen.getByText('Jane Smith')).toBeInTheDocument()
   })
 })
+
+/** Overrides GET /sellers so a test can control the label-progress counts. */
+function useSellerRow(itemCount: number, labeledCount: number) {
+  server.use(
+    http.get('/sellers', () =>
+      HttpResponse.json([
+        {
+          id: 1,
+          code: '001',
+          first_name: 'Jane',
+          last_name: 'Smith',
+          company: null,
+          is_vendor: false,
+          phone: null,
+          email: null,
+          address: null,
+          city: null,
+          state: null,
+          zip: null,
+          donate_unsold_default: false,
+          donate_proceeds_default: false,
+          event_id: 1,
+          created_at: '2026-01-01T00:00:00Z',
+          item_count: itemCount,
+          labeled_item_count: labeledCount,
+        },
+      ]),
+    ),
+  )
+}
+
+describe('SellerListPage — Labels column', () => {
+  it('renders a Labels column header', async () => {
+    render(<SellerListPage onSelectSeller={vi.fn()} eventId={1} />)
+    await waitFor(() => screen.getByText('Jane Smith'))
+    expect(screen.getByRole('columnheader', { name: 'Labels' })).toBeInTheDocument()
+  })
+
+  it('shows a dash for a seller with no items consigned', async () => {
+    useSellerRow(0, 0)
+    render(<SellerListPage onSelectSeller={vi.fn()} eventId={1} />)
+    await waitFor(() => screen.getByText('Jane Smith'))
+    expect(
+      screen.getByLabelText(/no items consigned yet/i),
+    ).toBeInTheDocument()
+  })
+
+  it('flags a seller whose items have not been labeled', async () => {
+    useSellerRow(3, 0)
+    render(<SellerListPage onSelectSeller={vi.fn()} eventId={1} />)
+    await waitFor(() => screen.getByText('Jane Smith'))
+    const cell = screen.getByLabelText(/no labels printed yet, 3 item/i)
+    expect(cell).toHaveTextContent('Not yet')
+  })
+
+  it('shows partial progress when only some labels are printed', async () => {
+    useSellerRow(5, 2)
+    render(<SellerListPage onSelectSeller={vi.fn()} eventId={1} />)
+    await waitFor(() => screen.getByText('Jane Smith'))
+    const cell = screen.getByLabelText(/partial: 2 of 5 label/i)
+    expect(cell).toHaveTextContent('2/5')
+  })
+
+  it('shows full completion when every item is labeled', async () => {
+    useSellerRow(4, 4)
+    render(<SellerListPage onSelectSeller={vi.fn()} eventId={1} />)
+    await waitFor(() => screen.getByText('Jane Smith'))
+    const cell = screen.getByLabelText(/all 4 label/i)
+    expect(cell).toHaveTextContent('All 4')
+  })
+
+  it('shows a newly registered seller as having no items', async () => {
+    render(<SellerListPage onSelectSeller={vi.fn()} eventId={1} />)
+    await waitFor(() => screen.getByText('Jane Smith'))
+    fireEvent.click(screen.getByRole('button', { name: /register new seller/i }))
+    fireEvent.change(await screen.findByLabelText(/first name/i), {
+      target: { value: 'Alan' },
+    })
+    fireEvent.change(screen.getByLabelText(/last name/i), {
+      target: { value: 'Berg' },
+    })
+    // The form requires at least one contact channel.
+    fireEvent.change(screen.getByLabelText(/phone/i), {
+      target: { value: '5551234567' },
+    })
+    // Address fields are all required by the form.
+    fireEvent.change(screen.getByLabelText(/street address/i), {
+      target: { value: '1 Main St' },
+    })
+    fireEvent.change(screen.getByLabelText(/^city$/i), {
+      target: { value: 'Traverse City' },
+    })
+    fireEvent.change(screen.getByLabelText(/^state$/i), {
+      target: { value: 'MI' },
+    })
+    fireEvent.change(screen.getByLabelText(/^zip$/i), {
+      target: { value: '49684' },
+    })
+    fireEvent.click(await screen.findByRole('button', { name: /^register$/i }))
+    await waitFor(() => expect(screen.getByText(/Alan/)).toBeInTheDocument())
+    expect(screen.getAllByLabelText(/no items consigned yet/i).length).toBe(2)
+  })
+})

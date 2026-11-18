@@ -119,6 +119,20 @@ export interface Seller {
  created_at: string;
 }
 
+/**
+ * A seller row as returned by the seller LIST endpoint only.
+ *
+ * Adds label-printing progress so the list can flag which sellers have had any
+ * labels printed. Soft-deleted items are excluded from both counts, so a seller
+ * whose remaining items are all printed reads as fully printed.
+ */
+export interface SellerListItem extends Seller {
+ /** Non-deleted items consigned by this seller, across all intakes. */
+ item_count: number;
+ /** How many of those items have had a price label printed. */
+ labeled_item_count: number;
+}
+
 /** Payload for registering a new seller. */
 export interface SellerCreate {
  /** Seller's first name. Required for individuals; omitted for vendors. */
