@@ -186,9 +186,27 @@ def _seller_name(seller: Seller) -> str:
     return name or (getattr(seller, "company", "") or "")
 
 
-def _intake_search_query(db: Session, event: Event, q: str, status: str):
+# Per-column substring filters available on the intake search (2026-11-19).
+# Each maps a query param to the Item column it filters; blank value = no
+# filter for that column.
+_COLUMN_FILTERS = (
+    ("category", Item.category),
+    ("brand", Item.brand),
+    ("size", Item.size),
+    ("description", Item.description),
+)
+
+
+def _intake_search_query(
+    db: Session,
+    event: Event,
+    q: str,
+    status: str,
+    column_filters: dict[str, str] | None = None,
+):
     """Query for intake items of the active event matching `q` across every
-    item, seller, and numeric (text-cast) field, optionally filtered by status."""
+    item, seller, and numeric (text-cast) field, optionally filtered by status
+    and by per-column substring filters (category/brand/size/description)."""
     query = (
         db.query(Item)
         .join(Intake)
@@ -202,6 +220,12 @@ def _intake_search_query(db: Session, event: Event, q: str, status: str):
         query = query.filter(or_(*text_matches))
     if status:
         query = query.filter(Item.status == status.lower())
+    for param, col in _COLUMN_FILTERS:
+        value = (column_filters or {}).get(param, "").strip()
+        if value:
+            # Null-safe substring match: plain ilike would drop NULL rows
+            # (e.g. blank descriptions) even when the filter is non-matching.
+            query = query.filter(col.ilike(f"%{value}%"))
     return query.order_by(Item.code)
 
 
@@ -209,6 +233,10 @@ def _intake_search_query(db: Session, event: Event, q: str, status: str):
 def intake_search_items(
     q: str = "",
     status: str = "",
+    category: str = "",
+    brand: str = "",
+    size: str = "",
+    description: str = "",
     limit: int = 100,
     db: Session = Depends(get_db),
     _user: User = Depends(_INTAKE_ADMIN),
@@ -220,12 +248,19 @@ def intake_search_items(
     remaining, and the seller's code/name/company. An empty `q` lists all
     items (bounded by `limit`); `status` optionally narrows the lifecycle
     status (available/sold/donated/returned).
+
+    Optional per-column substring filters (2026-11-19): `category`, `brand`,
+    `size`, `description` — each narrows its own column (case-insensitive
+    contains; blank/absent = no filter for that column).
     """
     event = db.query(Event).filter(Event.is_active == True).first()
     if not event:
         raise HTTPException(status_code=503, detail="No active event configured")
     limit = min(max(limit, 1), 500)
-    items = _intake_search_query(db, event, q, status).limit(limit).all()
+    items = _intake_search_query(
+        db, event, q, status,
+        {"category": category, "brand": brand, "size": size, "description": description},
+    ).limit(limit).all()
     return [
         ItemSearchResult.model_validate(
             {**item.__dict__, "seller_code": item.seller.code, "seller_name": _seller_name(item.seller)}
@@ -238,17 +273,25 @@ def intake_search_items(
 def export_intake_search(
     q: str = "",
     status: str = "",
+    category: str = "",
+    brand: str = "",
+    size: str = "",
+    description: str = "",
     db: Session = Depends(get_db),
     _user: User = Depends(_INTAKE_ADMIN),
 ):
     """Excel export of the current intake-item search results (same filters as
-    /items/intake-search; bounded at 10000 rows)."""
+    /items/intake-search — including the per-column substring filters;
+    bounded at 10000 rows)."""
     from datetime import datetime, timezone
 
     event = db.query(Event).filter(Event.is_active == True).first()
     if not event:
         raise HTTPException(status_code=503, detail="No active event configured")
-    items = _intake_search_query(db, event, q, status).limit(10000).all()
+    items = _intake_search_query(
+        db, event, q, status,
+        {"category": category, "brand": brand, "size": size, "description": description},
+    ).limit(10000).all()
 
     wb = openpyxl.Workbook()
     ws = wb.active
