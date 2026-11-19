@@ -905,14 +905,14 @@ def test_worksheet_vendor_allows_blank_mandatory_item_fields(client, active_even
     assert filled["description"] == "World Cup Skate"
 
 
-def test_worksheet_nonvendor_still_requires_brand_description_price(client, active_event, admin_token):
-    """The strict contract stays for individual sellers: rows missing Brand or
-    Description/Price are skipped with per-row errors (vendor relaxation only)."""
+def test_worksheet_nonvendor_missing_price_or_brand_errors(client, active_event, admin_token):
+    """The strict contract stays for individual sellers for Price and Brand:
+    rows missing those are skipped with per-row errors (Description relaxations
+    are NOT vendor-only anymore — see the blank-description test below)."""
     headers = {"Authorization": f"Bearer {admin_token}"}
     data = _nonvendor_worksheet_bytes(item_rows=[
-        [2, "Skis", None, None, None, "27.5", None, "Yes"],                # no brand/desc/price
+        [2, "Skis", None, None, None, "27.5", None, "Yes"],               # no brand, no price (blank desc OK now)
         [1, "Skis", "Skate", None, "Pro", "190", 100, "No"],               # no brand
-        [1, "Skis", "Classic", "Salomon", None, "170", 50, "Yes"],         # no description
     ])
     r = client.post(
         "/items/import-worksheet",
@@ -922,12 +922,78 @@ def test_worksheet_nonvendor_still_requires_brand_description_price(client, acti
     assert r.status_code == 200
     body = r.json()
     assert body["imported"] == 0
-    assert body["skipped"] == 3
+    assert body["skipped"] == 2
     reasons = [e["reason"] for e in body["errors"]]
-    assert reasons[0] == "Missing required field: Description or Price"
+    assert reasons[0] == "Missing required field: Price"
     assert reasons[1] == "Missing required field: Brand"
-    assert reasons[2] == "Missing required field: Description or Price"
 
+
+def test_worksheet_nonvendor_blank_description_imports_with_warning(client, active_event, admin_token):
+    """2026-11-18: Description is optional for EVERY seller. A consignor row
+    with a blank Description imports with an empty description field, keeps
+    its price, and the summary warns about the blank rows."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    data = _nonvendor_worksheet_bytes(item_rows=[
+        [1, "Skis", "Classic", "Salomon", None, "170", 50, "Yes"],         # blank description, price kept
+        [2, "Skis", "Skate", "Fischer", None, "187", None, "No"],          # blank description AND price → still an error
+        [1, "Poles", "", "Leki", "", "120", 30, "Yes"],                  # whitespace-only desc counts as blank
+    ])
+    r = client.post(
+        "/items/import-worksheet",
+        files={"file": ("consignor.xlsx", data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["imported"] == 2
+    assert body["skipped"] == 1
+    assert [e["reason"] for e in body["errors"]] == ["Missing required field: Price"]
+    # The blank-description advisory warning lists the imported row only.
+    assert len(body["warnings"]) == 1
+    assert body["warnings"][0].startswith("2 row(s) imported without a description")
+    assert "row 17, 19" in body["warnings"][0]
+    items = client.get(f"/intakes/{body['intake_id']}", headers=headers).json()["items"]
+    assert len(items) == 2
+    ws_only = next(it for it in items if it["brand"] == "Salomon")
+    assert ws_only["price"] == 50.0
+    assert ws_only["description"] is None
+    leki = next(it for it in items if it["brand"] == "Leki")
+    assert leki["description"] is None
+    assert leki["price"] == 30.0
+
+
+def test_intake_import_allows_blank_description(client, active_event, admin_token, intake):
+    """The per-intake (template) import path allows a blank Description for an
+    individual seller too — same relaxation on both import surfaces."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    import io
+
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    assert ws is not None
+    ws.append(["Last", "Smith"])
+    ws.append(["First", "Jane"])
+    ws.append(["Phone", "6125550139"])
+    ws.append(["Email", "ola@example.org"])
+    ws.append(["Qty", "Category", "Type", "Brand", "Description", "Size", "Sell Price", "Donate?"])
+    ws.append([2, "Skis", "Skate", "Atomic", None, "190", 120, "Yes"])
+    buf = io.BytesIO()
+    wb.save(buf)
+    r = client.post(
+        f"/intakes/{intake.id}/items/import",
+        files={"file": ("items.xlsx", buf.getvalue(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=headers,
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["imported"] == 1
+    assert body["warnings"], "blank-description warning expected"
+    assert body["warnings"][0].startswith("1 row(s) imported without a description")
+    items = client.get(f"/intakes/{intake.id}", headers=headers).json()["items"]
+    assert items[0]["description"] is None
+    assert items[0]["price"] == 120.0
 
 def test_worksheet_vendor_malformed_price_still_errors(client, active_event, admin_token):
     """The vendor relaxation covers EMPTY fields only — a malformed price like
@@ -1329,7 +1395,7 @@ def test_import_reports_row_errors_so_intake_can_fix_the_file(client, active_eve
     csv_text = (
         "Description,Category,Brand,Type,Color,Size,Gender/Age,Year,Price,Used,Donate if Unsold,Quantity\n"
         "Good one,Skis,Atomic,Alpine,,,170,,50.0,Yes,No,\n"
-        ",Skis,Atomic,Alpine,,,170,,50.0,Yes,No,\n"
+        ",Skis,Atomic,Alpine,,,170,,not-a-number,Yes,No,\n"
         "Good two,Skis,Atomic,Alpine,,,160,,not-a-number,Yes,No,\n"
         "Good three,Skis,Atomic,Alpine,,,150,,80.0,Yes,No,\n"
     )
@@ -1341,9 +1407,11 @@ def test_import_reports_row_errors_so_intake_can_fix_the_file(client, active_eve
     # Row numbers point at the failing worksheet rows (1-based, header = row 1).
     assert [e["row"] for e in body["errors"]] == [3, 4]
     reasons = " | ".join(e["reason"] for e in body["errors"])
-    assert "Missing required field" in reasons
+    # Row 3 has a blank description (allowed 2026-11-18) but ALSO a bad price,
+    # so it is still skipped — reported with "Invalid Price value".
     assert "Invalid Price value" in reasons
-    # `warnings` is always present so the UI can render it unconditionally.
+    # No blank-description warning: the only blank-description row failed on its
+    # price, so nothing imported without a description.
     assert body["warnings"] == []
     listed = client.get(f"/sellers/{seller_r.json()['id']}/items", headers=headers).json()
     assert sorted(it["description"] for it in listed) == ["Good one", "Good three"]

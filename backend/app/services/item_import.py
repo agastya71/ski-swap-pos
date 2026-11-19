@@ -214,10 +214,12 @@ def _parse_row(
     brand_blank = _is_blank_cell(brand)
 
     if not is_vendor:
-        # Individual sellers keep the strict contract: Description, Price and
-        # Brand are mandatory (verbatim legacy expressions).
-        if not description or price is None:
-            return None, ImportRowError(row=row_no, reason="Missing required field: Description or Price")
+        # Individual sellers keep the strict contract on Price and Brand
+        # (verbatim legacy expression for Brand). Description may be blank for
+        # ANY seller as of 2026-11-18 — it imports as an empty field, editable
+        # later via the item edit screen.
+        if price is None:
+            return None, ImportRowError(row=row_no, reason="Missing required field: Price")
         if not brand or not str(brand).strip():
             return None, ImportRowError(row=row_no, reason="Missing required field: Brand")
 
@@ -272,6 +274,31 @@ def _parse_row(
     ), None
 
 
+def _finalize_warnings(warnings: list[str], duplicate_rows: list[int], blank_description_rows: list[int]) -> None:
+    """Append the post-import warnings to ``warnings`` (in place).
+
+    Two advisory warnings, row numbers capped at 10 with an "(+N more)" tail:
+    re-import duplicates (same description/brand/size/price as an existing
+    item of this seller) and rows imported with a blank Description (they
+    imported fine; intake can fill them in later via item edit).
+    """
+    if blank_description_rows:
+        shown = ", ".join(str(r) for r in blank_description_rows[:10])
+        extra = "" if len(blank_description_rows) <= 10 else f" (+{len(blank_description_rows) - 10} more)"
+        warnings.append(
+            f"{len(blank_description_rows)} row(s) imported without a description — row {shown}{extra}. "
+            "The Description field is empty and can be filled in later via item edit."
+        )
+    if duplicate_rows:
+        shown = ", ".join(str(r) for r in duplicate_rows[:10])
+        extra = "" if len(duplicate_rows) <= 10 else f" (+{len(duplicate_rows) - 10} more)"
+        warnings.append(
+            f"{len(duplicate_rows)} row(s) match items this seller already had "
+            f"(same description, brand, size and price) — row {shown}{extra}. "
+            "They were imported; check for a duplicate re-upload."
+        )
+
+
 def _import_rows(
     db: Session,
     intake: Intake,
@@ -290,14 +317,14 @@ def _import_rows(
     """
     brands_pool = _existing_brands(db, seller)
     col_map = _header_col_map(header_cells) if header_cells is not None else None
-    # Vendor worksheets (2026-10-28): mandatory item fields (Brand /
-    # Description / Sell Price) may be left EMPTY — vendor bulk exports often
-    # carry rows with only quantity/category. Blank description/brand import
-    # as empty fields and a blank price imports as $0.00 (price editable
-    # later; cashier price-override at checkout). Malformed values (e.g.
-    # "TBD" in the price column) are still errors, and every relaxation is
-    # scoped to the seller's is_vendor flag — individual sellers keep the
-    # strict contract.
+    # Vendor worksheets (2026-10-28): Brand / Sell Price may be left EMPTY —
+    # vendor bulk exports often carry rows with only quantity/category. Since
+    # 2026-11-18 the Description relaxation applies to EVERY seller: a blank
+    # Description imports as an empty field (flagged with a per-import
+    # warning), while blank Brand and blank Price stay vendor-only ($0.00) —
+    # individual sellers still error with "Missing required field: Price" /
+    # "Missing required field: Brand". Malformed values (e.g. "TBD" in the
+    # price column) are still errors for everyone.
     is_vendor = bool(seller.is_vendor)
 
     # Item codes are numeric-only (2026-09-18): five digits starting at
@@ -308,6 +335,7 @@ def _import_rows(
 
     errors: list[ImportRowError] = []
     warnings: list[str] = []
+    blank_description_rows: list[int] = []  # sheet row numbers imported with a blank Description
     imported = 0
     skipped = 0
 
@@ -367,7 +395,7 @@ def _import_rows(
             except (TypeError, ValueError):
                 year_int = None
 
-        description_value = None if is_vendor and parsed.description_blank else _cell_text(parsed.description)
+        description_value = None if parsed.description_blank else _cell_text(parsed.description)
         size_value = _cell_text(parsed.size) if not _is_blank_cell(parsed.size) else None
 
         # Per-row savepoint: an unexpected failure on ONE row (e.g. a unique
@@ -415,18 +443,13 @@ def _import_rows(
 
         reserved.add(item_code)
         imported += 1
+        if parsed.description_blank:
+            blank_description_rows.append(i)
         if _dup_signature(description_value, brand_str, size_value, price_float) in pre_existing:
             duplicate_rows.append(i)
 
     db.commit()
-    if duplicate_rows:
-        shown = ", ".join(str(r) for r in duplicate_rows[:10])
-        extra = "" if len(duplicate_rows) <= 10 else f" (+{len(duplicate_rows) - 10} more)"
-        warnings.append(
-            f"{len(duplicate_rows)} row(s) match items this seller already had "
-            f"(same description, brand, size and price) — row {shown}{extra}. "
-            "They were imported; check for a duplicate re-upload."
-        )
+    _finalize_warnings(warnings, duplicate_rows, blank_description_rows)
     return ImportResult(imported=imported, skipped=skipped, errors=errors, warnings=warnings)
 
 
