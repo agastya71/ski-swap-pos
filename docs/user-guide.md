@@ -129,7 +129,7 @@ For large consignments, use **Import Seller Worksheet** on the intake tab:
 
 Prices round UP to whole dollars. Brand names are matched to existing brands when they are close (typos snap to the known brand). A vendor worksheet's Company row marks the created seller as a vendor.
 
-**Vendor worksheets may leave item fields blank** (2026-10-28): for vendor sellers, Brand, Description and Sell Price may be empty — blank description/brand import as empty fields and a blank price imports as **$0.00** (correct the price later on the item edit screen, or let the cashier price-override at checkout). Malformed values (e.g. `TBD` in the price column) are still rejected. Individual consignors keep the strict rules: Description, Price and Brand are required.
+**Blank Description allowed for everyone** (2026-11-18): a row with an empty Description imports fine for vendor sellers and individual consignors alike — the item's Description field stays empty (fill it in later on the item edit screen) and the import summary carries a warning listing the affected rows. For vendor sellers, Brand and Sell Price may still be left empty — a blank price imports as **$0.00** (correct the price later on the item edit screen, or let the cashier price-override at checkout). Malformed values (e.g. `TBD` in the price column) are still rejected. Individual consignors keep the strict rules for the remaining fields: Price and Brand are required.
 
 ### 2.8 The Search tab
 
