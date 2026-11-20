@@ -272,6 +272,32 @@ export function downloadImportTemplate(vendor = false): Promise<void> {
     });
 }
 
+/** Optional per-column substring filters for the intake item search. */
+export interface ItemSearchColumnFilters {
+ /** Case-insensitive substring the Category column must contain ("" = no filter). */
+ category?: string;
+ /** Case-insensitive substring the Brand column must contain ("" = no filter). */
+ brand?: string;
+ /** Case-insensitive substring the Size column must contain ("" = no filter). */
+ size?: string;
+ /** Case-insensitive substring the Description column must contain ("" = no filter). */
+ description?: string;
+}
+
+/** Builds URLSearchParams holding only the column filters that are set. */
+function columnFilterParams(
+ filters: ItemSearchColumnFilters | undefined,
+): URLSearchParams {
+ const params = new URLSearchParams();
+ if (filters) {
+  for (const key of ["category", "brand", "size", "description"] as const) {
+   const value = filters[key] ?? "";
+   if (value) params.set(key, value);
+  }
+ }
+ return params;
+}
+
 /**
  * Full-field search across ALL intake items for the active event. Matches
  * (case-insensitive) on item code, description, category, brand, type, color,
@@ -280,12 +306,19 @@ export function downloadImportTemplate(vendor = false): Promise<void> {
  *
  * @param q - Search string matched against every field.
  * @param status - Optional lifecycle status filter (available/sold/donated/returned).
+ * @param columnFilters - Optional per-column substring filters (category/brand/size/description).
  * @returns Array of matching ItemSearchResult records; may be empty.
  * @throws {ApiError} 401 if the session token is invalid; 403 for cashier role.
  */
-export const searchIntakeItems = (q: string, status = "") => {
+export const searchIntakeItems = (
+ q: string,
+ status = "",
+ columnFilters?: ItemSearchColumnFilters,
+) => {
  const params = new URLSearchParams({ q });
  if (status) params.set("status", status);
+ for (const [key, value] of columnFilterParams(columnFilters))
+  params.set(key, value);
  return apiFetch<ItemSearchResult[]>(
   `/items/intake-search?${params.toString()}`,
  );
@@ -293,22 +326,26 @@ export const searchIntakeItems = (q: string, status = "") => {
 
 /**
  * Download an Excel export of the current intake-item search results (same
- * filters as {@link searchIntakeItems}). Mirrors {@link downloadImportTemplate}:
- * fetch → Blob → synthetic <a> click.
+ * filters as {@link searchIntakeItems}, including the column filters). Mirrors
+ * {@link downloadImportTemplate}: fetch → Blob → synthetic <a> click.
  *
  * @param q - Search string matched against every field.
  * @param status - Optional lifecycle status filter.
+ * @param columnFilters - Optional per-column substring filters.
  * @param filename - Download filename (defaults to the server-suggested name).
  * @throws {Error} if the request fails or the server returns a non-OK status.
  */
 export function exportIntakeSearch(
  q: string,
  status = "",
+ columnFilters?: ItemSearchColumnFilters,
  filename?: string,
 ): Promise<void> {
  const token = getToken();
  const params = new URLSearchParams({ q });
  if (status) params.set("status", status);
+ for (const [key, value] of columnFilterParams(columnFilters))
+  params.set(key, value);
  return fetch(`/items/intake-search/export?${params.toString()}`, {
   headers: token ? { Authorization: `Bearer ${token}` } : {},
  })

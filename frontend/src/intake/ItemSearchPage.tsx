@@ -2,14 +2,21 @@
  * Intake item search page — searches ALL intake items for the active event
  * across every field (code, description, category, brand, type, color, size,
  * gender/age, year, price, quantity, remaining, status, and the seller's
- * code/name/company). Results can be downloaded as an Excel export matching
- * the current search filters.
+ * code/name/company). Admins additionally get per-column substring filters
+ * (Category, Brand, Description, Size) rendered as inputs under the column
+ * headers; results can be downloaded as an Excel export matching the current
+ * search filters.
  *
  * @module ItemSearchPage
  */
 import { useEffect, useState, type FormEvent } from "react";
-import { searchIntakeItems, exportIntakeSearch } from "../api/items";
+import {
+    searchIntakeItems,
+    exportIntakeSearch,
+    type ItemSearchColumnFilters,
+} from "../api/items";
 import type { ItemSearchResult } from "../types";
+import { useAuth } from "../auth/AuthContext";
 
 const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
     { value: "", label: "All statuses" },
@@ -19,13 +26,45 @@ const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
     { value: "returned", label: "Returned" },
 ];
 
+/** Filter-row cells in header order: null = no filter for that column. */
+const FILTER_ROW: Array<{ filterKey: keyof ItemSearchColumnFilters } | null> = [
+    null, // Code
+    null, // Qty
+    { filterKey: "category" },
+    null, // Type
+    { filterKey: "brand" },
+    { filterKey: "description" },
+    { filterKey: "size" },
+    null, // Sell Price
+    null, // Donate?
+    null, // Remaining
+    null, // Status
+    null, // Seller
+];
+
+/** Accessible labels for the per-column filter inputs. */
+const FILTER_LABELS: Record<string, string> = {
+    category: "Filter by category",
+    brand: "Filter by brand",
+    description: "Filter by description",
+    size: "Filter by size",
+};
+
+/** Shape of the per-column filter row state ("" = no filter for that column). */
+type ColumnFilterState = Record<string, string>;
+
 /**
  * Search panel + results table for intake items, with an Excel export button
- * that downloads the results matching the current search filters.
+ * that downloads the results matching the current search filters. Admin users
+ * also see per-column substring filter inputs under the Category, Brand,
+ * Description, and Size headers.
  */
 export function ItemSearchPage() {
+    const { decoded } = useAuth();
+    const isAdmin = decoded?.role === "admin";
     const [q, setQ] = useState("");
     const [status, setStatus] = useState("");
+    const [columnFilters, setColumnFilters] = useState<ColumnFilterState>({});
     const [results, setResults] = useState<ItemSearchResult[]>([]);
     const [loading, setLoading] = useState(false);
     const [exporting, setExporting] = useState(false);
@@ -33,11 +72,15 @@ export function ItemSearchPage() {
     const [searched, setSearched] = useState(false);
 
     /** Runs the search with the given filters and updates the result table. */
-    async function runSearch(query: string, statusFilter: string) {
+    async function runSearch(
+        query: string,
+        statusFilter: string,
+        filters: ColumnFilterState = columnFilters,
+    ) {
         setLoading(true);
         setError(null);
         try {
-            const data = await searchIntakeItems(query, statusFilter);
+            const data = await searchIntakeItems(query, statusFilter, filters);
             setResults(data);
         } catch (err) {
             setError(err instanceof Error ? err.message : "Search failed");
@@ -51,6 +94,7 @@ export function ItemSearchPage() {
     // Load the full item list (server-bounded) once so the tab is useful immediately.
     useEffect(() => {
         void runSearch("", "");
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     /** Submits the search form (button click or Enter in the search field). */
@@ -65,12 +109,22 @@ export function ItemSearchPage() {
         void runSearch(q, value);
     }
 
+    /** Applies a column-filter edit (debounced via onBlur + Enter/submit). */
+    function handleColumnFilterChange(key: string, value: string) {
+        setColumnFilters((prev) => ({ ...prev, [key]: value }));
+    }
+
+    /** Applies the current column filters immediately (Enter or blur). */
+    function handleColumnFilterApply() {
+        void runSearch(q, status, columnFilters);
+    }
+
     /** Downloads an Excel export of the current search results. */
     async function handleExport() {
         setError(null);
         setExporting(true);
         try {
-            await exportIntakeSearch(q, status);
+            await exportIntakeSearch(q, status, columnFilters);
         } catch (err) {
             setError(err instanceof Error ? err.message : "Export failed");
         } finally {
@@ -187,6 +241,30 @@ export function ItemSearchPage() {
                         <th style={cell}>Status</th>
                         <th style={cell}>Seller</th>
                     </tr>
+                    {isAdmin && (
+                        <tr>
+                            {FILTER_ROW.map((entry, i) =>
+                                entry === null ? (
+                                    <td key={`col-${i}`} style={cell} />
+                                ) : (
+                                    <td
+                                        key={entry.filterKey}
+                                        style={{ ...cell, paddingBottom: 4 }}
+                                    >
+                                        <ColumnFilterInput
+                                            filterKey={entry.filterKey}
+                                            label={FILTER_LABELS[entry.filterKey]}
+                                            value={
+                                                columnFilters[entry.filterKey] ?? ""
+                                            }
+                                            onChange={handleColumnFilterChange}
+                                            onApply={handleColumnFilterApply}
+                                        />
+                                    </td>
+                                ),
+                            )}
+                        </tr>
+                    )}
                 </thead>
                 <tbody>
                     {results.map((item) => (
@@ -225,5 +303,42 @@ export function ItemSearchPage() {
                 </div>
             )}
         </div>
+    );
+}
+
+/** One per-column filter input, applied on Enter or blur. */
+function ColumnFilterInput({
+    filterKey,
+    label,
+    value,
+    onChange,
+    onApply,
+}: {
+    filterKey: string;
+    label: string;
+    value: string;
+    onChange: (key: string, value: string) => void;
+    onApply: () => void;
+}) {
+    return (
+        <input
+            aria-label={label}
+            value={value}
+            onChange={(e) => onChange(filterKey, e.target.value)}
+            onBlur={onApply}
+            onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    onApply();
+                }
+            }}
+            placeholder="Filter"
+            style={{
+                width: "100%",
+                minWidth: 90,
+                padding: "3px 6px",
+                fontSize: 12,
+            }}
+        />
     );
 }

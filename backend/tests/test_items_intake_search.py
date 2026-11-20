@@ -131,3 +131,74 @@ def test_export_returns_xlsx_with_results(client, admin_token, search_data):
 
 def test_export_requires_admin_or_intake(client, cashier_token, search_data):
     assert client.get("/items/intake-search/export", headers=_auth(cashier_token)).status_code == 403
+
+# ---------------------------------------------------------------- column filters
+
+
+def test_column_filter_category(client, admin_token, search_data):
+    resp = client.get("/items/intake-search", params={"category": "ski"}, headers=_auth(admin_token))
+    assert [r["code"] for r in resp.json()] == ["A001-01"]
+    resp = client.get("/items/intake-search", params={"category": "boot"}, headers=_auth(admin_token))
+    assert [r["code"] for r in resp.json()] == ["A002-01"]
+
+
+def test_column_filter_brand_case_insensitive(client, admin_token, search_data):
+    resp = client.get("/items/intake-search", params={"brand": "ROSSIGNOL"}, headers=_auth(admin_token))
+    assert [r["code"] for r in resp.json()] == ["A001-01"]
+    # Substring, not exact: "tom" hits "Atomic".
+    resp = client.get("/items/intake-search", params={"brand": "tom"}, headers=_auth(admin_token))
+    assert [r["code"] for r in resp.json()] == ["A002-01"]
+
+
+def test_column_filter_size_and_description(client, admin_token, search_data):
+    # Size "8" is substring-exact enough here vs "140cm" but must NOT hit "8.0"-style noise.
+    resp = client.get("/items/intake-search", params={"size": "140"}, headers=_auth(admin_token))
+    assert [r["code"] for r in resp.json()] == ["A001-01"]
+    resp = client.get("/items/intake-search", params={"size": "8"}, headers=_auth(admin_token))
+    assert [r["code"] for r in resp.json()] == ["A002-01"]
+    resp = client.get("/items/intake-search", params={"description": "blue"}, headers=_auth(admin_token))
+    assert [r["code"] for r in resp.json()] == ["A002-01"]
+
+
+def test_column_filters_combined_with_q_and_status(client, admin_token, search_data):
+    # Filters compose with the all-fields query and the status filter.
+    resp = client.get("/items/intake-search", params={"q": "ski", "category": "skis"}, headers=_auth(admin_token))
+    assert [r["code"] for r in resp.json()] == ["A001-01"]
+    # q matches A001-01 ("alpine skis"), but the brand filter excludes it.
+    resp = client.get("/items/intake-search", params={"q": "ski", "brand": "atomic"}, headers=_auth(admin_token))
+    assert resp.json() == []
+    # Filters compose with status too.
+    resp = client.get("/items/intake-search", params={"category": "skis", "status": "sold"}, headers=_auth(admin_token))
+    assert [r["code"] for r in resp.json()] == ["A001-01"]
+    resp = client.get("/items/intake-search", params={"category": "skis", "status": "available"}, headers=_auth(admin_token))
+    assert resp.json() == []
+
+
+def test_column_filter_blank_or_whitespace_ignored(client, admin_token, search_data):
+    resp = client.get("/items/intake-search", params={"category": "  ", "brand": "", "size": None, "description": ""}, headers=_auth(admin_token))
+    codes = [r["code"] for r in resp.json()]
+    assert "A001-01" in codes and "A002-01" in codes
+
+
+def test_column_filter_no_match_returns_empty(client, admin_token, search_data):
+    resp = client.get("/items/intake-search", params={"brand": "nonexistent"}, headers=_auth(admin_token))
+    assert resp.json() == []
+
+
+def test_column_filter_applies_to_export(client, admin_token, search_data):
+    resp = client.get("/items/intake-search/export", params={"brand": "atomic"}, headers=_auth(admin_token))
+    assert resp.status_code == 200
+    wb = openpyxl.load_workbook(io.BytesIO(resp.content))
+    ws = wb.active
+    assert ws is not None
+    assert ws.cell(row=2, column=1).value == "A002-01"
+    assert ws.max_row == 2  # header + exactly one filtered row
+
+
+def test_column_filter_export_no_match(client, admin_token, search_data):
+    resp = client.get("/items/intake-search/export", params={"description": "zzz-no-match"}, headers=_auth(admin_token))
+    assert resp.status_code == 200
+    wb = openpyxl.load_workbook(io.BytesIO(resp.content))
+    ws = wb.active
+    assert ws is not None
+    assert ws.max_row == 1  # header only
