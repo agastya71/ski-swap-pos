@@ -769,7 +769,8 @@ def test_generate_zpl_vendor_brand_capped_at_field_max(db, vendor_seller):
     assert f"^FD{expected}D^FS" not in zpl
 
 
-def test_generate_zpl_nonvendor_brand_ignored(db, seller, intake):
+def test_generate_zpl_nonvendor_brand_prints(db, seller, intake):
+    # 2026-11-19 directive: brand prints for ALL sellers, not just vendors.
     it = Item(
         intake_id=intake.id,
         seller_id=seller.id,
@@ -786,11 +787,35 @@ def test_generate_zpl_nonvendor_brand_ignored(db, seller, intake):
     from app.services.zpl import generate_zpl
 
     zpl = generate_zpl(it)
+    assert "^FDAtomic Ski boots^FS" in zpl
+    assert "^FDSki boots^FS" not in zpl
+
+
+def test_generate_zpl_whitespace_brand_treated_as_blank(db, seller, intake):
+    # A whitespace-only brand (imports can carry them) degrades gracefully
+    # to the description-only row instead of printing a stray leading space.
+    it = Item(
+        intake_id=intake.id,
+        seller_id=seller.id,
+        code="ABC-011",
+        price=25.00,
+        description="Ski boots",
+        brand="   ",
+        status="available",
+        label_printed=False,
+    )
+    db.add(it)
+    db.commit()
+    db.refresh(it)
+    from app.services.zpl import generate_zpl
+
+    zpl = generate_zpl(it)
     assert "^FDSki boots^FS" in zpl
-    assert "Atomic" not in zpl
 
 
-def test_generate_zpl_vendor_without_brand_description_only(db, vendor_seller):
+def test_generate_zpl_without_brand_description_only(db, vendor_seller):
+    # Blank brand → description-only row, any seller type (fit-guard logic
+    # is seller-agnostic since the 2026-11-19 all-sellers brand change).
     it = _vendor_item(db, vendor_seller, brand=None)
     from app.services.zpl import generate_zpl
 
