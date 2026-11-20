@@ -58,6 +58,8 @@ function labelStatus(s: SellerListItem): {
  * (confirm-gated; only item-less erroneous records — the backend refuses 409
  * otherwise) actions. The Labels column shows whether any price label has been
  * printed for the seller, so staff can see at a glance who still needs tagging.
+ * The Vendor column flags commercial vendors (✓) against individual
+ * consignors (—) without forcing staff to open each detail page.
  */
 export function SellerListPage({
   onSelectSeller,
@@ -158,7 +160,7 @@ export function SellerListPage({
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
           <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
-            {["Code", "Name", "Phone", "Email", "Labels", ""].map((h) => (
+            {["Code", "Name", "Phone", "Email", "Vendor", "Labels", ""].map((h) => (
               <th
                 key={h}
                 style={{ textAlign: "left", padding: "6px 10px", fontSize: 13 }}
@@ -193,6 +195,20 @@ export function SellerListPage({
                 </td>
                 <td style={{ padding: "8px 10px", color: MUTED }}>
                   {s.email ?? "—"}
+                </td>
+                <td style={{ padding: "8px 10px" }}>
+                  <span
+                    aria-label={s.is_vendor ? "vendor seller" : "individual seller"}
+                    title={s.is_vendor ? "vendor seller" : "individual seller"}
+                    style={{
+                      color: s.is_vendor ? LABEL_DONE : "#94a3b8",
+                      fontWeight: 600,
+                      fontSize: 13,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {s.is_vendor ? "✓" : "—"}
+                  </span>
                 </td>
                 <td style={{ padding: "8px 10px" }}>
                   <span
@@ -239,7 +255,7 @@ export function SellerListPage({
               {expandedPayoutId === s.id && (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     style={{
                       padding: "8px 16px 16px",
                       background: "#f8fafc",
@@ -265,7 +281,7 @@ export function SellerListPage({
           {sellers.length === 0 && (
             <tr>
               <td
-                colSpan={6}
+                colSpan={7}
                 style={{ padding: 16, textAlign: "center", color: "#94a3b8" }}
               >
                 No sellers found

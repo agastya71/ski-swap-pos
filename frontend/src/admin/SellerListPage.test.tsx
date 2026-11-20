@@ -113,6 +113,58 @@ describe('SellerListPage', () => {
   })
 })
 
+describe('SellerListPage — Vendor column', () => {
+  /** Overrides GET /sellers with one row whose vendor flag is controlled. */
+  function useVendorRow(isVendor: boolean) {
+    server.use(
+      http.get('/sellers', () =>
+        HttpResponse.json([
+          {
+            id: 1,
+            code: 'V001',
+            first_name: null,
+            last_name: null,
+            company: 'Acme Ski Co',
+            is_vendor: isVendor,
+            phone: null,
+            email: null,
+            address: null,
+            city: null,
+            state: null,
+            zip: null,
+            donate_unsold_default: false,
+            donate_proceeds_default: false,
+            event_id: 1,
+            created_at: '2026-01-01T00:00:00Z',
+            item_count: 0,
+            labeled_item_count: 0,
+          },
+        ]),
+      ),
+    )
+  }
+
+  it('renders a Vendor column header', async () => {
+    render(<SellerListPage onSelectSeller={vi.fn()} eventId={1} />)
+    await waitFor(() => screen.getByText('Jane Smith'))
+    expect(screen.getByRole('columnheader', { name: 'Vendor' })).toBeInTheDocument()
+  })
+
+  it('shows a check for a commercial vendor', async () => {
+    useVendorRow(true)
+    render(<SellerListPage onSelectSeller={vi.fn()} eventId={1} />)
+    await waitFor(() => screen.getByText(/Acme Ski Co/))
+    expect(screen.getByLabelText('vendor seller')).toHaveTextContent('✓')
+  })
+
+  it('shows a dash for an individual consignor', async () => {
+    useVendorRow(false)
+    render(<SellerListPage onSelectSeller={vi.fn()} eventId={1} />)
+    await waitFor(() => screen.getByText(/Acme Ski Co/))
+    expect(screen.getByLabelText('individual seller')).toHaveTextContent('—')
+  })
+})
+
 /** Overrides GET /sellers so a test can control the label-progress counts. */
 function useSellerRow(itemCount: number, labeledCount: number) {
   server.use(
