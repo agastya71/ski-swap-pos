@@ -154,14 +154,14 @@ describe('SellerListPage — Vendor column', () => {
     useVendorRow(true)
     render(<SellerListPage onSelectSeller={vi.fn()} eventId={1} />)
     await waitFor(() => screen.getByText(/Acme Ski Co/))
-    expect(screen.getByLabelText('vendor seller')).toHaveTextContent('✓')
+    expect(screen.getByLabelText('vendor seller')).toHaveTextContent('Yes')
   })
 
   it('shows a dash for an individual consignor', async () => {
     useVendorRow(false)
     render(<SellerListPage onSelectSeller={vi.fn()} eventId={1} />)
     await waitFor(() => screen.getByText(/Acme Ski Co/))
-    expect(screen.getByLabelText('individual seller')).toHaveTextContent('—')
+    expect(screen.getByLabelText('individual seller')).toHaveTextContent('No')
   })
 })
 
