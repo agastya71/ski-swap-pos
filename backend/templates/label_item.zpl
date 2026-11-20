@@ -64,11 +64,11 @@
 ; CHAR CAPS: description truncates to desc_max_chars (20 chars); every other
 ;   field to max_field_chars (28 chars — 28 × 15-dot OCR-B advance ≈ 420..504
 ;   dots, within the ~576-dot content width).
-;   Vendor items with a brand print the description row as "BRAND DESC"
+;   Items with a brand print the description row as "BRAND DESC"
 ;   (brand first, combined + capped at max_field_chars = 28) — so the flow
 ;   never gains a row (a separate brand row would push the description off
-;   the 1" media via the fit guard). Non-vendors / blank brand keep the
-;   description-only row. (2026-11-06)
+;   the 1" media via the fit guard). Blank brand keeps the description-only
+;   row. (2026-11-06; extended to ALL seller types 2026-11-19)
 ;
 ; ─── HOW IT WORKS ────────────────────────────────────────────────────────────
 ;   `; @name value` lines set the geometry. The values ARE the final format

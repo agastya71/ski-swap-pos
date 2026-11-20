@@ -40,10 +40,10 @@
 ;
 ; CHAR CAPS: description truncates to desc_max_chars (20); other fields to
 ;   max_field_chars (28).
-;   Vendor items with a brand print the description row as "BRAND DESC"
+;   Items with a brand print the description row as "BRAND DESC"
 ;   (brand first, combined + capped at max_field_chars = 28) — the flow
-;   never gains a row; non-vendors / blank brand keep the description-only
-;   row. (2026-11-06)
+;   never gains a row; blank brand keeps the description-only row.
+;   (2026-11-06; extended to ALL seller types 2026-11-19)
 ;
 ; ─── DIRECTIVES (values are FINAL format coordinates — nothing stacks) ───────
 ; @left_origin 127        ; = 147 (Sep-27 window origin) − 20 (v10 shift);

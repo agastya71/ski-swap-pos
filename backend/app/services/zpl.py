@@ -279,12 +279,12 @@ def generate_zpl(
         one 27-dot-pitch row per present field, top-down, with truncation
         (description to 20 chars, others 28) and the 1" fit guard: a row that
         would run past ``label_length`` is dropped rather than clipped.
-        Vendor items with a brand replace the description's text with
+        Items with a brand replace the description's text with
         ``brand description`` — brand FIRST, combined and capped at the
-        generic 28-char field cap (2026-11-06 directive) — so the flow never
-        gains a row (a separate brand row would push the description off the
-        1" media via the fit guard). Non-vendors and vendors without a brand
-        keep the description-only row byte-identical to the pre-brand layout.
+        generic 28-char field cap (2026-11-06 directive; extended to ALL
+        seller types 2026-11-19) — so the flow never gains a row (a separate
+        brand row would push the description off the 1" media via the fit
+        guard). Items without a brand keep the description-only row.
       - ``{{copies}}`` — with no explicit ``copies``, an ``^PQ`` emits one tag
         per on-hand remaining unit (the "N labels per N units" decision,
         2026-08-29: mid-event reprints cover units still in stock); an
@@ -312,13 +312,14 @@ def generate_zpl(
     barcode      = item.code
     seller_code  = item.seller.code if item.seller else ""
     description  = (item.description or "")[: geom["desc_max_chars"]]
-    # Vendor items print the brand BEFORE the description on one flow row
-    # ("BRAND DESC", 2026-11-06 directive) — combined and capped at the
-    # generic field cap. A separate brand row would push the description
-    # off the 1" media (only 3 flow rows fit in barcode mode), so the brand
-    # rides the description row instead. Non-vendors and vendors without a
-    # brand keep the description-only row.
-    if item.seller is not None and item.seller.is_vendor and item.brand:
+    # Every item with a brand (any seller type, 2026-11-19 directive: "include
+    # printing the brand for all sellers") prints the brand BEFORE the
+    # description on one flow row ("BRAND DESC") — combined and capped at the
+    # generic field cap. A separate brand row would push the description off
+    # the 1" media (only 3 flow rows fit in barcode mode), so the brand rides
+    # the description row instead. Items without a brand keep the
+    # description-only row (byte-identical to the pre-brand layout).
+    if item.brand:
         brand = str(item.brand).strip()[: geom["max_field_chars"]]
         description = " ".join(
             part for part in (brand, description) if part
