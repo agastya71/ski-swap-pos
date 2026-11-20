@@ -207,7 +207,7 @@ export function SellerListPage({
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {s.is_vendor ? "✓" : "—"}
+                    {s.is_vendor ? "Yes" : "No"}
                   </span>
                 </td>
                 <td style={{ padding: "8px 10px" }}>
