@@ -537,3 +537,32 @@ def test_event_revenue_donate_beats_exempt_and_buckets_split(db, active_event, d
     assert report.mysl_total == 4.50
     assert report.seller_total == 10.50
     assert report.gross_revenue == 53.00
+
+
+def test_event_revenue_card_fee_in_mysl_identity(db, active_event, seller, intake):
+    """The stamped cc_fee rides inside mysl_total at checkout; the line-level
+    recompute must add it back so mysl + seller + exempt + donate == gross."""
+    from app.models.item import Item
+    from app.models.sale import Sale
+    from app.models.sale_item import SaleItem
+    from app.services.reports import get_event_revenue
+    it = Item(intake_id=intake.id, seller_id=seller.id, code="FEE-001", price=30.00,
+              quantity=1.0, remaining=0.0, status="sold", label_printed=True,
+              created_by="admin")
+    db.add(it); db.commit(); db.refresh(it)
+    # Fully card-financed $30.00 sale: terminal 30.87, fee 0.87 → MYSL side.
+    s = Sale(event_id=active_event.id, sale_total=30.87, cc_fee=0.87,
+             mysl_total=9.87, seller_total=21.00, cash_amount=0.0, check_amount=0.0,
+             cc_amount=30.00, total_paid=30.00, balance_due=0.87, is_voided=False,
+             created_by="admin")
+    db.add(s); db.flush()
+    db.add(SaleItem(sale_id=s.id, item_id=it.id, line_number=1, quantity=1.0,
+                    sell_price=30.00, extended_price=30.00, created_by="admin"))
+    db.commit()
+    r = get_event_revenue(db, active_event.id)
+    assert r.gross_revenue == 30.87
+    assert r.mysl_total == 9.87          # 30 × 0.30 + 0.87 fee
+    assert r.seller_total == 21.00
+    assert r.exempt_lines_total == 0.0
+    assert round(r.mysl_total + r.seller_total + r.exempt_lines_total
+                 + r.donate_proceeds_total, 2) == r.gross_revenue

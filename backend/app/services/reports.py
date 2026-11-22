@@ -437,9 +437,15 @@ def get_event_revenue(db: Session, event_id: int) -> EventRevenueReport:
 
     donate_proceeds_total = 0.0
     exempt_lines_total = 0.0
-    mysl_line_total = 0.0
+    mysl_line_total: float = 0.0
     seller_line_total = 0.0
     for s in non_voided:
+        # The 3% card fee rides inside the STAMPED sale.mysl_total at checkout
+        # (fee = MYSL revenue, never deducted from seller shares). Line-level
+        # splits below cover the goods only — add the stamped fee back per sale
+        # so mysl + seller + exempt + donate == gross_revenue exactly.
+        fee = float(s.cc_fee or 0.0)  # pyright: ignore[reportCallIssue,reportArgumentType]
+        mysl_line_total += fee
         for si in s.sale_items:
             donate = bool(si.item.intake.donate_proceeds) if si.item.intake is not None else False
             exempt = _seller_code_for(si) in exempt_codes
@@ -464,7 +470,7 @@ def get_event_revenue(db: Session, event_id: int) -> EventRevenueReport:
         total_sales=len(non_voided),
         voided_sales=len(voided),
         gross_revenue=round(sum(s.sale_total for s in non_voided), 2),  # pyright: ignore[reportArgumentType,reportCallIssue]
-        mysl_total=round(mysl_line_total, 2),
+        mysl_total=round(mysl_line_total, 2),  # pyright: ignore[reportCallIssue,reportArgumentType]
         seller_total=round(seller_line_total, 2),
         cash_total=round(sum(s.cash_amount for s in non_voided), 2),  # pyright: ignore[reportArgumentType,reportCallIssue]
         check_total=round(sum(s.check_amount for s in non_voided), 2),  # pyright: ignore[reportArgumentType,reportCallIssue]
