@@ -134,9 +134,8 @@ describe("SellerDetailPage", () => {
     expect(onBack).toHaveBeenCalled();
   });
 
-  /** Verifies the edit form renders address fields exactly like the registration
-   *  form: State as the 2-char US dropdown (pre-selected with seller's state),
-   *  ZIP as 5-digit-constrained input, grouped under an Address fieldset. */
+  /** #10: State edit is a type-able 2-letter input with a datalist (not a
+   *  locked dropdown), pre-filled with the seller's state. */
   it("renders the contact edit form like the registration form", async () => {
     render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />);
     clickContactEdit();
@@ -144,15 +143,63 @@ describe("SellerDetailPage", () => {
     expect(screen.getByLabelText("Street Address *")).toHaveValue(
       "123 Main St",
     );
-    const stateSelect = screen.getByLabelText("State *") as HTMLSelectElement;
-    expect(stateSelect.tagName).toBe("SELECT");
-    expect(stateSelect.value).toBe("MN");
-    // Same option format as the registration dropdown.
-    expect(
-      screen.getByRole("option", { name: "MA — Massachusetts" }),
-    ).toBeInTheDocument();
+    const stateInput = screen.getByLabelText("State *") as HTMLInputElement;
+    expect(stateInput.tagName).toBe("INPUT");
+    expect(stateInput.maxLength).toBe(2);
+    expect(stateInput.value).toBe("MN");
+    // Suggests full state names via datalist (type-able, not locked).
+    expect(stateInput).toHaveAttribute("list", "us-state-options");
+    // jsdom gives datalist options no option role — assert the element itself.
+    const datalist = document.getElementById("us-state-options");
+    expect(datalist!.querySelectorAll("option").length).toBe(51);
+    expect(datalist!.querySelector('option[value="MA"]')!.textContent).toBe(
+      "Massachusetts",
+    );
     const zipInput = screen.getByLabelText("ZIP *") as HTMLInputElement;
     expect(zipInput.maxLength).toBe(5);
+  });
+
+  /** #10: typing a lowercase 2-letter state code is accepted and uppercased
+   *  before PATCH — staff can type "wi" instead of hunting a dropdown. */
+  it("accepts a free-typed 2-letter state code and uppercases it", async () => {
+    let captured: Record<string, unknown> | null = null;
+    server.use(
+      http.patch("/sellers/1", async ({ request }) => {
+        captured = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(seller);
+      }),
+    );
+    setToken(ADMIN_TOKEN);
+    render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />);
+    fireEvent.click(screen.getByRole("button", { name: /edit/i }));
+    const stateInput = screen.getByLabelText("State *") as HTMLInputElement;
+    fireEvent.change(stateInput, { target: { value: "wi" } });
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    await waitFor(() => expect(captured).not.toBeNull());
+    expect(captured!["state"]).toBe("WI");
+  });
+
+  /** #10: a 2-letter non-state code (e.g. "ZZ") is rejected client-side with
+   *  guidance — no PATCH fires. */
+  it("rejects a non-US 2-letter state code", async () => {
+    let patched = false;
+    server.use(
+      http.patch("/sellers/1", () => {
+        patched = true;
+        return HttpResponse.json(seller);
+      }),
+    );
+    setToken(ADMIN_TOKEN);
+    render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />);
+    fireEvent.click(screen.getByRole("button", { name: /edit/i }));
+    fireEvent.change(screen.getByLabelText("State *"), {
+      target: { value: "ZZ" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      /2-letter US state code/i,
+    );
+    expect(patched).toBe(false);
   });
 
   /** Verifies saving blocks with a field error when State is cleared, and no PATCH fires. */

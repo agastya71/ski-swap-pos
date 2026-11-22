@@ -11,6 +11,7 @@
  */
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { addItem } from "../api/intakes";
+import { capitalizeWords } from "../lib/format";
 import { fetchBrands } from "../api/items";
 import { CATEGORIES, typesForCategory } from "../lib/itemSizes";
 import type { Item } from "../types";
@@ -235,7 +236,7 @@ export function ItemForm({
           <input
             id="description"
             value={f.description}
-            onChange={(e) => set("description", e.target.value)}
+            onChange={(e) => set("description", capitalizeWords(e.target.value))}
             maxLength={99}
             style={{ width: "100%", padding: 5, boxSizing: "border-box" }}
           />

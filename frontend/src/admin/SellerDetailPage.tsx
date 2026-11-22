@@ -16,6 +16,7 @@ import { getLabelPrinterMode, dispatchSellerLabels } from "../lib/labelPrinter";
 import { SellerPayoutPanel } from "./SellerPayoutPanel";
 import { ImportOutcome } from "../components/ImportOutcome";import { SellerEquipmentSummaryPanel } from "./SellerEquipmentSummaryPanel";
 import { US_STATES } from "../lib/usStates";
+import { formatPhone, isUsStateCode } from "../lib/format";
 import type { Seller, Item, Intake, ImportResult } from "../types";
 
 const NAVY = "#1e3a8a";
@@ -92,8 +93,17 @@ export function SellerDetailPage({
       setEditError("Street address and city are required.");
       return;
     }
-    if (!editDraft.state?.trim()) {
+    // #10: save validates state as a real US code — free-typed 2-letter codes
+    // are accepted (the edit panel uses a text input, not the dropdown).
+    const draftState = (editDraft.state ?? "").trim().toUpperCase();
+    if (!draftState) {
       setEditError("State is required.");
+      return;
+    }
+    // #10: free-typed 2-letter US codes are accepted; anything else is rejected
+    // with guidance instead of a server 422.
+    if (!isUsStateCode(draftState)) {
+      setEditError("State must be a 2-letter US state code (e.g. MN).");
       return;
     }
     if (!/^\d{5}$/.test(zip)) {
@@ -106,11 +116,13 @@ export function SellerDetailPage({
         last_name: editDraft.last_name ?? undefined,
         company: editDraft.company ?? undefined,
         is_vendor: editDraft.is_vendor,
-        phone: editDraft.phone ?? undefined,
+        phone: editDraft.phone
+          ? editDraft.phone.replace(/\D/g, "")
+          : undefined,
         email: editDraft.email ?? undefined,
         address: editDraft.address ?? undefined,
         city: editDraft.city ?? undefined,
-        state: editDraft.state ?? undefined,
+        state: draftState,
         zip: editDraft.zip ?? undefined,
       });
       setSeller(updated);
@@ -362,9 +374,19 @@ export function SellerDetailPage({
                   </label>
                   <input
                     id={`edit-${f}`}
-                    value={(editDraft[f] as string) ?? ""}
+                    value={
+                      f === "phone"
+                        ? formatPhone((editDraft[f] as string) ?? "")
+                        : ((editDraft[f] as string) ?? "")
+                    }
                     onChange={(e) =>
-                      setEditDraft((prev) => ({ ...prev, [f]: e.target.value }))
+                      setEditDraft((prev) => ({
+                        ...prev,
+                        [f]:
+                          f === "phone"
+                            ? formatPhone(e.target.value)
+                            : e.target.value,
+                      }))
                     }
                     style={{
                       width: "100%",
@@ -387,7 +409,8 @@ export function SellerDetailPage({
                 Address
               </legend>
               {/* Address fields rendered identically to the registration form (SellerForm):
-                  Street Address + City required, State as the 2-char US dropdown, ZIP 5-digit. */}
+                  Street Address + City required, State as a type-able 2-letter US code
+                  with a datalist of US states (#10), ZIP 5-digit. */}
               {(["address", "city"] as const).map((f) => (
                 <div key={f} style={{ marginBottom: 8 }}>
                   <label
@@ -427,25 +450,31 @@ export function SellerDetailPage({
                 >
                   State *
                 </label>
-                <select
+                <input
                   id="edit-state"
+                  list="us-state-options"
                   value={editDraft.state ?? ""}
+                  maxLength={2}
+                  placeholder="MN"
                   onChange={(e) =>
-                    setEditDraft((prev) => ({ ...prev, state: e.target.value }))
+                    setEditDraft((prev) => ({
+                      ...prev,
+                      state: e.target.value.toUpperCase(),
+                    }))
                   }
                   style={{
                     width: "100%",
                     padding: "5px 8px",
                     boxSizing: "border-box",
                   }}
-                >
-                  <option value="">— select state —</option>
+                />
+                <datalist id="us-state-options">
                   {US_STATES.map((s) => (
                     <option key={s.code} value={s.code}>
-                      {s.code} — {s.name}
+                      {s.name}
                     </option>
                   ))}
-                </select>
+                </datalist>
               </div>
               <div style={{ marginBottom: 8 }}>
                 <label
