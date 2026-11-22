@@ -9,7 +9,7 @@
  *
  * @module ItemForm
  */
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { addItem } from "../api/intakes";
 import { fetchBrands } from "../api/items";
 import { CATEGORIES, typesForCategory } from "../lib/itemSizes";
@@ -51,6 +51,14 @@ export function ItemForm({
   const [priceNote, setPriceNote] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [brandSuggestions, setBrandSuggestions] = useState<string[]>([]);
+  // Focus handle for the Quantity field (#6): focused on mount and again after
+  // each successful add, so back-to-back entries start where the staff always
+  // begin — the Qty box.
+  const quantityRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    quantityRef.current?.focus();
+  }, []);
 
   /** Brand typeahead: fetch matching existing brands (scoped to the selected
    *  category when one is chosen) as the cashier types. */
@@ -116,6 +124,8 @@ export function ItemForm({
       onAdded(item);
       setF(emptyForm(defaultDonateUnsold));
       setPriceNote(null);
+      // Next item starts at the top (#6): refocus Qty after the reset.
+      quantityRef.current?.focus();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add item");
     } finally {
@@ -142,6 +152,7 @@ export function ItemForm({
           </label>
           <input
             id="quantity"
+            ref={quantityRef}
             type="number"
             min="1"
             step="1"

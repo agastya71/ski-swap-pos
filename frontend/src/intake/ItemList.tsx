@@ -56,8 +56,10 @@ export function ItemList({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [qtyAdjust, setQtyAdjust] = useState("");
-  const [qtyError, setQtyError] = useState<string | null>(null);
+  // Per-row quantity-adjust state (keyed by item id) so switching rows keeps
+  // drafts separate (#5), plus a target-count entry mode with live preview.
+  const [qtyAdjust, setQtyAdjust] = useState<Record<number, string>>({});
+  const [qtyError, setQtyError] = useState<Record<number, string | null>>({});
   // Per-row label-print counts ("print a specified number of labels per item").
   const [printQty, setPrintQty] = useState<Record<number, string>>({});
   const [printError, setPrintError] = useState<string | null>(null);
@@ -107,19 +109,24 @@ export function ItemList({
     }
   }
 
-  /** Adjusts the item's on-hand quantity by a signed delta and refreshes. */
-  async function handleAdjustQty(itemId: number) {
-    const delta = parseInt(qtyAdjust, 10);
+  /** Adjusts the item's on-hand quantity by a signed delta and refreshes (#5).
+   *  Accepts either a signed delta ("3", "-2") or a target count ("=8"). */
+  async function handleAdjustQty(itemId: number, raw: string) {
+    const current = items.find((i) => i.id === itemId)?.remaining ?? 0;
+    const input = raw.trim();
+    const delta = input.startsWith("=")
+      ? (parseInt(input.slice(1), 10) || 0) - current
+      : parseInt(input, 10);
     if (Number.isNaN(delta) || delta === 0) return;
-    setQtyError(null);
+    setQtyError((p) => ({ ...p, [itemId]: null }));
     try {
       await adjustItemQuantity(itemId, delta);
-      setQtyAdjust("");
+      setQtyAdjust((p) => ({ ...p, [itemId]: "" }));
       onItemsChanged();
     } catch (err) {
-      setQtyError(
-        err instanceof Error ? err.message : "Failed to adjust quantity",
-      );
+      const message =
+        err instanceof Error ? err.message : "Failed to adjust quantity";
+      setQtyError((p) => ({ ...p, [itemId]: message }));
     }
   }
 
@@ -641,24 +648,57 @@ export function ItemList({
                         {item.quantity} intake
                         {item.quantity !== 1 ? " units" : " unit"}
                       </span>
-                      <label style={{ color: "#64748b" }}>Adjust by:</label>
+                      {(() => {
+                        // Live preview for the "= target" entry mode (#5):
+                        // "=8" on 5 remaining shows "→ 8 on hand (+3)".
+                        const raw = (qtyAdjust[item.id] ?? "").trim();
+                        if (!raw.startsWith("=")) return null;
+                        const target = parseInt(raw.slice(1), 10);
+                        if (Number.isNaN(target)) return null;
+                        return (
+                          <span style={{ color: "#2563eb", fontSize: 12 }}>
+                            → {target} on hand ({target - item.remaining >= 0 ? "+" : ""}
+                            {target - item.remaining})
+                          </span>
+                        );
+                      })()}
+                      <label style={{ color: "#64748b" }}>
+                        Adjust by (or =target):
+                      </label>
                       <input
-                        type="number"
-                        value={qtyAdjust}
-                        onChange={(e) => setQtyAdjust(e.target.value)}
-                        placeholder="e.g. 3 or -2"
-                        style={{ width: 90, padding: "4px 6px", fontSize: 13 }}
+                        type="text"
+                        inputMode="numeric"
+                        aria-label={`Adjust quantity for ${item.code}`}
+                        value={qtyAdjust[item.id] ?? ""}
+                        onChange={(e) =>
+                          setQtyAdjust((p) => ({
+                            ...p,
+                            [item.id]: e.target.value,
+                          }))
+                        }
+                        onKeyDown={(e) => {
+                          // Enter applies directly (#5) — staff adjust on hand
+                          // without reaching for the mouse.
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            void handleAdjustQty(item.id, qtyAdjust[item.id] ?? "");
+                          }
+                        }}
+                        placeholder="e.g. 3, -2, or =8"
+                        style={{ width: 120, padding: "4px 6px", fontSize: 13 }}
                       />
                       <button
                         type="button"
-                        onClick={() => handleAdjustQty(item.id)}
+                        onClick={() =>
+                          void handleAdjustQty(item.id, qtyAdjust[item.id] ?? "")
+                        }
                         style={BUTTON_STYLE}
                       >
                         Apply
                       </button>
-                      {qtyError && (
+                      {qtyError[item.id] && (
                         <span role="alert" style={{ color: "#ef4444" }}>
-                          {qtyError}
+                          {qtyError[item.id]}
                         </span>
                       )}
                     </div>

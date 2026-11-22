@@ -455,10 +455,83 @@ it("Adjust quantity calls PATCH /items/:id/quantity and refreshes", async () => 
     />,
   );
   fireEvent.click(screen.getByRole("button", { name: /edit/i }));
-  fireEvent.change(screen.getByPlaceholderText(/e.g. 3 or -2/i), {
+  fireEvent.change(screen.getByLabelText(/adjust quantity for/i), {
     target: { value: "3" },
   });
   fireEvent.click(screen.getByRole("button", { name: /apply/i }));
   await waitFor(() => expect(captured.adjustment).toBe(3));
   await waitFor(() => expect(onItemsChanged).toHaveBeenCalled());
+});
+
+/** #5: "=target" entry converts to the signed delta against current remaining
+ *  ("=8" on 5 remaining sends +3). */
+it("Adjust quantity accepts =target entry and converts to a delta", async () => {
+  let captured: { adjustment?: number } = {};
+  server.use(
+    http.patch("/items/:id/quantity", async ({ request }) => {
+      captured = (await request.json()) as { adjustment?: number };
+      return HttpResponse.json({ ...ITEM, quantity: 8, remaining: 8 });
+    }),
+  );
+  const onItemsChanged = vi.fn();
+  render(
+    <ItemList
+      items={[{ ...ITEM, quantity: 5, remaining: 5 }]}
+      intakeId={5}
+      onItemsChanged={onItemsChanged}
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: /edit/i }));
+  const input = screen.getByLabelText(/adjust quantity for/i);
+  fireEvent.change(input, { target: { value: "=8" } });
+  // Live preview shows the resulting on-hand count and delta (#5).
+  expect(screen.getByText(/→ 8 on hand \(\+3\)/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /apply/i }));
+  await waitFor(() => expect(captured.adjustment).toBe(3));
+  await waitFor(() => expect(onItemsChanged).toHaveBeenCalled());
+});
+
+/** #5: pressing Enter in the adjust input applies without the mouse. */
+it("Adjust quantity applies on Enter", async () => {
+  let called = false;
+  server.use(
+    http.patch("/items/:id/quantity", async () => {
+      called = true;
+      return HttpResponse.json({ ...ITEM, quantity: 8, remaining: 8 });
+    }),
+  );
+  render(
+    <ItemList items={[{ ...ITEM, quantity: 5, remaining: 5 }]} intakeId={5} onItemsChanged={vi.fn()} />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: /edit/i }));
+  const input = screen.getByLabelText(/adjust quantity for/i);
+  fireEvent.change(input, { target: { value: "-2" } });
+  fireEvent.keyDown(input, { key: "Enter" });
+  await waitFor(() => expect(called).toBe(true));
+});
+
+/** #5: adjust drafts are per-row — text typed for one item does not leak into
+ *  another item's edit panel. */
+it("Adjust quantity drafts are per-row", () => {
+  const OTHER: Item = { ...ITEM, id: 2, code: "A001-002" };
+  render(
+    <ItemList items={[ITEM, OTHER]} intakeId={5} onItemsChanged={vi.fn()} />,
+  );
+  // Two rows = two Edit buttons; open the first item's panel, type a draft,
+  // then switch to the second — the draft must stay scoped to row 1.
+  fireEvent.click(screen.getAllByRole("button", { name: /edit/i })[0]);
+  fireEvent.change(screen.getByLabelText(/adjust quantity for A001-001/i), {
+    target: { value: "3" },
+  });
+  fireEvent.click(screen.getAllByRole("button", { name: /edit/i })[1]);
+  const otherInput = screen.getByLabelText(
+    /adjust quantity for A001-002/i,
+  ) as HTMLInputElement;
+  expect(otherInput.value).toBe("");
+  // Re-opening the first panel keeps its draft.
+  fireEvent.click(screen.getAllByRole("button", { name: /edit/i })[0]);
+  expect(
+    (screen.getByLabelText(/adjust quantity for A001-001/i) as HTMLInputElement)
+      .value,
+  ).toBe("3");
 });
