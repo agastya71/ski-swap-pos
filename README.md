@@ -83,11 +83,13 @@ Once an event is active and a user exists:
 
 ## Running the tests
 
-### Backend (153 tests)
+### Backend (542 tests)
 
 ```bash
 cd backend
-python -m pytest tests/ -q
+.venv/bin/python -m pytest tests/ -q   # parallel via pytest-xdist (-n auto
+                                       # in pytest.ini), ~30s on 8 cores
+.venv/bin/python -m pytest tests/ -q -n0   # serial escape hatch
 ```
 
 ### Frontend (Vitest)

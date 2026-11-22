@@ -106,6 +106,11 @@ def _create_event_and_admin(
 
     from app.models import Event, User
     from app.services.auth import hash_password
+
+    # hash_password() reads app.config.HASH_ROUNDS (pwd_context is built with
+    # bcrypt__rounds=HASH_ROUNDS at first import). The test suite pins
+    # HASH_ROUNDS=4 in conftest (set before any app import): in-process callers
+    # see it via os.environ, bootstrap's subprocess inherits it. No env → 12.
     engine = create_engine(f"sqlite:///{db_path}")
 
     @sa_event.listens_for(engine, "connect")

@@ -69,6 +69,11 @@ EVENTS_DIR: str = os.getenv(
 JWT_SECRET: str = os.getenv("JWT_SECRET", "change-me-before-event-day")
 JWT_ALGORITHM: str = "HS256"
 JWT_EXPIRE_MINUTES: int = 480  # 8-hour shift
+# bcrypt cost factor. Production default 12. The TEST SUITE pins 4 via
+# conftest — each bcrypt hash/verify costs ~0.28s at 12 vs ~0.01s at 4, and
+# the login-path tests pay that per call. NEVER set this below 4 outside
+# tests.
+HASH_ROUNDS: int = _env_int("HASH_ROUNDS", 12)
 LABEL_PRINTER_PATH: str = os.getenv("LABEL_PRINTER_PATH", "/dev/usb/lp0")
 LABEL_PRINTER_QUEUE: str = os.getenv("LABEL_PRINTER_QUEUE", "ZTC-ZD421-203dpi-ZPL")
 # Label geometry (dots at 203 dpi) — measured on the live ZD421 via

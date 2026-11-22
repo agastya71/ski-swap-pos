@@ -13,9 +13,11 @@ from datetime import datetime, timedelta, timezone
 from jose import jwt
 from passlib.context import CryptContext
 
-from app.config import JWT_ALGORITHM, JWT_EXPIRE_MINUTES, JWT_SECRET
+from app.config import HASH_ROUNDS, JWT_ALGORITHM, JWT_EXPIRE_MINUTES, JWT_SECRET
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# bcrypt cost factor comes from config (HASH_ROUNDS, default 12; the test
+# suite pins 4 via conftest for speed — see app/config.py).
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=HASH_ROUNDS)
 
 _PASSWORD_MIN_LENGTH = 8
 _UPPERCASE_RE = re.compile(r"[A-Z]")

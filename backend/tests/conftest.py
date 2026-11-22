@@ -1,8 +1,18 @@
+import os
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
+
+# bcrypt cost factor for the WHOLE test process — must be set BEFORE any app
+# import reads config.HASH_ROUNDS (conftest imports first, so this holds).
+# At 12 each hash/verify costs ~0.28s; at 4 it's ~0.01s. The login-path
+# tests pay bcrypt per call, so the pin cut the suite from ~3m17s to ~25s
+# parallel / ~75s serial. tests/test_hash_round_config.py pins the SAME
+# value so the two can't silently diverge.
+os.environ["HASH_ROUNDS"] = "4"
 
 from app.database import Base, RegistryBase, get_db, get_registry_db
 from app.main import app
