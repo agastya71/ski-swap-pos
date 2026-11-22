@@ -380,6 +380,48 @@ describe("POSPage", () => {
     expect(screen.getByLabelText(/check/i)).toBeInTheDocument();
   });
 
+  /** Verifies the sold-out mirror: a single sold-out lookup renders the error
+   *  in the TOP banner (#14 staff visibility), not just inside LookupField. */
+  it("shows sold-out lookup errors in the top banner", async () => {
+    lookupReturns({ ...ITEM_A, remaining: 0 });
+    renderPOS();
+    scan("A001-001");
+    // Two alerts render (top banner + inline) — assert the banner one.
+    const banner = await screen.findAllByRole("alert");
+    expect(
+      banner.some((el) => el.textContent?.match(/sold out/i)),
+    ).toBe(true);
+  });
+
+  /** #14: sale-submission failures surface at the TOP of the transaction
+   *  panel — the alert must precede the scan input in DOM order (staff look
+   *  at the cart/table, not the bottom of the page). */
+  it("renders sale-submission errors above the scan field", async () => {
+    lookupReturns(ITEM_A);
+    server.use(
+      http.post("/sales", () =>
+        HttpResponse.json({ detail: "Item A001-001 has only 1 remaining" }, { status: 422 }),
+      ),
+    );
+    renderPOS();
+    scan("A001-001");
+    await waitFor(() =>
+      expect(screen.getByText("A001-001")).toBeInTheDocument(),
+    );
+    fireEvent.change(screen.getByLabelText(/cash/i), {
+      target: { value: "75" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /complete sale/i }));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/only 1 remaining/i);
+    const scanInput = screen.getByPlaceholderText(/scan barcode/i);
+    // alert comes BEFORE the input in document order (top of panel).
+    expect(
+      alert.compareDocumentPosition(scanInput) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   /** My Transactions: expanded lines surface the cashier's price-adjustment
    *  reason (sale_item.notes) when one was recorded; lines without a reason
    *  render no "Price adj." text. */

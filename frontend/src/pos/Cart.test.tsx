@@ -66,6 +66,21 @@ describe('Cart', () => {
     expect(screen.getByText('A001')).toBeInTheDocument()
   })
 
+  /** #13: the category · type sub-line sits under the description when either
+   *  is present; nothing renders when both are null. */
+  it('shows category and type as a sub-line under the description', () => {
+    const typed = { ...ITEM_A, category: 'Skis', type: 'Alpine' }
+    render(<Cart lines={[line(typed)]} onUpdate={vi.fn()} onRemove={vi.fn()} />)
+    expect(screen.getByText('Skis · Alpine')).toBeInTheDocument()
+  })
+
+  it('omits the category sub-line when category and type are both null', () => {
+    const bare = { ...ITEM_A, category: null, type: null }
+    render(<Cart lines={[line(bare)]} onUpdate={vi.fn()} onRemove={vi.fn()} />)
+    expect(screen.getByText('Red skis')).toBeInTheDocument()
+    expect(screen.queryByText(/·/)).not.toBeInTheDocument()
+  })
+
   it('quantity input is capped at the item remaining quantity', () => {
     const multi = { ...ITEM_A, quantity: 5, remaining: 5 }
     const onUpdate = vi.fn()

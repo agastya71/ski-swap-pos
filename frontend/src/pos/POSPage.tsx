@@ -95,6 +95,11 @@ export function POSPage() {
   // REMOUNTS it so a cancelled transaction never leaks amounts (and refs)
   // into the next customer's checkout.
   const [formResetKey, setFormResetKey] = useState(0);
+  // Focus recapture (#1 event feedback): when an item is added or removed, the
+  // scan field must recapture focus so the next scanner shot can't land in a
+  // cart or payment input the cashier just clicked into. Bumping this state
+  // counter re-runs LookupField's focus effect; no refs/effects needed here.
+  const [focusSignal, setFocusSignal] = useState(0);
 
   // The event name labels every checkout transaction (header + receipt banner).
   // Non-critical: if it can't be fetched, the screens render without it.
@@ -181,6 +186,8 @@ export function POSPage() {
         { item, quantity: 1, sell_price: item.price, notes: "" },
       ];
     });
+    // Item added (#1): recapture the scan field in case the cursor drifted.
+    setFocusSignal((s) => s + 1);
   }
 
   function handleUpdate(id: number, patch: Partial<CartLine>) {
@@ -191,6 +198,7 @@ export function POSPage() {
 
   function handleRemove(id: number) {
     setLines((prev) => prev.filter((l) => l.item.id !== id));
+    setFocusSignal((s) => s + 1);
   }
 
   /** Submits the sale (with per-line qty/price/notes + payment breakdown) then shows the inline confirmation. */
@@ -311,7 +319,36 @@ export function POSPage() {
         </div>
       )}
 
-      {!sale && <LookupField onFound={handleFound} />}
+      {/* Sale-submission errors (#14 event feedback) surface at the TOP of the
+          transaction panel — at the very bottom (below the payment form) staff
+          never saw them. role=alert is an assertive live region. */}
+      {error && (
+        <div
+          role="alert"
+          style={{
+            color: "red",
+            border: "2px solid red",
+            borderRadius: 6,
+            padding: 12,
+            marginBottom: 16,
+            background: "#fef2f2",
+            fontWeight: 600,
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      {!sale && (
+        <LookupField
+          onFound={handleFound}
+          focusSignal={focusSignal}
+          // LookupField also surfaces its errors inline right below the input;
+          // this mirrors them into the top banner so staff looking at the
+          // transaction table see sold-out/not-found failures (#14).
+          onError={setError}
+        />
+      )}
 
       <div style={{ margin: "16px 0" }}>
         <Cart
@@ -554,12 +591,6 @@ export function POSPage() {
               ))}
             </div>
           )}
-        </div>
-      )}
-
-      {error && (
-        <div role="alert" style={{ color: "red", marginTop: 12 }}>
-          {error}
         </div>
       )}
     </div>
