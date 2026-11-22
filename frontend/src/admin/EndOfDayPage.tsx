@@ -39,7 +39,7 @@ export function EndOfDayPage({ eventId }: { eventId: number }) {
         {!report && <p>Loading…</p>}
         {report && (
           <>
-            <table style={{ borderCollapse: "collapse" }}>
+            <table style={{ width: "auto", borderCollapse: "collapse" }}>
               <tbody>
                 {[
                   [
