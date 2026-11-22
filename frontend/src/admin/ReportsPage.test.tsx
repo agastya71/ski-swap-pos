@@ -65,6 +65,17 @@ describe('ReportsPage', () => {
 })
 
 describe('ReportsPage — collapsible sections', () => {
+  /** Verifies the Event Revenue amounts sit next to their labels: the table
+   *  is shrink-to-fit, overriding the global table { width: 100% } rule
+   *  (same fix as the payout summary tables, fe93c09). */
+  it('keeps the event revenue amounts next to their labels', async () => {
+    render(<ReportsPage eventId={1} />)
+    await waitFor(() => screen.getByRole('heading', { name: 'Event Revenue' }))
+    fireEvent.click(screen.getByRole('heading', { name: 'Event Revenue' }))
+    const revenueTable = await screen.findByText('MYSL Total').then((el) => el.closest('table'))
+    expect(revenueTable).toHaveStyle({ width: 'auto' })
+  })
+
   /** Verifies that Event Revenue table rows are hidden by default and appear after clicking the header. */
   it('expands Event Revenue section when header is clicked', async () => {
     render(<ReportsPage eventId={1} />)

@@ -37,6 +37,16 @@ describe('EndOfDayPage', () => {
   })
 
   /** Verifies that the database backup download button is present. */
+  /** Verifies the End-of-Day amounts sit next to their labels: the summary
+   *  table is shrink-to-fit, overriding the global table { width: 100% } rule
+   *  (same fix as the payout summary tables, fe93c09). */
+  it('keeps the summary amounts next to their labels', async () => {
+    render(<EndOfDayPage eventId={1} />)
+    await waitFor(() => expect(screen.getByText('$75.00')).toBeInTheDocument())
+    const summaryTable = screen.getByText('MYSL Total').closest('table')
+    expect(summaryTable).toHaveStyle({ width: 'auto' })
+  })
+
   it('shows Download Backup button', async () => {
     render(<EndOfDayPage eventId={1} />)
     await waitFor(() => screen.getByRole('button', { name: /download backup/i }))

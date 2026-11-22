@@ -142,7 +142,7 @@ export function ReportsPage({ eventId }: { eventId: number }) {
           "event-revenue.csv",
         )}
         {open.revenue && revenue && (
-          <table style={{ borderCollapse: "collapse" }}>
+          <table style={{ width: "auto", borderCollapse: "collapse" }}>
             <tbody>
               {[
                 ["Gross Revenue", `$${revenue.gross_revenue.toFixed(2)}`],
