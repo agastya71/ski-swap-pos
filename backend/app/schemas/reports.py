@@ -114,6 +114,15 @@ class EventRevenueReport(BaseModel):
     check_total: float = Field(description="Total amount collected by check across all sales.")
     cc_total: float = Field(description="Total amount collected by credit/debit card across all sales.")
     donate_proceeds_total: float = Field(description="Total seller proceeds that were donated rather than paid out.")
+    exempt_seller_codes: list[str] = Field(
+        description="Seller codes exempt from commission for this event (empty if none)."
+    )
+    exempt_lines_total: float = Field(
+        description=(
+            "Sum of extended prices sold by commission-exempt sellers (e.g. MYSL's own "
+            "MYSL2 stall). Excluded from seller_total and mysl_total; paid in full to the exempt seller."
+        )
+    )
     generated_at: datetime = Field(description="UTC timestamp when this report was generated.")
 
 
@@ -211,6 +220,12 @@ class EndOfDayReport(BaseModel):
     cash_total: float = Field(description="Total cash collected across all event days.")
     check_total: float = Field(description="Total check payments collected across all event days.")
     cc_total: float = Field(description="Total credit/debit card payments collected across all event days.")
+    exempt_lines_total: float = Field(
+        description=(
+            "Sum of extended prices sold by commission-exempt sellers (e.g. MYSL2), paid in "
+            "full to that seller. Excluded from seller_total and mysl_total; informational."
+        )
+    )
     generated_at: datetime = Field(description="UTC timestamp when this end-of-day report was generated.")
 
 

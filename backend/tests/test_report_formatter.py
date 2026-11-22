@@ -20,6 +20,7 @@ def _eod():
         sales_count=5, voided_count=1,
         gross_revenue=100.00, mysl_total=30.00, seller_total=70.00,
         cash_total=50.00, check_total=30.00, cc_total=20.00,
+        exempt_lines_total=0.0,
         generated_at=datetime.now(timezone.utc),
     )
 

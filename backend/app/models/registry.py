@@ -31,6 +31,10 @@ class RegistryEvent(RegistryBase):
     year = Column(Integer, nullable=False)
     commission_rate = Column(Float, nullable=False, default=0.30)
     vendor_commission_rate = Column(Float, nullable=False, default=0.30)
+    # Comma-separated seller codes exempt from commission (e.g. 'MYSL2').
+    # Mirrors Event.exempt_seller_codes in the event database. Null/empty =
+    # no exemptions. Compared case-insensitively at report time.
+    exempt_seller_codes = Column(String, nullable=True)
     is_active = Column(Boolean, nullable=False, default=False)
     db_filename = Column(String, nullable=False, unique=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

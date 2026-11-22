@@ -205,6 +205,7 @@ def create_event_db(
     year: int,
     commission_rate: float,
     vendor_commission_rate: float,
+    exempt_seller_codes: str | None = None,
 ) -> str:
     """Create a fresh event database file and seed its own event row.
 
@@ -238,6 +239,7 @@ def create_event_db(
                 year=year,
                 commission_rate=commission_rate,
                 vendor_commission_rate=vendor_commission_rate,
+                exempt_seller_codes=exempt_seller_codes,
                 is_active=True,
             )
         )

@@ -50,6 +50,49 @@ def _get_event_or_404(db: Session, event_id: int) -> Event:
     return event
 
 
+def _exempt_seller_codes(event: Event) -> frozenset[str]:
+    """Parse the event's exempt-seller list into an UPPERCASED lookup set.
+
+    ``Event.exempt_seller_codes`` is a comma-separated string of seller codes
+    (e.g. ``'MYSL2'``) whose sale proceeds bypass commission entirely: the
+    seller receives the full extended price and the MYSL share is 0. Codes
+    are compared case-insensitively; blank/None means no exemptions.
+    """
+    raw = getattr(event, "exempt_seller_codes", None)
+    if not raw:
+        return frozenset()
+    return frozenset(
+        part.strip().upper() for part in str(raw).split(",") if part.strip()
+    )
+
+
+def _seller_is_exempt(seller: Seller, exempt_codes: frozenset[str]) -> bool:
+    """True when this seller's code matches the event's exempt list (case-insensitive)."""
+    if not exempt_codes:
+        return False
+    return str(getattr(seller, "code", "") or "").strip().upper() in exempt_codes
+
+
+def _split_line(
+    extended: float, donate_proceeds: bool, rate: float, exempt: bool
+) -> tuple[float, float]:
+    """Split one sale line's extended price into (mysl_share, seller_share).
+
+    Rule order:
+    1. ``donate_proceeds`` (seller donated their proceeds) — full price to MYSL.
+    2. ``exempt`` (event-level commission exemption, e.g. MYSL's own vendor
+       stall) — full price to the seller, 0 commission.
+    3. Otherwise — ``rate`` commission to MYSL, the remainder to the seller,
+       with the residual rounded so shares add back to the extended price.
+    """
+    if donate_proceeds:
+        return extended, 0.0
+    if exempt:
+        return 0.0, round(extended, 2)
+    share = round(extended * rate, 2)  # pyright: ignore[reportArgumentType,reportCallIssue]
+    return share, round(extended - share, 2)
+
+
 def _build_seller_payout(db: Session, event: Event, seller: Seller) -> SellerPayoutReport:
     """Compute the payout report for one seller (shared by single + batch)."""
     items = (
@@ -80,17 +123,17 @@ def _build_seller_payout(db: Session, event: Event, seller: Seller) -> SellerPay
     seller_total_amt = 0.0
 
     rate = event.vendor_commission_rate if seller.is_vendor else event.commission_rate  # pyright: ignore[reportGeneralTypeIssues]
-
-    def _shares(extended: float, donate_proceeds: bool) -> tuple[float, float]:
-        if donate_proceeds:
-            return extended, 0.0
-        share = round(extended * rate, 2)  # pyright: ignore[reportArgumentType,reportCallIssue]
-        return share, round(extended - share, 2)
+    exempt = _seller_is_exempt(seller, _exempt_seller_codes(event))
 
     # ── SALES section: one row per non-voided sale line for this seller's items.
     sales: list[SellerPayoutSaleLine] = []
     for si in sale_items:
-        mysl_share, seller_share = _shares(si.extended_price, si.item.intake.donate_proceeds)  # pyright: ignore[reportArgumentType]
+        mysl_share, seller_share = _split_line(
+            si.extended_price,  # pyright: ignore[reportArgumentType]
+            si.item.intake.donate_proceeds,  # pyright: ignore[reportArgumentType]
+            rate,  # pyright: ignore[reportArgumentType]
+            exempt,
+        )
         if si.item.intake.donate_proceeds:
             mysl_total += si.extended_price
         else:
@@ -227,6 +270,7 @@ def get_vendor_equipment_summary(
     # getattr() keeps pyright clean on ORM Column attributes (the
     # established idiom in this codebase).
     rate = getattr(event, "vendor_commission_rate", 0.30) or 0.30
+    exempt = _seller_is_exempt(seller, _exempt_seller_codes(event))
 
     items = (
         db.query(Item)
@@ -276,9 +320,12 @@ def get_vendor_equipment_summary(
         if donate:
             b["mysl"] += extended
         else:
-            mysl = round(extended * rate, 2)
-            b["mysl"] += mysl
-            b["seller"] += extended - mysl
+            # Exemption (e.g. MYSL2) sends the vendor the full extended price.
+            # NB: unpack as mysl_share/seller_share — a `seller` local would
+            # shadow the Seller ORM instance used below for report metadata.
+            mysl_share, seller_share = _split_line(extended, donate, rate, exempt)
+            b["mysl"] += mysl_share
+            b["seller"] += seller_share
 
     def _line(category: str, v: dict) -> VendorCategoryLine:
         return VendorCategoryLine(
@@ -382,11 +429,33 @@ def get_event_revenue(db: Session, event_id: int) -> EventRevenueReport:
     non_voided = [s for s in all_sales if not s.is_voided]  # pyright: ignore[reportGeneralTypeIssues]
     voided = [s for s in all_sales if s.is_voided]  # pyright: ignore[reportGeneralTypeIssues]
 
+    exempt_codes = _exempt_seller_codes(event)
+
+    def _seller_code_for(si) -> str:
+        seller = getattr(getattr(si.item, "seller", None), "code", "") or ""
+        return str(seller).strip().upper()
+
     donate_proceeds_total = 0.0
+    exempt_lines_total = 0.0
+    mysl_line_total = 0.0
+    seller_line_total = 0.0
     for s in non_voided:
         for si in s.sale_items:
-            if si.item.intake.donate_proceeds:
-                donate_proceeds_total += si.extended_price
+            donate = bool(si.item.intake.donate_proceeds) if si.item.intake is not None else False
+            exempt = _seller_code_for(si) in exempt_codes
+            if donate:
+                donate_proceeds_total += si.extended_price  # full price to MYSL — exempt rule never applies
+            elif exempt:
+                # Event-level commission exemption (e.g. MYSL2): seller keeps
+                # the full extended price; excluded from seller_total/mysl_total.
+                exempt_lines_total += si.extended_price
+            else:
+                rate = (
+                    getattr(si.item.seller, "is_vendor", False) and event.vendor_commission_rate
+                ) or event.commission_rate  # pyright: ignore[reportGeneralTypeIssues]
+                mysl_share, seller_share = _split_line(si.extended_price, donate, rate, exempt)  # pyright: ignore[reportArgumentType]
+                mysl_line_total += mysl_share
+                seller_line_total += seller_share
 
     return EventRevenueReport(
         event_id=event_id,
@@ -395,12 +464,14 @@ def get_event_revenue(db: Session, event_id: int) -> EventRevenueReport:
         total_sales=len(non_voided),
         voided_sales=len(voided),
         gross_revenue=round(sum(s.sale_total for s in non_voided), 2),  # pyright: ignore[reportArgumentType,reportCallIssue]
-        mysl_total=round(sum(s.mysl_total for s in non_voided), 2),  # pyright: ignore[reportArgumentType,reportCallIssue]
-        seller_total=round(sum(s.seller_total for s in non_voided), 2),  # pyright: ignore[reportArgumentType,reportCallIssue]
+        mysl_total=round(mysl_line_total, 2),
+        seller_total=round(seller_line_total, 2),
         cash_total=round(sum(s.cash_amount for s in non_voided), 2),  # pyright: ignore[reportArgumentType,reportCallIssue]
         check_total=round(sum(s.check_amount for s in non_voided), 2),  # pyright: ignore[reportArgumentType,reportCallIssue]
         cc_total=round(sum(s.cc_amount for s in non_voided), 2),  # pyright: ignore[reportArgumentType,reportCallIssue]
         donate_proceeds_total=round(donate_proceeds_total, 2),
+        exempt_seller_codes=sorted(exempt_codes),
+        exempt_lines_total=round(exempt_lines_total, 2),
         generated_at=_now(),
     )
 
@@ -568,6 +639,7 @@ def get_end_of_day(db: Session, event_id: int) -> EndOfDayReport:
         cash_total=rev.cash_total,
         check_total=rev.check_total,
         cc_total=rev.cc_total,
+        exempt_lines_total=rev.exempt_lines_total,
         generated_at=rev.generated_at,
     )
 

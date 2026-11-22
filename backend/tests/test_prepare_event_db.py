@@ -143,3 +143,19 @@ def test_generated_password_when_omitted(tmp_path, capsys):
     generated = match.group(1)
     stored = _rows(db, "SELECT password_hash FROM user")[0][0]
     assert verify_password(generated, stored)
+
+def test_exempt_seller_codes_stored(tmp_path):
+    """--exempt-seller-codes round-trips into the event row (comma string)."""
+    db = tmp_path / "exempt.db"
+    assert _run(db, ["--exempt-seller-codes", "MYSL2, mngt"]) == 0
+    rows = _rows(db, "SELECT exempt_seller_codes FROM event")
+    assert len(rows) == 1
+    assert rows[0][0] == "MYSL2, mngt"
+
+
+def test_exempt_seller_codes_default_null(tmp_path):
+    """Omitting the flag leaves the column NULL → no exemptions."""
+    db = tmp_path / "default.db"
+    assert _run(db) == 0
+    rows = _rows(db, "SELECT exempt_seller_codes FROM event")
+    assert rows[0][0] is None

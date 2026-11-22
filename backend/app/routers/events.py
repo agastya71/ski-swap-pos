@@ -58,11 +58,16 @@ def create_event(
     database is created at alembic head with the SAME id as its own event row.
     """
     db_filename = _unique_db_filename(db, body.name)
+    _exempt_csv = (
+        ",".join(code.strip() for code in body.exempt_seller_codes or [] if code.strip())
+        or None
+    )
     event = RegistryEvent(
         name=body.name,
         year=body.year,
         commission_rate=body.commission_rate,
         vendor_commission_rate=body.vendor_commission_rate,
+        exempt_seller_codes=_exempt_csv,
         is_active=False,
         db_filename=db_filename,
     )
@@ -77,6 +82,7 @@ def create_event(
             year=body.year,
             commission_rate=body.commission_rate,
             vendor_commission_rate=body.vendor_commission_rate,
+            exempt_seller_codes=_exempt_csv,
         )
     except FileExistsError as exc:
         db.rollback()

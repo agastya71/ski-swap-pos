@@ -759,3 +759,93 @@ def test_my_sales_newest_first_and_scoped_to_active_event(client, active_event, 
 def test_my_sales_requires_auth(client):
     r = client.get("/sales/mine")
     assert r.status_code == 403
+
+
+# ── Exempt-seller checkout stamping (MYSL2-style) ────────────────────────────
+
+
+@pytest.fixture
+def exempt_seller(db, active_event):
+    s = Seller(event_id=active_event.id, code="MYSL2", first_name=None, last_name=None,
+               company="MYSL", is_vendor=True, created_by="admin")
+    db.add(s); db.commit(); db.refresh(s)
+    return s
+
+
+@pytest.fixture
+def exempt_intake(db, exempt_seller):
+    i = Intake(seller_id=exempt_seller.id, donate_proceeds=False, created_by="admin")
+    db.add(i); db.commit(); db.refresh(i)
+    return i
+
+
+@pytest.fixture
+def exempt_item(db, exempt_intake, exempt_seller):
+    it = Item(intake_id=exempt_intake.id, seller_id=exempt_seller.id, code="MY2-001",
+              price=10.00, quantity=1.0, status="available", label_printed=True,
+              created_by="admin")
+    db.add(it); db.commit(); db.refresh(it)
+    return it
+
+
+def _allow_exempt(db, active_event, codes="MYSL2"):
+    active_event.exempt_seller_codes = codes  # pyright: ignore[reportAttributeAccessIssue]
+    from app.models.event import Event as _Ev
+    ev = db.get(_Ev, active_event.id)
+    ev.exempt_seller_codes = codes  # pyright: ignore[reportAttributeAccessIssue]
+    db.commit()
+
+
+def test_checkout_exempt_seller_full_price_stamped(client, db, cashier_token, active_event,
+                                                   item, exempt_item):
+    """MYSL2-style exemption at checkout: exempt line contributes 0 commission
+    and full price to seller_total; regular line commissions normally; with a
+    card tender the fee rides on MYSL's commission-only share."""
+    _allow_exempt(db, active_event)
+    resp = client.post(
+        "/sales",
+        json={"items": [{"item_id": item.id}, {"item_id": exempt_item.id}],
+              "cc_amount": 30.00},
+        headers={"Authorization": f"Bearer {cashier_token}"},
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    # 20.00 regular at 30% = 6.00 commission; 10.00 exempt = full payout, 0 cut.
+    # cc_amount 30.00 financed → terminal charge 30.87, fee 0.87 rides on MYSL.
+    assert data["sale_total"] == 30.87
+    assert data["mysl_total"] == 6.87
+    assert data["seller_total"] == 24.00
+    assert data["cc_fee"] == 0.87          # 3% of the partial card charge
+    assert data["total_paid"] == 30.00     # tenders as entered
+    assert data["balance_due"] == 0.87     # sale_total + fee − tenders
+
+
+def test_checkout_exempt_codes_case_insensitive_and_absent_list(client, db, cashier_token,
+                                                                active_event, exempt_item):
+    """No exempt list on the event → normal commission; lowercase code in the
+    list still matches (codes are compared case-insensitively)."""
+    # (a) no list configured — commission applies
+    resp = client.post(
+        "/sales",
+        json={"items": [{"item_id": exempt_item.id}], "cash_amount": 10.00},
+        headers={"Authorization": f"Bearer {cashier_token}"},
+    )
+    assert resp.status_code == 201
+    assert resp.json()["mysl_total"] == 3.00
+
+    # (b) lowercase code matches the uppercase seller code (fresh item —
+    # void is admin-only, so reuse-by-void isn't available to a cashier).
+    it2 = Item(intake_id=exempt_item.intake_id, seller_id=exempt_item.seller_id,
+               code="MY2-002", price=10.00, quantity=1.0, status="available",
+               label_printed=True, created_by="admin")
+    db.add(it2); db.commit(); db.refresh(it2)
+    _allow_exempt(db, active_event, codes="mysl2")
+    resp2 = client.post(
+        "/sales",
+        json={"items": [{"item_id": it2.id}], "cash_amount": 10.00},
+        headers={"Authorization": f"Bearer {cashier_token}"},
+    )
+    assert resp2.status_code == 201
+    data = resp2.json()
+    assert data["mysl_total"] == 0.00
+    assert data["seller_total"] == 10.00

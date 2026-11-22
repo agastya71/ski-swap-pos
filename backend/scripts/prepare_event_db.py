@@ -95,6 +95,7 @@ def _create_event_and_admin(
     vendor_commission_rate: float,
     admin_username: str,
     admin_password: str,
+    exempt_seller_codes: str | None = None,
 ) -> tuple[int, str]:
     """Create the active event + the bootstrap admin.
 
@@ -123,6 +124,7 @@ def _create_event_and_admin(
             year=event_year,
             commission_rate=commission_rate,
             vendor_commission_rate=vendor_commission_rate,
+            exempt_seller_codes=exempt_seller_codes,
             is_active=True,
         )
         db.add(event)
@@ -182,6 +184,13 @@ def main(argv: list[str] | None = None) -> int:
         help="MYSL share for vendor sellers, 0..1 (default: same as --commission-rate).",
     )
     parser.add_argument(
+        "--exempt-seller-codes", default=None,
+        help=(
+            "Comma-separated seller codes exempt from commission (e.g. 'MYSL2'). "
+            "Exempt sellers keep 100%% of sale proceeds. Compared case-insensitively."
+        ),
+    )
+    parser.add_argument(
         "--admin-username", default="admin",
         help="Bootstrap admin username (default: admin).",
     )
@@ -238,6 +247,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  target     : {db_path}")
     print(f"  event      : {args.event_name} ({args.event_year})")
     print(f"  commission : {args.commission_rate:.0%} (vendor {vendor_rate:.0%})")
+    print(f"  exempt     : {args.exempt_seller_codes or '(none)'}")
     print(f"  admin      : {args.admin_username}")
     print(
         f"  backing up : {[p.name for p in present]}"
@@ -265,6 +275,9 @@ def main(argv: list[str] | None = None) -> int:
         vendor_rate,
         args.admin_username,
         admin_password,
+        exempt_seller_codes=(
+            args.exempt_seller_codes.strip() if args.exempt_seller_codes else None
+        ) or None,
     )
 
     print()
