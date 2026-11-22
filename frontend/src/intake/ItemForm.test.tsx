@@ -49,6 +49,35 @@ describe("ItemForm", () => {
     expect(screen.getByLabelText(/brand/i)).toBeRequired();
   });
 
+  /** #6: the Quantity field holds initial focus so staff can enter the unit
+   *  count first thing — the form's natural entry point. */
+  it("focuses the Quantity field on mount", () => {
+    render(<ItemForm intakeId={5} onAdded={vi.fn()} />);
+    expect(document.activeElement).toBe(screen.getByLabelText(/qty/i));
+  });
+
+  /** #6: after a successful add the form resets and focus returns to Qty for
+   *  the next item — no mouse needed between back-to-back entries. */
+  it("refocuses Quantity after a successful add", async () => {
+    server.use(http.post("/intakes/:id/items", () => HttpResponse.json(ITEM)));
+    render(<ItemForm intakeId={5} onAdded={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText(/category/i), {
+      target: { value: "Skis" },
+    });
+    fireEvent.change(screen.getByLabelText(/brand/i), {
+      target: { value: "Rossignol" },
+    });
+    fireEvent.change(screen.getByLabelText(/price/i), {
+      target: { value: "75" },
+    });
+    // Move focus somewhere else first to prove the submit refocuses it.
+    (screen.getByLabelText(/description/i) as HTMLInputElement).focus();
+    fireEvent.click(screen.getByRole("button", { name: /add item/i }));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByLabelText(/qty/i)),
+    );
+  });
+
   /** Verifies that a successful submit calls onAdded with the item object returned by the API. */
   it("calls onAdded with new item after successful submit", async () => {
     server.use(http.post("/intakes/:id/items", () => HttpResponse.json(ITEM)));
