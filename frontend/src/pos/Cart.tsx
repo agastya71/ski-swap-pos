@@ -66,7 +66,14 @@ export function Cart({ lines, onUpdate, onRemove, readOnly = false }: {
               <tr key={line.item.id} style={{ borderBottom: '1px solid #eee' }}>
                 <td style={{ padding: '6px 8px' }}>{line.item.code}</td>
                 <td style={{ padding: '6px 8px' }}>{line.item.seller_code}</td>
-                <td style={{ padding: '6px 8px' }}>{line.item.description ?? '—'}</td>
+                <td style={{ padding: '6px 8px' }}>
+                  {line.item.description ?? '—'}
+                  {(line.item.category || line.item.type) && (
+                    <div style={{ fontSize: 12, color: '#94a3b8' }}>
+                      {[line.item.category, line.item.type].filter(Boolean).join(' · ')}
+                    </div>
+                  )}
+                </td>
                 <td style={{ padding: '6px 8px', textAlign: 'right' }}>
                   {readOnly ? (
                     line.quantity

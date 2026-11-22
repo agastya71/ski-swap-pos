@@ -80,9 +80,27 @@ describe('LookupField', () => {
   /** Verifies an alert is shown when the looked-up item has a non-available status (e.g. 'sold'). */
   it('shows sold-out error when item has no remaining units', async () => {
     server.use(http.get('/items/lookup', () => HttpResponse.json({ ...FOUND, remaining: 0 })))
-    render(<LookupField onFound={vi.fn()} />)
+    const onError = vi.fn()
+    render(<LookupField onFound={vi.fn()} onError={onError} />)
     enter('A001-001')
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/sold out/i))
+    // The error is mirrored to the parent hook (top-of-panel banner, #14).
+    await waitFor(() => expect(onError).toHaveBeenCalledWith(expect.stringMatching(/sold out/i)))
+  })
+
+  /** Mirrored errors carry null when the message clears — the parent banner
+   *  (#14) must not keep showing a stale sold-out message. */
+  it('mirrors null to onError when an error clears', async () => {
+    server.use(
+      http.get('/items/lookup', () => HttpResponse.json({ detail: 'Item not found' }, { status: 404 })),
+      http.get('/items/search', () => HttpResponse.json([])),
+    )
+    const onError = vi.fn()
+    render(<LookupField onFound={vi.fn()} onError={onError} />)
+    enter('ZZZZ')
+    await waitFor(() => expect(onError).toHaveBeenCalledWith(expect.stringMatching(/item not found/i)))
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'A' } })
+    await waitFor(() => expect(onError).toHaveBeenLastCalledWith(null))
   })
 
   /** Verifies the PR's headline behavior: a partially-sold item (status='sold',
@@ -159,6 +177,46 @@ describe('LookupField', () => {
     await waitFor(() => screen.getByText('A001-001'))
     fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Escape' })
     expect(screen.queryByText('A001-001')).not.toBeInTheDocument()
+  })
+
+  /** Dropdown rows show the remaining on-hand count (#4 transaction view = the
+   *  lookup list; item quantity was invisible there). */
+  it('shows remaining quantity in the results list', async () => {
+    server.use(
+      http.get('/items/lookup', () => HttpResponse.json({ detail: 'Not found' }, { status: 404 })),
+      http.get('/items/search', () => HttpResponse.json([{ ...FOUND, remaining: 3 }, FOUND2])),
+    )
+    render(<LookupField onFound={vi.fn()} />)
+    enter('A001')
+    await waitFor(() => expect(screen.getByText('3 left')).toBeInTheDocument())
+  })
+
+  /** Dropdown rows show category · type (#13); the sold row carries no count. */
+  it('shows category and type in the results list, omitted for sold rows', async () => {
+    const typed = { ...FOUND, category: 'Skis', type: 'Alpine' }
+    const sold = { ...FOUND, id: 9, code: 'A001-009', category: 'Boots', type: null, remaining: 0, status: 'sold' as const }
+    server.use(
+      http.get('/items/lookup', () => HttpResponse.json({ detail: 'Not found' }, { status: 404 })),
+      http.get('/items/search', () => HttpResponse.json([typed, sold])),
+    )
+    render(<LookupField onFound={vi.fn()} />)
+    enter('A001')
+    await waitFor(() => expect(screen.getByText('(Skis · Alpine)')).toBeInTheDocument())
+    expect(screen.getByText('(Boots)')).toBeInTheDocument()
+    // The available row shows its count; the sold row shows none.
+    expect(screen.getByText('1 left')).toBeInTheDocument()
+    expect(screen.getByText('A001-009').closest('button')!.textContent).not.toMatch(/left/)
+  })
+
+  /** Cart-change focus signal (#1): bumping focusSignal refocuses the scan
+   *  field even when the input never had focus back after a manual click away. */
+  it('refocuses the scan field when focusSignal bumps', async () => {
+    const { rerender } = render(<LookupField onFound={vi.fn()} />)
+    expect(document.activeElement).toBe(screen.getByRole('textbox'))
+    screen.getByRole('textbox').blur()
+    expect(document.activeElement).not.toBe(screen.getByRole('textbox'))
+    rerender(<LookupField onFound={vi.fn()} focusSignal={1} />)
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('textbox')))
   })
 
   /** Tests for the 300 ms debounced autocomplete search behaviour. */
