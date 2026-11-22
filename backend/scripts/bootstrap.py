@@ -146,7 +146,7 @@ def main() -> int:
     reg_con = reg_engine.connect()
     try:
         rows = reg_con.exec_driver_sql(
-            "SELECT db_filename, is_active FROM event ORDER BY id"
+            "SELECT id, db_filename, is_active, exempt_seller_codes FROM event ORDER BY id"
         ).fetchall()
     finally:
         reg_con.close()
@@ -157,6 +157,38 @@ def main() -> int:
             print(f"      ! event DB missing, skipping migration: {path}")
             continue
         _alembic_head(f"sqlite:///{path}")
+
+    # The event-DB event row mirrors registry catalogue fields; reports read
+    # THIS row (data routers resolve the active event in the event DB). The
+    # registry is the source of truth for the exempt-seller list — sync it so
+    # a registry-side edit (or a pre-sync row) can't leave a NULL behind.
+    # create_event already writes both; this only heals drift.
+    for (event_id, db_filename, _is_active, exempt_raw) in rows:
+        path = event_db_file(str(db_filename))
+        if not Path(path).exists():
+            continue
+        import sqlite3 as _evsq
+
+        ev_con = _evsq.connect(path)
+        try:
+            cols = {r[1] for r in ev_con.execute("PRAGMA table_info(event)").fetchall()}
+            if "exempt_seller_codes" not in cols:
+                continue  # pre-migration DB; _alembic_head above fixed it
+            current = ev_con.execute(
+                "SELECT exempt_seller_codes FROM event WHERE id = ?", (event_id,)
+            ).fetchone()
+            if current is not None and (current[0] or None) != (exempt_raw or None):
+                ev_con.execute(
+                    "UPDATE event SET exempt_seller_codes = ? WHERE id = ?",
+                    (exempt_raw, event_id),
+                )
+                ev_con.commit()
+                print(
+                    f"      ~ event '{db_filename}': exempt_seller_codes "
+                    f"synced from registry → {exempt_raw!r}"
+                )
+        finally:
+            ev_con.close()
 
     print("[3/4] Repairing data + ensuring seed...")
     for (db_filename, _is_active) in rows:
