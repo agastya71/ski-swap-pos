@@ -10,7 +10,6 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { server } from '../mocks/server'
 import { http, HttpResponse } from 'msw'
 import { SellerForm } from './SellerForm'
-import { US_STATES } from '../lib/usStates'
 import type { Seller } from '../types'
 
 const CREATED: Seller = {
@@ -48,15 +47,73 @@ describe('SellerForm', () => {
     expect(screen.getByLabelText(/zip/i)).toBeInTheDocument()
   })
 
-  /** State field is a <select> populated with US states (+ DC) and a blank option. */
-  it('renders state as a select with US states', () => {
+  /** State field (#10) is a type-able 2-letter input with datalist suggestions
+   *  — replaces the locked dropdown so staff can type "mn" directly. */
+  it('renders state as a type-able input with datalist suggestions', () => {
     render(<SellerForm onCreated={vi.fn()} onCancel={vi.fn()} />)
-    const stateSelect = screen.getByLabelText(/state/i)
-    expect(stateSelect.tagName).toBe('SELECT')
-    const options = (stateSelect as HTMLSelectElement).options
-    // blank "— select state —" + 50 states + DC
-    expect(options.length).toBe(US_STATES.length + 1)
-    expect((stateSelect as HTMLSelectElement).querySelector('option[value="MN"]')).not.toBeNull()
+    const stateInput = screen.getByLabelText(/state/i) as HTMLInputElement
+    expect(stateInput.tagName).toBe('INPUT')
+    expect(stateInput.maxLength).toBe(2)
+    expect(stateInput).toHaveAttribute('list', 'state-options')
+    // jsdom gives datalist options no option role — assert the element itself.
+    const datalist = document.getElementById('state-options')!
+    expect(datalist.querySelectorAll('option').length).toBe(51)
+    const ma = datalist.querySelector('option[value="MA"]')!
+    expect(ma.textContent).toBe('Massachusetts')
+  })
+
+  /** #10: typing a lowercase code auto-uppercases in the field. */
+  it('uppercases the state code as the user types', () => {
+    render(<SellerForm onCreated={vi.fn()} onCancel={vi.fn()} />)
+    const stateInput = screen.getByLabelText(/state/i) as HTMLInputElement
+    fireEvent.change(stateInput, { target: { value: 'mn' } })
+    expect(stateInput.value).toBe('MN')
+  })
+
+  /** #10: submitting a non-US 2-letter code blocks with guidance, no API call. */
+  it('blocks submit when state is not a US code', async () => {
+    const onCreated = vi.fn()
+    render(<SellerForm onCreated={onCreated} onCancel={vi.fn()} />)
+    fireEvent.change(screen.getByLabelText(/first name/i), { target: { value: 'Bob' } })
+    fireEvent.change(screen.getByLabelText(/last name/i), { target: { value: 'Smith' } })
+    fireEvent.change(screen.getByLabelText(/phone/i), { target: { value: '6125551234' } })
+    fireEvent.change(screen.getByLabelText(/street address/i), { target: { value: '123 Main St' } })
+    fireEvent.change(screen.getByLabelText(/^city/i), { target: { value: 'Minneapolis' } })
+    fireEvent.change(screen.getByLabelText(/state/i), { target: { value: 'ZZ' } })
+    fireEvent.change(screen.getByLabelText(/zip/i), { target: { value: '55401' } })
+    fireEvent.click(screen.getByRole('button', { name: /register/i }))
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(/2-letter US state code/i),
+    )
+    expect(onCreated).not.toHaveBeenCalled()
+  })
+
+  /** #9: phone formats live as (NNN) NNN-NNNN while typing… */
+  it('formats the phone number as (NNN) NNN-NNNN while typing', () => {
+    render(<SellerForm onCreated={vi.fn()} onCancel={vi.fn()} />)
+    const phone = screen.getByLabelText(/phone/i) as HTMLInputElement
+    fireEvent.change(phone, { target: { value: '6125551234' } })
+    expect(phone.value).toBe('(612) 555-1234')
+  })
+
+  /** …but the request payload still carries digits only (backend strips
+   *  non-digits too; digits-only keeps older clients unaffected). */
+  it('sends digits-only phone in the request payload', async () => {
+    let captured: Record<string, unknown> = {}
+    server.use(
+      http.post('/sellers', async ({ request }) => {
+        captured = (await request.json()) as Record<string, unknown>
+        return HttpResponse.json(CREATED)
+      }),
+    )
+    const onCreated = vi.fn()
+    render(<SellerForm onCreated={onCreated} onCancel={vi.fn()} />)
+    fireEvent.change(screen.getByLabelText(/first name/i), { target: { value: 'Bob' } })
+    fireEvent.change(screen.getByLabelText(/last name/i), { target: { value: 'Smith' } })
+    fillRequiredIndividual()
+    fireEvent.click(screen.getByRole('button', { name: /register/i }))
+    await waitFor(() => expect(onCreated).toHaveBeenCalled())
+    expect(captured['phone']).toBe('6125551234')
   })
 
   /** ZIP field enforces US 5-digit pattern and maxLength. */

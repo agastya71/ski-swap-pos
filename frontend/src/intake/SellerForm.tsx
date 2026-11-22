@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { BUTTON_STYLE } from "../lib/buttons";
 import { createSeller } from "../api/sellers";
 import { US_STATES } from "../lib/usStates";
+import { formatPhone, isUsStateCode } from "../lib/format";
 import type { Seller } from "../types";
 
 /**
@@ -28,11 +29,11 @@ export function SellerForm({
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [company, setCompany] = useState("");
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState(""); // #9: auto-formats (NNN) NNN-NNNN
   const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
-  const [state, setState] = useState("");
+  const [state, setState] = useState(""); // #10: free-typed 2-letter US code
   const [zip, setZip] = useState("");
   const [isVendor, setIsVendor] = useState(false);
   const [donateUnsoldDefault, setDonateUnsoldDefault] = useState(false);
@@ -49,6 +50,13 @@ export function SellerForm({
       setError("At least one of phone or email is required");
       return;
     }
+    // #10: accept any typing but gate the submit on a real US code so the
+    // staff member gets guidance here instead of a 422 round-trip.
+    const stateCode = state.trim().toUpperCase();
+    if (!isUsStateCode(stateCode)) {
+      setError("State must be a 2-letter US state code (e.g. MN)");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -56,11 +64,11 @@ export function SellerForm({
         first_name: firstName || undefined,
         last_name: lastName || undefined,
         company: company || undefined,
-        phone: phone || undefined,
+        phone: phone.replace(/\D/g, "") || undefined,
         email: email || undefined,
         address,
         city,
-        state,
+        state: stateCode,
         zip,
         is_vendor: isVendor,
         donate_unsold_default: donateUnsoldDefault,
@@ -112,7 +120,7 @@ export function SellerForm({
         setCompany,
         isVendor,
       )}
-      {field("phone", "Phone (10 digits)", phone, setPhone)}
+      {field("phone", "Phone (10 digits)", phone, (v) => setPhone(formatPhone(v)))}
       {field("email", "Email", email, setEmail)}
       <div style={{ marginBottom: 10 }}>
         <label>
@@ -139,20 +147,25 @@ export function SellerForm({
           <label htmlFor="state" style={{ display: "block", marginBottom: 3 }}>
             State
           </label>
-          <select
+          {/* #10: type-able 2-letter code with datalist suggestions, instead
+              of a locked dropdown — typing "mn" is enough. */}
+          <input
             id="state"
+            list="state-options"
             value={state}
-            onChange={(e) => setState(e.target.value)}
+            maxLength={2}
+            placeholder="MN"
             required
+            onChange={(e) => setState(e.target.value.toUpperCase())}
             style={{ width: "100%", padding: 6, boxSizing: "border-box" }}
-          >
-            <option value="">— select state —</option>
+          />
+          <datalist id="state-options">
             {US_STATES.map((s) => (
               <option key={s.code} value={s.code}>
-                {s.code} — {s.name}
+                {s.name}
               </option>
             ))}
-          </select>
+          </datalist>
         </div>
         <div style={{ marginBottom: 10 }}>
           <label htmlFor="zip" style={{ display: "block", marginBottom: 3 }}>

@@ -14,6 +14,7 @@ import {
   updateItem,
 } from "../api/items";
 import { BUTTON_STYLE } from "../lib/buttons";
+import { capitalizeWords } from "../lib/format";
 import {
   dispatchIntakeLabels,
   dispatchItemLabel,
@@ -472,7 +473,7 @@ export function ItemList({
                           onChange={(e) =>
                             setDraft((d) => ({
                               ...d,
-                              description: e.target.value,
+                              description: capitalizeWords(e.target.value),
                             }))
                           }
                           style={{
