@@ -149,3 +149,32 @@ def test_get_active_event_none_configured(client, registry_db):
 def test_get_active_event_requires_auth(client):
     response = client.get("/events/active")
     assert response.status_code == 403
+
+
+def test_create_event_with_exempt_seller_codes(client, admin_token):
+    """exempt_seller_codes round-trips through create + list (list coercion)."""
+    response = client.post(
+        "/events",
+        json={"name": "MYSL Swap 2029", "year": 2029,
+              "exempt_seller_codes": ["MYSL2"]},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["exempt_seller_codes"] == ["MYSL2"]
+
+    listed = client.get("/events", headers={"Authorization": f"Bearer {admin_token}"})
+    assert listed.status_code == 200
+    row = next(e for e in listed.json() if e["name"] == "MYSL Swap 2029")
+    assert row["exempt_seller_codes"] == ["MYSL2"]
+
+
+def test_create_event_without_exempt_defaults_empty(client, admin_token):
+    """Omitting exempt_seller_codes coerces to [] in the API response."""
+    response = client.post(
+        "/events",
+        json={"name": "MYSL Swap 2030", "year": 2030},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 201
+    assert response.json()["exempt_seller_codes"] == []

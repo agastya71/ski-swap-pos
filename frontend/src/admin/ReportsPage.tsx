@@ -148,6 +148,12 @@ export function ReportsPage({ eventId }: { eventId: number }) {
                 ["Gross Revenue", `$${revenue.gross_revenue.toFixed(2)}`],
                 ["MYSL Total", `$${revenue.mysl_total.toFixed(2)}`],
                 ["Seller Total", `$${revenue.seller_total.toFixed(2)}`],
+                ...(revenue.exempt_lines_total
+                  ? [[
+                      `${revenue.exempt_seller_codes.join(", ")} (exempt, full payout)`,
+                      `$${revenue.exempt_lines_total.toFixed(2)}`,
+                    ] as [string, string]]
+                  : []),
                 ["Transactions", String(revenue.total_sales)],
                 ["Cash", `$${revenue.cash_total.toFixed(2)}`],
                 ["Check", `$${revenue.check_total.toFixed(2)}`],

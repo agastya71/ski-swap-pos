@@ -827,6 +827,11 @@ export interface EventRevenueReport {
  cc_total: number;
  /** Total value of sales where sellers donated 100% of proceeds. */
  donate_proceeds_total: number;
+ /** Seller codes exempt from commission for this event, sorted (e.g. ["MYSL2"]). */
+ exempt_seller_codes: string[];
+ /** Sum of exempt sellers' extended prices — full payout, outside the
+  * commission split (not included in mysl_total or seller_total). */
+ exempt_lines_total: number;
  /** ISO 8601 timestamp when this report was generated. */
  generated_at: string;
 }
@@ -929,6 +934,9 @@ export interface EndOfDayReport {
  check_total: number;
  /** Total credit/debit card payments received today via Square. */
  cc_total: number;
+ /** Sum of exempt sellers' extended prices today — full payout, outside
+  * the commission split (not included in mysl_total or seller_total). */
+ exempt_lines_total: number;
  /** ISO 8601 timestamp when this report was generated. */
  generated_at: string;
 }

@@ -125,6 +125,24 @@ def main() -> int:
     import app.models.registry  # noqa: F401  (register the tables)
 
     RegistryBase.metadata.create_all(reg_engine)
+
+    # metadata.create_all only CREATES missing tables — for a registry created
+    # before a column was added to RegistryEvent (e.g. exempt_seller_codes,
+    # 2026-11-21) the existing table keeps its old shape. Add any missing
+    # columns idempotently (no alembic for the registry: see models/registry.py).
+    with reg_engine.connect() as con:
+        existing = {
+            row[1] for row in con.exec_driver_sql(
+                "PRAGMA table_info(event)"
+            ).fetchall()
+        }
+        if "exempt_seller_codes" not in existing:
+            con.exec_driver_sql(
+                "ALTER TABLE event ADD COLUMN exempt_seller_codes VARCHAR NULL"
+            )
+            con.commit()
+            print("      + registry event.exempt_seller_codes column added")
+
     reg_con = reg_engine.connect()
     try:
         rows = reg_con.exec_driver_sql(

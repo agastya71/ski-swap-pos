@@ -50,6 +50,14 @@ export function EndOfDayPage({ eventId }: { eventId: number }) {
                   ["Gross Revenue", `$${report.gross_revenue.toFixed(2)}`],
                   ["MYSL Total", `$${report.mysl_total.toFixed(2)}`],
                   ["Seller Total", `$${report.seller_total.toFixed(2)}`],
+                  ...(report.exempt_lines_total
+                    ? [
+                        [
+                          "Exempt-seller sales (full payout)",
+                          `$${report.exempt_lines_total.toFixed(2)}`,
+                        ] as [string, string],
+                      ]
+                    : []),
                   ["Cash", `$${report.cash_total.toFixed(2)}`],
                   ["Check", `$${report.check_total.toFixed(2)}`],
                   ["Card (Square)", `$${report.cc_total.toFixed(2)}`],

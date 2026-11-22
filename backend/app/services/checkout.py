@@ -49,6 +49,11 @@ def compute_commission(
     and the seller receives nothing.  Otherwise the split is determined by
     ``commission_rate``.
 
+    Deprecated for event-scoped splits: prefer ``_split_line`` in
+    ``app.services.reports`` / ``_sale_line_split`` here, which also honor
+    the event's commission-exempt seller codes (e.g. MYSL2 keeps 100% of its
+    own sales). Kept for backwards compatibility with existing callers/tests.
+
     Args:
         item_price: Extended price of the line item (sell_price × quantity),
             already rounded to 2 decimal places by the caller.
@@ -64,6 +69,40 @@ def compute_commission(
         return round(item_price, 2), 0.0
     mysl = round(item_price * commission_rate, 2)
     return mysl, round(item_price - mysl, 2)
+
+
+def _sale_line_split(
+    extended: float,
+    donate_proceeds: bool,
+    rate: float,
+    exempt: bool,
+) -> tuple[float, float]:
+    """Split one sale line into (mysl_share, seller_share), honoring exemptions.
+
+    Mirrors ``app.services.reports._split_line`` (kept separate to avoid a
+    circular router/service import):
+
+    1. ``donate_proceeds`` — full price to MYSL.
+    2. ``exempt`` — full price to the seller, 0 commission (event-level
+       exempt-seller rule, e.g. MYSL2's own stall).
+    3. Otherwise — ``rate`` commission to MYSL, rounded remainder to seller.
+    """
+    if donate_proceeds:
+        return round(extended, 2), 0.0
+    if exempt:
+        return 0.0, round(extended, 2)
+    mysl = round(extended * rate, 2)
+    return mysl, round(extended - mysl, 2)
+
+
+def _exempt_codes_for_event(event: Event) -> frozenset[str]:
+    """Uppercased lookup set of the event's commission-exempt seller codes."""
+    raw = getattr(event, "exempt_seller_codes", None)
+    if not raw:
+        return frozenset()
+    return frozenset(
+        part.strip().upper() for part in str(raw).split(",") if part.strip()
+    )
 
 
 def create_sale_atomic(
@@ -147,12 +186,19 @@ def create_sale_atomic(
     sale_total = 0.0
     mysl_total = 0.0
     seller_total = 0.0
+    exempt_codes = _exempt_codes_for_event(event)
 
     for line_number, (line, item, intake) in enumerate(items_and_intakes, start=1):
         sell_price = line.sell_price if line.sell_price is not None else item.price
         extended_price = round(sell_price * line.quantity, 2)
-        mysl_share, seller_share = compute_commission(
-            extended_price, intake.donate_proceeds, event.commission_rate  # pyright: ignore[reportArgumentType]
+        rate = (
+            bool(getattr(item.seller, "is_vendor", False)) and event.vendor_commission_rate
+        ) or event.commission_rate  # pyright: ignore[reportGeneralTypeIssues]
+        exempt = (
+            str(getattr(item.seller, "code", "") or "").strip().upper() in exempt_codes
+        )
+        mysl_share, seller_share = _sale_line_split(
+            extended_price, intake.donate_proceeds, rate, exempt  # pyright: ignore[reportArgumentType]
         )
         db.add(SaleItem(
             sale_id=sale.id,

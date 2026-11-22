@@ -396,3 +396,144 @@ def test_vendor_equipment_summary_unknown_seller_404(db, active_event):
     with pytest.raises(HTTPException) as exc:
         get_vendor_equipment_summary(db, active_event.id, 999999)
     assert exc.value.status_code == 404
+
+
+# ── Exempt seller (MYSL2-style commission exemption) ─────────────────────────
+
+
+def _exempt_event(db, active_event, codes="MYSL2"):
+    """Put ``codes`` on the event's exempt list — registry row + mirrored row."""
+    active_event.exempt_seller_codes = codes  # pyright: ignore[reportAttributeAccessIssue]
+    from app.models.event import Event as _Ev
+    ev_event = db.get(_Ev, active_event.id)
+    ev_event.exempt_seller_codes = codes  # pyright: ignore[reportAttributeAccessIssue]
+    db.commit()
+
+
+@pytest.fixture
+def exempt_seller(db, active_event):
+    s = Seller(event_id=active_event.id, code="MYSL2", first_name=None, last_name=None,
+               company="MYSL", is_vendor=True, created_by="admin")
+    db.add(s); db.commit(); db.refresh(s)
+    return s
+
+
+@pytest.fixture
+def exempt_intake(db, exempt_seller):
+    i = Intake(seller_id=exempt_seller.id, donate_proceeds=False, created_by="admin")
+    db.add(i); db.commit(); db.refresh(i)
+    return i
+
+
+@pytest.fixture
+def exempt_sold_item(db, exempt_intake, exempt_seller):
+    it = Item(intake_id=exempt_intake.id, seller_id=exempt_seller.id, code="MY2-001",
+              price=8.00, quantity=1.0, remaining=0.0, status="sold", label_printed=True,
+              created_by="admin")
+    db.add(it); db.commit(); db.refresh(it)
+    return it
+
+
+@pytest.fixture
+def exempt_sale(db, active_event, exempt_sold_item):
+    # Stamped values deliberately WRONG (commission applied) — reports must
+    # recompute from the line items, never trust the stamps.
+    s = Sale(event_id=active_event.id, sale_total=8.00, mysl_total=2.40,
+             seller_total=5.60, cash_amount=8.00, check_amount=0.0, cc_amount=0.0,
+             total_paid=8.00, balance_due=0.0, is_voided=False, created_by="admin")
+    db.add(s); db.flush()
+    db.add(SaleItem(sale_id=s.id, item_id=exempt_sold_item.id, line_number=1,
+                    quantity=1.0, sell_price=8.00, extended_price=8.00, created_by="admin"))
+    db.commit(); db.refresh(s)
+    return s
+
+
+def test_seller_payout_exempt_full_price(db, active_event, exempt_seller, exempt_intake,
+                                         exempt_sale, exempt_sold_item):
+    """Exempt seller keeps the full extended price; commission is 0 even for a
+    vendor seller — the stale stamped sale totals must NOT leak through."""
+    from app.services.reports import get_seller_payout
+    _exempt_event(db, active_event)
+    report = get_seller_payout(db, active_event.id, exempt_seller.id)
+    assert report.gross_sales == 8.00
+    assert report.mysl_total == 0.00
+    assert report.seller_total == 8.00
+    line = report.sales[0]
+    assert line.mysl_share == 0.00
+    assert line.seller_share == 8.00
+    # Rate still DISPLAYS the vendor rate; the exemption overrides the math.
+    assert line.commission_rate == 0.30
+    assert report.seller_info.commission_rate == 0.30
+
+
+def test_seller_payout_exempt_overrides_vendor_rate(db, active_event, exempt_seller,
+                                                    exempt_intake, exempt_sale):
+    from app.services.reports import get_seller_payout
+    active_event.vendor_commission_rate = 0.25  # pyright: ignore[reportAttributeAccessIssue]
+    from app.models.event import Event as _Ev
+    ev_event = db.get(_Ev, active_event.id)
+    ev_event.vendor_commission_rate = 0.25  # pyright: ignore[reportAttributeAccessIssue]
+    db.commit()
+    _exempt_event(db, active_event)
+    report = get_seller_payout(db, active_event.id, exempt_seller.id)
+    line = report.sales[0]
+    assert line.commission_rate == 0.25
+    assert line.mysl_share == 0.00
+    assert line.seller_share == 8.00
+    assert report.seller_total == 8.00
+
+
+def test_event_revenue_exempt_seller_separate_line(db, active_event, sold_item, seller, intake,
+                                                   exempt_seller, exempt_intake, exempt_sold_item):
+    """A sale mixing regular + MYSL2 items: commission lines total normally,
+    MYSL2's lines report on their own row and stay out of both totals."""
+    from app.models.sale import Sale
+    from app.models.sale_item import SaleItem
+    from app.services.reports import get_event_revenue
+    _exempt_event(db, active_event)
+    mixed = Sale(event_id=active_event.id, sale_total=23.00, mysl_total=6.90,
+                 seller_total=16.10, cash_amount=23.00, check_amount=0.0, cc_amount=0.0,
+                 total_paid=23.00, balance_due=0.0, is_voided=False, created_by="admin")
+    db.add(mixed); db.flush()
+    db.add(SaleItem(sale_id=mixed.id, item_id=sold_item.id, line_number=1, quantity=1.0,
+                    sell_price=15.00, extended_price=15.00, created_by="admin"))
+    db.add(SaleItem(sale_id=mixed.id, item_id=exempt_sold_item.id, line_number=2, quantity=1.0,
+                    sell_price=8.00, extended_price=8.00, created_by="admin"))
+    db.commit()
+    report = get_event_revenue(db, active_event.id)
+    assert report.gross_revenue == 23.00
+    assert report.mysl_total == 4.50       # 15 × 0.30 — the 8.00 MYSL2 line adds 0
+    assert report.seller_total == 10.50    # regular seller share only
+    assert report.exempt_lines_total == 8.00
+    assert report.exempt_seller_codes == ["MYSL2"]
+    assert round(report.mysl_total + report.seller_total + report.exempt_lines_total, 2) \
+        == report.gross_revenue
+
+
+def test_event_revenue_exempt_codes_case_insensitive(db, active_event, exempt_sale,
+                                                     exempt_sold_item, exempt_seller, exempt_intake):
+    from app.services.reports import get_event_revenue
+    _exempt_event(db, active_event, codes="mysl2")
+    report = get_event_revenue(db, active_event.id)
+    assert report.exempt_lines_total == 8.00
+    assert report.mysl_total == 0.00
+    assert report.seller_total == 0.00
+    assert report.exempt_seller_codes == ["MYSL2"]
+
+
+def test_event_revenue_donate_beats_exempt_and_buckets_split(db, active_event, donate_sale,
+                                                             donate_sold_item, seller, donate_intake,
+                                                             sale, sold_item, exempt_sale):
+    """Rule order: donate lines go to MYSL regardless of exemption; the three
+    buckets (commissioned, exempt, donate) stay separate rows."""
+    from app.models.item import Item
+    from app.models.sale import Sale
+    from app.models.sale_item import SaleItem
+    from app.services.reports import get_event_revenue
+    _exempt_event(db, active_event)
+    report = get_event_revenue(db, active_event.id)
+    assert report.donate_proceeds_total == 30.00
+    assert report.exempt_lines_total == 8.00
+    assert report.mysl_total == 4.50
+    assert report.seller_total == 10.50
+    assert report.gross_revenue == 53.00

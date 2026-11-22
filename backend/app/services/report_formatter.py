@@ -232,6 +232,11 @@ def _to_md(report: BaseModel, filename_base: str) -> Response:
             f"| Credit Card | ${report.cc_total:.2f} |",
             f"| Donate Proceeds | ${report.donate_proceeds_total:.2f} |",
         ]
+        if report.exempt_lines_total:
+            codes = ", ".join(report.exempt_seller_codes) or "(exempt sellers)"
+            lines.append(
+                f"| {codes} (exempt) | ${report.exempt_lines_total:.2f} |"
+            )
     elif isinstance(report, DonationsReport):
         lines += [
             f"# Donations: {report.event_name}",
@@ -295,6 +300,10 @@ def _to_md(report: BaseModel, filename_base: str) -> Response:
             f"| Check | ${report.check_total:.2f} |",
             f"| Credit Card | ${report.cc_total:.2f} |",
         ]
+        if report.exempt_lines_total:
+            lines.append(
+                f"| Exempt-seller sales (full payout, no commission) | ${report.exempt_lines_total:.2f} |"
+            )
 
     return Response(
         content="\n".join(lines),
@@ -502,6 +511,7 @@ def _to_pdf(report: BaseModel, filename_base: str) -> Response:
             ("Check", f"${report.check_total:.2f}"),
             ("Credit Card", f"${report.cc_total:.2f}"),
             ("Donate Proceeds", f"${report.donate_proceeds_total:.2f}"),
+            ("Exempt-seller sales", f"${report.exempt_lines_total:.2f}"),
         ]:
             pdf.cell(80, 7, label, border=1)
             pdf.cell(40, 7, value, border=1)
@@ -609,6 +619,7 @@ def _to_pdf(report: BaseModel, filename_base: str) -> Response:
             ("Cash", f"${report.cash_total:.2f}"),
             ("Check", f"${report.check_total:.2f}"),
             ("Credit Card", f"${report.cc_total:.2f}"),
+            ("Exempt-seller sales", f"${report.exempt_lines_total:.2f}"),
         ]:
             pdf.cell(80, 7, label, border=1)
             pdf.cell(40, 7, value, border=1)
