@@ -151,7 +151,7 @@ def main() -> int:
     finally:
         reg_con.close()
 
-    for (db_filename, _is_active) in rows:
+    for (_row_id, db_filename, _is_active, _row_exempt) in rows:
         path = event_db_file(str(db_filename))
         if not Path(path).exists():
             print(f"      ! event DB missing, skipping migration: {path}")
@@ -191,7 +191,7 @@ def main() -> int:
             ev_con.close()
 
     print("[3/4] Repairing data + ensuring seed...")
-    for (db_filename, _is_active) in rows:
+    for (_row_id, db_filename, _is_active, _row_exempt) in rows:
         path = event_db_file(str(db_filename))
         if not Path(path).exists():
             continue
