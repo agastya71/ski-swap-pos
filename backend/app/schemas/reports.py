@@ -206,6 +206,62 @@ class VendorEquipmentSummaryReport(BaseModel):
     generated_at: datetime = Field(description="UTC timestamp when this report was generated.")
 
 
+class VendorSalesItemRow(BaseModel):
+    """One item row of a vendor's block in the vendor-sales workbook.
+
+    Mirrors the legacy 'Retailer_Sales' sheet (2025): intake fields plus
+    sold/unsold/due columns. Sell Price is the average ACHIEVED price
+    (Sell Extend ÷ Qty Sold); Due Seller applies the event's vendor
+    commission rules (donate-proceeds > exemption > vendor rate).
+    """
+
+    seller_code: str = Field(description="Unique code identifying the vendor (repeated on every row).")
+    item_code: str = Field(description="Item's label/lookup code (Item ID in the legacy sheet).")
+    brand: Optional[str] = Field(default=None, description="Manufacturer brand; null when not recorded.")
+    type: Optional[str] = Field(default=None, description="Item type (e.g. 'Skate'); null when not recorded.")
+    category: Optional[str] = Field(default=None, description="Canonical category (e.g. 'Skis'); null when not recorded.")
+    size: Optional[str] = Field(default=None, description="Item size (cm, EU, S/M/L, …); null when not recorded.")
+    description: Optional[str] = Field(default=None, description="Free-text description of the item.")
+    qty_in: float = Field(description="Original intake quantity of the item.")
+    price: float = Field(description="Listed (asking) price per unit set at intake.")
+    extend: float = Field(description="Qty In × Price (full consigned value).")
+    qty_sold: float = Field(description="Units sold across all non-voided sales.")
+    sell_price: float = Field(description="Average achieved unit price (Sell Extend ÷ Qty Sold; 0 when nothing sold).")
+    sell_extend: float = Field(description="Sum of extended prices achieved on sold units.")
+    due_seller: float = Field(description="Seller's proceeds after the event's commission rules (donate-proceeds > exemption > vendor rate).")
+    unsold: float = Field(description="Asking-price value of unsold, non-donated units (remaining × price).")
+    donate: float = Field(description="Asking-price value of unsold units marked to be donated to charity.")
+
+
+class VendorSalesBlock(BaseModel):
+    """One vendor's section of the vendor-sales workbook: item rows + totals."""
+
+    vendor_code: str = Field(description="Unique code identifying the vendor.")
+    vendor_name: str = Field(description="Display name for the Totals row (company, falling back to full name).")
+    rows: list[VendorSalesItemRow] = Field(description="One row per consigned item, in intake order.")
+    total_extend: float = Field(description="Sum of Extend across the block.")
+    total_sell_extend: float = Field(description="Sum of Sell Extend across the block.")
+    total_due_seller: float = Field(description="Sum of Due Seller across the block.")
+    total_unsold: float = Field(description="Sum of Unsold across the block.")
+    total_donate: float = Field(description="Sum of Donate across the block.")
+
+
+class VendorSalesWorkbook(BaseModel):
+    """Consolidated vendor-sales report: one block per vendor seller.
+
+    Matches the legacy 'Retailer_Sales' xlsx layout the league sends to
+    vendors at settlement. Exempt sellers (e.g. MYSL2 league merchandise)
+    are listed LAST; all other vendors sort alphabetically by code. Rendered
+    to xlsx by the report formatter.
+    """
+
+    event_id: int = Field(description="ID of the event this report covers.")
+    event_name: str = Field(description="Human-readable name of the event.")
+    commission_rate: float = Field(description="Event's vendor commission rate used for Due Seller.")
+    vendors: list[VendorSalesBlock] = Field(description="One block per vendor seller (exempt sellers last).")
+    generated_at: datetime = Field(description="UTC timestamp when this report was generated.")
+
+
 class EndOfDayReport(BaseModel):
     """Cumulative event sales summary stamped with the date the report was generated."""
 

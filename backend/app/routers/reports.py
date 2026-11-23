@@ -48,6 +48,41 @@ def get_vendor_equipment_summary(
     return format_report(report, fmt, f"vendor_equipment_summary_{event_id}_{seller_id}")
 
 
+@router.get("/{event_id}/vendor-sales.xlsx")
+def get_vendor_sales_xlsx(
+    event_id: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(_ADMIN_ONLY),
+):
+    """Download the consolidated vendor-sales workbook for the event.
+
+    One block per vendor in the legacy 'Retailer_Sales' layout the league
+    historically sends to vendors (item rows, a Totals row, blank separator),
+    with exempt sellers (league merchandise) listed last. Admin-only; JSON
+    (structure) is available via /{event_id}/vendor-sales?format=json.
+    """
+    report = report_svc.get_vendor_sales_report(db, event_id)
+    return format_report(report, "xlsx", f"vendor_sales_{event_id}")
+
+
+@router.get("/{event_id}/vendor-sales")
+def get_vendor_sales(
+    event_id: int,
+    fmt: str = Query("json", alias="format"),
+    db: Session = Depends(get_db),
+    _user: User = Depends(_ADMIN_ONLY),
+):
+    """Return the consolidated vendor-sales report (JSON by default).
+
+    Same data as the xlsx download; JSON carries the per-vendor blocks with
+    item rows and totals for programmatic checks.
+    """
+    report = report_svc.get_vendor_sales_report(db, event_id)
+    if fmt == "xlsx":
+        return format_report(report, "xlsx", f"vendor_sales_{event_id}")
+    return format_report(report, fmt, f"vendor_sales_{event_id}")
+
+
 @router.get("/{event_id}/sellers-payouts")
 def get_all_seller_payouts(
     event_id: int,
