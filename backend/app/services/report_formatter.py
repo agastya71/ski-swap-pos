@@ -9,6 +9,7 @@ import csv
 import io
 
 import openpyxl
+import openpyxl.styles
 
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse, Response
@@ -24,6 +25,7 @@ from app.schemas.reports import (
     SellerPayoutReport,
     UnsoldItemsReport,
     VendorEquipmentSummaryReport,
+    VendorSalesWorkbook,
 )
 
 _VALID_FORMATS = {"json", "csv", "md", "pdf", "xlsx"}
@@ -632,6 +634,81 @@ def _to_pdf(report: BaseModel, filename_base: str) -> Response:
     )
 
 
+def _vendor_sales_xlsx_bytes(report: VendorSalesWorkbook) -> bytes:
+    """Build the consolidated vendor-sales workbook (legacy 'Retailer_Sales'
+    layout the league sends to its vendors).
+
+    One block per vendor: a 16-column header row, one row per item, a
+    Totals row (col I = 'Totals:', col A = vendor display name, values in
+    J Extend / M Sell Extend / N Due Seller / O Unsold / P Donate — exactly
+    like the 2025 sheet), then a fully blank separator row. Exempt vendors
+    (league merchandise) come last, mirroring the 2025 layout.
+    """
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    if ws is None:
+        raise ValueError("Workbook has no active sheet")
+    ws.title = "Retailer_Sales"
+
+    _HEADER = [
+        "Seller Code", "Item ID", "Brand", "Type", "Category", "Size",
+        "Description", "Qty. In", "Price", "Extend", "Qty. Sold",
+        "Sell Price", "Sell Extend", "Due Seller", "Unsold", "Donate",
+    ]
+    for col, cell in zip("ABCDEFGHIJKLMNOP", _HEADER):
+        header_cell = ws[f"{col}1"]
+        header_cell.value = cell
+        header_cell.font = openpyxl.styles.Font(bold=True)
+
+    row = 2
+    for vi, block in enumerate(report.vendors):
+        if vi > 0:
+            row += 1  # blank separator row between vendor blocks
+        for r in block.rows:
+            ws.cell(row=row, column=1, value=r.seller_code)
+            ws.cell(row=row, column=2, value=r.item_code)
+            ws.cell(row=row, column=3, value=r.brand)
+            ws.cell(row=row, column=4, value=r.type)
+            ws.cell(row=row, column=5, value=r.category)
+            ws.cell(row=row, column=6, value=r.size)
+            ws.cell(row=row, column=7, value=r.description)
+            ws.cell(row=row, column=8, value=r.qty_in)
+            ws.cell(row=row, column=9, value=r.price)
+            ws.cell(row=row, column=10, value=r.extend)
+            ws.cell(row=row, column=11, value=r.qty_sold)
+            ws.cell(row=row, column=12, value=r.sell_price)
+            ws.cell(row=row, column=13, value=r.sell_extend)
+            ws.cell(row=row, column=14, value=r.due_seller)
+            ws.cell(row=row, column=15, value=r.unsold)
+            ws.cell(row=row, column=16, value=r.donate)
+            row += 1
+        # Totals row: vendor name in col A, 'Totals:' in col I, sums in the
+        # value columns the 2025 sheet used (J/M/N/O/P) — Qty. Sold (K) and
+        # Sell Price (L) intentionally blank units/averages don't sum.
+        ws.cell(row=row, column=1, value=block.vendor_name)
+        ws.cell(row=row, column=9, value="Totals:")
+        ws.cell(row=row, column=10, value=block.total_extend)
+        ws.cell(row=row, column=13, value=block.total_sell_extend)
+        ws.cell(row=row, column=14, value=block.total_due_seller)
+        ws.cell(row=row, column=15, value=block.total_unsold)
+        ws.cell(row=row, column=16, value=block.total_donate)
+        for col in (1, 9):
+            ws.cell(row=row, column=col).font = openpyxl.styles.Font(bold=True)
+        row += 1
+
+    # Column widths approximating the legacy sheet so it prints readably.
+    widths = {"A": 12, "B": 10, "C": 16, "D": 10, "E": 12, "F": 10,
+              "G": 34, "H": 8, "I": 8, "J": 10, "K": 10, "L": 10,
+              "M": 12, "N": 11, "O": 10, "P": 8}
+    for col, width in widths.items():
+        ws.column_dimensions[col].width = width
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf.getvalue()
+
+
 def _payout_xlsx_bytes(report: SellerPayoutReport) -> bytes:
     """Build an Excel workbook for one seller's payout.
 
@@ -707,6 +784,8 @@ def _to_xlsx(report: BaseModel, filename_base: str) -> Response:
 
     if isinstance(report, SellerPayoutReport):
         content = _payout_xlsx_bytes(report)
+    elif isinstance(report, VendorSalesWorkbook):
+        content = _vendor_sales_xlsx_bytes(report)
     elif isinstance(report, VendorEquipmentSummaryReport):
         ws.append(["Vendor Equipment Summary"])
         ws.append(["Vendor", f"{report.seller_name} ({report.seller_code})"])

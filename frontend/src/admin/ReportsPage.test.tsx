@@ -104,3 +104,27 @@ describe('ReportsPage — collapsible sections', () => {
     expect(screen.queryByText('MYSL Total')).not.toBeInTheDocument()
   })
 })
+
+/** Vendor Sales workbook section (legacy Retailer_Sales layout). */
+describe('ReportsPage — Vendor Sales section', () => {
+  /** The section renders collapsed with its XLSX download always accessible. */
+  it('shows the Vendor Sales section with an XLSX download button when collapsed', async () => {
+    render(<ReportsPage eventId={1} />)
+    await waitFor(() => screen.getByRole('heading', { name: 'Event Revenue' }))
+    expect(screen.getByRole('heading', { name: 'Vendor Sales' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Download vendor sales workbook xlsx' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Per-vendor workbook/i)).not.toBeInTheDocument()
+  })
+
+  /** Clicking the header expands the section to show the description. */
+  it('expands Vendor Sales section when header is clicked', async () => {
+    render(<ReportsPage eventId={1} />)
+    await waitFor(() => screen.getByRole('heading', { name: 'Vendor Sales' }))
+    fireEvent.click(screen.getByRole('heading', { name: 'Vendor Sales' }))
+    expect(screen.getByText(/Consolidated per-vendor workbook/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('heading', { name: 'Vendor Sales' }))
+    expect(screen.queryByText(/Consolidated per-vendor workbook/i)).not.toBeInTheDocument()
+  })
+})

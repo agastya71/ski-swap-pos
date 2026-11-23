@@ -34,6 +34,9 @@ from app.schemas.reports import (
     UnsoldItemsReport,
     VendorCategoryLine,
     VendorEquipmentSummaryReport,
+    VendorSalesBlock,
+    VendorSalesItemRow,
+    VendorSalesWorkbook,
 )
 
 
@@ -394,6 +397,142 @@ def get_all_seller_payouts(db: Session, event_id: int) -> SellersPayoutsReport:
         mysl_total=round(sum(p.mysl_total for p in payouts), 2),
         seller_total=round(sum(p.seller_total for p in payouts), 2),
         sellers=payouts,
+        generated_at=_now(),
+    )
+
+
+def get_vendor_sales_report(db: Session, event_id: int) -> VendorSalesWorkbook:
+    """Build the consolidated vendor-sales report for an event.
+
+    One block per vendor seller, mirroring the legacy 'Retailer_Sales'
+    workbook the league has historically sent to its vendors: per-item rows
+    (Qty In / Price / Extend / Qty Sold / Sell Price / Sell Extend / Due
+    Seller / Unsold / Donate), a Totals row per vendor, and a blank
+    separator row rendered by the xlsx formatter between blocks.
+
+    Value rules (confirmed by the league for 2026):
+    - Extend = Qty In × Price (full consigned value).
+    - Qty Sold = sum of sale-line quantities over NON-VOIDED sales.
+    - Sell Extend = sum of those lines' extended prices; Sell Price =
+      Sell Extend ÷ Qty Sold (average achieved price, matches the legacy
+      sheet's repriced-merch behaviour; 0 when nothing sold).
+    - Due Seller = per-line share under donate-proceeds > exemption >
+      vendor-commission-rate rules (same splitter as checkout/payouts).
+    - Unsold = (remaining units NOT marked donate-unsold) × list price.
+    - Donate = (remaining units marked donate-unsold) × list price.
+
+    Blocks list exempt sellers (e.g. MYSL2 league merchandise) LAST — the
+    legacy sheet always printed 'MYSL Merchandise' at the bottom — with
+    every other vendor sorted alphabetically by code.
+    """
+    event = _get_event_or_404(db, event_id)
+    rate = getattr(event, "vendor_commission_rate", 0.15) or 0.15
+    exempt_codes = _exempt_seller_codes(event)
+
+    vendors = (
+        db.query(Seller)
+        .filter(Seller.event_id == event_id, Seller.is_vendor.is_(True))
+        .order_by(Seller.code)
+        .all()
+    )
+
+    blocks: list[VendorSalesBlock] = []
+    for vendor in vendors:
+        items = (
+            db.query(Item)
+            .filter(Item.seller_id == vendor.id, Item.is_deleted.is_(False))
+            .order_by(Item.code)
+            .all()
+        )
+        sale_items = (
+            db.query(SaleItem)
+            .join(Sale)
+            .filter(SaleItem.item_id.in_([it.id for it in items]),
+                    Sale.is_voided.is_(False))
+            .all()
+        )
+        sold_by_item: dict[int, dict[str, float]] = {}
+        for si in sale_items:
+            item_key = int(getattr(si, "item_id", 0) or 0)  # str() coercions keep pyright clean on Column-typed ids (codebase idiom)
+            agg = sold_by_item.setdefault(item_key, {"qty": 0.0, "value": 0.0})
+            agg["qty"] += getattr(si, "quantity", 0.0) or 0.0
+            agg["value"] += getattr(si, "extended_price", 0.0) or 0.0
+
+        rows: list[VendorSalesItemRow] = []
+        total_extend = 0.0
+        total_sell_extend = 0.0
+        total_due = 0.0
+        total_unsold = 0.0
+        total_donate = 0.0
+        exempt = _seller_is_exempt(vendor, exempt_codes)
+        company = getattr(vendor, "company", None)
+        display = str(company) if company else \
+            f"{getattr(vendor, 'first_name', '') or ''} {getattr(vendor, 'last_name', '') or ''}".strip()
+
+        for it in items:
+            qty_in = float(getattr(it, "quantity", 0.0) or 0.0)
+            price = float(getattr(it, "price", 0.0) or 0.0)
+            remaining = float(getattr(it, "remaining", 0.0) or 0.0)
+            donate_unsold = bool(getattr(it, "donate_unsold", False))
+            item_key = int(getattr(it, "id", 0) or 0)  # pyright: ignore[reportCallIssue,reportArgumentType]
+            sold = sold_by_item.get(item_key, {"qty": 0.0, "value": 0.0})
+            qty_sold = sold["qty"]
+            sell_extend = sold["value"]
+            sell_price = round(sell_extend / qty_sold, 2) if qty_sold else 0.0
+            # Donate-unsold units leave with the charity; every other unit on
+            # hand is unsold inventory the vendor takes back.
+            unsold = 0.0 if donate_unsold else remaining * price
+            donate = remaining * price if donate_unsold else 0.0
+            # Due Seller is computed from the SOLD value only — unsold stock
+            # nets the vendor nothing. Donate-proceeds lines zero the seller.
+            donate_proceeds = bool(
+                getattr(getattr(it, "intake", None), "donate_proceeds", False)
+            )
+            _, due = _split_line(sell_extend, donate_proceeds, rate, exempt)
+            extend = qty_in * price
+            rows.append(VendorSalesItemRow(
+                seller_code=str(getattr(vendor, "code", "")),
+                item_code=str(getattr(it, "code", "")),
+                brand=getattr(it, "brand", None),
+                type=getattr(it, "type", None),
+                category=getattr(it, "category", None),
+                size=getattr(it, "size", None),
+                description=getattr(it, "description", None),
+                qty_in=qty_in,
+                price=price,
+                extend=round(extend, 2),
+                qty_sold=qty_sold,
+                sell_price=sell_price,
+                sell_extend=round(sell_extend, 2),
+                due_seller=due,
+                unsold=round(unsold, 2),
+                donate=round(donate, 2),
+            ))
+            total_extend += extend
+            total_sell_extend += sell_extend
+            total_due += due
+            total_unsold += unsold
+            total_donate += donate
+
+        blocks.append(VendorSalesBlock(
+            vendor_code=str(getattr(vendor, "code", "")),
+            vendor_name=display,
+            rows=rows,
+            total_extend=round(total_extend, 2),
+            total_sell_extend=round(total_sell_extend, 2),
+            total_due_seller=round(total_due, 2),
+            total_unsold=round(total_unsold, 2),
+            total_donate=round(total_donate, 2),
+        ))
+
+    # Exempt sellers (league merchandise) LAST, matching the legacy layout.
+    ordered = [b for b in blocks if b.vendor_code.upper() not in exempt_codes] + \
+        [b for b in blocks if b.vendor_code.upper() in exempt_codes]
+    return VendorSalesWorkbook(
+        event_id=event_id,
+        event_name=str(getattr(event, "name", "")),
+        commission_rate=rate,
+        vendors=ordered,
         generated_at=_now(),
     )
 

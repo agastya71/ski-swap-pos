@@ -566,3 +566,177 @@ def test_event_revenue_card_fee_in_mysl_identity(db, active_event, seller, intak
     assert r.exempt_lines_total == 0.0
     assert round(r.mysl_total + r.seller_total + r.exempt_lines_total
                  + r.donate_proceeds_total, 2) == r.gross_revenue
+
+
+# ── Vendor sales workbook (legacy Retailer_Sales layout) ─────────────────────
+
+
+def _vendor_with_items(db, active_event, *, code="Finn Sisu Vendor", company="Finn Sisu",
+                       items=None):
+    """Create a vendor seller + intake and return (seller, intake, items)."""
+    vendor = Seller(event_id=active_event.id, code=code, first_name=None, last_name=None,
+                    company=company, is_vendor=True, created_by="admin")
+    db.add(vendor); db.commit(); db.refresh(vendor)
+    intake = Intake(seller_id=vendor.id, donate_proceeds=False, donate_unsold=False,
+                    created_by="admin")
+    db.add(intake); db.commit(); db.refresh(intake)
+    created = []
+    for spec in (items or []):
+        it = Item(intake_id=intake.id, seller_id=vendor.id, label_printed=True,
+                  created_by="admin", **spec)
+        db.add(it)
+        created.append(it)
+    db.commit()
+    for it in created:
+        db.refresh(it)
+    return vendor, intake, created
+
+
+def _vendor_sales_line(db, active_event, item, quantity, sell_price):
+    """Attach one non-voided sale line selling ``quantity`` of ``item``."""
+    s = Sale(event_id=active_event.id, sale_total=quantity * sell_price,
+             mysl_total=0.0, seller_total=0.0, cash_amount=quantity * sell_price,
+             total_paid=quantity * sell_price, is_voided=False, created_by="admin")
+    db.add(s); db.flush()
+    db.add(SaleItem(sale_id=s.id, item_id=item.id, line_number=1, quantity=quantity,
+                    sell_price=sell_price, extended_price=quantity * sell_price,
+                    created_by="admin"))
+    db.commit()
+    return s
+
+
+def test_vendor_sales_basic_math(db, active_event):
+    """Item row math matches the legacy sheet: Extend = qty×price, Sell Price
+    = achieved average, Due Seller = 85% at vendor rate 0.15, Unsold at list."""
+    from app.services.reports import get_vendor_sales_report
+    active_event.vendor_commission_rate = 0.15  # registry row
+    from app.models.event import Event as _Ev
+    ev_event = db.get(_Ev, active_event.id)
+    ev_event.vendor_commission_rate = 0.15  # pyright: ignore[reportAttributeAccessIssue]
+    db.commit()
+
+    vendor, intake, items = _vendor_with_items(db, active_event, items=[
+        dict(code="FIN-1", description="Cobra", brand="Rossignol", type="Skate",
+             category="Skis", size="186cm", price=50.0, quantity=1.0, remaining=1.0,
+             status="available"),
+        dict(code="FIN-2", description="Wraps", brand=None, type=None, category=None,
+             size=None, price=3.0, quantity=3.0, remaining=1.0, status="available"),
+    ])
+    # FIN-2 sells at a mix of prices: 1 × $2 and 1 × $4 → avg $3.00.
+    s1 = _vendor_sales_line(db, active_event, items[1], 1, 2.0)
+    _vendor_sales_line(db, active_event, items[1], 1, 4.0)
+
+    report = get_vendor_sales_report(db, active_event.id)
+    assert report.commission_rate == 0.15
+    fin = report.vendors[0]
+    assert fin.vendor_code == vendor.code
+    assert fin.vendor_name == "Finn Sisu"
+    r1, r2 = fin.rows
+    assert (r1.qty_in, r1.price, r1.extend, r1.qty_sold, r1.sell_extend) == (1.0, 50.0, 50.0, 0.0, 0.0)
+    assert r1.sell_price == 0.0 and r1.due_seller == 0.0
+    assert r1.unsold == 50.0 and r1.donate == 0.0
+    assert (r2.qty_in, r2.price, r2.extend) == (3.0, 3.0, 9.0)
+    assert r2.qty_sold == 2.0
+    assert r2.sell_extend == 6.0
+    assert r2.sell_price == 3.0          # average achieved price, like 2025
+    # Due seller = 15% commission on the achieved value (no donated/exempt lines).
+    assert r2.due_seller == round(6.0 * 0.85, 2) == 5.10
+    assert r2.unsold == 3.0              # 1 remaining × $3 list
+    assert fin.total_extend == 59.0 and fin.total_sell_extend == 6.0
+    assert fin.total_due_seller == 5.10 and fin.total_unsold == 53.0
+
+
+def test_vendor_sales_voided_sales_excluded(db, active_event):
+    """Voided sale lines must not count toward Qty Sold / Sell Extend."""
+    from app.services.reports import get_vendor_sales_report
+    vendor, intake, items = _vendor_with_items(db, active_event, items=[
+        dict(code="V-1", price=10.0, quantity=2.0, remaining=2.0, status="available"),
+    ])
+    s = Sale(event_id=active_event.id, sale_total=10.0, mysl_total=0.0, seller_total=0.0,
+             cash_amount=10.0, total_paid=10.0, is_voided=True, created_by="admin")
+    db.add(s); db.flush()
+    db.add(SaleItem(sale_id=s.id, item_id=items[0].id, line_number=1, quantity=1.0,
+                    sell_price=10.0, extended_price=10.0, created_by="admin"))
+    db.commit()
+    report = get_vendor_sales_report(db, active_event.id)
+    row = report.vendors[0].rows[0]
+    assert row.qty_sold == 0.0 and row.sell_extend == 0.0
+
+
+def test_vendor_sales_donate_unsold_split(db, active_event):
+    """ donate_unsold items land in the Donate column; others in Unsold."""
+    from app.services.reports import get_vendor_sales_report
+    vendor, intake, items = _vendor_with_items(db, active_event, items=[
+        dict(code="D-1", price=7.0, quantity=2.0, remaining=2.0, status="available",
+             donate_unsold=True),
+        dict(code="K-1", price=5.0, quantity=1.0, remaining=1.0, status="available"),
+    ])
+    report = get_vendor_sales_report(db, active_event.id)
+    d, k = report.vendors[0].rows
+    assert d.donate == 14.0 and d.unsold == 0.0
+    assert k.donate == 0.0 and k.unsold == 5.0
+    assert report.vendors[0].total_donate == 14.0
+    assert report.vendors[0].total_unsold == 5.0
+
+
+def test_vendor_sales_exempt_seller_last_and_full_due(db, active_event):
+    """Exempt league vendor sorts LAST and keeps the full sell value in Due
+    Seller (no commission), mirroring 'MYSL Merchandise' at the sheet bottom."""
+    from app.services.reports import get_vendor_sales_report
+    _exempt_event(db, active_event)
+    active_event.vendor_commission_rate = 0.15  # registry row
+    from app.models.event import Event as _Ev
+    ev_event = db.get(_Ev, active_event.id)
+    ev_event.vendor_commission_rate = 0.15  # pyright: ignore[reportAttributeAccessIssue]
+    db.commit()
+    atom, _, atom_items = _vendor_with_items(db, active_event, code="ATOM1",
+                                             company="Atomic", items=[
+        dict(code="AT-1", price=100.0, quantity=1.0, remaining=0.0, status="sold"),
+    ])
+    mysl, _, mysl_items = _vendor_with_items(db, active_event, code="MYSL2",
+                                             company="MYSL Merchandise", items=[
+        dict(code="MY-1", price=3.0, quantity=3.0, remaining=1.0, status="available"),
+    ])
+    _vendor_sales_line(db, active_event, atom_items[0], 1, 100.0)
+    _vendor_sales_line(db, active_event, mysl_items[0], 2, 3.0)
+
+    report = get_vendor_sales_report(db, active_event.id)
+    codes = [b.vendor_code for b in report.vendors]
+    assert codes == ["ATOM1", "MYSL2"]   # exempt LAST, alphabetical otherwise
+    atom_block, mysl_block = report.vendors
+    assert atom_block.rows[0].due_seller == 85.0   # 15% vendor commission
+    assert mysl_block.rows[0].due_seller == 6.0    # exempt keeps full $6
+    assert mysl_block.vendor_name == "MYSL Merchandise"
+
+
+def test_vendor_sales_donate_proceeds_zeroes_due(db, active_event):
+    """A donate-proceeds vendor line pays the seller nothing."""
+    from app.services.reports import get_vendor_sales_report
+    from app.models.intake import Intake as _Intake
+    vendor, intake, items = _vendor_with_items(db, active_event, items=[
+        dict(code="DP-1", price=20.0, quantity=1.0, remaining=0.0, status="sold"),
+    ])
+    intake.donate_proceeds = True  # pyright: ignore[reportAttributeAccessIssue]
+    db.commit()
+    _vendor_sales_line(db, active_event, items[0], 1, 20.0)
+    report = get_vendor_sales_report(db, active_event.id)
+    row = report.vendors[0].rows[0]
+    assert row.sell_extend == 20.0 and row.due_seller == 0.0
+
+
+def test_vendor_sales_excludes_non_vendors_and_deleted(db, active_event):
+    """Individual (non-vendor) sellers get no block; deleted items are skipped."""
+    from app.services.reports import get_vendor_sales_report
+    from app.models.item import Item as _Item
+    vendor, intake, items = _vendor_with_items(db, active_event, items=[
+        dict(code="X-1", price=9.0, quantity=1.0, remaining=1.0, status="available"),
+        dict(code="X-2", price=9.0, quantity=1.0, remaining=1.0, status="available"),
+    ])
+    nonvendor = Seller(event_id=active_event.id, code="PERSON", first_name="Pat",
+                       last_name="Consignor", is_vendor=False, created_by="admin")
+    db.add(nonvendor); db.commit()
+    items[1].is_deleted = True
+    db.commit()
+    report = get_vendor_sales_report(db, active_event.id)
+    assert [b.vendor_code for b in report.vendors] == [vendor.code]
+    assert [r.item_code for r in report.vendors[0].rows] == ["X-1"]

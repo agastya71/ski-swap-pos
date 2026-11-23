@@ -5,6 +5,9 @@ from app.models.sale import Sale
 from app.models.sale_item import SaleItem
 from app.models.seller import Seller
 
+import io
+from openpyxl import load_workbook
+
 
 @pytest.fixture
 def rpt_seller(db, active_event):
@@ -601,3 +604,89 @@ def test_vendor_equipment_summary_csv_format(client, db, admin_token, active_eve
     content = resp.content
     assert b"category,items_consigned" in content
     assert b"TOTAL" in content
+
+
+# ── Vendor sales workbook (legacy Retailer_Sales layout) ─────────────────────
+
+
+def _vend_vendor(db, active_event, code="VSALE1", company="Vendor Sales Co"):
+    s = Seller(event_id=active_event.id, code=code, first_name=None, last_name=None,
+               company=company, is_vendor=True, created_by="admin")
+    db.add(s); db.commit(); db.refresh(s)
+    return s
+
+
+def _vend_item(db, vendor, code="VS-1", price=10.0, remaining=1.0, status="available"):
+    i = Intake(seller_id=vendor.id, donate_proceeds=False, donate_unsold=False,
+               created_by="admin")
+    db.add(i); db.commit(); db.refresh(i)
+    it = Item(intake_id=i.id, seller_id=vendor.id, code=code, price=price,
+              quantity=1.0, remaining=remaining, status=status, label_printed=True,
+              created_by="admin")
+    db.add(it); db.commit(); db.refresh(it)
+    return it
+
+
+def test_vendor_sales_xlsx_download(client, admin_token, active_event, db):
+    """Admin-only xlsx download matches the legacy layout: 16-col header,
+    per-vendor blocks with item rows + Totals row + blank separator."""
+    from openpyxl import load_workbook
+    vendor = _vend_vendor(db, active_event)
+    it = _vend_item(db, vendor)
+    s = Sale(event_id=active_event.id, sale_total=10.0, mysl_total=3.0,
+             seller_total=7.0, cash_amount=10.0, total_paid=10.0, is_voided=False,
+             created_by="admin")
+    db.add(s); db.flush()
+    db.add(SaleItem(sale_id=s.id, item_id=it.id, line_number=1, quantity=1.0,
+                    sell_price=10.0, extended_price=10.0, created_by="admin"))
+    db.commit()
+
+    resp = client.get(
+        f"/reports/{active_event.id}/vendor-sales.xlsx",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    assert "spreadsheetml" in resp.headers["content-type"]
+    assert 'filename="vendor_sales_1.xlsx"' in resp.headers["content-disposition"]
+    wb = load_workbook(io.BytesIO(resp.content))
+    ws = wb.active
+    assert ws is not None
+    assert ws.title == "Retailer_Sales"
+    assert ws["A1"].value == "Seller Code" and ws["P1"].value == "Donate"
+    assert ws["A1"].font.bold is True
+    # Block rows: item row, then Totals row (legacy value columns J/M/N/O/P).
+    assert ws["A2"].value == "VSALE1" and ws["B2"].value == "VS-1"
+    assert ws["J2"].value == 10.0
+    assert ws["A3"].value == "Vendor Sales Co" and ws["I3"].value == "Totals:"
+    assert ws["M3"].value == 10.0 and ws["N3"].value == 7.0  # 30% fixture vendor rate
+    assert ws["A4"].value is None                            # blank separator
+
+
+def test_vendor_sales_json(client, admin_token, active_event, db):
+    vendor = _vend_vendor(db, active_event)
+    _vend_item(db, vendor, code="VS-2", price=4.0, remaining=0.0, status="sold")
+    resp = client.get(
+        f"/reports/{active_event.id}/vendor-sales",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["event_id"] == active_event.id
+    assert data["vendors"][0]["vendor_code"] == "VSALE1"
+    assert data["vendors"][0]["rows"][0]["item_code"] == "VS-2"
+
+
+def test_vendor_sales_requires_admin(client, intake_token, active_event):
+    resp = client.get(
+        f"/reports/{active_event.id}/vendor-sales.xlsx",
+        headers={"Authorization": f"Bearer {intake_token}"},
+    )
+    assert resp.status_code == 403
+
+
+def test_vendor_sales_unknown_event_404(client, admin_token):
+    resp = client.get(
+        "/reports/999999/vendor-sales.xlsx",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 404

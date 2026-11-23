@@ -43,6 +43,8 @@ export function ReportsPage({ eventId }: { eventId: number }) {
   const [payoutSeller, setPayoutSeller] = useState<Seller | null>(null);
   // Whether the Generate All Due Sellers batch view is expanded.
   const [generateAll, setGenerateAll] = useState(false);
+  // Vendor Sales workbook section (collapsed like the other report sections).
+  const [openVendorSales, setOpenVendorSales] = useState(false);
   const [transactions, setTransactions] =
     useState<TransactionsByUserReport | null>(null);
   const [open, setOpen] = useState({
@@ -518,6 +520,64 @@ export function ReportsPage({ eventId }: { eventId: number }) {
                 </div>
               ))}
           </>
+        )}
+      </section>
+
+      {/* Vendor Sales workbook (legacy Retailer_Sales layout) */}
+      <section style={{ marginBottom: 32 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              cursor: "pointer",
+              flex: 1,
+            }}
+            onClick={() => setOpenVendorSales((prev) => !prev)}
+          >
+            <span style={{ color: "#1a237e", fontSize: 11, userSelect: "none" }}>
+              {openVendorSales ? "▼" : "▶"}
+            </span>
+            <h3 style={{ margin: 0 }}>Vendor Sales</h3>
+            {!openVendorSales && (
+              <span style={{ color: "#64748b", fontSize: 13 }}>
+                Per-vendor sales in the league's Retailer_Sales layout
+              </span>
+            )}
+          </div>
+          <button
+            aria-label="Download vendor sales workbook xlsx"
+            onClick={() =>
+              void downloadFile(
+                `/reports/${eventId}/vendor-sales.xlsx`,
+                "Retailer_Sales.xlsx",
+              )
+            }
+            style={{
+              border: "1px solid #1a237e",
+              color: "#1a237e",
+              background: "none",
+              padding: "3px 10px",
+              cursor: "pointer",
+              borderRadius: 3,
+              fontSize: 13,
+            }}
+          >
+            Download XLSX
+          </button>
+        </div>
+        {openVendorSales && (
+          <p style={{ color: "#64748b", fontSize: 13 }}>
+            Consolidated per-vendor workbook (Seller Code + item rows + Totals row
+            per vendor; exempt league sellers last).
+          </p>
         )}
       </section>
 
