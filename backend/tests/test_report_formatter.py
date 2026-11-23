@@ -152,6 +152,10 @@ def test_payout_md_single_items_list_and_sales_detail():
     assert "| ABC-001 | Skis | Atomic | Skis | 160cm | $20.00 | 1 | 0 |" in body
     assert "| ABC-002 | Ski Boots | Alpina | Boots | EU 42 | $10.00 | 1 | 1 |" in body
     assert "## Sales Detail" in body
+    # Sales Detail column order mirrors the Items section (Item Code, Category,
+    # Brand, Description; Type rides beside Category). No Date column.
+    assert ("| Item Code | Category | Type | Brand | Description | "
+            "Qty | Sell Price | Extended | Adj. Reason | Due Seller | Rate |") in body
     assert "## Unsold Items" not in body
 
 
@@ -195,6 +199,11 @@ def test_payout_xlsx_includes_adjustment_reason_column():
     assert wb.sheetnames == ["Summary", "Items", "Sales Detail"]
     ws = wb["Sales Detail"]
     headers = [c.value for c in ws[1]]
+    # Sales Detail column order mirrors the Items sheet (Item Code, Category,
+    # Brand, Description; Type rides beside Category; no Date Sold column).
+    assert headers == ["Item Code", "Category", "Type", "Brand", "Description",
+                       "Qty", "Sell Price", "Extended", "Adj. Reason",
+                       "Due Seller", "Rate"]
     assert "Adj. Reason" in headers
     reason_col = headers.index("Adj. Reason")
     assert ws.cell(row=2, column=reason_col + 1).value == "Price match"
