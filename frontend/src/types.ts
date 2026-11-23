@@ -659,7 +659,13 @@ export interface SellerPayoutSaleLine {
  item_code: string;
  /** Item description; null if not provided at intake. */
  description: string | null;
- /** Timestamp of the sale transaction; null if not recorded. */
+ /** Canonical category (e.g. "Skis"); null when not recorded. */
+ category: string | null;
+ /** Item type (e.g. "Skate"); null when not recorded. */
+ type: string | null;
+ /** Manufacturer brand; null when not recorded. */
+ brand: string | null;
+ /** Timestamp of the sale transaction; retained for programmatic use, not shown in the Sales Detail table. */
  date_of_sale: string | null;
  /** Units of the item sold in this transaction line. */
  quantity_sold: number;
@@ -978,6 +984,26 @@ export interface TransactionsByUserReport {
  gross_sales: number;
  mysl_total: number;
  seller_total: number;
+ generated_at: string;
+}
+
+export interface CheckTransactionRow {
+ sale_id: number;
+ date_of_sale: string | null;
+ cashier: string;
+ customer_name: string | null;
+ check_number: string | null;
+ check_amount: number;
+ sale_total: number;
+}
+
+export interface CheckTransactionsReport {
+ event_id: number;
+ event_name: string;
+ transactions: CheckTransactionRow[];
+ total_check_amount: number;
+ total_sale_amount: number;
+ count: number;
  generated_at: string;
 }
 

@@ -12,6 +12,7 @@ import {
   getDonations,
   getUnsoldItems,
   getTransactionsByUser,
+  getCheckTransactions,
   downloadFile,
 } from "../api/reports";
 import type {
@@ -19,6 +20,7 @@ import type {
   DonationsReport,
   UnsoldItemsReport,
   TransactionsByUserReport,
+  CheckTransactionsReport,
   Seller,
 } from "../types";
 import { SellerCombobox } from "../components/SellerCombobox";
@@ -45,8 +47,11 @@ export function ReportsPage({ eventId }: { eventId: number }) {
   const [generateAll, setGenerateAll] = useState(false);
   // Vendor Sales workbook section (collapsed like the other report sections).
   const [openVendorSales, setOpenVendorSales] = useState(false);
+  const [openNonVendorSales, setOpenNonVendorSales] = useState(false);
+  const [openChecks, setOpenChecks] = useState(false);
   const [transactions, setTransactions] =
     useState<TransactionsByUserReport | null>(null);
+  const [checks, setChecks] = useState<CheckTransactionsReport | null>(null);
   const [open, setOpen] = useState({
     revenue: false,
     donations: false,
@@ -60,6 +65,7 @@ export function ReportsPage({ eventId }: { eventId: number }) {
       getDonations(eventId).then(setDonations),
       getUnsoldItems(eventId).then(setUnsold),
       getTransactionsByUser(eventId).then(setTransactions),
+      getCheckTransactions(eventId).then(setChecks),
     ]).catch(() => {});
   }, [eventId]);
 
@@ -577,6 +583,192 @@ export function ReportsPage({ eventId }: { eventId: number }) {
           <p style={{ color: "#64748b", fontSize: 13 }}>
             Consolidated per-vendor workbook (Seller Code + item rows + Totals row
             per vendor; exempt league sellers last).
+          </p>
+        )}
+      </section>
+
+      {/* Check Transactions */}
+      <section style={{ marginBottom: 32 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: openChecks ? 12 : 0,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              cursor: "pointer",
+              flex: 1,
+            }}
+            onClick={() => setOpenChecks((prev) => !prev)}
+          >
+            <span style={{ color: "#1a237e", fontSize: 11, userSelect: "none" }}>
+              {openChecks ? "▼" : "▶"}
+            </span>
+            <h3 style={{ margin: 0 }}>Check Transactions</h3>
+            {!openChecks && checks && (
+              <span style={{ color: "#64748b", fontSize: 13 }}>
+                {checks.count} transaction{checks.count !== 1 ? "s" : ""} ·{" "}
+                <strong>${checks.total_check_amount.toFixed(2)}</strong>
+              </span>
+            )}
+          </div>
+          <button
+            aria-label="Download check transactions csv"
+            onClick={() =>
+              downloadFile(
+                `/reports/${eventId}/check-transactions?format=csv`,
+                "check-transactions.csv",
+              )
+            }
+            style={{
+              border: "1px solid #1a237e",
+              color: "#1a237e",
+              background: "none",
+              padding: "3px 10px",
+              cursor: "pointer",
+              borderRadius: 3,
+              fontSize: 13,
+            }}
+          >
+            Download CSV
+          </button>
+        </div>
+        {openChecks && (
+          <>
+            {!checks && <p>Loading…</p>}
+            {checks && checks.transactions.length === 0 && (
+              <p style={{ color: "#64748b", fontSize: 13 }}>
+                No check transactions recorded yet.
+              </p>
+            )}
+            {checks && checks.transactions.length > 0 && (
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  marginBottom: 8,
+                }}
+              >
+                <thead>
+                  <tr style={{ borderBottom: "2px solid #ccc" }}>
+                    <th style={{ textAlign: "left", padding: "4px 8px" }}>Sale</th>
+                    <th style={{ textAlign: "left", padding: "4px 8px" }}>Date</th>
+                    <th style={{ textAlign: "left", padding: "4px 8px" }}>Cashier</th>
+                    <th style={{ textAlign: "left", padding: "4px 8px" }}>Customer</th>
+                    <th style={{ textAlign: "left", padding: "4px 8px" }}>Check #</th>
+                    <th style={{ textAlign: "right", padding: "4px 8px" }}>Check Amount</th>
+                    <th style={{ textAlign: "right", padding: "4px 8px" }}>Sale Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {checks.transactions.map((t) => (
+                    <tr
+                      key={t.sale_id}
+                      style={{ borderBottom: "1px solid #eee" }}
+                    >
+                      <td style={{ padding: "4px 8px" }}>#{t.sale_id}</td>
+                      <td style={{ padding: "4px 8px" }}>
+                        {t.date_of_sale
+                          ? new Date(t.date_of_sale).toLocaleString()
+                          : "—"}
+                      </td>
+                      <td style={{ padding: "4px 8px" }}>{t.cashier}</td>
+                      <td style={{ padding: "4px 8px" }}>
+                        {t.customer_name ?? "—"}
+                      </td>
+                      <td style={{ padding: "4px 8px" }}>
+                        {t.check_number ?? "—"}
+                      </td>
+                      <td style={{ padding: "4px 8px", textAlign: "right" }}>
+                        ${t.check_amount.toFixed(2)}
+                      </td>
+                      <td style={{ padding: "4px 8px", textAlign: "right" }}>
+                        ${t.sale_total.toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr style={{ borderTop: "2px solid #ccc", fontWeight: "bold" }}>
+                    <td style={{ padding: "4px 8px" }} colSpan={5}>
+                      Total ({checks.count} transaction
+                      {checks.count !== 1 ? "s" : ""})
+                    </td>
+                    <td style={{ padding: "4px 8px", textAlign: "right" }}>
+                      ${checks.total_check_amount.toFixed(2)}
+                    </td>
+                    <td style={{ padding: "4px 8px", textAlign: "right" }}>
+                      ${checks.total_sale_amount.toFixed(2)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            )}
+          </>
+        )}
+      </section>
+
+      {/* Non-Vendor Sales workbook (same layout as Vendor Sales) */}
+      <section style={{ marginBottom: 32 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              cursor: "pointer",
+              flex: 1,
+            }}
+            onClick={() => setOpenNonVendorSales((prev) => !prev)}
+          >
+            <span style={{ color: "#1a237e", fontSize: 11, userSelect: "none" }}>
+              {openNonVendorSales ? "▼" : "▶"}
+            </span>
+            <h3 style={{ margin: 0 }}>Non-Vendor Sales</h3>
+            {!openNonVendorSales && (
+              <span style={{ color: "#64748b", fontSize: 13 }}>
+                Per-seller sales in the same Retailer_Sales-style layout
+              </span>
+            )}
+          </div>
+          <button
+            aria-label="Download non-vendor sales workbook xlsx"
+            onClick={() =>
+              void downloadFile(
+                `/reports/${eventId}/nonvendor-sales.xlsx`,
+                "NonVendor_Sales.xlsx",
+              )
+            }
+            style={{
+              border: "1px solid #1a237e",
+              color: "#1a237e",
+              background: "none",
+              padding: "3px 10px",
+              cursor: "pointer",
+              borderRadius: 3,
+              fontSize: 13,
+            }}
+          >
+            Download XLSX
+          </button>
+        </div>
+        {openNonVendorSales && (
+          <p style={{ color: "#64748b", fontSize: 13 }}>
+            Consolidated per-seller workbook for non-vendor (individual)
+            consignors — same 16-column layout as Vendor Sales; Due Seller uses
+            the event's individual commission rate; exempt league sellers last.
           </p>
         )}
       </section>

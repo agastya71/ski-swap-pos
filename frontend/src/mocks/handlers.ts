@@ -491,6 +491,10 @@ export const handlers = [
                         sell_price?: number;
                         notes?: string;
                 };
+                // SAFETY: SALE.sale_items is an untyped JSON fixture (raw client-side
+                // sale-line objects, not a typed SaleItem[]); the PATCH handler only
+                // patches quantity/sell_price/notes by index, so a generic record shape
+                // is all we need here. TypeScript cannot infer the fixture's row type.
                 const items = SALE.sale_items as unknown as Record<string, unknown>[];
                 return HttpResponse.json({
                         ...SALE,
@@ -602,6 +606,9 @@ export const handlers = [
                                 {
                                         item_code: "A001-1",
                                         description: "Atomic skis",
+                                        category: "Skis",
+                                        type: "Classic",
+                                        brand: "Atomic",
                                         date_of_sale: "2026-04-04T10:00:00Z",
                                         quantity_sold: 1,
                                         sell_price: 120.0,
@@ -680,6 +687,9 @@ export const handlers = [
                                                         item_code: "A001-1",
                                                         description:
                                                                 "Atomic skis",
+                                                        category: "Skis",
+                                                        type: "Classic",
+                                                        brand: "Atomic",
                                                         date_of_sale:
                                                                 "2026-04-04T10:00:00Z",
                                                         quantity_sold: 1,
@@ -766,6 +776,29 @@ export const handlers = [
                         gross_sales: 0,
                         mysl_total: 0,
                         seller_total: 0,
+                        generated_at: "2026-04-04T10:00:00",
+                }),
+        ),
+
+        /** GET /reports/:eventId/check-transactions — one row per check-tendered sale. */
+        http.get("/reports/:eventId/check-transactions", () =>
+                HttpResponse.json({
+                        event_id: 1,
+                        event_name: "Test Event",
+                        transactions: [
+                                {
+                                        sale_id: 7,
+                                        date_of_sale: "2026-04-04T10:00:00",
+                                        cashier: "cashier1",
+                                        customer_name: "Carol Buyer",
+                                        check_number: "2041",
+                                        check_amount: 120,
+                                        sale_total: 120,
+                                },
+                        ],
+                        total_check_amount: 120,
+                        total_sale_amount: 120,
+                        count: 1,
                         generated_at: "2026-04-04T10:00:00",
                 }),
         ),

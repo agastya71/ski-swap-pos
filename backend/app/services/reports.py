@@ -7,6 +7,7 @@ object ready to be serialised by the report formatter.
 """
 
 from datetime import date, datetime, timezone
+from typing import Any
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
@@ -18,10 +19,14 @@ from app.models.sale import Sale
 from app.models.sale_item import SaleItem
 from app.models.seller import Seller
 from app.schemas.reports import (
+    CheckTransactionRow,
+    CheckTransactionsReport,
     DonationItem,
     DonationsReport,
     EndOfDayReport,
     EventRevenueReport,
+    NonVendorSalesBlock,
+    NonVendorSalesWorkbook,
     TransactionsByUserReport,
     TransactionRow,
     UserSalesSummary,
@@ -76,6 +81,13 @@ def _seller_is_exempt(seller: Seller, exempt_codes: frozenset[str]) -> bool:
     return str(getattr(seller, "code", "") or "").strip().upper() in exempt_codes
 
 
+def _num(value: Any) -> float:
+    """Coerce an ORM attribute (a ``Column`` type under pyright, numeric at
+    runtime) to float, so aggregate arithmetic stays type-clean without
+    scattering per-line ignores across multi-line generators."""
+    return float(value)  # pyright: ignore[reportArgumentType,reportCallIssue]
+
+
 def _split_line(
     extended: float, donate_proceeds: bool, rate: float, exempt: bool
 ) -> tuple[float, float]:
@@ -98,6 +110,10 @@ def _split_line(
 
 def _build_seller_payout(db: Session, event: Event, seller: Seller) -> SellerPayoutReport:
     """Compute the payout report for one seller (shared by single + batch)."""
+    # ── Summary counters, unit-based (task 2026-11-23): an item's quantity
+    # counts as multiple units. Consigned = sold + on-hand + donated holds:
+    # sold takes (quantity − remaining) of "sold" items; on-hand and donated
+    # both take remaining, partitioned by status.
     items = (
         db.query(Item)
         .join(Seller)
@@ -105,9 +121,22 @@ def _build_seller_payout(db: Session, event: Event, seller: Seller) -> SellerPay
                 Item.is_deleted.is_(False))
         .all()
     )
-    items_sold = sum(1 for it in items if it.status == "sold")  # pyright: ignore[reportGeneralTypeIssues]
-    items_unsold = sum(1 for it in items if it.status in ("available", "returned"))
-    items_donated = sum(1 for it in items if it.status == "donated")  # pyright: ignore[reportGeneralTypeIssues]
+    items_consigned = int(round(sum(_num(it.quantity) for it in items)))
+    items_sold = int(round(sum(
+        _num(it.quantity) - _num(it.remaining)
+        for it in items
+        if str(it.status) == "sold"
+    )))
+    items_unsold = int(round(sum(
+        _num(it.remaining)
+        for it in items
+        if str(it.status) != "donated"
+    )))
+    items_donated = int(round(sum(
+        _num(it.remaining)
+        for it in items
+        if str(it.status) == "donated"
+    )))
 
     sale_items = (
         db.query(SaleItem)
@@ -145,6 +174,9 @@ def _build_seller_payout(db: Session, event: Event, seller: Seller) -> SellerPay
         sales.append(SellerPayoutSaleLine(
             item_code=si.item.code,
             description=si.item.description,
+            category=si.item.category,  # pyright: ignore[reportArgumentType]
+            type=si.item.type,  # pyright: ignore[reportArgumentType]
+            brand=si.item.brand,  # pyright: ignore[reportArgumentType]
             date_of_sale=si.sale.date_of_sale,
             quantity_sold=si.quantity,  # pyright: ignore[reportArgumentType]
             sell_price=si.sell_price,  # pyright: ignore[reportArgumentType]
@@ -196,7 +228,7 @@ def _build_seller_payout(db: Session, event: Event, seller: Seller) -> SellerPay
         seller_name=f"{seller.first_name} {seller.last_name}",
         seller_email=seller.email,  # pyright: ignore[reportArgumentType]
         seller_info=seller_info,
-        items_consigned=len(items),
+        items_consigned=items_consigned,
         items_sold=items_sold,
         items_unsold=items_unsold,
         items_donated=items_donated,
@@ -421,23 +453,68 @@ def get_vendor_sales_report(db: Session, event_id: int) -> VendorSalesWorkbook:
     - Unsold = (remaining units NOT marked donate-unsold) × list price.
     - Donate = (remaining units marked donate-unsold) × list price.
 
-    Blocks list exempt sellers (e.g. MYSL2 league merchandise) LAST — the
-    legacy sheet always printed 'MYSL Merchandise' at the bottom — with
-    every other vendor sorted alphabetically by code.
+    Shares one block builder with :func:`get_nonvendor_sales_report`; the
+    two workbooks differ only in seller population (``is_vendor`` flag)
+    and the commission rate applied to Due Seller.
     """
-    event = _get_event_or_404(db, event_id)
-    rate = getattr(event, "vendor_commission_rate", 0.15) or 0.15
-    exempt_codes = _exempt_seller_codes(event)
-
-    vendors = (
-        db.query(Seller)
-        .filter(Seller.event_id == event_id, Seller.is_vendor.is_(True))
-        .order_by(Seller.code)
-        .all()
+    workbook = _build_sales_workbook(
+        db, event_id, vendor_only=True,
+        rate=getattr(_get_event_or_404(db, event_id), "vendor_commission_rate", 0.15) or 0.15,
+    )
+    return VendorSalesWorkbook(
+        event_id=workbook.event_id,
+        event_name=workbook.event_name,
+        commission_rate=workbook.commission_rate,
+        vendors=[VendorSalesBlock.model_validate(b.model_dump()) for b in workbook.vendors],
+        generated_at=workbook.generated_at,
     )
 
+
+def get_nonvendor_sales_report(db: Session, event_id: int) -> NonVendorSalesWorkbook:
+    """Build the consolidated non-vendor (individual-seller) sales report.
+
+    Mirrors the vendor workbook exactly — same 16-column rows, a Totals row
+    per seller, blank separator row, exempt sellers LAST — but covers every
+    individual (non-vendor) consignor and computes Due Seller at the event's
+    INDIVIDUAL commission rate. Rendered to xlsx as sheet 'NonVendor_Sales'
+    by the report formatter.
+    """
+    workbook = _build_sales_workbook(
+        db, event_id, vendor_only=False,
+        rate=getattr(_get_event_or_404(db, event_id), "commission_rate", 0.30) or 0.30,
+    )
+    return NonVendorSalesWorkbook(
+        event_id=workbook.event_id,
+        event_name=workbook.event_name,
+        commission_rate=workbook.commission_rate,
+        vendors=[NonVendorSalesBlock.model_validate(b.model_dump()) for b in workbook.vendors],
+        generated_at=workbook.generated_at,
+    )
+
+
+def _build_sales_workbook(
+    db: Session, event_id: int, *, vendor_only: bool, rate: float
+) -> VendorSalesWorkbook:
+    """Shared block builder for the vendor / non-vendor sales workbooks.
+
+    Selects the event's vendors (``vendor_only=True``) or individual
+    consignors, emits one block per seller using the identical 16-column row
+    model, computes Due Seller at ``rate`` under the donate-proceeds >
+    exemption > commission-rate rules, and orders blocks alphabetically by
+    code with commission-exempt sellers last.
+    """
+    event = _get_event_or_404(db, event_id)  # re-raised 404 for direct callers
+    exempt_codes = _exempt_seller_codes(event)
+
+    query = db.query(Seller).filter(Seller.event_id == event_id)
+    if vendor_only:
+        query = query.filter(Seller.is_vendor.is_(True))
+    else:
+        query = query.filter(Seller.is_vendor.is_(False))
+    sellers = query.order_by(Seller.code).all()
+
     blocks: list[VendorSalesBlock] = []
-    for vendor in vendors:
+    for vendor in sellers:
         items = (
             db.query(Item)
             .filter(Item.seller_id == vendor.id, Item.is_deleted.is_(False))
@@ -870,4 +947,46 @@ def get_transactions_by_user(db: Session, event_id: int) -> TransactionsByUserRe
         mysl_total=round(sum(u.mysl_total for u in users), 2),
         seller_total=round(sum(u.seller_total for u in users), 2),
         generated_at=datetime.now(timezone.utc),
+    )
+
+
+def get_check_transactions(db: Session, event_id: int) -> CheckTransactionsReport:
+    """List every check-tendered transaction for an event (voided excluded).
+
+    A sale qualifies when ``check_amount`` > 0 — this includes mixed
+    tender (cash + check + card); the row reports the check portion and the
+    sale's full total. Sorted newest first (by timestamp, then sale ID).
+    """
+    event = _get_event_or_404(db, event_id)
+    sales = (
+        db.query(Sale)
+        .filter(
+            Sale.event_id == event_id,  # pyright: ignore[reportArgumentType]
+            Sale.is_voided.is_(False),  # pyright: ignore[reportAttributeAccessIssue]
+            Sale.check_amount > 0,  # pyright: ignore[reportAttributeAccessIssue,reportOperatorIssue]
+        )
+        .order_by(Sale.date_of_sale.desc().nullslast(), Sale.id.desc())  # pyright: ignore[reportAttributeAccessIssue,reportCallIssue]
+        .all()
+    )
+
+    transactions: list[CheckTransactionRow] = []
+    for sale in sales:
+        transactions.append(CheckTransactionRow(
+            sale_id=sale.id,  # pyright: ignore[reportArgumentType]
+            date_of_sale=sale.date_of_sale,  # pyright: ignore[reportArgumentType]
+            cashier=str(sale.created_by) if sale.created_by else "(unknown)",  # pyright: ignore[reportGeneralTypeIssues,reportArgumentType]
+            customer_name=sale.customer_name,  # pyright: ignore[reportArgumentType]
+            check_number=sale.check_number,  # pyright: ignore[reportArgumentType]
+            check_amount=round(sale.check_amount or 0.0, 2),  # pyright: ignore[reportArgumentType,reportCallIssue]
+            sale_total=round(sale.sale_total or 0.0, 2),  # pyright: ignore[reportArgumentType,reportCallIssue]
+        ))
+
+    return CheckTransactionsReport(
+        event_id=event_id,
+        event_name=event.name,  # pyright: ignore[reportArgumentType]
+        transactions=transactions,
+        total_check_amount=round(sum(t.check_amount for t in transactions), 2),
+        total_sale_amount=round(sum(t.sale_total for t in transactions), 2),
+        count=len(transactions),
+        generated_at=_now(),
     )

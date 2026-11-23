@@ -27,7 +27,10 @@ class SellerPayoutSaleLine(BaseModel):
 
     item_code: str = Field(description="Unique item code identifying the consigned item.")
     description: Optional[str] = Field(default=None, description="Free-text description of the item.")
-    date_of_sale: Optional[datetime] = Field(default=None, description="Timestamp of the sale transaction.")
+    category: Optional[str] = Field(default=None, description="Canonical category (e.g. 'Skis'); null when not recorded.")
+    type: Optional[str] = Field(default=None, description="Item type (e.g. 'Skate'); null when not recorded.")
+    brand: Optional[str] = Field(default=None, description="Manufacturer brand; null when not recorded.")
+    date_of_sale: Optional[datetime] = Field(default=None, description="Timestamp of the sale transaction (retained in JSON; not rendered in the Sales Detail tables).")
     quantity_sold: float = Field(description="Units of the item sold in this transaction line.")
     sell_price: float = Field(description="Actual price at which the item was sold (per unit).")
     extended_price: float = Field(description="Quantity sold x sell price for this transaction line.")
@@ -74,10 +77,10 @@ class SellerPayoutReport(BaseModel):
     seller_name: str = Field(description="Full name of the seller.")
     seller_email: Optional[str] = Field(default=None, description="Seller's email address, if on file.")
     seller_info: SellerPayoutSellerInfo = Field(description="Seller contact and settlement details.")
-    items_consigned: int = Field(description="Total number of items the seller brought to the swap.")
-    items_sold: int = Field(description="Number of the seller's items that were sold.")
-    items_unsold: int = Field(description="Number of the seller's items that remain unsold.")
-    items_donated: int = Field(description="Number of the seller's items that were donated.")
+    items_consigned: int = Field(description="Total UNITS consigned (sum of item quantities; an item with quantity 2 counts as 2).")
+    items_sold: int = Field(description="Total units taken (consigned quantity − remaining, across consigned items).")
+    items_unsold: int = Field(description="Total units still unsold (sum of remaining on non-donated statuses).")
+    items_donated: int = Field(description="Total units whose status is 'donated'.")
     gross_sales: float = Field(description="Total revenue generated from the seller's sold items.")
     mysl_total: float = Field(description="MYSL's commission share from this seller's sales.")
     seller_total: float = Field(description="Amount to be paid out to the seller after commission.")
@@ -262,6 +265,16 @@ class VendorSalesWorkbook(BaseModel):
     generated_at: datetime = Field(description="UTC timestamp when this report was generated.")
 
 
+class NonVendorSalesBlock(VendorSalesBlock):
+    """One seller's section of the non-vendor sales workbook.
+
+    Same shape as the vendor block (fields reused so one xlsx renderer
+    serves both layouts); Due Seller inside the rows uses the event's
+    INDIVIDUAL commission rate, and the seller display falls back to the
+    person's full name instead of a company.
+    """
+
+
 class EndOfDayReport(BaseModel):
     """Cumulative event sales summary stamped with the date the report was generated."""
 
@@ -283,6 +296,30 @@ class EndOfDayReport(BaseModel):
         )
     )
     generated_at: datetime = Field(description="UTC timestamp when this end-of-day report was generated.")
+
+
+class NonVendorSalesItemRow(VendorSalesItemRow):
+    """One item row of a seller's block in the non-vendor sales workbook.
+
+    Identical columns to the vendor block (shared 16-column layout); value
+    rules are the legacy sheet's, with Due Seller computed at the event's
+    individual commission rate.
+    """
+
+
+class NonVendorSalesWorkbook(VendorSalesWorkbook):
+    """Consolidated non-vendor sales report: one block per individual seller.
+
+    Mirrors the vendor 'Retailer_Sales' workbook — same 16-column rows,
+    per-seller Totals row, blank separator, exempt sellers last — but covers
+    every NON-vendor (individual) consignor, with Due Seller computed at the
+    event's individual commission rate. Subclasses VendorSalesWorkbook so the
+    formatter's shared flatten/xlsx renderers serve both via isinstance.
+    Rendered to xlsx as sheet 'NonVendor_Sales'.
+    """
+
+    # list invariance under pyright; blocks validate via model_dump round-trip.
+    vendors: list[NonVendorSalesBlock] = Field(description="One block per non-vendor seller (exempt sellers last).")  # pyright: ignore[reportIncompatibleVariableOverride]
 
 
 class TransactionRow(BaseModel):
@@ -315,6 +352,30 @@ class UserSalesSummary(BaseModel):
     cash_total: float = Field(description="Cash tendered on non-voided sales.")
     check_total: float = Field(description="Check tender on non-voided sales.")
     cc_total: float = Field(description="Card tender on non-voided sales.")
+
+
+class CheckTransactionRow(BaseModel):
+    """One sale tendered (partly) by check, for the check-transactions report."""
+
+    sale_id: int = Field(description="Unique ID of the sale.")
+    date_of_sale: Optional[datetime] = Field(default=None, description="Full timestamp of the transaction; null if not recorded.")
+    cashier: str = Field(description="Login name of the user who completed this sale; stored on sale.created_by ('(unknown)' when not stored).")
+    customer_name: Optional[str] = Field(default=None, description="Customer name captured at checkout; null when not recorded.")
+    check_number: Optional[str] = Field(default=None, description="Check number recorded at checkout; null when the sale has no check on record.")
+    check_amount: float = Field(description="Amount tendered by check on this sale.")
+    sale_total: float = Field(description="Extended price total for this sale.")
+
+
+class CheckTransactionsReport(BaseModel):
+    """All check-tendered transactions for an event (voided sales excluded)."""
+
+    event_id: int = Field(description="ID of the event this report covers.")
+    event_name: str = Field(description="Name of the event.")
+    transactions: list[CheckTransactionRow] = Field(description="Check-tendered sales, newest first (by sale ID).")
+    total_check_amount: float = Field(description="Sum of check_amount across all listed transactions.")
+    total_sale_amount: float = Field(description="Sum of sale_total across all listed transactions.")
+    count: int = Field(description="Number of check-tendered transactions listed.")
+    generated_at: datetime = Field(description="UTC timestamp when this report was generated.")
 
 
 class TransactionsByUserReport(BaseModel):

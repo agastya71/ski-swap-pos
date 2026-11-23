@@ -214,7 +214,9 @@ export function SellerPayoutDetails({
                                 [
                                     "Item Code",
                                     "Description",
-                                    "Date Sold",
+                                    "Category",
+                                    "Type",
+                                    "Brand",
                                     "Qty",
                                     "Sell Price",
                                     "Extended",
@@ -263,13 +265,9 @@ export function SellerPayoutDetails({
                                     )}
                                 </td>
                                 <td style={td}>{s.description ?? "—"}</td>
-                                <td style={td}>
-                                    {s.date_of_sale
-                                        ? new Date(
-                                              s.date_of_sale,
-                                          ).toLocaleDateString()
-                                        : "—"}
-                                </td>
+                                <td style={td}>{s.category ?? "—"}</td>
+                                <td style={td}>{s.type ?? "—"}</td>
+                                <td style={td}>{s.brand ?? "—"}</td>
                                 <td style={tdNum}>{s.quantity_sold}</td>
                                 <td style={tdNum}>
                                     ${s.sell_price.toFixed(2)}
@@ -291,7 +289,7 @@ export function SellerPayoutDetails({
                                 borderTop: "2px solid #ccc",
                             }}
                         >
-                            <td style={td} colSpan={5}>
+                            <td style={td} colSpan={7}>
                                 Sales Total
                             </td>
                             <td style={tdNum}>

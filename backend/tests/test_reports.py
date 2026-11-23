@@ -690,3 +690,285 @@ def test_vendor_sales_unknown_event_404(client, admin_token):
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 404
+
+
+# ── Non-Vendor Sales workbook ────────────────────────────────────────────────
+
+def _indiv_vendor(db, active_event, code="NVSALE1", first="Nonvendor", last="Seller"):
+    from datetime import datetime, timezone
+    s = Seller(event_id=active_event.id, code=code, first_name=first, last_name=last,
+               is_vendor=False, created_by="admin")
+    db.add(s); db.commit(); db.refresh(s)
+    return s
+
+
+def _nv_item(db, seller, code="NVS-1", price=10.0, quantity=2.0, remaining=0.0,
+             status="sold", category="Skis", brand="Atomic", type_="Skate"):
+    from datetime import date
+    i = Intake(seller_id=seller.id, donate_proceeds=False, donate_unsold=False,
+               created_by="admin")
+    db.add(i); db.commit(); db.refresh(i)
+    it = Item(intake_id=i.id, seller_id=seller.id, code=code, category=category,
+              brand=brand, type=type_, price=price, quantity=quantity,
+              remaining=remaining, status=status, label_printed=True, created_by="admin")
+    db.add(it); db.commit(); db.refresh(it)
+    return it
+
+
+def test_nonvendor_sales_json(client, admin_token, active_event, db):
+    s = _indiv_vendor(db, active_event)
+    it = _nv_item(db, s, code="NVS-1", price=10.0, quantity=2.0, remaining=0.0, status="sold")
+    _seed_nonvendor_sale(db, active_event, it)
+    resp = client.get(
+        f"/reports/{active_event.id}/nonvendor-sales",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["event_id"] == active_event.id
+    assert data["commission_rate"] == active_event.commission_rate  # individual rate
+    assert data["vendors"][0]["vendor_code"] == "NVSALE1"
+    row = data["vendors"][0]["rows"][0]
+    assert row["item_code"] == "NVS-1"
+    assert row["qty_in"] == 2.0 and row["qty_sold"] == 2.0
+    assert row["due_seller"] == 14.0  # 20.0 at 30% individual rate
+
+
+def _seed_nonvendor_sale(db, active_event, item, qty=2.0, price=10.0):
+    sale = Sale(event_id=active_event.id, sale_total=qty * price,
+                mysl_total=0.30 * qty * price, seller_total=0.70 * qty * price,
+                cash_amount=qty * price, total_paid=qty * price, is_voided=False,
+                created_by="admin")
+    db.add(sale); db.flush()
+    db.add(SaleItem(sale_id=sale.id, item_id=item.id, line_number=1,
+                    quantity=qty, sell_price=price, extended_price=qty * price,
+                    created_by="admin"))
+    db.commit()
+    return sale
+
+
+def test_nonvendor_sales_pdf(client, admin_token, active_event, db):
+    """format=pdf renders the workbook blocks (title + Totals rows)."""
+    s = _indiv_vendor(db, active_event)
+    it = _nv_item(db, s, code="NVS-1", price=10.0, quantity=2.0, remaining=0.0, status="sold")
+    _seed_nonvendor_sale(db, active_event, it)
+    from pypdf import PdfReader
+    resp = client.get(
+        f"/reports/{active_event.id}/nonvendor-sales?format=pdf",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    assert "application/pdf" in resp.headers["content-type"]
+    text = "\n".join(p.extract_text() for p in PdfReader(io.BytesIO(resp.content)).pages)
+    assert "Non-Vendor Sales" in text
+    assert "NVSALE1" in text and "Totals:" in text
+
+
+def test_nonvendor_sales_xlsx_download(client, admin_token, active_event, db):
+    """NonVendor_Sales sheet mirrors the Retailer_Sales layout: 16-col header,
+    per-seller blocks with Totals row + blank separator, individual rate."""
+    s = _indiv_vendor(db, active_event)
+    it = _nv_item(db, s, code="NVS-1", price=10.0, quantity=2.0, remaining=0.0, status="sold")
+    _seed_nonvendor_sale(db, active_event, it)
+
+    resp = client.get(
+        f"/reports/{active_event.id}/nonvendor-sales.xlsx",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    assert "spreadsheetml" in resp.headers["content-type"]
+    assert 'filename="nonvendor_sales_1.xlsx"' in resp.headers["content-disposition"]
+    wb = load_workbook(io.BytesIO(resp.content))
+    ws = wb.active
+    assert ws is not None
+    assert ws.title == "NonVendor_Sales"
+    assert ws["A1"].value == "Seller Code" and ws["P1"].value == "Donate"
+    assert ws["A1"].font.bold is True
+    assert ws["A2"].value == "NVSALE1" and ws["B2"].value == "NVS-1"
+    assert ws["J2"].value == 20.0                     # Extend = 2 × $10
+    assert ws["A3"].value == "Nonvendor Seller" and ws["I3"].value == "Totals:"
+    assert ws["M3"].value == 20.0 and ws["N3"].value == 14.0  # 30% individual rate
+    assert ws["A4"].value is None                     # blank separator
+
+
+def test_nonvendor_sales_xlsx_separate_from_vendor(client, admin_token, active_event, db):
+    """Vendor sellers never land in the non-vendor workbook and vice versa."""
+    from datetime import date
+    v = Seller(event_id=active_event.id, code="VSALE1", first_name=None, last_name=None,
+               company="Vendor Sales Co", is_vendor=True, created_by="admin")
+    db.add(v); db.commit(); db.refresh(v)
+    vi = Intake(seller_id=v.id, donate_proceeds=False, donate_unsold=False, created_by="admin")
+    db.add(vi); db.commit(); db.refresh(vi)
+    db.add(Item(intake_id=vi.id, seller_id=v.id, code="VS-1", price=10.0,
+                quantity=1.0, remaining=1.0, status="available", label_printed=True,
+                created_by="admin"))
+    s = _indiv_vendor(db, active_event)
+    _nv_item(db, s, code="NVS-1")
+    db.commit()
+
+    resp = client.get(
+        f"/reports/{active_event.id}/nonvendor-sales.xlsx",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    wb = load_workbook(io.BytesIO(resp.content))
+    ws = wb.active
+    assert ws is not None
+    assert ws.title == "NonVendor_Sales"
+    codes = [ws.cell(row=r, column=1).value for r in (2, 3)]
+    assert "NVSALE1" in codes and "VSALE1" not in codes
+
+
+def test_nonvendor_sales_requires_admin(client, intake_token, active_event):
+    resp = client.get(
+        f"/reports/{active_event.id}/nonvendor-sales.xlsx",
+        headers={"Authorization": f"Bearer {intake_token}"},
+    )
+    assert resp.status_code == 403
+
+
+def test_nonvendor_sales_unknown_event_404(client, admin_token):
+    resp = client.get(
+        "/reports/999999/nonvendor-sales.xlsx",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 404
+
+
+# ── Payout counters are unit-based ──────────────────────────────────────────
+
+def test_payout_counters_unit_based(client, admin_token, active_event, db):
+    """3 item rows with quantities 2+1+2 = 5 consigned units; sold/unsold/
+    donated counters all count units, not item rows."""
+    s = _indiv_vendor(db, active_event)
+    _nv_item(db, s, code="NVU-1", price=10.0, quantity=2.0, remaining=0.0, status="sold")
+    _nv_item(db, s, code="NVU-2", price=5.0, quantity=1.0, remaining=1.0, status="available")
+    di = Intake(seller_id=s.id, donate_proceeds=False, donate_unsold=True, created_by="admin")
+    db.add(di); db.commit(); db.refresh(di)
+    db.add(Item(intake_id=di.id, seller_id=s.id, code="NVU-3", price=7.0,
+                quantity=2.0, remaining=2.0, status="donated", donate_unsold=True,
+                label_printed=True, created_by="admin"))
+    db.commit()
+
+    resp = client.get(
+        f"/reports/{active_event.id}/seller/{s.id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["items_consigned"] == 5
+    assert data["items_sold"] == 2
+    assert data["items_unsold"] == 1
+    assert data["items_donated"] == 2
+
+
+def test_payout_sale_line_includes_category_type_brand(client, admin_token,
+                                                       active_event, rpt_sale, rpt_item):
+    resp = client.get(
+        f"/reports/{active_event.id}/seller/{rpt_item.seller_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    line = resp.json()["sales"][0]
+    assert line["category"] == rpt_item.category
+    assert line["type"] == rpt_item.type
+    assert line["brand"] == rpt_item.brand
+    assert "date_of_sale" in line  # retained in JSON
+
+
+# ── Check Transactions ──────────────────────────────────────────────────────
+
+def test_check_transactions_json(client, admin_token, active_event, db):
+    s = _indiv_vendor(db, active_event)
+    it = _nv_item(db, s, code="NVS-1")
+    _seed_nonvendor_sale(db, active_event, it)
+    ck = Sale(event_id=active_event.id, sale_total=15.0, mysl_total=4.5,
+              seller_total=10.5, check_amount=15.0, check_number="2041",
+              total_paid=15.0, is_voided=False, created_by="cashier1",
+              customer_name="Cust X")
+    voided = Sale(event_id=active_event.id, sale_total=9.0, mysl_total=2.7,
+                  seller_total=6.3, check_amount=9.0, check_number="2042",
+                  total_paid=9.0, is_voided=True, created_by="cashier1")
+    db.add_all([ck, voided]); db.commit()
+
+    resp = client.get(
+        f"/reports/{active_event.id}/check-transactions",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["event_id"] == active_event.id
+    assert data["count"] == 1
+    assert data["total_check_amount"] == 15.0
+    assert data["total_sale_amount"] == 15.0
+    row = data["transactions"][0]
+    assert row["check_number"] == "2041"
+    assert row["check_amount"] == 15.0
+    assert row["sale_total"] == 15.0
+    assert row["cashier"] == "cashier1"
+    assert row["customer_name"] == "Cust X"
+
+
+def test_check_transactions_includes_mixed_tender(client, admin_token, active_event, db):
+    """check_amount > 0 with cash also tendered still counts as a check row."""
+    s = _indiv_vendor(db, active_event)
+    it = _nv_item(db, s)
+    mixed = Sale(event_id=active_event.id, sale_total=50.0, mysl_total=15.0,
+                 seller_total=35.0, cash_amount=20.0, check_amount=30.0,
+                 check_number="3001", total_paid=50.0, is_voided=False,
+                 created_by="cashier1")
+    db.add(mixed); db.commit()
+
+    resp = client.get(
+        f"/reports/{active_event.id}/check-transactions",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    data = resp.json()
+    assert data["count"] == 1
+    assert data["transactions"][0]["check_amount"] == 30.0
+    assert data["transactions"][0]["sale_total"] == 50.0
+    assert data["total_check_amount"] == 30.0
+
+
+def test_check_transactions_pdf_and_md_formats(client, admin_token, active_event, db):
+    """format=pdf renders the check report table; format=md includes the row."""
+    from pypdf import PdfReader
+    sale = Sale(event_id=active_event.id, sale_total=15.0, mysl_total=4.5,
+                seller_total=10.5, check_amount=15.0, check_number="2041",
+                total_paid=15.0, is_voided=False, created_by="cashier1")
+    db.add(sale)
+    db.commit()
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    md = client.get(
+        f"/reports/{active_event.id}/check-transactions?format=md", headers=headers)
+    assert md.status_code == 200
+    assert "# Check Transactions" in md.text and "2041" in md.text
+    pdf = client.get(
+        f"/reports/{active_event.id}/check-transactions?format=pdf", headers=headers)
+    assert pdf.status_code == 200
+    assert "application/pdf" in pdf.headers["content-type"]
+    text = "\n".join(p.extract_text() for p in PdfReader(io.BytesIO(pdf.content)).pages)
+    assert "2041" in text
+
+
+def test_check_transactions_invalid_format_422(client, admin_token, active_event):
+    resp = client.get(
+        f"/reports/{active_event.id}/check-transactions?format=bogus",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 422
+
+
+def test_check_transactions_requires_admin(client, cashier_token, active_event):
+    resp = client.get(
+        f"/reports/{active_event.id}/check-transactions",
+        headers={"Authorization": f"Bearer {cashier_token}"},
+    )
+    assert resp.status_code == 403
+
+
+def test_check_transactions_unknown_event_404(client, admin_token):
+    resp = client.get(
+        "/reports/999999/check-transactions",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 404

@@ -93,3 +93,22 @@ describe("SellerPayoutPanel", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("SellerPayoutPanel — Sales Detail columns", () => {
+  /** The Sales Detail table carries Category/Type/Brand per item and no
+   *  longer shows the Date Sold column (dropped 2026-11-23). */
+  it("renders Category/Type/Brand columns and drops Date Sold", async () => {
+    render(<SellerPayoutPanel eventId={1} sellerId={1} />);
+    await waitFor(() =>
+      expect(screen.getAllByText("Atomic skis").length).toBeGreaterThan(0),
+    );
+    // New columns render with the fixture's per-item values (sale line A001-1).
+    // "Skis" and "Classic" each appear in both the Items table and the Sales
+    // Detail row, "Atomic" in Items + Sales Detail + the item brand cell.
+    expect(screen.getAllByText("Skis").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText("Classic").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Atomic").length).toBeGreaterThanOrEqual(2);
+    // The Date Sold column is gone from the Sales Detail header.
+    expect(screen.queryByText("Date Sold")).not.toBeInTheDocument();
+  });
+});

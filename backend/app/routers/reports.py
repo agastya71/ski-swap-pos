@@ -83,6 +83,49 @@ def get_vendor_sales(
     return format_report(report, fmt, f"vendor_sales_{event_id}")
 
 
+@router.get("/{event_id}/nonvendor-sales.xlsx")
+def get_nonvendor_sales_xlsx(
+    event_id: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(_ADMIN_ONLY),
+):
+    """Download the consolidated non-vendor sales workbook for the event.
+
+    One block per individual (non-vendor) seller in the legacy 'Retailer_Sales'
+    layout — same 16-column rows, a Totals row, blank separator, exempt sellers
+    last — with Due Seller at the event's individual commission rate. Admin-only;
+    JSON structure via /{event_id}/nonvendor-sales?format=json.
+    """
+    report = report_svc.get_nonvendor_sales_report(db, event_id)
+    return format_report(report, "xlsx", f"nonvendor_sales_{event_id}")
+
+
+@router.get("/{event_id}/nonvendor-sales")
+def get_nonvendor_sales(
+    event_id: int,
+    fmt: str = Query("json", alias="format"),
+    db: Session = Depends(get_db),
+    _user: User = Depends(_ADMIN_ONLY),
+):
+    """Consolidated non-vendor sales report (same block model as vendor sales)."""
+    report = report_svc.get_nonvendor_sales_report(db, event_id)
+    if fmt == "xlsx":
+        return format_report(report, "xlsx", f"nonvendor_sales_{event_id}")
+    return format_report(report, fmt, f"nonvendor_sales_{event_id}")
+
+
+@router.get("/{event_id}/check-transactions")
+def get_check_transactions(
+    event_id: int,
+    fmt: str = Query("json", alias="format"),
+    db: Session = Depends(get_db),
+    _user: User = Depends(_ADMIN_ONLY),
+):
+    """All check-tendered transactions for the event (voided sales excluded)."""
+    report = report_svc.get_check_transactions(db, event_id)
+    return format_report(report, fmt, f"check_transactions_{event_id}")
+
+
 @router.get("/{event_id}/sellers-payouts")
 def get_all_seller_payouts(
     event_id: int,
