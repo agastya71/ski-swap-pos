@@ -128,3 +128,47 @@ describe('ReportsPage — Vendor Sales section', () => {
     expect(screen.queryByText(/Consolidated per-vendor workbook/i)).not.toBeInTheDocument()
   })
 })
+
+describe('ReportsPage — Non-Vendor Sales section', () => {
+  /** Mirrors the Vendor Sales section: collapsed by default, XLSX always accessible. */
+  it('shows the Non-Vendor Sales section with an XLSX download button when collapsed', async () => {
+    render(<ReportsPage eventId={1} />)
+    await waitFor(() => screen.getByRole('heading', { name: 'Event Revenue' }))
+    expect(screen.getByRole('heading', { name: 'Non-Vendor Sales' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Download non-vendor sales workbook xlsx' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Consolidated per-seller workbook/i)).not.toBeInTheDocument()
+  })
+
+  /** Clicking the header expands the section to show the description. */
+  it('expands Non-Vendor Sales section when header is clicked', async () => {
+    render(<ReportsPage eventId={1} />)
+    await waitFor(() => screen.getByRole('heading', { name: 'Non-Vendor Sales' }))
+    fireEvent.click(screen.getByRole('heading', { name: 'Non-Vendor Sales' }))
+    expect(screen.getByText(/Consolidated per-seller workbook/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('heading', { name: 'Non-Vendor Sales' }))
+    expect(screen.queryByText(/Consolidated per-seller workbook/i)).not.toBeInTheDocument()
+  })
+})
+
+describe('ReportsPage — Check Transactions section', () => {
+  /** Collapsed shows count + check total from the MSW fixture (sale #7, $120). */
+  it('shows check totals in collapsed summary once loaded', async () => {
+    render(<ReportsPage eventId={1} />)
+    await waitFor(() =>
+      expect(screen.getByText(/1 transaction/)).toBeInTheDocument(),
+    )
+  })
+
+  /** Expanding reveals the per-transaction table with cashier, check # and amounts. */
+  it('lists check transactions when expanded', async () => {
+    render(<ReportsPage eventId={1} />)
+    await waitFor(() => screen.getByRole('heading', { name: 'Check Transactions' }))
+    fireEvent.click(screen.getByRole('heading', { name: 'Check Transactions' }))
+    await waitFor(() => expect(screen.getByText('#7')).toBeInTheDocument())
+    expect(screen.getByText('cashier1')).toBeInTheDocument()
+    expect(screen.getByText('2041')).toBeInTheDocument()
+    expect(screen.getAllByText('$120.00').length).toBeGreaterThanOrEqual(2)
+  })
+})

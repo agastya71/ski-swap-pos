@@ -17,11 +17,13 @@ from fpdf import FPDF
 from pydantic import BaseModel
 
 from app.schemas.reports import (
+    CheckTransactionsReport,
     DonationsReport,
     SellersPayoutsReport,
     TransactionsByUserReport,
     EndOfDayReport,
     EventRevenueReport,
+    NonVendorSalesWorkbook,
     SellerPayoutReport,
     UnsoldItemsReport,
     VendorEquipmentSummaryReport,
@@ -97,11 +99,13 @@ def _to_csv(report: BaseModel, filename_base: str) -> Response:
             w.writerow(["ITEMS", it.item_code, it.category, it.brand,
                         it.description, it.size, it.price, it.quantity, it.remaining])
         w.writerow([])
-        w.writerow(["SALES DETAIL", "item_code", "description", "date_of_sale", "quantity_sold",
-                    "sell_price", "extended_price", "price_adjustment_reason", "due_seller", "commission_rate"])
+        w.writerow(["SALES DETAIL", "item_code", "category", "type", "brand", "description",
+                    "quantity_sold", "sell_price", "extended_price", "price_adjustment_reason",
+                    "due_seller", "commission_rate"])
         for s in report.sales:
-            w.writerow(["SALES DETAIL", s.item_code, s.description, s.date_of_sale, s.quantity_sold,
-                        s.sell_price, s.extended_price, s.price_adjustment_reason, s.seller_share, s.commission_rate])
+            w.writerow(["SALES DETAIL", s.item_code, s.category, s.type, s.brand, s.description,
+                        s.quantity_sold, s.sell_price, s.extended_price,
+                        s.price_adjustment_reason, s.seller_share, s.commission_rate])
     elif isinstance(report, DonationsReport):
         w.writerow(["seller_code", "item_code", "description", "quantity", "remaining", "price", "donation_type"])
         for item in report.items:
@@ -139,6 +143,28 @@ def _to_csv(report: BaseModel, filename_base: str) -> Response:
         t = report.total
         w.writerow([t.category, t.items_consigned, t.units_sold, t.gross_sales,
                     t.mysl_share, t.seller_share, t.units_unsold, t.unsold_value])
+    elif isinstance(report, VendorSalesWorkbook):
+        # NonVendorSalesWorkbook subclasses this model; one flatten serves both.
+        w.writerow(["seller_code", "item_code", "brand", "type", "category", "size",
+                    "description", "qty_in", "price", "extend", "qty_sold",
+                    "sell_price", "sell_extend", "due_seller", "unsold", "donate"])
+        for b in report.vendors:
+            for r in b.rows:
+                w.writerow([r.seller_code, r.item_code, r.brand, r.type, r.category,
+                            r.size, r.description, r.qty_in, r.price, r.extend,
+                            r.qty_sold, r.sell_price, r.sell_extend, r.due_seller,
+                            r.unsold, r.donate])
+            w.writerow([b.vendor_name, "", "", "", "", "", "", "", "Totals:",
+                        b.total_extend, "", "", b.total_sell_extend, b.total_due_seller,
+                        b.total_unsold, b.total_donate])
+    elif isinstance(report, CheckTransactionsReport):
+        w.writerow(["sale_id", "date_of_sale", "cashier", "customer_name",
+                    "check_number", "check_amount", "sale_total"])
+        for t in report.transactions:
+            w.writerow([t.sale_id, t.date_of_sale, t.cashier, t.customer_name,
+                        t.check_number, t.check_amount, t.sale_total])
+        w.writerow(["TOTALS", "", "", "", "", report.total_check_amount,
+                    report.total_sale_amount])
     else:
         data = report.model_dump(mode="json")
         w.writerow(list(data.keys()))
@@ -195,12 +221,12 @@ def _to_md(report: BaseModel, filename_base: str) -> Response:
                          f"{it.description or ''} | {it.size or ''} | ${it.price:.2f} | "
                          f"{it.quantity:G} | {it.remaining:G} |")
         lines += ["", "## Sales Detail",
-            "| Item Code | Description | Date Sold | Qty | Sell Price | Extended | Adj. Reason | Due Seller | Rate |",
-            "|-----------|-------------|-----------|-----|------------|----------|-------------|------------|------|",
+            "| Item Code | Description | Category | Type | Brand | Qty | Sell Price | Extended | Adj. Reason | Due Seller | Rate |",
+            "|-----------|-------------|----------|------|-------|-----|------------|----------|-------------|------------|------|",
         ]
         for s in report.sales:
-            when = s.date_of_sale.isoformat() if s.date_of_sale else "—"
-            lines.append(f"| {s.item_code} | {s.description or ''} | {when} | {s.quantity_sold:G} | "
+            lines.append(f"| {s.item_code} | {s.description or ''} | {s.category or ''} | "
+                         f"{s.type or ''} | {s.brand or ''} | {s.quantity_sold:G} | "
                          f"${s.sell_price:.2f} | ${s.extended_price:.2f} | "
                          f"{s.price_adjustment_reason or ''} | "
                          f"${s.seller_share:.2f} | {s.commission_rate:.0%} |")
@@ -306,6 +332,54 @@ def _to_md(report: BaseModel, filename_base: str) -> Response:
             lines.append(
                 f"| Exempt-seller sales (full payout, no commission) | ${report.exempt_lines_total:.2f} |"
             )
+
+    elif isinstance(report, VendorSalesWorkbook):
+        # NonVendorSalesWorkbook subclasses this model; one flatten serves both.
+        title = "Non-Vendor Sales" if isinstance(report, NonVendorSalesWorkbook) else "Vendor Sales"
+        lines += [
+            f"# {title}: {report.event_name}",
+            f"**Commission rate:** {report.commission_rate:.0%}  ",
+            f"**Generated:** {report.generated_at.isoformat()}", "",
+        ]
+        for b in report.vendors:
+            lines += [
+                f"## {b.vendor_name}", "",
+                "| Seller Code | Item ID | Brand | Type | Category | Size | Description | "
+                "Qty. In | Price | Extend | Qty. Sold | Sell Price | Sell Extend | Due Seller | Unsold | Donate |",
+                "|------|--------|-------|------|----------|------|-------------|"
+                "--------|-------|--------|-----------|------------|-------------|-----------|--------|--------|",
+            ]
+            for r in b.rows:
+                lines.append(
+                    f"| {r.seller_code} | {r.item_code} | {r.brand or ''} | {r.type or ''} | "
+                    f"{r.category or ''} | {r.size or ''} | {r.description or ''} | "
+                    f"{r.qty_in:G} | ${r.price:.2f} | ${r.extend:.2f} | {r.qty_sold:G} | "
+                    f"${r.sell_price:.2f} | ${r.sell_extend:.2f} | ${r.due_seller:.2f} | "
+                    f"${r.unsold:.2f} | ${r.donate:.2f} |")
+            lines.append(
+                f"| **{b.vendor_name}** | | | | | | | | **Totals:** | "
+                f"${b.total_extend:.2f} | | | ${b.total_sell_extend:.2f} | "
+                f"${b.total_due_seller:.2f} | ${b.total_unsold:.2f} | ${b.total_donate:.2f} |")
+            lines.append("")
+        lines.append(f"**Commission rate applied:** {report.commission_rate:.0%}")
+
+    elif isinstance(report, CheckTransactionsReport):
+        when = lambda t: t.date_of_sale.strftime("%Y-%m-%d %H:%M") if t.date_of_sale else "—"
+        lines += [
+            f"# Check Transactions: {report.event_name}",
+            f"**Transactions:** {report.count}  **Total checks:** ${report.total_check_amount:.2f}  "
+            f"**Total sale amount:** ${report.total_sale_amount:.2f}  ",
+            f"**Generated:** {report.generated_at.isoformat()}", "",
+            "| Sale | Date | Cashier | Customer | Check # | Check Amount | Sale Total |",
+            "|------|------|---------|----------|---------|--------------|------------|",
+        ]
+        for t in report.transactions:
+            lines.append(
+                f"| #{t.sale_id} | {when(t)} | {t.cashier} | {t.customer_name or ''} | "
+                f"{t.check_number or ''} | ${t.check_amount:.2f} | ${t.sale_total:.2f} |")
+        lines.append(
+            f"| **TOTAL** | | | | | **${report.total_check_amount:.2f}** | "
+            f"**${report.total_sale_amount:.2f}** |")
 
     return Response(
         content="\n".join(lines),
@@ -425,11 +499,13 @@ def _to_pdf(report: BaseModel, filename_base: str) -> Response:
         pdf.ln(6)
         # Shared column geometry: headers, data rows and page-break headers all
         # render through the same width list, so they can never drift apart.
-        # Total width must stay within the printable page width (190mm on A4).
-        # fpdf cell() does NOT truncate — long reason text is clipped in code.
-        sales_cols = [("Item Code", 20), ("Description", 30), ("Date", 24),
-                      ("Qty", 8), ("Sell", 14), ("Total", 14),
-                      ("Adj. Reason", 30), ("Due Seller", 18), ("Rate", 10)]
+        # Total width must stay within the printable page width (190mm on A4):
+        # 18+26+20+16+18+8+14+14+26+18+10 = 188mm. Category/Type/Brand replace
+        # the old Date column (fpdf cell() does NOT truncate — clip in code).
+        sales_cols = [("Item Code", 18), ("Description", 26), ("Category", 20),
+                      ("Type", 16), ("Brand", 18), ("Qty", 8),
+                      ("Sell", 14), ("Total", 14), ("Adj. Reason", 26),
+                      ("Due Seller", 18), ("Rate", 10)]
 
         def _pdf_row(cells: list[str], bold: bool = False) -> None:
             if pdf.get_y() > 260:
@@ -442,18 +518,95 @@ def _to_pdf(report: BaseModel, filename_base: str) -> Response:
 
         _pdf_row([hdr for hdr, _ in sales_cols], bold=True)
         for s in report.sales:
-            when = s.date_of_sale.strftime("%Y-%m-%d") if s.date_of_sale else "—"
             _pdf_row([
                 _safe(s.item_code),
                 _safe((s.description or "")[:17]),
-                _safe(when),
+                _safe((s.category or "")[:12]),
+                _safe((s.type or "")[:9]),
+                _safe((s.brand or "")[:11]),
                 f"{s.quantity_sold:G}",
                 f"${s.sell_price:.2f}",
                 f"${s.extended_price:.2f}",
-                _safe((s.price_adjustment_reason or "")[:20]),
+                _safe((s.price_adjustment_reason or "")[:17]),
                 f"${s.seller_share:.2f}",
                 f"{s.commission_rate:.0%}",
             ])
+
+    elif isinstance(report, VendorSalesWorkbook):
+        # NonVendorSalesWorkbook subclasses this model; one table serves both.
+        title = "Non-Vendor Sales" if isinstance(report, NonVendorSalesWorkbook) else "Vendor Sales"
+        pdf.cell(0, 8, _safe(f"{title}: {report.event_name}  (commission {report.commission_rate:.0%})"))
+        pdf.ln(8)
+        # 16 columns; widths sum to exactly 190mm (printable A4 width).
+        wb_cols = [("Seller", 16), ("Item", 14), ("Brand", 16), ("Type", 12),
+                   ("Category", 14), ("Size", 10), ("Desc", 26), ("Qty In", 10),
+                   ("Price", 10), ("Extend", 10), ("Sold", 10), ("Sell $", 10),
+                   ("Sell Ext", 10), ("Due", 12), ("Unsold", 10), ("Donate", 10)]
+
+        def _wb_row(cells: list[str], bold: bool = False) -> None:
+            if pdf.get_y() > 260:
+                pdf.add_page()
+                _wb_row([hdr for hdr, _ in wb_cols], bold=True)
+            pdf.set_font("Helvetica", "B" if bold else "", 9)
+            for text, (_, width) in zip(cells, wb_cols):
+                pdf.cell(width, 6, text, border=1)
+            pdf.ln()
+
+        for b in report.vendors:
+            _wb_row([hdr for hdr, _ in wb_cols], bold=True)
+            for r in b.rows:
+                _wb_row([
+                    _safe(r.seller_code), _safe(r.item_code),
+                    _safe((r.brand or "")[:10]), _safe((r.type or "")[:7]),
+                    _safe((r.category or "")[:9]), _safe((r.size or "")[:6]),
+                    _safe((r.description or "")[:16]),
+                    f"{r.qty_in:G}", f"${r.price:.2f}", f"${r.extend:.2f}",
+                    f"{r.qty_sold:G}", f"${r.sell_price:.2f}", f"${r.sell_extend:.2f}",
+                    f"${r.due_seller:.2f}", f"${r.unsold:.2f}", f"${r.donate:.2f}",
+                ])
+            _wb_row([
+                _safe(b.vendor_name[:10]), "", "", "", "", "", "", "", "Totals:",
+                f"${b.total_extend:.2f}", "", "", f"${b.total_sell_extend:.2f}",
+                f"${b.total_due_seller:.2f}", f"${b.total_unsold:.2f}", f"${b.total_donate:.2f}",
+            ], bold=True)
+            pdf.ln(2)
+
+    elif isinstance(report, CheckTransactionsReport):
+        pdf.cell(0, 8, _safe(f"Check Transactions: {report.event_name}"))
+        pdf.ln()
+        pdf.cell(0, 6, f"{report.count} transactions  Total checks: ${report.total_check_amount:.2f}  "
+                        f"Total sale amount: ${report.total_sale_amount:.2f}")
+        pdf.ln(8)
+        # Widths sum to exactly 190mm (printable A4 width).
+        ck_cols = [("Sale", 16), ("Date/Time", 34), ("Cashier", 28),
+                   ("Customer", 40), ("Check #", 20), ("Check $", 26), ("Total", 26)]
+
+        def _ck_row(cells: list[str], bold: bool = False) -> None:
+            if pdf.get_y() > 260:
+                pdf.add_page()
+                _ck_row([hdr for hdr, _ in ck_cols], bold=True)
+            pdf.set_font("Helvetica", "B" if bold else "", 10 if bold else 9)
+            for text, (_, width) in zip(cells, ck_cols):
+                pdf.cell(width, 6, text, border=1)
+            pdf.ln()
+
+        _ck_row([hdr for hdr, _ in ck_cols], bold=True)
+        for t in report.transactions:
+            when = t.date_of_sale.strftime("%Y-%m-%d %H:%M") if t.date_of_sale else "—"
+            _ck_row([
+                f"#{t.sale_id}",
+                _safe(when),
+                _safe(t.cashier[:16]),
+                _safe((t.customer_name or "")[:24]),
+                _safe((t.check_number or "")[:12]),
+                f"${t.check_amount:.2f}",
+                f"${t.sale_total:.2f}",
+            ])
+        _ck_row([
+            "TOTAL", "", "", "", "",
+            f"${report.total_check_amount:.2f}",
+            f"${report.total_sale_amount:.2f}",
+        ], bold=True)
 
     elif isinstance(report, VendorEquipmentSummaryReport):
         pdf.cell(0, 8, _safe(f"Vendor Equipment Summary: {report.seller_name} ({report.seller_code})"))
@@ -634,21 +787,22 @@ def _to_pdf(report: BaseModel, filename_base: str) -> Response:
     )
 
 
-def _vendor_sales_xlsx_bytes(report: VendorSalesWorkbook) -> bytes:
-    """Build the consolidated vendor-sales workbook (legacy 'Retailer_Sales'
-    layout the league sends to its vendors).
+def _vendor_sales_xlsx_bytes(report: VendorSalesWorkbook, sheet_name: str = "Retailer_Sales") -> bytes:
+    """Build a consolidated sales workbook (legacy 'Retailer_Sales' layout).
 
-    One block per vendor: a 16-column header row, one row per item, a
-    Totals row (col I = 'Totals:', col A = vendor display name, values in
+    Shared by the vendor workbook (sheet 'Retailer_Sales') and its
+    non-vendor counterpart (sheet 'NonVendor_Sales') — identical 16-column
+    block layout. One block per seller: a header row, one row per item, a
+    Totals row (col I = 'Totals:', col A = seller display name, values in
     J Extend / M Sell Extend / N Due Seller / O Unsold / P Donate — exactly
-    like the 2025 sheet), then a fully blank separator row. Exempt vendors
+    like the 2025 sheet), then a fully blank separator row. Exempt sellers
     (league merchandise) come last, mirroring the 2025 layout.
     """
     wb = openpyxl.Workbook()
     ws = wb.active
     if ws is None:
         raise ValueError("Workbook has no active sheet")
-    ws.title = "Retailer_Sales"
+    ws.title = sheet_name
 
     _HEADER = [
         "Seller Code", "Item ID", "Brand", "Type", "Category", "Size",
@@ -784,6 +938,8 @@ def _to_xlsx(report: BaseModel, filename_base: str) -> Response:
 
     if isinstance(report, SellerPayoutReport):
         content = _payout_xlsx_bytes(report)
+    elif isinstance(report, NonVendorSalesWorkbook):
+        content = _vendor_sales_xlsx_bytes(report, sheet_name="NonVendor_Sales")
     elif isinstance(report, VendorSalesWorkbook):
         content = _vendor_sales_xlsx_bytes(report)
     elif isinstance(report, VendorEquipmentSummaryReport):

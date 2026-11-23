@@ -12,6 +12,7 @@ import type {
  UnsoldItemsReport,
  EndOfDayReport,
  TransactionsByUserReport,
+ CheckTransactionsReport,
  VendorEquipmentSummaryReport,
 } from "../types";
 
@@ -107,6 +108,18 @@ export const getEndOfDay = (eventId: number) =>
 export function getTransactionsByUser(eventId: number) {
  return apiFetch<TransactionsByUserReport>(
   `/reports/${eventId}/transactions-by-user`,
+ );
+}
+
+/**
+ * Fetch the check-transactions report for an event.
+ *
+ * @param eventId - ID of the event to report on.
+ * @returns CheckTransactionsReport: one row per check-tendered sale (voided excluded).
+ */
+export function getCheckTransactions(eventId: number) {
+ return apiFetch<CheckTransactionsReport>(
+  `/reports/${eventId}/check-transactions`,
  );
 }
 
