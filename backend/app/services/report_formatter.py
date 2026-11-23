@@ -221,12 +221,13 @@ def _to_md(report: BaseModel, filename_base: str) -> Response:
                          f"{it.description or ''} | {it.size or ''} | ${it.price:.2f} | "
                          f"{it.quantity:G} | {it.remaining:G} |")
         lines += ["", "## Sales Detail",
-            "| Item Code | Description | Category | Type | Brand | Qty | Sell Price | Extended | Adj. Reason | Due Seller | Rate |",
-            "|-----------|-------------|----------|------|-------|-----|------------|----------|-------------|------------|------|",
+            "| Item Code | Category | Type | Brand | Description | Qty | Sell Price | Extended | Adj. Reason | Due Seller | Rate |",
+            "|-----------|----------|------|-------|-------------|-----|------------|----------|-------------|------------|------|",
         ]
         for s in report.sales:
-            lines.append(f"| {s.item_code} | {s.description or ''} | {s.category or ''} | "
-                         f"{s.type or ''} | {s.brand or ''} | {s.quantity_sold:G} | "
+            lines.append(f"| {s.item_code} | {s.category or ''} | "
+                         f"{s.type or ''} | {s.brand or ''} | {s.description or ''} | "
+                         f"{s.quantity_sold:G} | "
                          f"${s.sell_price:.2f} | ${s.extended_price:.2f} | "
                          f"{s.price_adjustment_reason or ''} | "
                          f"${s.seller_share:.2f} | {s.commission_rate:.0%} |")
@@ -502,8 +503,8 @@ def _to_pdf(report: BaseModel, filename_base: str) -> Response:
         # Total width must stay within the printable page width (190mm on A4):
         # 18+26+20+16+18+8+14+14+26+18+10 = 188mm. Category/Type/Brand replace
         # the old Date column (fpdf cell() does NOT truncate — clip in code).
-        sales_cols = [("Item Code", 18), ("Description", 26), ("Category", 20),
-                      ("Type", 16), ("Brand", 18), ("Qty", 8),
+        sales_cols = [("Item Code", 18), ("Category", 20), ("Type", 16),
+                      ("Brand", 18), ("Description", 26), ("Qty", 8),
                       ("Sell", 14), ("Total", 14), ("Adj. Reason", 26),
                       ("Due Seller", 18), ("Rate", 10)]
 
@@ -520,10 +521,10 @@ def _to_pdf(report: BaseModel, filename_base: str) -> Response:
         for s in report.sales:
             _pdf_row([
                 _safe(s.item_code),
-                _safe((s.description or "")[:17]),
                 _safe((s.category or "")[:12]),
                 _safe((s.type or "")[:9]),
                 _safe((s.brand or "")[:11]),
+                _safe((s.description or "")[:17]),
                 f"{s.quantity_sold:G}",
                 f"${s.sell_price:.2f}",
                 f"${s.extended_price:.2f}",
@@ -908,15 +909,20 @@ def _payout_xlsx_bytes(report: SellerPayoutReport) -> bytes:
     ws_items.append(["Items consigned", len(report.items)])
 
     ws_sales = wb.create_sheet("Sales Detail")
-    ws_sales.append(["Item Code", "Description", "Date Sold", "Qty", "Sell Price",
-                     "Extended", "Adj. Reason", "Due Seller", "Rate"])
+    # Column order mirrors the Items sheet (Item Code, Category, Brand,
+    # Description); Type rides beside Category. Date column dropped 2026-11-23.
+    ws_sales.append(["Item Code", "Category", "Type", "Brand", "Description",
+                     "Qty", "Sell Price", "Extended", "Adj. Reason",
+                     "Due Seller", "Rate"])
     for s in report.sales:
-        ws_sales.append([s.item_code, s.description, s.date_of_sale, s.quantity_sold,
-                         s.sell_price, s.extended_price, s.price_adjustment_reason,
-                         s.seller_share, s.commission_rate])
+        ws_sales.append([s.item_code, s.category, s.type, s.brand, s.description,
+                         s.quantity_sold, s.sell_price, s.extended_price,
+                         s.price_adjustment_reason, s.seller_share, s.commission_rate])
     ws_sales.append([])
-    ws_sales.append(["Sales Total", "", "", "", "", round(report.gross_sales, 2),
-                     "", round(report.seller_total, 2)])
+    # Sales Total: gross under Extended (col 8), seller under Due Seller (col 10).
+    ws_sales.append(["Sales Total", "", "", "", "", "", "",
+                     round(report.gross_sales, 2), "",
+                     round(report.seller_total, 2)])
 
     buf = io.BytesIO()
     wb.save(buf)

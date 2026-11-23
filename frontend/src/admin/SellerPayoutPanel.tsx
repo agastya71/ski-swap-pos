@@ -213,10 +213,10 @@ export function SellerPayoutDetails({
                             {(
                                 [
                                     "Item Code",
-                                    "Description",
                                     "Category",
                                     "Type",
                                     "Brand",
+                                    "Description",
                                     "Qty",
                                     "Sell Price",
                                     "Extended",
@@ -264,10 +264,10 @@ export function SellerPayoutDetails({
                                         </div>
                                     )}
                                 </td>
-                                <td style={td}>{s.description ?? "—"}</td>
                                 <td style={td}>{s.category ?? "—"}</td>
                                 <td style={td}>{s.type ?? "—"}</td>
                                 <td style={td}>{s.brand ?? "—"}</td>
+                                <td style={td}>{s.description ?? "—"}</td>
                                 <td style={tdNum}>{s.quantity_sold}</td>
                                 <td style={tdNum}>
                                     ${s.sell_price.toFixed(2)}
