@@ -158,10 +158,19 @@ def _recompute_totals(db: Session, sale: Sale, event: Event) -> None:
 
     Queries the DB (post-flush) instead of the in-memory ``sale.sale_items``
     collection — a just-added or just-deleted line may not be reflected in
-    the relationship's loaded state. As in checkout, the card fee (derived
-    from the recorded card charge) rides on top of the line totals in
-    ``sale_total`` and is retained by MYSL inside ``mysl_total``; seller
-    payouts stay the commission split of the line prices only."""
+    the relationship's loaded state.
+
+    The buyer-paid 3% card fee was removed 2026-11-24 (event feedback #7),
+    but a sale edited across the removal boundary needs care: a historical
+    row may carry a stamped cc_fee that already rides inside its stored
+    mysl_total (reports adds stamped cc_fee back into mysl_line_total for
+    the revenue identity). Recomputing with fee 0 and re-deriving the fee
+    from the card charge would both corrupt such rows.
+
+    Therefore the stamped cc_fee is PRESERVED verbatim (never re-derived,
+    never wiped) and its amount is added back into the recomputed
+    sale_total/mysl_total so an edit of one line doesn't silently change
+    the fee contribution of the other lines."""
     rows = db.query(SaleItem).filter(SaleItem.sale_id == sale.id).all()
     sale_total = 0.0
     mysl_total = 0.0
@@ -175,10 +184,15 @@ def _recompute_totals(db: Session, sale: Sale, event: Event) -> None:
         sale_total += extended
         mysl_total += mysl_share
         seller_total += seller_share
-    cc_fee = compute_card_fee(sale.cc_amount or 0.0)
-    sale.cc_fee = cc_fee
-    sale.sale_total = round(sale_total + cc_fee, 2)
-    sale.mysl_total = round(mysl_total + cc_fee, 2)
+    # Preserve any historically-stamped fee: it already rode inside the
+    # stored mysl_total, and reports re-adds it for the revenue identity.
+    # New sales (fee removed) stamp 0.0, so this adds back nothing.
+    # (pyright ignores: Column-attribute idiom, same as the pre-existing
+    # baseline in this file — see session stash-probe 2026-11-24.)
+    cc_fee = float(sale.cc_fee or 0.0)  # pyright: ignore[reportCallIssue, reportArgumentType]
+    sale.cc_fee = cc_fee  # pyright: ignore[reportAttributeAccessIssue]
+    sale.sale_total = round(sale_total + cc_fee, 2)  # pyright: ignore[reportCallIssue, reportArgumentType, reportAttributeAccessIssue]
+    sale.mysl_total = round(mysl_total + cc_fee, 2)  # pyright: ignore[reportCallIssue, reportArgumentType, reportAttributeAccessIssue]
     sale.seller_total = round(seller_total, 2)
 
 

@@ -1,31 +1,24 @@
 /**
  * Payment entry form — splits tender across cash, check, and credit card
  * (entered manually — the Square integration is pending), collects the check
- * number (when paying by check) and free-text sale notes, adds an explicit 3%
- * card transaction fee to the total when the buyer charges any amount to a
- * card, validates that the total tendered meets the sale total, and submits.
+ * number (when paying by check) and free-text sale notes, validates that the
+ * total tendered meets the sale total, and submits.
+ *
+ * Card fee (removed 2026-11-24, event feedback #7): buyers no longer pay a
+ * 3% surcharge — the card terminal charge is the plain amount of the card
+ * tender. The backend `cc_fee` column remains for historical sale rows only.
  *
  * @module PaymentForm
  */
 import { useState, type FormEvent } from "react";
 import { BUTTON_STYLE } from "../lib/buttons";
 
-/** Buyer-paid card transaction fee (2026-10-28): the card terminal charge
- *  INCLUDES the fee (terminal runs for items×1.03 on the card portion), so the
- *  fee decodes from the charge — must mirror the backend's compute_card_fee. */
-const CC_FEE_RATE = 0.03;
-
-function computeCardFee(ccAmount: number): number {
-    if (ccAmount <= 0) return 0;
-    return Math.round((ccAmount * CC_FEE_RATE) / (1 + CC_FEE_RATE) * 100) / 100;
-}
-
 export interface PaymentSubmit {
     cash: number;
     check: number;
     /** Amount tendered by credit/debit card, entered manually. The Square
      *  integration (pending) will capture this amount and supply a
-     *  transaction id later. Includes the card fee charged to the buyer. */
+     *  transaction id later. */
     credit_card: number;
     checkNumber: string | null;
     notes: string | null;
@@ -34,11 +27,10 @@ export interface PaymentSubmit {
 /**
  * Collects cash, check (+ check number), and credit-card tender. Validates
  * before submit that: a check number is present for check payment and the
- * sum of tender meets the sale total (line items plus the 3% card fee when a
- * card is used) — surfaced as field-level errors without a server round-trip.
+ * sum of tender meets the sale total — surfaced as field-level errors
+ * without a server round-trip.
  *
- * @param props.total - Item subtotal in dollars (sum of the cart lines); the
- *   card fee is added on top when any amount is charged to a card.
+ * @param props.total - Sale total in dollars (sum of the cart lines).
  * @param props.onSubmit - Callback with the full payment breakdown once validation passes.
  * @param props.onCancel - Callback invoked when the cashier clicks Cancel.
  */
@@ -61,8 +53,6 @@ export function PaymentForm({
     const cashAmt = parseFloat(cash) || 0;
     const checkAmt = parseFloat(check) || 0;
     const ccAmt = parseFloat(creditCard) || 0;
-    const cardFee = computeCardFee(ccAmt);
-    const grandTotal = total + cardFee;
     const tendered = cashAmt + checkAmt + ccAmt;
 
     /** Clears any stale submit error the moment the cashier edits a payment
@@ -82,9 +72,9 @@ export function PaymentForm({
             setError("Check number is required for check payments.");
             return;
         }
-        if (tendered < grandTotal - 0.001) {
+        if (tendered < total - 0.001) {
             setError(
-                `Amount tendered ($${tendered.toFixed(2)}) is less than total ($${grandTotal.toFixed(2)}).`,
+                `Amount tendered ($${tendered.toFixed(2)}) is less than total ($${total.toFixed(2)}).`,
             );
             return;
         }
@@ -99,17 +89,7 @@ export function PaymentForm({
 
     return (
         <form onSubmit={handleSubmit}>
-            <h3>Payment — Total: ${grandTotal.toFixed(2)}</h3>
-            {(cardFee > 0 || ccAmt > 0) && (
-                <div
-                    role="status"
-                    data-testid="card-fee-line"
-                    style={{ marginBottom: 12, fontSize: 14 }}
-                >
-                    Items: ${total.toFixed(2)} · Card fee (3%): ${cardFee.toFixed(2)} ·
-                    Buyer total: ${grandTotal.toFixed(2)}
-                </div>
-            )}
+            <h3>Payment — Total: ${total.toFixed(2)}</h3>
             <div style={{ marginBottom: 12 }}>
                 <label
                     htmlFor="cash"
@@ -178,8 +158,7 @@ export function PaymentForm({
                     style={{ padding: 8, fontSize: 16, width: 140 }}
                 />
                 <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
-                    Amount run on the card (includes the 3% fee — e.g. $100.00
-                    of items → $103.00 charge)
+                    Amount run on the card (charged to the buyer as entered)
                 </div>
             </div>
             <div style={{ marginBottom: 12 }}>
@@ -226,15 +205,15 @@ export function PaymentForm({
                     }}
                 >
                     Amount tendered: ${tendered.toFixed(2)} of $
-                    {grandTotal.toFixed(2)}
-                    {tendered - 0.001 > grandTotal
+                    {total.toFixed(2)}
+                    {tendered - 0.001 > total
                         ? " — ✓ payment covers total"
-                        : tendered + 0.001 >= grandTotal
+                        : tendered + 0.001 >= total
                           ? " — ✓ ready to complete"
-                          : ` — $${(grandTotal - tendered).toFixed(2)} short`}
+                          : ` — $${(total - tendered).toFixed(2)} short`}
                 </div>
             )}
-            {!error && tendered - 0.001 > grandTotal && (
+            {!error && tendered - 0.001 > total && (
                 <div
                     role="status"
                     style={{
@@ -248,7 +227,7 @@ export function PaymentForm({
                         color: "#15803d",
                     }}
                 >
-                    Change due to buyer: ${(tendered - grandTotal).toFixed(2)}
+                    Change due to buyer: ${(tendered - total).toFixed(2)}
                 </div>
             )}
             <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
