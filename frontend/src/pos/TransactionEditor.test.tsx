@@ -62,6 +62,8 @@ const SALE: SaleWithItemsResponse = {
   balance_due: 0,
   notes: null,
   is_voided: false,
+  transaction_number: 7,
+  is_finalized: true,
   created_at: '2026-04-04T10:00:00',
   created_by: 'cashier1',
   sale_items: [

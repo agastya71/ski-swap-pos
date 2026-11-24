@@ -70,6 +70,8 @@ const SALE: SaleWithItemsResponse = {
   balance_due: 0,
   notes: null,
   is_voided: false,
+  transaction_number: 1,
+  is_finalized: true,
   created_at: "2026-04-04T10:00:00",
   created_by: "cashier1",
   sale_items: [],
@@ -132,7 +134,8 @@ describe("POSPage", () => {
       expect(screen.getByText("A001-001")).toBeInTheDocument(),
     );
     fireEvent.click(screen.getByRole("button", { name: /remove A001-001/i }));
-    expect(screen.getByText(/cart is empty/i)).toBeInTheDocument();
+    // Issue #12: the empty cart keeps the reserved transaction header line.
+    expect(screen.getByText(/reserved — scan an item to begin/i)).toBeInTheDocument();
   });
 
   it("increments line quantity when the same item is scanned twice", async () => {
@@ -166,7 +169,8 @@ describe("POSPage", () => {
     await waitFor(() =>
       expect(screen.getByText(/sale complete/i)).toBeInTheDocument(),
     );
-    expect(screen.getByText(/sale #1/i)).toBeInTheDocument();
+    // Issue #12: banner shows the per-event display ID, not the row id.
+    expect(screen.getByText(/transaction #1/i)).toBeInTheDocument();
     // The completed sale is persisted so a reload restores the receipt, not an editable cart.
     expect(localStorage.getItem("pos_sale")).not.toBeNull();
   });
@@ -327,7 +331,7 @@ describe("POSPage", () => {
     await waitFor(() =>
       expect(screen.getByText(/sale complete/i)).toBeInTheDocument(),
     );
-    expect(screen.getByText(/sale #1/i)).toBeInTheDocument();
+    expect(screen.getByText(/transaction #1/i)).toBeInTheDocument();
     expect(screen.getByText("A001-001")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /new transaction/i }),
@@ -463,7 +467,7 @@ describe("POSPage", () => {
     );
     renderPOS();
     fireEvent.click(screen.getByRole("button", { name: /my transactions/i }));
-    await waitFor(() => screen.getByText(/Sale #1/));
+    await waitFor(() => screen.getByText(/Transaction #1/));
     fireEvent.click(screen.getByRole("button", { name: /transaction 1 details/i }));
     expect(await screen.findByText(/Price adj.: Zipper broken - \$5 off/)).toBeInTheDocument();
     // Only the adjusted line carries the reason label.
@@ -527,7 +531,7 @@ describe("POSPage", () => {
     );
     renderPOS();
     fireEvent.click(screen.getByRole("button", { name: /my transactions/i }));
-    await waitFor(() => screen.getByText(/Sale #1/));
+    await waitFor(() => screen.getByText(/Transaction #1/));
     fireEvent.click(screen.getByRole("button", { name: /transaction 1 details/i }));
     fireEvent.click(await screen.findByRole("button", { name: /edit sale 1/i }));
     expect(await screen.findByText(/Edit sale #1/)).toBeInTheDocument();

@@ -32,6 +32,8 @@ function sale(id: number, creator: string, total: number, isVoided = false): Sal
     balance_due: 0,
     notes: null,
     is_voided: isVoided,
+    transaction_number: id,
+    is_finalized: true,
     created_at: '2026-04-04T10:00:00',
     created_by: creator,
     sale_items: [

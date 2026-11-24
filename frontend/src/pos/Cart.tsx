@@ -32,21 +32,35 @@ export type CartLinePatch = Partial<Pick<CartLine, 'quantity' | 'sell_price' | '
  * @param props.onUpdate - Callback to update a line by item id with a patch.
  * @param props.onRemove - Callback to remove a line by item id.
  * @param props.readOnly - Render as a receipt: text cells only, no edit controls.
+ * @param props.transactionNumber - Display ID of the in-progress transaction
+ *  (issue #12): shown in the header once reserved, before any item is scanned.
  */
-export function Cart({ lines, onUpdate, onRemove, readOnly = false }: {
+export function Cart({ lines, onUpdate, onRemove, readOnly = false, transactionNumber }: {
   lines: CartLine[]
   onUpdate: (id: number, patch: CartLinePatch) => void
   onRemove: (id: number) => void
   readOnly?: boolean
+  transactionNumber?: number | null
 }) {
   const total = lines.reduce((sum, l) => sum + l.sell_price * l.quantity, 0)
 
-  if (lines.length === 0) {
-    return <p style={{ color: '#888', fontStyle: 'italic' }}>Cart is empty. Scan an item to begin.</p>
+    if (lines.length === 0) {
+    return transactionNumber != null ? (
+      <p style={{ color: '#555', fontStyle: 'italic' }}>
+        Transaction <strong>#{transactionNumber}</strong> reserved — scan an item to begin.
+      </p>
+    ) : (
+      <p style={{ color: '#888', fontStyle: 'italic' }}>Cart is empty. Scan an item to begin.</p>
+    )
   }
 
   return (
     <div>
+      {transactionNumber != null && (
+        <div style={{ fontSize: 13, color: '#555', marginBottom: 4 }}>
+          Transaction <strong>#{transactionNumber}</strong> — reserved at start; this ID stays for the whole checkout.
+        </div>
+      )}
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 8 }}>
         <thead>
           <tr style={{ borderBottom: '2px solid #ccc', fontSize: 13, color: '#555' }}>

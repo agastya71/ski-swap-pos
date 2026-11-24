@@ -17,7 +17,7 @@
  */
 import { useEffect, useState } from "react";
 import { BUTTON_STYLE } from "../lib/buttons";
-import { createSale, fetchMySales } from "../api/sales";
+import { createSale, fetchMySales, reserveSale, voidSale } from "../api/sales";
 import { getActiveEvent } from "../api/events";
 import { LookupField } from "./LookupField";
 import { Cart, type CartLine } from "./Cart";
@@ -95,6 +95,13 @@ export function POSPage() {
   // REMOUNTS it so a cancelled transaction never leaks amounts (and refs)
   // into the next customer's checkout.
   const [formResetKey, setFormResetKey] = useState(0);
+  // Reserved transaction (issue #12): set the moment the cashier starts
+  // building a cart, so the display ID shown at checkout equals the row the
+  // buyer has been watching accumulate. Cleared on completion / cancel /
+  // "New Transaction" (cancel + abandon VOID the row → its number retires).
+  const [reservation, setReservation] = useState<SaleWithItemsResponse | null>(
+    null,
+  );
   // Focus recapture (#1 event feedback): when an item is added or removed, the
   // scan field must recapture focus so the next scanner shot can't land in a
   // cart or payment input the cashier just clicked into. Bumping this state
@@ -201,11 +208,25 @@ export function POSPage() {
     setFocusSignal((s) => s + 1);
   }
 
+  /** Issue #12 — reserves the next transaction number the moment the cart
+   *  becomes non-empty, so the display ID is pinned from sale start. Failure
+   *  is soft (cart keeps working; checkout without a reservation still works). */
+  useEffect(() => {
+    if (sale || lines.length === 0 || reservation) return;
+    reserveSale()
+      .then(setReservation)
+      .catch(() => {});
+  }, [sale, lines.length, reservation]);
+
   /** Submits the sale (with per-line qty/price/notes + payment breakdown) then shows the inline confirmation. */
   async function handlePayment(p: PaymentSubmit) {
     setError(null);
     try {
       const created = await createSale({
+        // Adopt the reservation from sale start (issue #12): the finished row
+        // keeps the id/transaction_number the cashier quoted. If reservation
+        // is null (page-load race, older backend), a plain checkout still works.
+        transaction_id: reservation?.id,
         items: lines.map((l) => ({
           item_id: l.item.id,
           quantity: l.quantity,
@@ -221,6 +242,7 @@ export function POSPage() {
         notes: p.notes || undefined,
       });
       persistSale(created);
+      setReservation(null); // adopted — the draft row became the sale
       // Cart lines remain visible as the line-item receipt until New Transaction.
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sale failed");
@@ -230,14 +252,17 @@ export function POSPage() {
   function handleNewTransaction() {
     setLines([]);
     persistSale(null);
+    setReservation(null);
     setSquareToken(null);
     setError(null);
     setFormResetKey((k) => k + 1);
   }
 
   /** Abandons the whole checkout: clears the cart, clears any entered payment
-   *  fields (form remount), and returns to lookup state. Asks for confirmation
-   *  while the cart holds items so a full cart cannot be wiped by a stray click. */
+   *  fields (form remount), and returns to lookup state; any reservation is
+   *  voided so its display ID retires (issue #12: numbers never reused). Asks
+   *  for confirmation while the cart holds items so a full cart cannot be
+   *  wiped by a stray click. */
   function handleCancelCheckout() {
     if (
       lines.length > 0 &&
@@ -246,10 +271,17 @@ export function POSPage() {
       )
     )
       return;
+    const doomed = reservation;
     setLines([]);
+    setReservation(null);
     setSquareToken(null);
     setError(null);
     setFormResetKey((k) => k + 1);
+    if (doomed && !doomed.is_finalized) {
+      voidSale(doomed.id).catch(() => {
+        /* best-effort: the draft is hidden from listings either way */
+      });
+    }
   }
 
   const total = lines.reduce((sum, l) => sum + l.sell_price * l.quantity, 0);
@@ -280,7 +312,7 @@ export function POSPage() {
             ✓ Sale Complete!
           </div>
           <div style={{ fontSize: 16 }}>
-            Sale #{sale.id} — <strong>${sale.sale_total.toFixed(2)}</strong> —
+            Transaction #{sale.transaction_number ?? sale.id} — <strong>${sale.sale_total.toFixed(2)}</strong> —
             Cashier: {sale.created_by ?? "—"}
           </div>
           {eventName && (
@@ -356,6 +388,7 @@ export function POSPage() {
           onUpdate={handleUpdate}
           onRemove={handleRemove}
           readOnly={!!sale}
+          transactionNumber={sale?.transaction_number ?? reservation?.transaction_number}
         />
       </div>
 
@@ -439,10 +472,10 @@ export function POSPage() {
                     }
                     role="button"
                     aria-expanded={expandedSaleId === s.id}
-                    aria-label={`transaction ${s.id} details`}
+                    aria-label={`transaction ${s.transaction_number ?? s.id} details`}
                   >
                     <span style={{ fontWeight: 600 }}>
-                      Sale #{s.id}
+                      Transaction #{s.transaction_number ?? s.id}
                       {s.is_voided ? " — VOIDED" : ""}
                     </span>
                     <span>
@@ -466,7 +499,7 @@ export function POSPage() {
                         <div style={{ marginBottom: 8 }}>
                           <button
                             onClick={() => setEditingSaleId(s.id)}
-                            aria-label={`edit sale ${s.id}`}
+                            aria-label={`edit sale ${s.transaction_number ?? s.id}`}
                             style={{ ...BUTTON_STYLE, fontSize: 13 }}
                           >
                             Edit

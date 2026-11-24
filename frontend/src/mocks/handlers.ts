@@ -88,6 +88,8 @@ const SALE = {
         balance_due: 0,
         notes: null,
         is_voided: false,
+        transaction_number: 1,
+        is_finalized: true,
         created_at: "2026-04-04T10:00:00",
         created_by: null,
         sale_items: [],
@@ -435,6 +437,18 @@ export const handlers = [
                 });
         }),
 
+        /** POST /sales/reserve — issue #12 reservation: placeholder draft SALE. */
+        http.post("/sales/reserve", () =>
+                HttpResponse.json({
+                        ...SALE,
+                        sale_total: 0,
+                        mysl_total: 0,
+                        seller_total: 0,
+                        total_paid: 0,
+                        balance_due: 0,
+                        is_finalized: false,
+                        transaction_number: 12,
+                })),
         /** POST /sales — creates a new sale transaction, returns the SALE fixture. */
         http.post("/sales", () => HttpResponse.json(SALE)),
         /** GET /sales — admin list of the active event's sales (editable transactions). */
