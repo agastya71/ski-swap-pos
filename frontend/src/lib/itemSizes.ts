@@ -25,11 +25,16 @@ export const ITEM_TYPES: string[] = [
 ];
 
 /** Merchandise categories offered at intake. Mirrors the backend's canonical
- *  list (app/services/canonical.py) so imports and manual entry agree. */
+ *  list (app/services/canonical.py) so imports and manual entry agree.
+ *  Category renames (event feedback #11, 2026-11-24): the "Ski" prefix was
+ *  dropped — Ski Boots→Boots, Ski Poles→Poles, Ski Jacket→Jacket,
+ *  Ski Pants→Pants; "Ski" itself folded into "Skis". Old spellings are
+ *  rewritten in the data by the bootstrap repair and stay accepted as typed
+ *  aliases in the backend (legacy rows read/write transparently). */
 export const CATEGORIES: string[] = [
   "Skis",
-  "Ski Boots",
-  "Ski Poles",
+  "Boots",
+  "Poles",
   "Snowboard",
   "Snowboard Boots",
   "Bindings",
@@ -45,8 +50,8 @@ export const CATEGORIES: string[] = [
  *  choice, not validation. */
 export const CATEGORY_TYPES: Partial<Record<string, string[]>> = {
   Skis: ["Classic", "Skate", "Combi", "Other"],
-  "Ski Boots": ["Classic", "Skate", "Combi", "Touring", "Other"],
-  "Ski Poles": ["Ski Pole"],
+  Boots: ["Classic", "Skate", "Combi", "Touring", "Other"],
+  Poles: ["Ski Pole"],
   Snowboard: ["Snowboard"],
   "Snowboard Boots": ["Snowboard Boot"],
   Helmet: ["Helmet"],

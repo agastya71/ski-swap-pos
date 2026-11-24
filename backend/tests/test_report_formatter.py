@@ -42,7 +42,7 @@ def _payout():
             SellerPayoutItemLine(item_code="ABC-001", category="Skis",
                                  brand="Atomic", description="Skis", size="160cm",
                                  price=20.00, quantity=1.0, remaining=0.0),
-            SellerPayoutItemLine(item_code="ABC-002", category="Ski Boots",
+            SellerPayoutItemLine(item_code="ABC-002", category="Boots",
                                  brand="Alpina", description="Boots", size="EU 42",
                                  price=10.00, quantity=1.0, remaining=1.0),
         ],
@@ -150,7 +150,7 @@ def test_payout_md_single_items_list_and_sales_detail():
     assert ("| Item Code | Category | Brand | Description | Size | "
             "Sell Price | Quantity | Remaining |") in body
     assert "| ABC-001 | Skis | Atomic | Skis | 160cm | $20.00 | 1 | 0 |" in body
-    assert "| ABC-002 | Ski Boots | Alpina | Boots | EU 42 | $10.00 | 1 | 1 |" in body
+    assert "| ABC-002 | Boots | Alpina | Boots | EU 42 | $10.00 | 1 | 1 |" in body
     assert "## Sales Detail" in body
     # Sales Detail column order mirrors the Items section (Item Code, Category,
     # Brand, Description; Type rides beside Category). No Date column.
@@ -216,7 +216,7 @@ def test_payout_xlsx_includes_adjustment_reason_column():
                             "Size", "Sell Price", "Quantity", "Remaining"]
     rows = {r[0]: r for r in items.iter_rows(min_row=2, max_row=3, values_only=True)}
     assert rows["ABC-001"][5:7] == (20.0, 1.0) and rows["ABC-001"][7] == 0.0
-    assert rows["ABC-002"][1] == "Ski Boots" and rows["ABC-002"][7] == 1.0
+    assert rows["ABC-002"][1] == "Boots" and rows["ABC-002"][7] == 1.0
 
 
 def test_format_unsold_report_donate_column():

@@ -29,7 +29,7 @@ describe("CATEGORY_TYPES", () => {
       "Combi",
       "Other",
     ]);
-    expect(CATEGORY_TYPES["Ski Boots"]).toEqual([
+    expect(CATEGORY_TYPES["Boots"]).toEqual([
       "Classic",
       "Skate",
       "Combi",
@@ -47,7 +47,7 @@ describe("CATEGORY_TYPES", () => {
       "Ski suit",
     ]);
     expect(typesForCategory("Skis")).toContain("Other");
-    expect(typesForCategory("Ski Boots")).toContain("Other");
+    expect(typesForCategory("Boots")).toContain("Other");
   });
 
   it("typesForCategory falls back to the full list for empty/unknown/unmapped", () => {

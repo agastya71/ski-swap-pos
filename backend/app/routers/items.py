@@ -24,7 +24,7 @@ from app.schemas.item import (
     SellerMatchReview,
     WorksheetImportResult,
 )
-from app.services.canonical import CATEGORY_BRANDS
+from app.services.canonical import CATEGORY_BRANDS, canonicalize_category
 from app.services.zpl import generate_zpl, send_to_printer
 
 router = APIRouter(prefix="/items", tags=["items"])
@@ -118,11 +118,12 @@ def list_brands(
 
     Used by the POS/intake brand typeahead to suggest close alternatives; the
     intake form passes the selected category so only category-appropriate
-    brands are offered (case-insensitive match on the stored category).
-    """
+    brands are offered (canonicalized, then case-insensitive match on the
+    stored category — legacy pre-rename spellings normalize first)."""
     event = db.query(Event).filter(Event.is_active == True).first()
     if not event:
         raise HTTPException(status_code=503, detail="No active event configured")
+    category = canonicalize_category(category) or ""
     query = (
         db.query(Item.brand)
         .join(Intake)

@@ -5,12 +5,21 @@ typed with any capitalization ("skis", "ALPINE SKI") normalizes to the canonical
 casing instead of creating near-duplicate values ("skis" vs "Skis"). Unknown
 values are never rejected — they are stored as typed — but known values are
 snapped to canonical casing so category→type filtering and reports stay clean.
+
+Category renames (event feedback #11, 2026-11-24): the "Ski" prefix was dropped
+from the display vocabulary — Ski Boots→Boots, Ski Poles→Poles, Ski Jacket→
+Jacket, Ski Pants→Pants, Ski→Skis (the plural covers both). The LEGACY_CATEGORY
+ALIASES map below keeps old spellings normalize cleanly: a value typed with the
+old name (old worksheet, stale UI, hand-edited cell) still snaps to the renamed
+canonical entry, and pre-removal rows are rewritten by the bootstrap repair.
+Subtype item types with a Ski prefix ("Classic Ski", "Skate Ski", "Roller Ski")
+are item TYPE vocabulary — distinct from category names — and stay unchanged.
 """
 
 CATEGORIES: list[str] = [
     "Skis",
-    "Ski Boots",
-    "Ski Poles",
+    "Boots",
+    "Poles",
     "Snowboard",
     "Snowboard Boots",
     "Bindings",
@@ -18,6 +27,16 @@ CATEGORIES: list[str] = [
     "Clothing",
     "Other",
 ]
+
+#: Old spellings that must continue to normalize after the #11 rename.
+#: Key: typed value (canonical casing of the old name); value: current entry.
+LEGACY_CATEGORY_ALIASES: dict[str, str] = {
+    "Ski Boots": "Boots",
+    "Ski Poles": "Poles",
+    "Ski Jacket": "Jacket",
+    "Ski Pants": "Pants",
+    "Ski": "Skis",
+}
 
 ITEM_TYPES: list[str] = [
     "Alpine Ski",
@@ -50,8 +69,8 @@ ITEM_TYPES: list[str] = [
 #: full type list at query time.
 CATEGORY_TYPES: dict[str, list[str]] = {
     "Skis": ["Classic", "Skate", "Combi", "Other"],
-    "Ski Boots": ["Classic", "Skate", "Combi", "Touring", "Other"],
-    "Ski Poles": ["Ski Pole"],
+    "Boots": ["Classic", "Skate", "Combi", "Touring", "Other"],
+    "Poles": ["Ski Pole"],
     "Snowboard": ["Snowboard"],
     "Snowboard Boots": ["Snowboard Boot"],
     "Helmet": ["Helmet"],
@@ -82,7 +101,7 @@ CATEGORY_BRANDS: dict[str, list[str]] = {
         "Salomon",
         "Yoko",
     ],
-    "Ski Poles": [
+    "Poles": [
         "4KAAD",
         "KV+",
         "Leki",
@@ -93,7 +112,7 @@ CATEGORY_BRANDS: dict[str, list[str]] = {
         "Swix",
         "Yoko",
     ],
-    "Ski Boots": [
+    "Boots": [
         "Alpina",
         "Atomic",
         "Fischer",
@@ -124,13 +143,24 @@ def canonical_of(value: str, vocab: list[str]) -> str | None:
 
 
 def canonicalize_category(value: str | None) -> str | None:
-    """Case-insensitively normalize a category; unknown values pass through as typed."""
+    """Case-insensitively normalize a category; unknown values pass through as typed.
+
+    Legacy pre-rename spellings ("Ski Boots", "Ski Jacket", …) snap to their
+    renamed canonical entries via LEGACY_CATEGORY_ALIASES (event feedback #11)."""
     if value is None:
         return None
     text = str(value).strip()
     if not text:
         return None
-    return canonical_of(text, CATEGORIES) or text
+    canonical = canonical_of(text, CATEGORIES)
+    if canonical:
+        return canonical
+    # Exact (case-insensitive) legacy alias hit → renamed entry.
+    probe = text.lower()
+    for old, current in LEGACY_CATEGORY_ALIASES.items():
+        if old.lower() == probe:
+            return current
+    return text
 
 
 def canonicalize_type(value: str | None) -> str | None:
