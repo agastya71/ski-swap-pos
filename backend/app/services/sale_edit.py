@@ -104,11 +104,18 @@ def load_editable_sale(db: Session, event: Event, sale_id: int, current_user: Us
     """Load the sale from the active event, guarded per the editing contract.
 
     Raises: 404 (unknown sale / wrong event), 409 (voided sales are immutable),
-    403 (non-admin must edit only their own sale — D1).
+    403 (non-admin must edit only their own sale — D1). Unfinalized
+    reservations (issue #12) are not editable either — they only move via
+    checkout adoption or void.
     """
     sale = _load_sale(db, event, sale_id)
     if sale.is_voided:  # pyright: ignore[reportGeneralTypeIssues]
         raise HTTPException(status_code=409, detail="Sale already voided")
+    if not sale.is_finalized:  # pyright: ignore[reportGeneralTypeIssues]
+        raise HTTPException(
+            status_code=409,
+            detail="Reserved transaction not yet finalized",
+        )
     _check_ownership(sale, current_user)
     return sale
 

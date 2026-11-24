@@ -29,6 +29,7 @@ class SaleCreate(BaseModel):
     check_number: Optional[str] = Field(default=None, description="Check number for the check tender, if applicable.")
     cc_amount: float = Field(default=0.0, description="Amount tendered by the buyer by credit/debit card.")
     cc_transaction_id: Optional[str] = Field(default=None, description="Card transaction/reference id when available (e.g., from a payment terminal); optional — manual credit-card tender does not require one.")
+    transaction_id: Optional[int] = Field(default=None, description="ID of a previously reserved transaction (POST /sales/reserve) to adopt at checkout, pinning the display number stamped when the sale started. Omit for the classic single-step flow.")
     items: list[SaleItemCreate] = Field(description="One or more line items included in this sale; must not be empty.")
 
     @field_validator("items")
@@ -88,6 +89,8 @@ class SaleResponse(BaseModel):
     balance_due: float = Field(description="Remaining balance after subtracting total_paid from sale_total (should be 0 for settled transactions).")
     notes: Optional[str] = Field(default=None, description="General cashier notes about the transaction.")
     is_voided: bool = Field(default=False, description="True if this sale has been voided and its items returned to available status.")
+    transaction_number: int = Field(description="Per-event display ID assigned when the sale starts (issue #12). Legacy rows equal the row id; voided numbers are never reused.")
+    is_finalized: bool = Field(default=True, description="True once payment completed (or for legacy rows). False = reserved transaction awaiting checkout; hidden from listings/reports.")
     created_at: datetime.datetime = Field(description="UTC timestamp when the sale record was created.")
     created_by: Optional[str] = Field(default=None, description="Username of the cashier who processed this sale.")
 

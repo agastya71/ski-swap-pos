@@ -19,7 +19,7 @@ from app.schemas.sale import (
     SaleUpdate,
     SaleWithItemsResponse,
 )
-from app.services.checkout import create_sale_atomic
+from app.services.checkout import create_sale_atomic, reserve_transaction
 from app.services import sale_edit as editing
 
 router = APIRouter(prefix="/sales", tags=["sales"])
@@ -47,6 +47,22 @@ def create_sale(
     return create_sale_atomic(db, body, event, current_user.username)  # pyright: ignore[reportArgumentType]
 
 
+@router.post("/reserve", response_model=SaleWithItemsResponse, status_code=201)
+def reserve_sale(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(_CASHIER_ADMIN),
+):
+    """Start a transaction: allocate its display number immediately (issue #12).
+
+    Returns a placeholder sale row (is_finalized=False, no items) whose id
+    and transaction_number the POS shows while the buyer is gathered up. The
+    checkout adopts it via SaleCreate.transaction_id; abandoning it requires
+    the void endpoint, which retires the number permanently (never reused).
+    """
+    event = _active_event(db)
+    return reserve_transaction(db, event, current_user.username)  # pyright: ignore[reportArgumentType]
+
+
 @router.get("", response_model=list[SaleWithItemsResponse])
 def list_sales(
     limit: int = 50,
@@ -59,7 +75,8 @@ def list_sales(
     """Admin: list the active event's sales, newest first, for the
     transactions page. Paginated; ``created_by`` filters per cashier;
     voided sales are excluded unless ``include_voided`` is set (they stay
-    flagged in every response via ``is_voided``)."""
+    flagged in every response via ``is_voided``). Unfinalized reservations
+    (issue #12 drafts) are never listed."""
     event = _active_event(db)
     query = (
         db.query(Sale)
@@ -71,6 +88,7 @@ def list_sales(
         query = query.filter(Sale.created_by == created_by)
     if not include_voided:
         query = query.filter(Sale.is_voided == False)  # noqa: E712
+    query = query.filter(Sale.is_finalized == True)  # noqa: E712 — drafts never listed
     return query.limit(limit).offset(offset).all()
 
 
@@ -91,6 +109,7 @@ def get_my_sales(
         .filter(
             Sale.event_id == event.id,
             Sale.created_by == current_user.username,
+            Sale.is_finalized == True,  # noqa: E712 — drafts never listed
         )
         .options(joinedload(Sale.sale_items))
         .order_by(Sale.id.desc())
@@ -105,7 +124,9 @@ def get_sale(
     db: Session = Depends(get_db),
     _user: User = Depends(_CASHIER_ADMIN),
 ):
-    """Return details and line items for a single sale."""
+    """Return details and line items for a single sale. Unfinalized
+    reservations are visible here (the POS polls the row it reserved —
+    issue #12) but not via the listing endpoints."""
     event = _active_event(db)
     sale = db.query(Sale).filter(Sale.id == sale_id, Sale.event_id == event.id).first()
     if not sale:
@@ -119,7 +140,11 @@ def void_sale(
     db: Session = Depends(get_db),
     _user: User = Depends(_ADMIN_ONLY),
 ):
-    """Void a sale and restore all its items' remaining units."""
+    """Void a sale and restore all its items' remaining units.
+
+    Also the abandonment path for unfinalized reservations (issue #12):
+    voiding a draft retires its transaction_number permanently — numbers
+    are never reused."""
     event = _active_event(db)
     sale = db.query(Sale).filter(Sale.id == sale_id, Sale.event_id == event.id).first()
     if not sale:

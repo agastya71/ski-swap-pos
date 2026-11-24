@@ -494,6 +494,10 @@ export interface SaleItemCreate {
 export interface SaleCreate {
  /** Items included in this sale. */
  items: SaleItemCreate[];
+ /** Adopt a previously reserved transaction (issue #12): checkout finalizes
+  *  that row instead of creating a new one, keeping the display ID the
+  *  cashier quoted when the sale started. Omit for direct checkout. */
+ transaction_id?: number;
  /** Amount tendered in cash (dollars). */
  cash_amount?: number;
  /** Amount tendered by check (dollars). */
@@ -576,6 +580,12 @@ export interface SaleWithItemsResponse {
  notes: string | null;
  /** Whether this sale has been voided. */
  is_voided: boolean;
+ /** Per-event display ID shown to the cashier (issue #12). Legacy rows equal
+  *  the row id; null when the row was created outside reserve/checkout. */
+ transaction_number: number | null;
+ /** True once payment completed (or for legacy rows). False = reserved
+  *  transaction awaiting checkout; hidden from listings/reports. */
+ is_finalized: boolean;
  /** ISO 8601 timestamp when this sale was created. */
  created_at: string;
  /** Username of the cashier who created this sale; null if not recorded. */

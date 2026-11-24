@@ -847,3 +847,199 @@ def test_checkout_exempt_codes_case_insensitive_and_absent_list(client, db, cash
     data = resp2.json()
     assert data["mysl_total"] == 0.00
     assert data["seller_total"] == 10.00
+
+
+# ── Transaction ID at sale start (issue #12) ─────────────────────────────────
+
+
+def test_reserve_allocates_transaction_number(client, active_event, admin_token):
+    """POST /sales/reserve pins the display number immediately: a draft row
+    with a transaction_number, no items, is_finalized=False, zero totals."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    r = client.post("/sales/reserve", headers=headers)
+    assert r.status_code == 201
+    body = r.json()
+    assert body["is_finalized"] is False
+    assert body["is_voided"] is False
+    assert body["transaction_number"] >= 1
+    assert body["sale_items"] == []
+    assert body["sale_total"] == 0.0
+    # First-ever reservation: number matches the row id.
+    assert body["transaction_number"] == body["id"]
+
+
+def test_reserve_numbers_increment_and_adopt_preserves_id(
+    client, active_event, admin_token, db
+):
+    """Checkouts adopt the reservation: same id, same transaction_number,
+    items attached, finalized. Two reservations get distinct numbers."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json=valid_seller_create(first_name="R", last_name="Twelve"), headers=headers)
+    intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
+    item = client.post(
+        f"/intakes/{intake_r.json()['id']}/items",
+        json={"description": "Reservation poles", "brand": "Swix", "price": 25.0},
+        headers=headers,
+    ).json()
+
+    r1 = client.post("/sales/reserve", headers=headers).json()
+    r2 = client.post("/sales/reserve", headers=headers).json()
+    assert r2["transaction_number"] > r1["transaction_number"]
+    assert r2["id"] > r1["id"]
+
+    checkout = client.post(
+        "/sales",
+        json={
+            "transaction_id": r1["id"],
+            "items": [{"item_id": item["id"], "quantity": 1}],
+            "cash_amount": 25.0,
+        },
+        headers=headers,
+    )
+    assert checkout.status_code == 201
+    body = checkout.json()
+    assert body["id"] == r1["id"]
+    assert body["transaction_number"] == r1["transaction_number"]
+    assert body["is_finalized"] is True
+    assert len(body["sale_items"]) == 1
+    assert body["sale_total"] == 25.0
+
+
+def test_checkout_with_unknown_or_spent_reservation_409(
+    client, active_event, admin_token, db
+):
+    """transaction_id that doesn't exist, is finalized, or voided → 409."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json=valid_seller_create(first_name="S", last_name="Gone"), headers=headers)
+    intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
+    item = client.post(
+        f"/intakes/{intake_r.json()['id']}/items",
+        json={"description": "409 skis", "brand": "Fischer", "price": 100.0},
+        headers=headers,
+    ).json()
+    payload = {
+        "items": [{"item_id": item["id"], "quantity": 1}],
+        "cash_amount": 100.0,
+    }
+
+    # Unknown id.
+    r = client.post("/sales", json={**payload, "transaction_id": 999999}, headers=headers)
+    assert r.status_code == 409
+
+    # A finalized reservation cannot be adopted twice (second attempt uses a
+    # different available item, so the 409 is the reservation guard acting —
+    # not the duplicate-item 422).
+    item2 = client.post(
+        f"/intakes/{intake_r.json()['id']}/items",
+        json={"description": "409 second skis", "brand": "Atomic", "price": 60.0},
+        headers=headers,
+    ).json()
+    r1 = client.post("/sales/reserve", headers=headers).json()
+    first = client.post("/sales", json={**payload, "transaction_id": r1["id"]}, headers=headers)
+    assert first.status_code == 201
+    again = client.post(
+        "/sales",
+        json={
+            "transaction_id": r1["id"],
+            "items": [{"item_id": item2["id"], "quantity": 1}],
+            "cash_amount": 60.0,
+        },
+        headers=headers,
+    )
+    assert again.status_code == 409
+
+    # A voided reservation cannot be adopted (second item again, so the 409
+    # is the reservation guard — the first item got sold in the adopt above).
+    r2 = client.post("/sales/reserve", headers=headers).json()
+    void_r = client.post(f"/sales/{r2['id']}/void", headers=headers)
+    assert void_r.status_code == 200
+    spent = client.post(
+        "/sales",
+        json={
+            "transaction_id": r2["id"],
+            "items": [{"item_id": item2["id"], "quantity": 1}],
+            "cash_amount": 60.0,
+        },
+        headers=headers,
+    )
+    assert spent.status_code == 409
+
+
+def test_draft_reservations_hidden_from_listings(
+    client, active_event, admin_token, db
+):
+    """is_finalized=False rows never appear in /sales or /sales/mine, and
+    they don't affect the visible-sale assertions of neighbors. Voided
+    drafts remain excluded (default include_voided=False)."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    before = client.get("/sales/mine", headers=headers).json()
+    draft1 = client.post("/sales/reserve", headers=headers).json()
+    draft2 = client.post("/sales/reserve", headers=headers).json()
+
+    mine = client.get("/sales/mine", headers=headers)
+    assert mine.status_code == 200
+    assert [s["id"] for s in mine.json()] == [s["id"] for s in before]
+
+    listing = client.get("/sales", headers=headers)
+    assert listing.status_code == 200
+    listed_ids = {s["id"] for s in listing.json()}
+    assert draft1["id"] not in listed_ids
+    assert draft2["id"] not in listed_ids
+
+    # Draft is addressable by id (the POS polls it) and visible to sale_edit
+    # only as 409-not-editable.
+    detail = client.get(f"/sales/{draft1['id']}", headers=headers)
+    assert detail.status_code == 200
+    assert detail.json()["is_finalized"] is False
+    edit_attempt = client.patch(
+        f"/sales/{draft1['id']}",
+        json={"customer_name": "Nope"},
+        headers=headers,
+    )
+    assert edit_attempt.status_code == 409
+
+    # Abandonment voids a draft; voided draft still absent from listings,
+    # number retired (never handed out again).
+    voided = client.post(f"/sales/{draft2['id']}/void", headers=headers)
+    assert voided.status_code == 200
+    listing_after = client.get("/sales", headers=headers).json()
+    assert draft2["id"] not in {s["id"] for s in listing_after}
+
+    seller_r = client.post("/sellers", json=valid_seller_create(first_name="N", last_name="Reuse"), headers=headers)
+    intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
+    item = client.post(
+        f"/intakes/{intake_r.json()['id']}/items",
+        json={"description": "Reuse skis", "brand": "Atomic", "price": 12.0},
+        headers=headers,
+    ).json()
+    checkout = client.post(
+        "/sales",
+        json={"items": [{"item_id": item["id"], "quantity": 1}], "cash_amount": 12.0},
+        headers=headers,
+    )
+    assert checkout.status_code == 201
+    assert checkout.json()["transaction_number"] > draft2["transaction_number"]
+
+
+def test_reports_exclude_unfinalized_reservations(client, active_event, admin_token, db):
+    """Reports read finalized sales only: a floating reservation must not
+    inflate revenue or count lines (get_event_revenue filters is_finalized)."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    seller_r = client.post("/sellers", json=valid_seller_create(first_name="C", last_name="Lean"), headers=headers)
+    intake_r = client.post("/intakes", json={"seller_id": seller_r.json()["id"]}, headers=headers)
+    item = client.post(
+        f"/intakes/{intake_r.json()['id']}/items",
+        json={"description": "Clean helmet", "brand": "Smith", "price": 40.0},
+        headers=headers,
+    ).json()
+    sold = client.post(
+        "/sales",
+        json={"items": [{"item_id": item["id"], "quantity": 1}], "cash_amount": 40.0},
+        headers=headers,
+    ).json()
+    client.post("/sales/reserve", headers=headers)
+
+    r = client.get(f"/reports/{active_event.id}/revenue", headers=headers)
+    assert r.status_code == 200
+    rev = r.json()
+    assert rev["gross_revenue"] == sold["sale_total"] == 40.0

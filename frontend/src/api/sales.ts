@@ -14,6 +14,19 @@ import type {
 } from "../types";
 
 /**
+ * Start a transaction: allocates its per-event display number immediately
+ * (event feedback #12). Returns a placeholder sale (is_finalized=false, no
+ * items) that the checkout adopts via SaleCreate.transaction_id, so the ID
+ * the cashier quotes stays. An abandoned reservation must be voided — its
+ * number is retired and never reused.
+ *
+ * @returns The reserved SaleWithItemsResponse (placeholder row).
+ * @throws {ApiError} 401 if the session token is invalid.
+ */
+export const reserveSale = () =>
+ apiFetch<SaleWithItemsResponse>("/sales/reserve", { method: "POST" });
+
+/**
  * Create a new sale transaction.
  * Marks all included items as sold and calculates commission splits.
  *

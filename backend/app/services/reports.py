@@ -644,6 +644,9 @@ def get_event_revenue(db: Session, event_id: int) -> EventRevenueReport:
     )
     non_voided = [s for s in all_sales if not s.is_voided]  # pyright: ignore[reportGeneralTypeIssues]
     voided = [s for s in all_sales if s.is_voided]  # pyright: ignore[reportGeneralTypeIssues]
+    # Issue #12: unfinalized reservations never count in reports.
+    non_voided = [s for s in non_voided if s.is_finalized]  # pyright: ignore[reportGeneralTypeIssues]
+    voided = [s for s in voided if s.is_finalized]  # pyright: ignore[reportGeneralTypeIssues]
 
     exempt_codes = _exempt_seller_codes(event)
 
@@ -889,7 +892,10 @@ def get_transactions_by_user(db: Session, event_id: int) -> TransactionsByUserRe
     event = _get_event_or_404(db, event_id)
     sales = (
         db.query(Sale)
-        .filter(Sale.event_id == event_id)
+        .filter(
+            Sale.event_id == event_id,  # pyright: ignore[reportArgumentType]
+            Sale.is_finalized.is_(True),  # pyright: ignore[reportAttributeAccessIssue] — drafts (issue #12) never reported
+        )
         .options(joinedload(Sale.sale_items))
         .all()
     )
@@ -963,6 +969,7 @@ def get_check_transactions(db: Session, event_id: int) -> CheckTransactionsRepor
         .filter(
             Sale.event_id == event_id,  # pyright: ignore[reportArgumentType]
             Sale.is_voided.is_(False),  # pyright: ignore[reportAttributeAccessIssue]
+            Sale.is_finalized.is_(True),  # pyright: ignore[reportAttributeAccessIssue] — drafts (issue #12) never reported
             Sale.check_amount > 0,  # pyright: ignore[reportAttributeAccessIssue,reportOperatorIssue]
         )
         .order_by(Sale.date_of_sale.desc().nullslast(), Sale.id.desc())  # pyright: ignore[reportAttributeAccessIssue,reportCallIssue]

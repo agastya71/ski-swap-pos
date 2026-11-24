@@ -104,6 +104,48 @@ def _exempt_codes_for_event(event: Event) -> frozenset[str]:
     )
 
 
+def next_transaction_number(db: Session, event: Event) -> int:
+    """Next per-event transaction display number (issue #12).
+
+    MAX + 1 within the event, under the unique (event_id,
+    transaction_number) index. Cancelled/voided sales keep their number —
+    the sequence only ever advances, so IDs are never reused. Called inside
+    the reservation/finalize DB transaction; a IntegrityError from a
+    concurrent reservation rejects the request and the client retries.
+    """
+    highest = (
+        db.query(Sale.transaction_number)  # pyright: ignore[reportAttributeAccessIssue]
+        .filter(Sale.event_id == event.id)  # pyright: ignore[reportGeneralTypeIssues]
+        .order_by(Sale.transaction_number.desc())  # pyright: ignore[reportAttributeAccessIssue]
+        .first()
+    )
+    return (highest[0] if highest else 0) + 1
+
+
+def reserve_transaction(db: Session, event: Event, username: str) -> Sale:
+    """Start a transaction: stamp the next display ID immediately (issue #12).
+
+    Creates a placeholder sale row (is_finalized=False, no items) purely to
+    pin the display number from the moment the sale starts; the actual
+    checkout adopts the row and finalizes it. If the cashier abandons the
+    transaction (leaves the POS screen without buying), the reservation must
+    be cancelled — POST /sales/{id}/void on the reservation — which voids it
+    and permanently retires the number (never reused).
+    """
+    sale = Sale(
+        event_id=event.id,
+        date_of_sale=datetime.now(timezone.utc),
+        transaction_number=next_transaction_number(db, event),
+        is_voided=False,
+        is_finalized=False,
+        created_by=username,
+    )
+    db.add(sale)
+    db.commit()
+    db.refresh(sale)
+    return sale
+
+
 def create_sale_atomic(
     db: Session, payload: SaleCreate, event: Event, username: str
 ) -> Sale:
@@ -164,7 +206,29 @@ def create_sale_atomic(
             )
         items_and_intakes.append((line, item, item.intake))
 
-    # Create sale row
+    # Create sale row. transaction_number comes from an adopted reservation
+    # (payload.transaction_id) when the POS started the transaction first —
+    # the display ID was already stamped at that point and must not change;
+    # otherwise the next number is allocated here (walk-up single-step flow).
+    adopted: Sale | None = None
+    if payload.transaction_id is not None:
+        adopted = (
+            db.query(Sale)
+            .filter(
+                Sale.id == payload.transaction_id,  # pyright: ignore[reportGeneralTypeIssues]
+                Sale.event_id == event.id,  # pyright: ignore[reportGeneralTypeIssues]
+                Sale.is_finalized == False,  # noqa: E712 — draft reservation only
+                Sale.is_voided == False,  # noqa: E712
+            )
+            .with_for_update()
+            .first()
+        )
+        if not adopted:
+            raise HTTPException(
+                status_code=409,
+                detail="Reserved transaction not found, already completed, or cancelled",
+            )
+
     sale = Sale(
         event_id=event.id,
         date_of_sale=datetime.now(timezone.utc),
@@ -178,6 +242,29 @@ def create_sale_atomic(
         cc_transaction_id=payload.cc_transaction_id,
         created_by=username,
     )
+    if adopted is not None:
+        # Issue #12: the checkout adopts the reservation row created when the
+        # sale STARTED, so the display number (and row id) the cashier has
+        # been quoting all along stays. All checkout data is copied onto it.
+        # (pyright ignores: Column-attribute assignment idiom, same class as
+        # the file's pre-existing baseline — see 2026-11-24 disposition.)
+        adopted.date_of_sale = datetime.now(timezone.utc)  # pyright: ignore[reportAttributeAccessIssue]
+        adopted.customer_name = payload.customer_name  # pyright: ignore[reportAttributeAccessIssue]
+        adopted.customer_email = payload.customer_email  # pyright: ignore[reportAttributeAccessIssue]
+        adopted.notes = payload.notes  # pyright: ignore[reportAttributeAccessIssue]
+        adopted.cash_amount = payload.cash_amount  # pyright: ignore[reportAttributeAccessIssue]
+        adopted.check_amount = payload.check_amount  # pyright: ignore[reportAttributeAccessIssue]
+        adopted.check_number = payload.check_number  # pyright: ignore[reportAttributeAccessIssue]
+        adopted.cc_amount = payload.cc_amount  # pyright: ignore[reportAttributeAccessIssue]
+        adopted.cc_transaction_id = payload.cc_transaction_id  # pyright: ignore[reportAttributeAccessIssue]
+        adopted.created_by = username  # pyright: ignore[reportAttributeAccessIssue]
+        adopted.is_finalized = True  # pyright: ignore[reportAttributeAccessIssue]  # pyright: ignore[reportAttributeAccessIssue]
+        sale = adopted
+    else:
+        sale.transaction_number = next_transaction_number(  # pyright: ignore[reportAttributeAccessIssue]
+            db, event
+        )
+        sale.is_finalized = True  # pyright: ignore[reportAttributeAccessIssue]
     db.add(sale)
     db.flush()  # get sale.id without committing
 
