@@ -85,9 +85,9 @@ These elections pre-fill new items and drive the end-of-event reports. They can 
 
 Use the **Add Item** form. Fields adapt as you go:
 
-- **Category** — e.g. Skis, Ski Boots, Ski Poles, Snowboard, Helmet, Clothing. Required.
-- **Type** — narrows to the category: Skis offers Classic / Skate / Combi / Other; Ski Boots offers Classic / Skate / Combi / Touring / Other; Clothing offers Base Layer Bottom / Base Layer Top / Gloves / Hat / Head band / Jacket / Ski Pants / Ski suit (+ Other).
-- **Brand** — a typeahead suggests known brands for the category (for Skis: Atomic, Fischer, Karhu, Kastle, Madshus, Peltonen, Rossignol, Salomon, Yoko; for Ski Poles: 4KAAD, KV+, Leki, Madshus, One Way, Rossignol, Salomon, Swix, Yoko; for Ski Boots: Alpina, Atomic, Fischer, Madshus, Rossignol, Salomon; for Clothing: Daehlie, Swix, Craft, KV+, Patagonia) plus every brand already used in the event. Custom brands can still be typed.
+- **Category** — e.g. Skis, Boots, Poles, Snowboard, Helmet, Clothing. Required. (Formerly "Ski Boots"/"Ski Poles"/“Ski" — renamed without the Ski prefix in 2026.)
+- **Type** — narrows to the category: Skis offers Classic / Skate / Combi / Other; Boots offers Classic / Skate / Combi / Touring / Other; Clothing offers Base Layer Bottom / Base Layer Top / Gloves / Hat / Head band / Jacket / Ski Pants / Ski suit (+ Other).
+- **Brand** — a typeahead suggests known brands for the category (for Skis: Atomic, Fischer, Karhu, Kastle, Madshus, Peltonen, Rossignol, Salomon, Yoko; for Poles: 4KAAD, KV+, Leki, Madshus, One Way, Rossignol, Salomon, Swix, Yoko; for Boots: Alpina, Atomic, Fischer, Madshus, Rossignol, Salomon; for Clothing: Daehlie, Swix, Craft, KV+, Patagonia) plus every brand already used in the event. Custom brands can still be typed.
 - **Size** — a dropdown with sizes appropriate to the type (cm lengths for skis, mondo for boots, letter sizes for clothing); types without a known size list use a free-text field.
 - **Price** — whole dollars, rounded up automatically.
 - **Quantity** — how many identical units this row covers (each unit gets its own tag at checkout of the label printer).

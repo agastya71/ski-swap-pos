@@ -593,7 +593,7 @@ export const handlers = [
                                 },
                                 {
                                         item_code: "A001-2",
-                                        category: "Ski Boots",
+                                        category: "Boots",
                                         brand: "Alpina",
                                         description: "Boots",
                                         size: "EU 42",
@@ -673,7 +673,7 @@ export const handlers = [
                                                 },
                                                 {
                                                         item_code: "A001-2",
-                                                        category: "Ski Boots",
+                                                        category: "Boots",
                                                         brand: "Alpina",
                                                         description: "Boots",
                                                         size: "EU 42",

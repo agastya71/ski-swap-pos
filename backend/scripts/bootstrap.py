@@ -50,6 +50,24 @@ def _repairs(db_path: str) -> int:
             "WHERE date_of_sale IS NOT NULL AND typeof(date_of_sale) != 'text'"
         ).rowcount
 
+        # Category rename (event feedback #11, 2026-11-24): "Ski"-prefixed
+        # display categories become the stripped names. Idempotent — after
+        # the first pass no row matches. 'Classic Ski'/'Skate Ski'/'Roller
+        # Ski' are item TYPE vocabulary and are NOT touched here.
+        n_cat = 0
+        for old, new in (
+            ("Ski Boots", "Boots"),
+            ("Ski Poles", "Poles"),
+            ("Ski Jacket", "Jacket"),
+            ("Ski Pants", "Pants"),
+        ):
+            n_cat += con.execute(
+                "UPDATE item SET category = ? WHERE category = ?", (new, old)
+            ).rowcount
+        n_cat += con.execute(
+            "UPDATE item SET category = 'Skis' WHERE category = 'Ski'"
+        ).rowcount
+
         n_rem = 0
         if has_remaining:
             con.execute(
@@ -70,7 +88,7 @@ def _repairs(db_path: str) -> int:
             )
             n_rem = cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
         con.commit()
-        repaired = (n or 0) + (n_rem or 0)
+        repaired = (n or 0) + (n_rem or 0) + (n_cat or 0)
         if repaired:
             print(f"      Repaired {repaired} row(s) in {os.path.basename(db_path)}")
         return repaired

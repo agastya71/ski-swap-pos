@@ -635,48 +635,52 @@ def test_import_template_nonvendor_layout(client, admin_token):
         assert absent not in header
 
 
-def test_brands_catalog_offered_for_ski_poles_even_with_no_items(client, admin_token, active_event):
-    """The curated Ski Poles catalog is offered even before any item uses the brand."""
-    r = client.get("/items/brands?category=Ski Poles", headers={"Authorization": f"Bearer {admin_token}"})
+def test_brands_catalog_offered_for_poles_even_with_no_items(client, admin_token, active_event):
+    """The curated Poles catalog (renamed from Ski Poles, #11) is offered even
+    before any item uses the brand."""
+    r = client.get("/items/brands?category=Poles", headers={"Authorization": f"Bearer {admin_token}"})
     assert r.status_code == 200
     assert r.json() == ["4KAAD", "KV+", "Leki", "Madshus", "One Way",
                         "Rossignol", "Salomon", "Swix", "Yoko"]
 
 
-def test_brands_ski_poles_dedupes_case_insensitive_db_brands(client, admin_token, active_event, db, seller, intake):
+def test_brands_poles_dedupes_case_insensitive_db_brands(client, admin_token, active_event, db, seller, intake):
     """A data brand matching a catalog entry case-insensitively is merged into
-    the catalog casing (no near-duplicate suggestions)."""
+    the catalog casing (no near-duplicate suggestions). A legacy "Ski Poles"
+    data row matches the renamed category via the backend list_brands
+    canonicalization (the catalog merge path normalizes first)."""
     from app.models.item import Item
     it = Item(intake_id=intake.id, seller_id=seller.id, code="TST-011", price=10.0,
               category="Ski Poles", brand="SWIX", quantity=1.0, remaining=1.0,
               status="available", label_printed=False, created_by="admin")
     db.add(it)
     db.commit()
-    r = client.get("/items/brands?category=Ski Poles", headers={"Authorization": f"Bearer {admin_token}"})
+    r = client.get("/items/brands?category=Poles", headers={"Authorization": f"Bearer {admin_token}"})
     brands = r.json()
     assert brands.count("Swix") == 1
     assert "SWIX" not in brands
 
 
-def test_brands_skis_catalog_does_not_leak_into_ski_poles(client, admin_token, active_event):
-    """The Skis catalog brands (e.g. Atomic) are not offered for Ski Poles."""
-    r = client.get("/items/brands?category=Ski Poles", headers={"Authorization": f"Bearer {admin_token}"})
+def test_brands_skis_catalog_does_not_leak_into_poles(client, admin_token, active_event):
+    """The Skis catalog brands (e.g. Atomic) are not offered for Poles."""
+    r = client.get("/items/brands?category=Poles", headers={"Authorization": f"Bearer {admin_token}"})
     brands = r.json()
     assert "Atomic" not in brands
     assert "Fischer" not in brands
 
 
-def test_brands_catalog_offered_for_ski_boots_even_with_no_items(client, admin_token, active_event):
-    """The curated Ski Boots catalog is offered even before any item uses the brand."""
-    r = client.get("/items/brands?category=Ski Boots", headers={"Authorization": f"Bearer {admin_token}"})
+def test_brands_catalog_offered_for_boots_even_with_no_items(client, admin_token, active_event):
+    """The curated Boots catalog (renamed from Ski Boots, #11) is offered even
+    before any item uses the brand."""
+    r = client.get("/items/brands?category=Boots", headers={"Authorization": f"Bearer {admin_token}"})
     assert r.status_code == 200
     assert r.json() == ["Alpina", "Atomic", "Fischer", "Madshus", "Rossignol", "Salomon"]
 
 
 def test_brands_ski_boots_does_not_leak_skis_only_brands(client, admin_token, active_event):
     """The Skis-only catalog brands (Karhu, Kastle, Peltonen, Yoko) are not
-    offered for Ski Boots."""
-    r = client.get("/items/brands?category=Ski Boots", headers={"Authorization": f"Bearer {admin_token}"})
+    offered for Boots."""
+    r = client.get("/items/brands?category=Boots", headers={"Authorization": f"Bearer {admin_token}"})
     brands = r.json()
     for brand in ("Karhu", "Kastle", "Peltonen", "Yoko", "4KAAD", "KV+", "Swix"):
         assert brand not in brands
@@ -1532,3 +1536,106 @@ def test_import_worksheet_returns_row_errors_and_warnings(client, active_event, 
     assert body["skipped"] == 1
     assert "Invalid Price value" in body["errors"][0]["reason"]
     assert body["warnings"] == []
+
+
+# ── Category rename (event feedback #11): legacy aliases + bootstrap repair ──
+
+
+def test_canonicalize_category_maps_legacy_ski_prefixes():
+    """Pre-rename spellings snap to the renamed canonical entries; current
+    names and unknown values pass through unchanged."""
+    from app.services.canonical import canonicalize_category
+
+    assert canonicalize_category("Ski Boots") == "Boots"
+    assert canonicalize_category("ski poles") == "Poles"
+    assert canonicalize_category("SKI JACKET") == "Jacket"
+    assert canonicalize_category("Ski Pants") == "Pants"
+    assert canonicalize_category("Ski") == "Skis"
+    # Already-renamed values are their own canonical form.
+    assert canonicalize_category("Boots") == "Boots"
+    assert canonicalize_category("SKIS") == "Skis"
+    # Unknown spellings are never rejected.
+    assert canonicalize_category("Roller Ski") == "Roller Ski"
+    assert canonicalize_category(None) is None
+
+
+def test_import_row_with_legacy_category_snaps_to_renamed(client, active_event, admin_token, db):
+    """A bulk-import row typed with the pre-rename category stores the renamed
+    value — no near-duplicate categories after the rename."""
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    rows = [
+        ["LEG-01 boots", "Ski Boots", "Alpina", "Alpine", "", "27", "Men", "", "110.0", "No", "No", "1"],
+        ["LEG-02 jacket", "Ski Jacket", "Patagonia", "Shell", "", "M", "Men", "", "90.0", "No", "No", "1"],
+    ]
+    data = _worksheet_bytes(first="Lars", last="Legacy", item_rows=rows)
+    r = client.post(
+        "/items/import-worksheet",
+        files={"file": ("worksheet.xlsx", data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=headers,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["imported"] == 2
+    # Verify the STORED category values directly on the test event session
+    # (the get_db dependency is overridden with this same session).
+    from app.models.item import Item
+    cats = sorted(
+        item.category
+        for item in db.query(Item).filter(Item.is_deleted.is_(False)).all()
+    )
+    assert cats == ["Boots", "Jacket"]
+
+
+def test_bootstrap_repair_renames_legacy_categories(tmp_path):
+    """The bootstrap repair rewrites pre-rename category values in an event
+    DB, once (idempotent: second pass repairs nothing). 'Ski'-suffixed item
+    TYPE vocabulary (Classic/Skate/Roller Ski, Alpine Ski, Ski Boot…) is NOT
+    touched — only the display category column is."""
+    import sqlite3
+
+    from scripts.bootstrap import _repairs
+    from tests.test_bootstrap_service import _make_event_db  # real-schema event DB builder
+
+    events_dir = tmp_path / "events"
+    events_dir.mkdir(exist_ok=True)
+    ev_path = _make_event_db(events_dir, "Rename Test 2026.db", with_exempt=False)
+    db_path = str(ev_path)
+    con = sqlite3.connect(db_path)
+    con.execute(
+        "INSERT INTO intake (seller_id, donate_unsold, donate_proceeds, created_by) "
+        "VALUES (1, 0, 0, 't')"
+    )
+    con.execute(
+        "INSERT INTO item (intake_id, seller_id, code, category, type, price, quantity, "
+        "remaining, status, label_printed, created_by, is_deleted) "
+        "VALUES (1, 1, 'T90-01', 'Ski Boots', 'Classic', 10, 1, 1, 'available', 0, 't', 0), "
+        "(1, 1, 'T90-02', 'Ski Poles', 'Ski Pole', 5, 1, 1, 'available', 0, 't', 0), "
+        "(1, 1, 'T90-03', 'Ski', 'Alpine Ski', 100, 1, 1, 'available', 0, 't', 0), "
+        "(1, 1, 'T90-04', 'Ski Jacket', 'Jacket', 40, 1, 1, 'available', 0, 't', 0), "
+        "(1, 1, 'T90-05', 'Ski Pants', 'Ski suit', 30, 1, 1, 'available', 0, 't', 0), "
+        "(1, 1, 'T90-06', 'Skis', 'Classic Ski', 90, 1, 1, 'available', 0, 't', 0)"
+    )
+    con.commit()
+    con.close()
+
+    assert _repairs(db_path) == 5
+    con = sqlite3.connect(db_path)
+    cats = dict(con.execute("SELECT code, category FROM item WHERE code LIKE 'T90-%'").fetchall())
+    con.close()
+    assert cats == {
+        "T90-01": "Boots",
+        "T90-02": "Poles",
+        "T90-03": "Skis",
+        "T90-04": "Jacket",
+        "T90-05": "Pants",
+        "T90-06": "Skis",
+    }
+    # Second pass is a no-op for categories (idempotence).
+    con = sqlite3.connect(db_path)
+    before = con.execute("SELECT category, COUNT(*) FROM item WHERE code LIKE 'T90-%' GROUP BY category").fetchall()
+    con.close()
+    con = sqlite3.connect(db_path)
+    _repairs(db_path)
+    after = con.execute("SELECT category, COUNT(*) FROM item WHERE code LIKE 'T90-%' GROUP BY category").fetchall()
+    con.close()
+    assert before == after

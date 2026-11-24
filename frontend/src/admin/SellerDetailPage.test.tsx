@@ -445,7 +445,7 @@ describe("SellerDetailPage", () => {
             vendor_item_id: null, created_at: "2026-04-04T10:00:00",
           },
           {
-            id: 2, intake_id: 2, seller_id: 1, code: "001-02", category: "Ski Boots",
+            id: 2, intake_id: 2, seller_id: 1, code: "001-02", category: "Boots",
             brand: "Alpina", type: null, description: "Alpina boots", color: null,
             size: "EU 42", uom: null, gender_age: null, year: null, used: true,
             price: 40.0, quantity: 1, remaining: 1, barcode_39: "001-02",
