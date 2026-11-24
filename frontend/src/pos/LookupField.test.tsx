@@ -208,7 +208,55 @@ describe('LookupField', () => {
     expect(screen.getByText('A001-009').closest('button')!.textContent).not.toMatch(/left/)
   })
 
-  /** Cart-change focus signal (#1): bumping focusSignal refocuses the scan
+  /** #3 event feedback: the results dropdown renders INLINE below the input
+ *  (in document flow) instead of a position:absolute overlay that covered
+ *  the transaction lines beneath it. */
+it('renders results list inline, not as an absolute overlay over the cart', async () => {
+  server.use(
+    http.get('/items/lookup', () => HttpResponse.json({ detail: 'Not found' }, { status: 404 })),
+    http.get('/items/search', () => HttpResponse.json([FOUND, FOUND2])),
+  )
+  render(<LookupField onFound={vi.fn()} />)
+  enter('A001')
+  await waitFor(() => screen.getByText('A001-001'))
+  const dropdown = screen.getByText(/2 items found/i).parentElement!
+  expect(dropdown.style.position).not.toBe('absolute')
+  expect(dropdown.style.zIndex).toBe('')
+})
+
+/** #2 keyboard nav: Tab with the dropdown open selects the highlighted item
+ *  and returns focus to the scan field (dropdown dismissed, input cleared). */
+it('Tab selects the highlighted dropdown item', async () => {
+  const onFound = vi.fn()
+  server.use(
+    http.get('/items/lookup', () => HttpResponse.json({ detail: 'Not found' }, { status: 404 })),
+    http.get('/items/search', () => HttpResponse.json([FOUND, FOUND2])),
+  )
+  render(<LookupField onFound={onFound} />)
+  enter('A001')
+  await waitFor(() => screen.getByText('A001-001'))
+  fireEvent.keyDown(screen.getByRole('textbox'), { key: 'ArrowDown' })
+  fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Tab', code: 'Tab' })
+  expect(onFound).toHaveBeenCalledWith(FOUND)
+  await waitFor(() => expect(screen.queryByText('A001-001')).not.toBeInTheDocument())
+})
+
+/** #2: Tab with no Arrow highlight falls through to the first available row. */
+it('Tab without highlight selects the first available item', async () => {
+  const onFound = vi.fn()
+  const sold = { ...FOUND, id: 9, code: 'A001-009', remaining: 0, status: 'sold' as const }
+  server.use(
+    http.get('/items/lookup', () => HttpResponse.json({ detail: 'Not found' }, { status: 404 })),
+    http.get('/items/search', () => HttpResponse.json([sold, FOUND2])),
+  )
+  render(<LookupField onFound={onFound} />)
+  enter('A001')
+  await waitFor(() => screen.getByText('A001-002'))
+  fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Tab', code: 'Tab' })
+  expect(onFound).toHaveBeenCalledWith(FOUND2)
+})
+
+/** Cart-change focus signal (#1): bumping focusSignal refocuses the scan
    *  field even when the input never had focus back after a manual click away. */
   it('refocuses the scan field when focusSignal bumps', async () => {
     const { rerender } = render(<LookupField onFound={vi.fn()} />)
