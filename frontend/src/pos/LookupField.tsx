@@ -103,6 +103,22 @@ export function LookupField({ onFound, focusSignal = 0, onError }: { onFound: (i
       return
     }
 
+    // Tab in the scan field (#2 keyboard nav): with an open dropdown, Tab
+    // selects the highlighted (or first available) item and keeps the cashier
+    // on the keyboard — same semantics as Enter-on-highlight. Without a
+    // dropdown, Tab keeps its native move-focus-to-the-cart behaviour.
+    if (e.key === 'Tab' && results && results.length > 0 && value.trim()) {
+      e.preventDefault()
+      const available = results.filter(r => r.remaining > 0)
+      if (available.length === 0) return
+      const target =
+        (highlightedIndex !== null && results[highlightedIndex]?.remaining > 0)
+          ? results[highlightedIndex]
+          : available[0]
+      handleSelectResult(target)
+      return
+    }
+
     if (e.key !== 'Enter' || !value.trim()) return
 
     // Cancel any pending debounced search
@@ -177,7 +193,7 @@ export function LookupField({ onFound, focusSignal = 0, onError }: { onFound: (i
   }
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div>
       <label htmlFor="lookup" style={{ fontWeight: 600, display: 'block', marginBottom: 4, fontSize: 14 }}>
         Scan or enter item code:
       </label>
@@ -197,17 +213,15 @@ export function LookupField({ onFound, focusSignal = 0, onError }: { onFound: (i
         <div role="alert" style={{ marginTop: 6 }}>{error}</div>
       )}
 
+      {/* Results list renders INLINE below the input (#3 event feedback) — the
+          old position:absolute overlay covered the transaction lines beneath
+          it; in document flow nothing is ever hidden, no z-index games. */}
       {results && results.length > 0 && (
         <div style={{
-          position: 'absolute',
-          top: '100%',
-          left: 0,
-          right: 0,
+          marginTop: 6,
           background: '#fff',
           border: '1px solid #e2e8f0',
           borderRadius: 4,
-          boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
-          zIndex: 20,
           maxHeight: 320,
           overflowY: 'auto',
         }}>
