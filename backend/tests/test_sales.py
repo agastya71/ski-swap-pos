@@ -216,35 +216,34 @@ def test_create_sale_payment_split(client, cashier_token, active_event, item):
     assert data["check_number"] == "1234"
     assert data["cc_transaction_id"] == "sq-txn-123"
     assert data["total_paid"] == 20.00
-    # The 3% card fee rides on top of the line totals (see checkout.py): 5.00
-    # charged on the card → fee = round(5 × 3/103, 2) = 0.15, so the sale
-    # settles 0.15 higher than the items alone.
-    assert data["cc_fee"] == 0.15
-    assert data["sale_total"] == 20.15
-    assert data["mysl_total"] == 6.15   # 30% commission 6.00 + card fee 0.15
+    # Card fee removed (event feedback #7): no buyer-paid 3% anymore — the
+    # sale settles at the pure item total regardless of tender.
+    assert data["cc_fee"] == 0.00
+    assert data["sale_total"] == 20.00
+    assert data["mysl_total"] == 6.00   # 30% commission of 20.00, no fee
     assert data["seller_total"] == 14.00
-    assert data["balance_due"] == 0.15
+    assert data["balance_due"] == 0.00
 
 
-def test_create_sale_full_card_paid_includes_fee(client, cashier_token, active_event, item):
-    """All-card sale: the buyer is charged items × 103% (fee included in the
-    terminal charge) — enter that charge and the sale settles exactly."""
+def test_create_sale_full_card_paid_matches_items_total(client, cashier_token, active_event, item):
+    """All-card sale: with the 3% fee removed, the terminal charge equals the
+    item total — buyers are charged exactly what the items cost."""
     resp = client.post(
         "/sales",
         json={
             "items": [{"item_id": item.id}],
-            "cc_amount": 20.60,  # 20.00 items × 1.03
+            "cc_amount": 20.00,  # 20.00 items, no fee on top
             "cc_transaction_id": "sq-txn-777",
         },
         headers={"Authorization": f"Bearer {cashier_token}"},
     )
     assert resp.status_code == 201
     data = resp.json()
-    assert data["cc_fee"] == 0.60          # round(20.60 × 3/103, 2)
-    assert data["sale_total"] == 20.60     # 20.00 items + 0.60 fee
-    assert data["mysl_total"] == 6.60      # 6.00 commission + 0.60 fee
-    assert data["seller_total"] == 14.00   # seller untouched by the fee
-    assert data["total_paid"] == 20.60
+    assert data["cc_fee"] == 0.00          # fee removed, nothing derived
+    assert data["sale_total"] == 20.00
+    assert data["mysl_total"] == 6.00      # 6.00 commission, no fee
+    assert data["seller_total"] == 14.00   # seller untouched
+    assert data["total_paid"] == 20.00
     assert data["balance_due"] == 0.00
 
 
@@ -799,8 +798,7 @@ def _allow_exempt(db, active_event, codes="MYSL2"):
 def test_checkout_exempt_seller_full_price_stamped(client, db, cashier_token, active_event,
                                                    item, exempt_item):
     """MYSL2-style exemption at checkout: exempt line contributes 0 commission
-    and full price to seller_total; regular line commissions normally; with a
-    card tender the fee rides on MYSL's commission-only share."""
+    and full price to seller_total; regular line commissions normally."""
     _allow_exempt(db, active_event)
     resp = client.post(
         "/sales",
@@ -811,13 +809,13 @@ def test_checkout_exempt_seller_full_price_stamped(client, db, cashier_token, ac
     assert resp.status_code == 201
     data = resp.json()
     # 20.00 regular at 30% = 6.00 commission; 10.00 exempt = full payout, 0 cut.
-    # cc_amount 30.00 financed → terminal charge 30.87, fee 0.87 rides on MYSL.
-    assert data["sale_total"] == 30.87
-    assert data["mysl_total"] == 6.87
+    # Card fee removed: 30.00 card tender settles exactly at the item total.
+    assert data["sale_total"] == 30.00
+    assert data["mysl_total"] == 6.00
     assert data["seller_total"] == 24.00
-    assert data["cc_fee"] == 0.87          # 3% of the partial card charge
+    assert data["cc_fee"] == 0.00          # fee removed, nothing derived
     assert data["total_paid"] == 30.00     # tenders as entered
-    assert data["balance_due"] == 0.87     # sale_total + fee − tenders
+    assert data["balance_due"] == 0.00
 
 
 def test_checkout_exempt_codes_case_insensitive_and_absent_list(client, db, cashier_token,

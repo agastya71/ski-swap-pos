@@ -45,7 +45,6 @@ from app.models.sale import Sale
 from app.models.sale_item import SaleItem
 from app.services.auth import hash_password
 from app.services.codes import next_seller_code
-from app.services.checkout import compute_card_fee
 
 BACKEND_DIR = Path(__file__).resolve().parent
 
@@ -501,14 +500,13 @@ try:
                 seller_total += seller_s
 
             sale.sale_total   = round(sale_total, 2)  # pyright: ignore[reportAttributeAccessIssue]
-            # Card sales include the buyer-paid 3% fee (kept by MYSL), exactly
-            # like the checkout service — seed history reconciles the same way.
-            # (pyright ignores below: Column-attribute idiom; the mixed
-            # Column/float arithmetic trips round()'s overload probe only here.)
-            cc_fee = compute_card_fee(cc)
+            # Card fee removed (event feedback #7, 2026-11-24): no buyer-paid
+            # 3% is computed anymore. Historical rows keep their stamped
+            # cc_fee; new seed sales record cc_fee 0.0 for card tenders.
+            cc_fee = 0.0
             sale.cc_fee       = cc_fee  # pyright: ignore[reportAttributeAccessIssue]
-            sale.sale_total   = round(sale.sale_total + cc_fee, 2)  # pyright: ignore[reportAttributeAccessIssue, reportCallIssue, reportArgumentType]
-            sale.mysl_total   = round(mysl_total + cc_fee, 2)  # pyright: ignore[reportAttributeAccessIssue, reportCallIssue, reportArgumentType]
+            sale.sale_total   = round(sale_total, 2)  # pyright: ignore[reportAttributeAccessIssue]
+            sale.mysl_total   = round(mysl_total, 2)  # pyright: ignore[reportAttributeAccessIssue]
             sale.seller_total = round(seller_total, 2)  # pyright: ignore[reportAttributeAccessIssue]
             sale.total_paid   = round(cash + check_amt + cc, 2)
             sale.balance_due  = round(sale.sale_total - sale.total_paid, 2)  # pyright: ignore[reportAttributeAccessIssue, reportCallIssue, reportArgumentType]

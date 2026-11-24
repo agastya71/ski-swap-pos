@@ -307,7 +307,7 @@ export function POSPage() {
               </span>
             )}
             {sale.cc_fee > 0 && (
-              <span>Card fee (3%): ${sale.cc_fee.toFixed(2)} </span>
+              <span>Card fee — historical (3%): ${sale.cc_fee.toFixed(2)} </span>
             )}
           </div>
           <button

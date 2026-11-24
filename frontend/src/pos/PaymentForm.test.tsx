@@ -1,9 +1,10 @@
 /**
  * Tests for {@link PaymentForm} — covers field rendering (cash, check, credit
- * card), cash-only and split submissions with check numbers, the explicit 3%
- * card fee (added to the total whenever a card charge is entered), under-tender
- * validation error, credit-card tender, and the Cancel callback. The Square
- * SDK integration is pending and hidden, so no Square-specific fields appear.
+ * card), cash-only and split submissions with check numbers, plain card tender
+ * (the 3% buyer fee was removed 2026-11-24, event feedback #7 — card charges
+ * are taken at face value), under-tender validation error, and the Cancel
+ * callback. The Square SDK integration is pending and hidden, so no
+ * Square-specific fields appear.
  */
 import { render, screen, fireEvent } from "@testing-library/react";
 import { PaymentForm } from "./PaymentForm";
@@ -67,69 +68,60 @@ describe("PaymentForm", () => {
   });
 
   /** Verifies a credit-card tender is included in the submitted breakdown —
-   *  the card charge carries the buyer's 3% fee, so charging $115.00 of items
-   *  means a $118.45 terminal charge (fee $3.45) covers the total exactly. */
-  it("submits a credit-card payment with the fee-inclusive charge", () => {
+   *  with the fee removed, the card charge is taken at face value: a $115.00
+   *  charge on $115.00 of items covers the total exactly. */
+  it("submits a credit-card payment with the plain charge", () => {
     const onSubmit = vi.fn();
     render(<PaymentForm total={115} onSubmit={onSubmit} onCancel={vi.fn()} />);
     fireEvent.change(screen.getByLabelText(/credit card/i), {
-      target: { value: "118.45" },
+      target: { value: "115" },
     });
     fireEvent.click(screen.getByRole("button", { name: /complete sale/i }));
     expect(onSubmit).toHaveBeenCalledWith({
       cash: 0,
       check: 0,
-      credit_card: 118.45,
+      credit_card: 115,
       checkNumber: null,
       notes: null,
     });
   });
 
-  /** Verifies the card fee line + fee-inclusive total appear the moment a card
-   *  charge is entered ($100 of items, $103.00 terminal charge → fee $3.00). */
-  it("shows an explicit card fee line and updates the total", () => {
+  /** Verifies NO card fee line exists anymore (fee removed, #7) and the
+   *  header total stays the plain item subtotal even with a card charge. */
+  it("shows no card fee line and keeps the plain total", () => {
     render(<PaymentForm total={100} onSubmit={vi.fn()} onCancel={vi.fn()} />);
-    // Nothing on card yet → no fee line, total stays at the items subtotal.
-    expect(screen.queryByTestId("card-fee-line")).not.toBeInTheDocument();
-    expect(screen.getByText(/payment — total: \$100\.00/i)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(/credit card/i), {
       target: { value: "103" },
     });
-    const feeLine = screen.getByTestId("card-fee-line");
-    expect(feeLine).toHaveTextContent(/items: \$100\.00/i);
-    expect(feeLine).toHaveTextContent(/card fee \(3%\): \$3\.00/i);
-    expect(feeLine).toHaveTextContent(/buyer total: \$103\.00/i);
-    expect(screen.getByText(/payment — total: \$103\.00/i)).toBeInTheDocument();
+    expect(screen.queryByTestId("card-fee-line")).not.toBeInTheDocument();
+    expect(screen.getByText(/payment — total: \$100\.00/i)).toBeInTheDocument();
   });
 
-  /** Verifies under-tender validation compares against the fee-inclusive total:
-   *  $100 of items with a $100.00 card charge is short the $2.91 fee. */
-  it("shows the short error against the fee-inclusive total", () => {
+  /** Verifies under-tender validation compares against the plain total
+   *  (no fee term since #7): $100 of items, $100 card charge settles fully. */
+  it("accepts an exact card tender against the plain total", () => {
     render(<PaymentForm total={100} onSubmit={vi.fn()} onCancel={vi.fn()} />);
     fireEvent.change(screen.getByLabelText(/credit card/i), {
       target: { value: "100" },
     });
     fireEvent.click(screen.getByRole("button", { name: /complete sale/i }));
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      /less than total \(\$102\.91\)/i,
-    );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  /** Verifies the change-due block uses the fee-inclusive total: $100 of items
-   *  with a $200.00 card charge → fee $5.83, total $105.83, change $94.17. */
-  it("applies the card fee when computing change due", () => {
+  /** Verifies the change-due block uses the plain total (no fee since #7):
+   *  $100 of items with a $200.00 card charge → change $100.00. */
+  it("applies the plain total when computing change due", () => {
     render(<PaymentForm total={100} onSubmit={vi.fn()} onCancel={vi.fn()} />);
     fireEvent.change(screen.getByLabelText(/credit card/i), {
       target: { value: "200" },
     });
     expect(
-      screen.getByText(/change due to buyer: \$94\.17/i),
+      screen.getByText(/change due to buyer: \$100\.00/i),
     ).toBeInTheDocument();
   });
 
   /** Verifies a credit-card tender combines with cash in a split payment —
-   *  the card carries its $1.95 fee for financing the remaining $65.00
-   *  ($66.95 terminal charge) and the split settles exactly. */
+   *  plain amounts, no fee term: $50 cash + $65.00 card covers $115.00. */
   it("submits a split cash + credit-card payment", () => {
     const onSubmit = vi.fn();
     render(<PaymentForm total={115} onSubmit={onSubmit} onCancel={vi.fn()} />);
@@ -137,13 +129,13 @@ describe("PaymentForm", () => {
       target: { value: "50" },
     });
     fireEvent.change(screen.getByLabelText(/credit card/i), {
-      target: { value: "66.95" },
+      target: { value: "65" },
     });
     fireEvent.click(screen.getByRole("button", { name: /complete sale/i }));
     expect(onSubmit).toHaveBeenCalledWith({
       cash: 50,
       check: 0,
-      credit_card: 66.95,
+      credit_card: 65,
       checkNumber: null,
       notes: null,
     });

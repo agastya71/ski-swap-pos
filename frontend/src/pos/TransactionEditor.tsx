@@ -266,10 +266,6 @@ export function TransactionEditor({
   const pendingLineTotal = lines.reduce((sum, l) => sum + l.sell_price * l.quantity, 0);
   const dirtyCount = lines.filter(isDirty).length;
   const editedCardAmt = parseFloat(cc) || 0;
-  const editedCardFee =
-    editedCardAmt > 0
-      ? Math.round(((editedCardAmt * 0.03) / 1.03) * 100) / 100
-      : 0;
 
   return (
     <div style={{ border: "2px solid " + NAVY, borderRadius: 6, padding: 14, marginTop: 8, background: "#f8fafc" }}>
@@ -282,7 +278,7 @@ export function TransactionEditor({
       <div style={{ fontSize: 13, color: "#555", marginBottom: 8 }}>
         Recorded by {sale.created_by ?? "—"} · recorded total ${sale.sale_total.toFixed(2)} ·
         MYSL ${sale.mysl_total.toFixed(2)} / seller ${sale.seller_total.toFixed(2)}
-        {sale.cc_fee > 0 && ` · card fee (3%) $${sale.cc_fee.toFixed(2)}`}
+        {sale.cc_fee > 0 && ` · card fee (3%) $${sale.cc_fee.toFixed(2)} (historical)`}
         {sale.is_voided ? " · VOIDED" : ""}
       </div>
 
@@ -433,10 +429,9 @@ export function TransactionEditor({
         </div>
         {editedCardAmt > 0 && (
           <div style={{ fontSize: 12, color: "#555", marginBottom: 8 }}>
-            Card charge ${editedCardAmt.toFixed(2)} includes the 3% card fee:
-            ${editedCardFee.toFixed(2)} (items on card $
-            {(editedCardAmt - editedCardFee).toFixed(2)}). Saving re-derives the
-            fee and updates the sale total.
+            Card charge ${editedCardAmt.toFixed(2)} is charged to the buyer as
+            entered (card fee removed 2026-11-24). New sales no longer derive
+            a 3% fee; historical sales keep their recorded fee.
           </div>
         )}
         <button onClick={() => void handleSavePayments()} disabled={saving}>
