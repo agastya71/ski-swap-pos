@@ -15,8 +15,9 @@
  * a visible change to v1.
  */
 import type { CSSProperties } from "react";
+import { BUTTON_STYLE } from "../lib/buttons";
 
-export { variantProps } from "../components/layoutStyles";
+export { variantProps, v1Only, v2Only } from "../components/layoutStyles";
 
 const NAVY = "#1e3a8a";
 const HIGHLIGHT_BG = "#e8eef9";
@@ -179,4 +180,195 @@ export const CONFIRM = {
     border: "none",
     cursor: "pointer",
   } satisfies CSSProperties,
+} as const;
+
+/** v1 inline styles — TransactionEditor. */
+export const EDITOR = {
+  loading: { color: "#64748b" } satisfies CSSProperties,
+  loadError: { color: "red" } satisfies CSSProperties,
+
+  root: {
+    border: "2px solid " + NAVY,
+    borderRadius: 6,
+    padding: 14,
+    marginTop: 8,
+    background: "#f8fafc",
+  } satisfies CSSProperties,
+  headerRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+  } satisfies CSSProperties,
+  title: { color: NAVY, margin: 0 } satisfies CSSProperties,
+  meta: { fontSize: 13, color: "#555", marginBottom: 8 } satisfies CSSProperties,
+  error: { color: "red", marginBottom: 8 } satisfies CSSProperties,
+  notice: { color: "#166534", marginBottom: 8 } satisfies CSSProperties,
+
+  table: {
+    width: "100%",
+    borderCollapse: "collapse",
+    marginBottom: 4,
+  } satisfies CSSProperties,
+  theadRow: {
+    borderBottom: "2px solid #ccc",
+    fontSize: 13,
+    color: "#555",
+  } satisfies CSSProperties,
+  thLeft: { textAlign: "left", padding: "4px 8px" } satisfies CSSProperties,
+  thRight: { textAlign: "right", padding: "4px 8px" } satisfies CSSProperties,
+
+  /** Unsaved lines bold their row — the only signal that a PATCH is pending. */
+  bodyRow: (dirty: boolean): CSSProperties => ({
+    borderBottom: "1px solid #eee",
+    fontWeight: dirty ? 700 : 400,
+  }),
+  td: { padding: "6px 8px" } satisfies CSSProperties,
+  tdRight: { padding: "6px 8px", textAlign: "right" } satisfies CSSProperties,
+
+  qtyInput: {
+    width: 56,
+    padding: "4px 6px",
+    fontSize: 14,
+    textAlign: "right",
+  } satisfies CSSProperties,
+  priceInput: {
+    width: 80,
+    padding: "4px 6px",
+    fontSize: 14,
+    textAlign: "right",
+  } satisfies CSSProperties,
+  notesInput: { width: 200, padding: "4px 6px", fontSize: 13 } satisfies CSSProperties,
+  removeBtn: { fontSize: 12, cursor: "pointer" } satisfies CSSProperties,
+
+  lineActions: {
+    display: "flex",
+    gap: 8,
+    alignItems: "center",
+    marginBottom: 12,
+  } satisfies CSSProperties,
+  pendingTotal: { fontWeight: 700, fontSize: 16 } satisfies CSSProperties,
+  smallNote: { fontSize: 13, color: "#555" } satisfies CSSProperties,
+
+  addItem: { marginBottom: 12 } satisfies CSSProperties,
+  addItemLabel: { fontWeight: 600, marginBottom: 4 } satisfies CSSProperties,
+
+  fieldset: {
+    border: "1px solid #e2e8f0",
+    borderRadius: 4,
+    padding: 10,
+    marginBottom: 12,
+  } satisfies CSSProperties,
+  legend: { fontSize: 13, fontWeight: 600 } satisfies CSSProperties,
+  fieldRow: {
+    display: "flex",
+    gap: 12,
+    flexWrap: "wrap",
+    marginBottom: 8,
+  } satisfies CSSProperties,
+  fieldLabel: { fontSize: 13 } satisfies CSSProperties,
+
+  /** Payment/detail inputs differ only by width, so the width is the argument. */
+  fieldInput: (width: number): CSSProperties => ({
+    display: "block",
+    width,
+    padding: "4px 6px",
+  }),
+  cardFeeNote: { fontSize: 12, color: "#555", marginBottom: 8 } satisfies CSSProperties,
+
+  historyLabel: { fontWeight: 600, marginBottom: 4 } satisfies CSSProperties,
+  historyEmpty: {
+    color: "#888",
+    fontStyle: "italic",
+    fontSize: 13,
+  } satisfies CSSProperties,
+  historyList: { margin: 0, paddingLeft: 16, fontSize: 13 } satisfies CSSProperties,
+  historyDetail: { color: "#64748b" } satisfies CSSProperties,
+} as const;
+
+/** v1 inline styles — POSPage chrome (banners, panels, transactions list). */
+export const POS_PAGE = {
+  root: { maxWidth: 900 } satisfies CSSProperties,
+
+  /* Completed-sale banner */
+  successBanner: {
+    border: "2px solid #2e7d32",
+    borderRadius: 6,
+    padding: 16,
+    marginBottom: 16,
+    background: "#f0fdf4",
+  } satisfies CSSProperties,
+  successTitle: {
+    fontSize: 22,
+    color: "#2e7d32",
+    fontWeight: 700,
+    marginBottom: 4,
+  } satisfies CSSProperties,
+  successLine: { fontSize: 16 } satisfies CSSProperties,
+  successMetaTop: { fontSize: 13, color: "#555", marginTop: 2 } satisfies CSSProperties,
+  successMeta: { fontSize: 13, color: "#555", marginTop: 4 } satisfies CSSProperties,
+  successNewButton: { ...BUTTON_STYLE, marginTop: 12 } satisfies CSSProperties,
+
+  /* Submission error banner (#14: must be above the payment form) */
+  errorBanner: {
+    color: "red",
+    border: "2px solid red",
+    borderRadius: 6,
+    padding: 12,
+    marginBottom: 16,
+    background: "#fef2f2",
+    fontWeight: 600,
+  } satisfies CSSProperties,
+
+  cartWrap: { margin: "16px 0" } satisfies CSSProperties,
+  checkoutRow: {
+    display: "flex",
+    gap: 24,
+    alignItems: "flex-start",
+  } satisfies CSSProperties,
+  checkoutCol: { minWidth: 320 } satisfies CSSProperties,
+  squarePanel: {
+    marginBottom: 16,
+    padding: 12,
+    border: "1px solid #ccc",
+    borderRadius: 4,
+  } satisfies CSSProperties,
+  squareTitle: { margin: "0 0 8px" } satisfies CSSProperties,
+
+  /* My Transactions */
+  historySection: { marginTop: 24 } satisfies CSSProperties,
+  historyBody: { marginTop: 12 } satisfies CSSProperties,
+  historyEmpty: { color: "#888", fontStyle: "italic" } satisfies CSSProperties,
+  historyError: { color: "red" } satisfies CSSProperties,
+
+  saleCard: {
+    border: "1px solid #e2e8f0",
+    borderRadius: 6,
+    marginBottom: 8,
+    padding: 10,
+  } satisfies CSSProperties,
+  saleHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    cursor: "pointer",
+  } satisfies CSSProperties,
+  saleTitle: { fontWeight: 600 } satisfies CSSProperties,
+  saleBody: { marginTop: 8, fontSize: 13 } satisfies CSSProperties,
+  editRow: { marginBottom: 8 } satisfies CSSProperties,
+  editButton: { ...BUTTON_STYLE, fontSize: 13 } satisfies CSSProperties,
+  editHint: { color: "#64748b", marginLeft: 8, fontSize: 12 } satisfies CSSProperties,
+  payLine: { marginTop: 4 } satisfies CSSProperties,
+
+  itemsTable: {
+    width: "100%",
+    borderCollapse: "collapse",
+    marginTop: 6,
+  } satisfies CSSProperties,
+  itemsHeadRow: { borderBottom: "1px solid #ccc" } satisfies CSSProperties,
+  itemsBodyRow: { borderBottom: "1px solid #eee" } satisfies CSSProperties,
+  itemsThLeft: { textAlign: "left", padding: "2px 6px" } satisfies CSSProperties,
+  itemsThRight: { textAlign: "right", padding: "2px 6px" } satisfies CSSProperties,
+  itemsTd: { padding: "4px 6px" } satisfies CSSProperties,
+  itemsTdRight: { padding: "4px 6px", textAlign: "right" } satisfies CSSProperties,
+  itemNote: { fontSize: 11, color: "#64748b", marginTop: 2 } satisfies CSSProperties,
 } as const;

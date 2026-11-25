@@ -5,6 +5,7 @@
 @import './components/ui/primitives.css';
 @import './ui-v2-shell.css';
 @import './pos/pos-v2.css';
+@import './pos/pos-editor-v2.css';
 
 /* ── MYXC Brand Theme ─────────────────────────────────────────────────────── */
 :root {

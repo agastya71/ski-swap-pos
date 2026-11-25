@@ -20,6 +20,23 @@ export function variantProps(
     : { className: undefined, style: v1Style };
 }
 
+/**
+ * For elements whose v2 look is fully covered by an ancestor selector (table
+ * cells, `<tr>`, `<th>`), so they need no class of their own: the inline style
+ * is dropped in v2 and the ancestor rule takes over.
+ */
+export function v1Only(v2: boolean, v1Style: CSSProperties): { style: CSSProperties | undefined } {
+  return { style: v2 ? undefined : v1Style };
+}
+
+/**
+ * For elements that carry no inline style in v1 (browser defaults) and only
+ * gain a class in v2 — the inverse of `v1Only`.
+ */
+export function v2Only(v2: boolean, className: string): { className: string | undefined } {
+  return { className: v2 ? className || undefined : undefined };
+}
+
 /** Inline style objects for the v1 shell — byte-identical to the pre-U2 Layout. */
 export const V1 = {
   shell: {

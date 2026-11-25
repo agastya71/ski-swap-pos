@@ -21,7 +21,8 @@ const BASE = process.argv.includes("--base")
   : "http://127.0.0.1:8001";
 const PORT = 9336;
 const PROFILE = "/tmp/pos-css-check-profile";
-const FILE = "/tmp/pos-css-check.html";
+// The fixture is committed so the contract is reproducible on any machine.
+const FILE = new URL("./pos-css-check.fixture.html", import.meta.url).pathname;
 
 /**
  * Asserts one computed value. `expect` is a plain object of CSS property ->
@@ -77,6 +78,46 @@ const CHECKS = [
   ["#confirm-new", "minHeight", "44px", "New Transaction hits the touch target"],
   ["#confirm-new", "backgroundColor", "rgb(30, 58, 138)", "New Transaction stays navy"],
   ["#confirm-new", "color", "rgb(255, 255, 255)", "New Transaction text stays white"],
+
+  // TransactionEditor (U3 part 2)
+  ["#editor", "borderTopWidth", "2px", "editor panel keeps its navy frame"],
+  ["#editor", "borderTopColor", "rgb(30, 58, 138)", "editor frame uses --navy"],
+  ["#editor", "borderRadius", "8px", "editor uses the card radius"],
+  ["#editor", "backgroundColor", "rgb(248, 250, 252)", "editor ground is --gray-50"],
+  ["#editor-title", "color", "rgb(30, 58, 138)", "editor title is navy"],
+  ["#editor-title", "fontSize", "16px", "editor title uses the lg step"],
+  ["#editor-meta", "fontSize", "12px", "meta line drops to the xs step"],
+  ["#editor-error", "backgroundColor", "rgb(254, 242, 242)", "editor error is tinted red"],
+  ["#editor-error", "color", "rgb(220, 38, 38)", "editor error text is --red"],
+  ["#editor-notice", "color", "rgb(22, 101, 52)", "editor notice is green (not the v1 navy)"],
+  ["#editor-table", "borderCollapse", "collapse", "editor line table collapses"],
+  ["#editor-th-code", "fontSize", "12px", "editor header row is the xs step"],
+  ["#editor-qty", "width", "72px", "editor qty matches the cart width"],
+  ["#editor-qty", "textAlign", "right", "editor qty right-aligns"],
+  ["#editor-price", "width", "96px", "editor price matches the cart width"],
+  ["#editor-notes", "width", "200px", "editor notes keep their width"],
+  ["#editor-remove", "color", "rgb(220, 38, 38)", "Remove is red, subordinate to Save"],
+  ["#editor-remove", "minHeight", "32px", "Remove gets a real hit area"],
+  ["#editor-dirty-cell", "backgroundColor", "rgb(255, 251, 235)", "a dirty row is tinted amber"],
+  ["#editor-pending", "fontSize", "16px", "pending total uses the lg step"],
+  ["#editor-field-label", "fontSize", "12px", "field labels are the xs step"],
+  ["#editor-field-input", "minHeight", "44px", "editor fields hit the touch target"],
+  ["#editor-history-empty", "fontStyle", "italic", "empty-history hint is italic"],
+  ["#editor-history-detail", "color", "rgb(100, 116, 139)", "history detail is --gray-500"],
+
+  // POSPage chrome (U3 part 2)
+  ["#pos-page", "maxWidth", "900px", "POS page keeps its v1 width cap"],
+  ["#pos-success", "backgroundColor", "rgb(240, 253, 244)", "success banner stays pale green"],
+  ["#pos-success-title", "fontSize", "20px", "success title uses the xl step"],
+  ["#pos-success-title", "color", "rgb(46, 125, 50)", "success title keeps the v1 green"],
+  ["#pos-new-btn", "marginTop", "12px", "New Transaction keeps its offset"],
+  ["#pos-error", "fontWeight", "600", "error banner stays semibold"],
+  ["#pos-checkout", "flexWrap", "wrap", "checkout row wraps instead of overflowing"],
+  ["#pos-sale-header", "cursor", "pointer", "sale header still reads as clickable"],
+  ["#pos-sale-header", "minHeight", "44px", "sale header is a full-row target"],
+  ["#pos-edit-hint", "fontSize", "12px", "edit hint is the xs step"],
+  ["#pos-items", "borderCollapse", "collapse", "items table collapses"],
+  ["#pos-item-note", "fontSize", "11px", "price-adj note keeps its tiny type"],
 ];
 
 class Cdp {
@@ -161,13 +202,18 @@ async function main() {
     // stylesheet already loaded by the app bundle.
     const body = template.replace("BUILT_CSS", cssFile);
     const inner = body.match(/<body>([\s\S]*)<\/body>/)[1];
-    await cdp.send("Runtime.evaluate", {
+    const inject = await cdp.send("Runtime.evaluate", {
       expression: `
         document.body.innerHTML = ${JSON.stringify(inner)};
         document.documentElement.classList.add('ui-v2');
-        true;
+        document.querySelectorAll('.ground').length;
       `,
+      returnByValue: true,
     });
+    if (inject.exceptionDetails) {
+      throw new Error(`fixture injection failed: ${JSON.stringify(inject.exceptionDetails)}`);
+    }
+    console.log(`# fixture injected (${inject.result.value} root(s) found)`);
     await sleep(300);
 
     const expr = `

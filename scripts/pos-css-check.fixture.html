@@ -1,0 +1,207 @@
+<!doctype html>
+<html class="ui-v2">
+<head>
+<meta charset="utf-8">
+<title>POS v2 CSS contract check</title>
+<!-- The built /next bundle's stylesheet: proves the rules survive PostCSS. -->
+<link rel="stylesheet" href="/next/assets/BUILT_CSS">
+<style>
+  /* Minimal page ground; the app would supply these via index.css :root. */
+  body { margin: 0; font-family: system-ui, sans-serif; }
+  .ground { width: 420px; }
+</style>
+</head>
+<body>
+<!-- Markup mirroring exactly what the POS components emit in v2 (class names
+     only, no inline styles — that is the contract under test). -->
+<div class="ground">
+  <div id="lookup-wrap">
+    <label id="lk-label" class="ui2-pos-lookup-label">Scan or enter item code:</label>
+    <input id="lk-input" class="ui2-pos-lookup-input" value="A001">
+    <div id="lk-error" role="alert" class="ui2-pos-lookup-error">Item not found: X</div>
+    <div id="lk-results" class="ui2-pos-results">
+      <div id="lk-head" class="ui2-pos-results-head">2 items found — click to add to cart</div>
+      <button id="lk-row-hot" class="ui2-pos-result ui2-pos-result--highlighted">
+        <span>
+          <strong id="lk-code" class="ui2-pos-result-code">A001-001</strong>
+          <span id="lk-desc" class="ui2-pos-result-desc">Red skis</span>
+          <span id="lk-meta" class="ui2-pos-result-meta">(Skis · Alpine)</span>
+        </span>
+        <span id="lk-tail" class="ui2-pos-result-tail">
+          <span id="lk-rem" class="ui2-pos-result-remaining">3 left</span>
+          <strong>$75.00</strong>
+        </span>
+      </button>
+      <button id="lk-row-sold" class="ui2-pos-result" aria-disabled="true">
+        <span><strong class="ui2-pos-result-code">B001-002</strong></span>
+        <span class="ui2-pos-result-tail">
+          <strong>$40.00</strong>
+          <span id="lk-status" class="ui2-pos-result-status">sold</span>
+        </span>
+      </button>
+    </div>
+  </div>
+
+  <table id="cart" class="ui2-cart-table">
+    <thead>
+      <tr>
+        <th id="th-code">Code</th><th>Seller</th><th>Description</th>
+        <th id="th-qty" class="ui2-num">Qty</th>
+        <th class="ui2-num">Unit Price</th>
+        <th class="ui2-num">Line Total</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td id="td-code">A001-001</td>
+        <td>A001</td>
+        <td>Red skis<div id="td-meta" class="ui2-cart-item-meta">Skis · Alpine</div></td>
+        <td class="ui2-num"><input id="cart-qty" class="ui2-cart-qty" type="number" value="1"></td>
+        <td class="ui2-num"><input id="cart-price" class="ui2-cart-price" type="number" value="75"></td>
+        <td class="ui2-num">$75.00</td>
+        <td><button id="cart-remove" class="ui2-cart-remove">Remove</button></td>
+      </tr>
+    </tbody>
+  </table>
+  <div id="cart-note-row" class="ui2-cart-note-row">
+    <label class="ui2-cart-note-label">Reason for price adjustment — A001-001:</label>
+    <input id="cart-note" class="ui2-cart-note-input">
+  </div>
+  <div id="cart-total" class="ui2-cart-total">Total: <span>$75.00</span></div>
+
+  <form>
+    <div class="ui2-pay-field">
+      <label id="pay-label" class="ui2-pay-label" for="cash">Cash ($)</label>
+      <input id="pay-cash" class="ui2-pay-input ui2-pay-input--money" type="number">
+    </div>
+    <div class="ui2-pay-field">
+      <label class="ui2-pay-label" for="cn">Check Number</label>
+      <input id="pay-checknum" class="ui2-pay-input ui2-pay-input--check-number">
+    </div>
+    <div id="pay-hint" class="ui2-pay-hint">Amount run on the card (charged to the buyer as entered)</div>
+    <textarea id="pay-notes" class="ui2-pay-notes" rows="2"></textarea>
+    <div id="pay-ok" role="status" class="ui2-pay-status ui2-pay-status--ok">Amount tendered: $120.00 of $100.00 — ✓ payment covers total</div>
+    <div id="pay-short" role="status" class="ui2-pay-status ui2-pay-status--short">Amount tendered: $50.00 of $100.00 — $50.00 short</div>
+    <div id="pay-change" role="status" class="ui2-pay-change">Change due to buyer: $20.00</div>
+    <div id="pay-actions" class="ui2-pay-actions"><button>Complete Sale</button></div>
+  </form>
+
+  <div id="confirm" class="ui2-confirm">
+    <div id="confirm-mark" class="ui2-confirm-mark">✓</div>
+    <h2>Sale Complete!</h2>
+    <p id="confirm-count" class="ui2-confirm-count">Sale #42 — 1 item</p>
+    <p id="confirm-total" class="ui2-confirm-total">$100.00</p>
+    <div id="confirm-tenders" class="ui2-confirm-tenders">
+      Cash: $120.00
+      <div id="confirm-change" class="ui2-confirm-change">Change given: $20.00</div>
+    </div>
+    <button id="confirm-new" class="ui2-confirm-new">New Transaction</button>
+  </div>
+
+  <!-- U3 part 2: TransactionEditor -->
+  <div id="editor" class="ui2-editor">
+    <div id="editor-header" class="ui2-editor-header">
+      <h3 id="editor-title" class="ui2-editor-title">Edit sale #7</h3>
+      <button id="editor-close" class="ui2-btn ui2-btn--secondary">Close</button>
+    </div>
+    <div id="editor-meta" class="ui2-editor-meta">Recorded by cashier1 · recorded total $35.00</div>
+    <div id="editor-error" role="alert" class="ui2-editor-error">You can only edit your own transactions</div>
+    <div id="editor-notice" role="status" class="ui2-editor-notice">Line changes saved.</div>
+    <table id="editor-table" class="ui2-editor-table">
+      <thead>
+        <tr>
+          <th id="editor-th-code">Code</th>
+          <th class="ui2-num">Qty</th>
+          <th class="ui2-num">Unit Price</th>
+          <th class="ui2-num">Line Total</th>
+          <th>Notes</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr id="editor-row-dirty" class="ui2-editor-row--dirty">
+          <td id="editor-dirty-cell">10003</td>
+          <td class="ui2-num"><input id="editor-qty" class="ui2-editor-qty" type="number" value="2"></td>
+          <td class="ui2-num"><input id="editor-price" class="ui2-editor-price" type="number" value="20"></td>
+          <td id="editor-line-total" class="ui2-num">$40.00</td>
+          <td><input id="editor-notes" class="ui2-editor-notes"></td>
+          <td><button id="editor-remove" class="ui2-editor-remove">Remove</button></td>
+        </tr>
+      </tbody>
+    </table>
+    <div id="editor-actions" class="ui2-editor-actions">
+      <button id="editor-save-lines" class="ui2-btn ui2-btn--primary">Save line changes (1)</button>
+      <span id="editor-pending" class="ui2-editor-pending">Pending total: $40.00</span>
+      <span id="editor-small-note" class="ui2-editor-small-note">(includes card fee)</span>
+    </div>
+    <div id="editor-add" class="ui2-editor-add">
+      <div id="editor-add-label" class="ui2-editor-add-label">Add item:</div>
+      <input id="editor-add-input" class="ui2-pos-lookup-input" value="10004">
+    </div>
+    <fieldset id="editor-fieldset" class="ui2-editor-fieldset">
+      <legend id="editor-legend" class="ui2-editor-legend">Payment &amp; details</legend>
+      <div id="editor-field-row" class="ui2-editor-field-row">
+        <label id="editor-field-label" class="ui2-editor-field-label">Cash ($)
+          <input id="editor-field-input" class="ui2-editor-field-input" type="number" value="35">
+        </label>
+      </div>
+      <div id="editor-card-fee-note" class="ui2-editor-card-fee-note">Card charge is charged as entered</div>
+      <button id="editor-save-payments" class="ui2-btn ui2-btn--primary">Save payment &amp; details</button>
+    </fieldset>
+    <div id="editor-history-label" class="ui2-editor-history-label">Edit history (newest first)</div>
+    <p id="editor-history-empty" class="ui2-editor-history-empty">No edits recorded.</p>
+    <ul id="editor-history" class="ui2-editor-history">
+      <li><strong>update_line</strong> <span id="editor-history-detail" class="ui2-editor-history-detail">— $20 × 1 → $15 × 1</span></li>
+    </ul>
+  </div>
+
+  <!-- U3 part 2: POSPage chrome -->
+  <div id="pos-page" class="ui2-pos-page">
+    <div id="pos-success" class="ui2-pos-success">
+      <div id="pos-success-title" class="ui2-pos-success-title">✓ Sale Complete!</div>
+      <div id="pos-success-line" class="ui2-pos-success-line">Transaction #7 — $35.00</div>
+      <div id="pos-success-meta" class="ui2-pos-success-meta">Event: TEST SWAP POS 2026</div>
+      <button id="pos-new-btn" class="ui2-pos-new-btn">New Transaction</button>
+    </div>
+    <div id="pos-error" role="alert" class="ui2-pos-error">Payment failed</div>
+    <div id="pos-cart" class="ui2-pos-cart"></div>
+    <div id="pos-checkout" class="ui2-pos-checkout">
+      <div id="pos-checkout-col" class="ui2-pos-checkout-col">
+        <div id="pos-square-panel" class="ui2-pos-square-panel">
+          <h4 id="pos-square-title" class="ui2-pos-square-title">Pay by Card (Square)</h4>
+        </div>
+      </div>
+    </div>
+    <div id="pos-history" class="ui2-pos-history">
+      <button id="pos-history-toggle" class="ui2-btn ui2-btn--secondary">My Transactions</button>
+      <div id="pos-history-body" class="ui2-pos-history-body">
+        <p id="pos-history-empty" class="ui2-pos-history-empty">No transactions recorded yet.</p>
+        <div id="pos-sale" class="ui2-pos-sale">
+          <div id="pos-sale-header" class="ui2-pos-sale-header" role="button" tabindex="0">
+            <span id="pos-sale-title" class="ui2-pos-sale-title">Transaction #7</span>
+            <span>1 item(s) · $35.00</span>
+          </div>
+          <div id="pos-sale-body" class="ui2-pos-sale-body">
+            <div id="pos-edit-row" class="ui2-pos-edit-row">
+              <button id="pos-edit-btn" class="ui2-btn ui2-btn--secondary">Edit</button>
+              <span id="pos-edit-hint" class="ui2-pos-edit-hint">correct items, prices, or payments</span>
+            </div>
+            <div id="pos-pay-line" class="ui2-pos-pay-line">Payment: cash $35.00</div>
+            <table id="pos-items" class="ui2-pos-items">
+              <thead><tr><th>Code</th><th class="ui2-num">Qty</th><th class="ui2-num">Unit Price</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>10003<div id="pos-item-note" class="ui2-pos-item-note">Price adj.: damaged</div></td>
+                  <td class="ui2-num">1</td>
+                  <td class="ui2-num">$20.00</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
