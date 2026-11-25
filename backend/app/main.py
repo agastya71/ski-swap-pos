@@ -60,5 +60,15 @@ def get_document(filename: str):
 
 
 _STATIC = os.path.join(os.path.dirname(__file__), "..", "static")
+
+# Variant-build mount for UI overhaul A/B testing — see
+# docs/ui-overhaul-ab-plan-2026-11-24.md. Registered BEFORE the "/" catch-all:
+# FastAPI matches mounts in registration order, and a later "/" mount would
+# swallow /next. Optional: absent directory → plain 404s; the production
+# bundle in _STATIC is never touched by A/B testing.
+_STATIC_NEXT = os.path.join(os.path.dirname(__file__), "..", "static-next")
+if os.path.isdir(_STATIC_NEXT):
+    app.mount("/next", StaticFiles(directory=_STATIC_NEXT, html=True), name="frontend-next")
+
 if os.path.isdir(_STATIC):
     app.mount("/", StaticFiles(directory=_STATIC, html=True), name="frontend")
