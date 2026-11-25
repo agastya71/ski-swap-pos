@@ -198,14 +198,62 @@ main builds — never from a phase branch.
 
 ---
 
+## 13. A class the CSS styles but the JSX never emits is invisible
+
+Found in U4 part 2, and it is the inverse of §5b. `grep` the two directions and
+diff them:
+
+```bash
+find frontend/src -name '*.tsx' ! -name '*.test.tsx' | xargs grep -oh 'ui2-[a-z0-9-]*' | sort -u > /tmp/used
+find frontend/src -name '*.css' | xargs grep -oh 'ui2-[a-z0-9-]*' | sort -u > /tmp/def
+comm -23 /tmp/used /tmp/def   # emitted, never styled → renders as v1, silently
+comm -13 /tmp/used /tmp/def   # styled, never emitted → dead rule
+```
+
+U4 part 2 shipped four of the first kind before the audit: `ui2-pay-error` and
+`ui2-pos-result-remaining` (from U3, unnoticed for weeks), `ui2-items-row--open`,
+and `ui2-items-row-actions` — the last emitted on each *button* while the CSS
+wrote it for a wrapper *cell* that v1 markup does not have, so both the flex
+layout and the 36px button rule were dead. Also caught: `Card` emitted the
+literal `ui-card-head` with no `cx()` variant, so `.ui2-card-head` never matched.
+
+Names built from template literals (`ui2-btn--${variant}`) appear as the
+truncated prefix `ui2-btn--`; skip those or they read as false positives.
+
+`scripts/css-wiring-check.mjs` now enforces this as group 6
+(`checkEmittedClassesAreStyled`), so the drift fails the pre-push hook instead
+of needing a manual audit next time.
+
+**Don't** prune a rule just because `grep` says nothing emits it — first check
+whether the component passes `""` or the wrong name. `ui2-items-title` looked
+dead for exactly that reason.
+
+---
+
+## 14. "Overflow" measured as a right edge is not an overflow amount
+
+`ui-style-probe.mjs` reported `pageOverflow` as the widest element's
+`getBoundingClientRect().right`, then printed it as "overflow at 420px: v2
+404px vs viewport 420px" — which reads as 404px of debt when the number is 16px
+*inside* the viewport. Three sessions of "the intake overflow is still there"
+were spent on a message that never said the opposite.
+
+Always subtract the viewport and keep the sign: `pageOverflowPx = right -
+clientWidth`, negative = fits. The corrected line is now `v1 581px (+161px OVER),
+v2 404px (fits)`.
+
+---
+
 ## Open items these findings feed into
 
 - **Narrow-viewport tables (U4/U5).** At 420px the `TransactionEditor` table
   overflows its own container: editor 362px wide, table 622px, 11 elements past
-  the right edge. The shell header fits exactly (`right=420`). This is expected
-  debt — the shared `TableScroll`/`data-stack` pattern from U2 is still unused
-  by any page. Do it in U4, where the first real tables live, **before** U5's
-  admin tables (the largest set) depend on it.
+  the right edge. The shell header fits exactly (`right=420`).
+  **Intake is now done** (U4 part 2): `IntakePage`'s previous-intakes table uses
+  stacked mode, `ItemList`/`ItemSearchPage` use scroll mode, and the widest
+  element at 420px dropped from 581px (v1, +161px over) to 404px (v2, fits).
+  Still outstanding: the POS `TransactionEditor` table and all of U5's admin
+  tables.
 - **Screenshots are never committed.** The repo is public and the active event
   is real (MyXC). Evidence is computed-style text via
   `scripts/ui-style-probe.mjs` / `pos-css-check.mjs`; the capture script refuses

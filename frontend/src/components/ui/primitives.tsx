@@ -104,9 +104,9 @@ export function Card({ title, actions, children, className }: { title?: ReactNod
   return (
     <section className={cx('ui-card', mod && 'ui2-card', className)}>
       {(title || actions) && (
-        <div className="ui-card-head">
+        <div className={cx('ui-card-head', mod && 'ui2-card-head')}>
           {title && <h3>{title}</h3>}
-          {actions && <div className="ui-card-actions">{actions}</div>}
+          {actions && <div className={cx('ui-card-actions', mod && 'ui2-card-actions')}>{actions}</div>}
         </div>
       )}
       {children}

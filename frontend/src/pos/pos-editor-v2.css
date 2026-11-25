@@ -138,10 +138,6 @@
   width: 200px;
 }
 
-.ui-v2 .ui2-editor-line-total {
-  font-variant-numeric: tabular-nums;
-}
-
 .ui-v2 .ui2-editor-remove {
   min-height: 32px;
   padding: var(--space-1) var(--space-2);
