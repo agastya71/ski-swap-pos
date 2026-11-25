@@ -12,7 +12,11 @@ import {
   Button,
   Card,
   DataTable,
+  EmptyState,
+  ErrorBanner,
+  LoadingState,
   Modal,
+  PageHeader,
   SelectField,
   TextAreaField,
   TextField,
@@ -179,5 +183,90 @@ describe('Toast', () => {
     await new Promise((r) => setTimeout(r, 60))
     expect(onDone).not.toHaveBeenCalled()
     expect(screen.getByText('Sticky')).toBeInTheDocument()
+  })
+})
+
+describe('PageHeader', () => {
+  it('renders title, subtitle and actions', () => {
+    render(
+      withVariant(
+        'v2',
+        <PageHeader title="Sellers" subtitle="12 registered" actions={<Button>Add seller</Button>} />,
+      ),
+    )
+    expect(screen.getByRole('heading', { name: 'Sellers' })).toBeInTheDocument()
+    expect(screen.getByText('12 registered')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add seller' })).toBeInTheDocument()
+  })
+})
+
+describe('EmptyState', () => {
+  it('is a polite live region with title, body and action', () => {
+    render(
+      withVariant(
+        'v2',
+        <EmptyState title="No sellers yet" action={<Button>Add the first seller</Button>}>
+          Sellers appear here once intake is done.
+        </EmptyState>,
+      ),
+    )
+    const state = screen.getByRole('status')
+    expect(state).toHaveTextContent('No sellers yet')
+    expect(state).toHaveTextContent('Sellers appear here once intake is done.')
+    expect(screen.getByRole('button', { name: 'Add the first seller' })).toBeInTheDocument()
+  })
+})
+
+describe('LoadingState', () => {
+  it('announces the message and keeps the spinner decorative', () => {
+    render(withVariant('v2', <LoadingState message="Loading payout…" />))
+    const state = screen.getByRole('status')
+    expect(state).toHaveTextContent('Loading payout…')
+    expect(state.querySelector('[aria-hidden="true"]')).not.toBeNull()
+  })
+})
+
+describe('ErrorBanner', () => {
+  it('uses role=alert so failures are announced immediately', () => {
+    render(
+      withVariant('v2', <ErrorBanner title="Could not load">Network error</ErrorBanner>),
+    )
+    const banner = screen.getByRole('alert')
+    expect(banner).toHaveTextContent('Could not load')
+    expect(banner).toHaveTextContent('Network error')
+  })
+})
+
+describe('DataTable responsive modes', () => {
+  it('wraps the table in a focusable scroll region by default', () => {
+    render(withVariant('v2', <DataTable columns={COLUMNS} rows={ROWS} rowKey={(r) => r.id} />))
+    const region = screen.getByRole('region', { name: 'Scrollable table' })
+    expect(region).toHaveAttribute('tabindex', '0')
+    expect(region.querySelector('table')).not.toBeNull()
+    expect(region.querySelector('table')).not.toHaveAttribute('data-stack')
+  })
+
+  it('stack mode labels every cell with its column header', () => {
+    render(
+      withVariant(
+        'v2',
+        <DataTable columns={COLUMNS} rows={ROWS} rowKey={(r) => r.id} responsive="stack" />,
+      ),
+    )
+    const table = screen.getByRole('table')
+    expect(table).toHaveAttribute('data-stack')
+    const cells = screen.getAllByRole('cell', { name: 'Skate skis' })
+    expect(cells[0]).toHaveAttribute('data-label', 'Item')
+    expect(screen.getByRole('cell', { name: '5' })).toHaveAttribute('data-label', 'Qty')
+  })
+
+  it('leaves non-string headers unlabelled so React nodes still render', () => {
+    const cols = [
+      { key: 'name', header: <span>Item</span>, render: (r: Row) => r.name },
+    ]
+    render(
+      withVariant('v1', <DataTable columns={cols} rows={[ROWS[0]]} rowKey={(r) => r.id} responsive="stack" />),
+    )
+    expect(screen.getByRole('cell', { name: 'Skate skis' })).not.toHaveAttribute('data-label')
   })
 })
