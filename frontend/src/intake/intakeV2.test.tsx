@@ -14,7 +14,13 @@
  * @module intakeV2.test
  */
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { http, HttpResponse } from 'msw'
 import type { ReactElement } from 'react'
+import { server } from '../mocks/server'
+import { ADMIN_TOKEN } from '../mocks/tokens'
+import { AuthProvider } from '../auth/AuthContext'
+import { setToken } from '../api/client'
 import { IntakeForm } from './IntakeForm'
 import { SellerSearch } from './SellerSearch'
 import { SellerForm } from './SellerForm'
@@ -29,8 +35,16 @@ import {
   v1Only,
   v2Only,
 } from './intakeStyles'
+import {
+  ITEM_LIST,
+  ITEM_FORM,
+  INTAKE_PAGE,
+  SEARCH_PAGE,
+} from './intakeStyles'
+import { ItemList } from './ItemList'
+import { ItemSearchPage } from './ItemSearchPage'
 import { UiVariantContext } from '../lib/uiVariant'
-import type { Seller } from '../types'
+import type { Item, ItemSearchResult, Seller } from '../types'
 
 const SELLER = {
   id: 7,
@@ -45,6 +59,42 @@ const SELLER = {
 
 const inV2 = (ui: ReactElement) =>
   render(<UiVariantContext.Provider value="v2">{ui}</UiVariantContext.Provider>)
+
+const renderV2 = inV2
+
+const ITEM = {
+  id: 11,
+  code: 'A001',
+  intake_id: 3,
+  category: 'Skis',
+  type: 'Alpine',
+  brand: 'Rossignol',
+  description: 'Slalom ski',
+  size: '170cm',
+  price: 120,
+  quantity: 2,
+  remaining: 2,
+  donate_unsold: false,
+  label_printed: false,
+  status: 'available',
+} as unknown as Item
+
+const ITEM_RESULT = {
+  id: 11,
+  code: 'A001',
+  quantity: 2,
+  category: 'Skis',
+  type: 'Alpine',
+  brand: 'Rossignol',
+  description: 'Slalom ski',
+  size: '170cm',
+  price: 120,
+  donate_unsold: false,
+  remaining: 2,
+  status: 'available',
+  seller_code: 'TRAI1',
+  seller_name: 'Tess Trail',
+} as unknown as ItemSearchResult
 
 describe('intake style tables keep the v1 values verbatim', () => {
   it('IntakeForm fieldset/legend match the pre-U4 values', () => {
@@ -220,5 +270,132 @@ describe('ImportItemsButton keeps both actions in both variants', () => {
       expect(btn.className).toContain('ui2-btn--secondary')
       expect(btn.style.color).toBe('')
     }
+  })
+})
+
+/* ── U4 part 2: items half ─────────────────────────────────────────────────── */
+
+describe('U4 part 2 style tables keep the v1 values verbatim', () => {
+  it('ItemList table and cell geometry match the pre-U4 values', () => {
+    expect(ITEM_LIST.table.width).toBe('100%')
+    expect(ITEM_LIST.table.borderCollapse).toBe('collapse')
+    expect(ITEM_LIST.table.fontSize).toBe(14)
+    expect(ITEM_LIST.headRow.borderBottom).toBe('2px solid #ccc')
+    expect(ITEM_LIST.thLeft.textAlign).toBe('left')
+    expect(ITEM_LIST.thRight.textAlign).toBe('right')
+    expect(ITEM_LIST.cell.padding).toBe('4px 8px')
+    expect(ITEM_LIST.cellNowrap.whiteSpace).toBe('nowrap')
+    expect(ITEM_LIST.footRow.borderTop).toBe('2px solid #333')
+    expect(ITEM_LIST.footRow.background).toBe('#f8fafc')
+  })
+
+  it('an open edit row drops its bottom border so the panel continues it', () => {
+    expect(ITEM_LIST.row(true).borderBottom).toBe('none')
+    expect(ITEM_LIST.row(false).borderBottom).toBe('1px solid #eee')
+  })
+
+  it('the Save button keeps its pointer cursor but not while saving', () => {
+    expect(ITEM_LIST.saveButton(false).cursor).toBe('pointer')
+    expect(ITEM_LIST.saveButton(true).cursor).toBe('default')
+    expect(ITEM_LIST.saveButton(false).background).toBe('#fff')
+  })
+
+  it('ItemForm grid is two columns and the counter turns red at 90 chars', () => {
+    expect(ITEM_FORM.grid.gridTemplateColumns).toBe('1fr 1fr')
+    expect(ITEM_FORM.grid.gap).toBe('0 12px')
+    expect(ITEM_FORM.counter(false).color).toBe('#94a3b8')
+    expect(ITEM_FORM.counter(true).color).toBe('#ef4444')
+    expect(ITEM_FORM.counter(true).textAlign).toBe('right')
+    // Box-sizing only ever applied to the text inputs in v1.
+    expect(ITEM_FORM.inputBox.boxSizing).toBe('border-box')
+    expect((ITEM_FORM.inputPlain as Record<string, unknown>).boxSizing).toBeUndefined()
+  })
+
+  it('IntakePage breadcrumb and meta values are unchanged', () => {
+    expect(INTAKE_PAGE.root.maxWidth).toBe(800)
+    expect(INTAKE_PAGE.breadcrumb.fontSize).toBe(13)
+    expect(INTAKE_PAGE.crumbLink.color).toBe('#1a237e')
+    expect(INTAKE_PAGE.crumbLink.textDecoration).toBe('underline')
+    expect(INTAKE_PAGE.crumbSep.color).toBe('#999')
+    expect(INTAKE_PAGE.cell.padding).toBe('6px 8px')
+    expect(INTAKE_PAGE.importWrap.margin).toBe('12px 0')
+  })
+
+  it('ItemSearchPage keeps its wide query box and 12px filter inputs', () => {
+    expect(SEARCH_PAGE.queryInput.width).toBe(320)
+    expect(SEARCH_PAGE.queryInput.padding).toBe(8)
+    expect(SEARCH_PAGE.formButton.padding).toBe('8px 20px')
+    expect(SEARCH_PAGE.cell.textAlign).toBe('left')
+    expect(SEARCH_PAGE.filterInput.minWidth).toBe(90)
+    expect(SEARCH_PAGE.filterCell.paddingBottom).toBe(4)
+  })
+})
+
+describe('ItemList renders the same table in both variants', () => {
+  it('v1 keeps per-cell inline padding and the plain table element', () => {
+    render(<ItemList items={[ITEM]} intakeId={3} onItemsChanged={vi.fn()} />)
+    const table = screen.getByRole('table')
+    expect(table.className).toBe('')
+    expect(table.style.width).toBe('100%')
+    const codeCell = screen.getByText('A001')
+    expect(codeCell.style.padding).toBe('4px 8px')
+  })
+
+  it('v2 drops the inline styles and takes the class names instead', () => {
+    renderV2(<ItemList items={[ITEM]} intakeId={3} onItemsChanged={vi.fn()} />)
+    const table = screen.getByRole('table')
+    expect(table.className).toBe('ui2-items-table')
+    expect(table.style.width).toBe('')
+    const codeCell = screen.getByText('A001')
+    expect(codeCell.className).toBe('')
+    expect(codeCell.style.padding).toBe('')
+  })
+
+  it('v2 marks numeric cells so they stay right-aligned and tabular', () => {
+    renderV2(<ItemList items={[ITEM]} intakeId={3} onItemsChanged={vi.fn()} />)
+    // Qty, price, extended price, and on-hand are the four numeric columns.
+    const qtyCells = screen.getAllByText('2')
+    expect(qtyCells.some((el) => el.className.includes('ui2-num'))).toBe(true)
+  })
+})
+
+describe('ItemSearchPage renders the same results table in both variants', () => {
+  beforeEach(() => {
+    setToken(ADMIN_TOKEN)
+    server.use(
+      http.get('/items/intake-search', () => HttpResponse.json([ITEM_RESULT])),
+    )
+  })
+  afterEach(() => setToken(null))
+
+  /** Renders the page under the given variant, wrapped in the auth provider it needs. */
+  function renderPage(v2: boolean) {
+    return render(
+      <AuthProvider>
+        <UiVariantContext.Provider value={v2 ? 'v2' : 'v1'}>
+          <ItemSearchPage />
+        </UiVariantContext.Provider>
+      </AuthProvider>,
+    )
+  }
+
+  it('v1 keeps the inline cell padding', async () => {
+    const user = userEvent.setup()
+    renderPage(false)
+    await user.click(screen.getByRole('button', { name: /^search$/i }))
+    const cell = await screen.findByText('A001')
+    expect(cell.style.padding).toBe('6px 8px')
+    expect(cell.className).toBe('')
+  })
+
+  it('v2 uses the table class and drops the per-cell padding', async () => {
+    const user = userEvent.setup()
+    renderPage(true)
+    await user.click(screen.getByRole('button', { name: /^search$/i }))
+    const cell = await screen.findByText('A001')
+    expect(cell.className).toBe('')
+    expect(cell.style.padding).toBe('')
+    const table = screen.getByRole('table')
+    expect(table.className).toBe('ui2-search-table')
   })
 })

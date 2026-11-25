@@ -110,6 +110,12 @@
   font-size: var(--font-size-xs);
 }
 
+.ui-v2 .ui2-pos-result-remaining {
+  margin-right: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--gray-500);
+}
+
 .ui-v2 .ui2-pos-result-tail {
   display: flex;
   align-items: baseline;
@@ -285,6 +291,8 @@
   border-radius: var(--radius-sm);
   font-size: var(--font-size-sm);
 }
+
+.ui-v2 .ui2-pay-error { margin-top: 6px; }
 
 .ui-v2 .ui2-pay-hint {
   margin-top: var(--space-1);

@@ -124,6 +124,8 @@ const PROBE = `(() => {
     footer: pick(footer, props),
     docWidth: document.documentElement.clientWidth,
     pageOverflow,
+    // Signed overflow: negative/zero means the widest page element still fits.
+    pageOverflowPx: Math.round(pageOverflow - document.documentElement.clientWidth),
   };
 })()`;
 
@@ -262,7 +264,10 @@ function assertShellContract(results) {
   expect("v1 narrow: header keeps its original nowrap single row", n1.header?.["flex-wrap"] === "nowrap", n1.header?.["flex-wrap"]);
 
   console.log(
-    `\nINFO  page-content overflow at 420px (deferred to U3/U4/U5): v1 ${n1.pageOverflow}px, v2 ${n2.pageOverflow}px vs viewport ${n2.docWidth}px`,
+    `\nINFO  widest page element at 420px (page debt, not a failure): ` +
+      `v1 ${n1.pageOverflow}px (${n1.pageOverflowPx > 0 ? `+${n1.pageOverflowPx}px OVER` : "fits"}), ` +
+      `v2 ${n2.pageOverflow}px (${n2.pageOverflowPx > 0 ? `+${n2.pageOverflowPx}px OVER` : "fits"}) ` +
+      `vs viewport ${n2.docWidth}px`,
   );
   return failures.length;
 }

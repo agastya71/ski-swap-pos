@@ -256,5 +256,90 @@
     <button id="im-secondary" class="ui2-btn ui2-btn--secondary">Cancel</button>
   </div>
 </div>
+
+<style>
+  /* U4 part 2 fixture: the items table, ItemForm grid, breadcrumb and search bar. */
+  #it-table { }
+</style>
+<div class="ui-v2" id="u4p2-root">
+  <nav id="ip-crumbs" class="ui2-intakepage-crumbs">
+    <button id="ip-crumb-link" class="ui2-intakepage-crumb-link">Intake</button>
+    <span class="ui2-intakepage-crumb-sep">›</span>
+    <span id="ip-crumb-text" class="ui2-intakepage-crumb-text">Intake #3</span>
+  </nav>
+
+  <div id="it-header" class="ui2-items-header">
+    <h4 id="it-title" class="ui2-items-title">2 items</h4>
+    <div class="ui2-items-actions">
+      <select id="it-printer" class="ui2-items-printer-select"><option>Print on server</option></select>
+      <label id="it-code-toggle" class="ui2-items-code-toggle">
+        <input type="checkbox" /> Code as text
+      </label>
+    </div>
+  </div>
+
+  <div class="ui2-table-scroll">
+    <table id="it-table" class="ui2-items-table">
+      <thead>
+        <tr><th>Code</th><th class="ui2-num">Qty</th><th>Brand</th></tr>
+      </thead>
+      <tbody>
+        <tr id="it-row">
+          <td>A001</td>
+          <td id="it-cell-num" class="ui2-num">2</td>
+          <td id="it-cell-nowrap" class="ui2-items-nowrap">Rossignol</td>
+        </tr>
+        <tr class="ui2-items-row--open" id="it-row-open">
+          <td colspan="3" id="it-panel-cell" class="ui2-items-panel-cell">
+            <div id="it-edit-grid" class="ui2-items-edit-grid">
+              <div><label id="it-edit-label" class="ui2-items-edit-label">Price</label><input id="it-edit-input" class="ui2-items-edit-input" /></div>
+            </div>
+            <div id="it-note-row" class="ui2-items-note-row">
+              <span id="it-note-text" class="ui2-items-note-text">On hand: 2</span>
+              <input id="it-qty-input" class="ui2-items-qty-input" />
+              <span id="it-qty-error" class="ui2-items-qty-error">nope</span>
+            </div>
+            <p id="it-save-error" class="ui2-items-save-error">failed</p>
+            <div id="it-panel-actions" class="ui2-items-panel-actions">
+              <button id="it-save" class="ui2-btn ui2-btn--primary">Save</button>
+              <button id="it-cancel" class="ui2-btn ui2-btn--secondary">Cancel</button>
+              <button id="it-panel-delete" class="ui2-btn ui2-btn--danger ui2-items-panel-delete">Delete</button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr id="it-foot-row"><td class="ui2-items-foot-cell"></td><td id="it-foot-num" class="ui2-num">2</td><td></td></tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <form id="if-grid" class="ui2-itemform-grid">
+    <div id="if-field" class="ui2-itemform-field">
+      <label id="if-label" class="ui2-itemform-label">Qty</label>
+      <input id="if-input" class="ui2-itemform-input" />
+      <div id="if-counter" class="ui2-itemform-counter">12 / 99</div>
+      <div id="if-counter-over" class="ui2-itemform-counter ui2-itemform-counter--over">95 / 99</div>
+      <div id="if-price-note" class="ui2-itemform-price-note">Rounded up</div>
+      <div id="if-inherit" class="ui2-itemform-inherit">Intake default: donate unsold No</div>
+    </div>
+    <div id="if-donate" class="ui2-itemform-donate">
+      <div><label><input type="checkbox" /> Donate?</label></div>
+    </div>
+    <div id="if-error" class="ui2-itemform-error" role="alert">Required</div>
+  </form>
+
+  <form id="sp-form" class="ui2-search-form">
+    <div><label id="sp-label" class="ui2-search-label">Search</label><input id="sp-query" class="ui2-search-query" /></div>
+    <select id="sp-status" class="ui2-search-status"><option>All</option></select>
+    <button id="sp-primary" class="ui2-btn ui2-btn--primary">Search</button>
+  </form>
+  <div id="sp-count" class="ui2-search-count">3 items found</div>
+  <table id="sp-table" class="ui2-search-table">
+    <thead><tr><th>Code</th></tr><tr><td id="sp-filter-cell" class="ui2-search-filter-cell"><input id="sp-filter" class="ui2-search-filter" /></td></tr></thead>
+    <tbody><tr><td>A001</td></tr></tbody>
+  </table>
+  <div id="sp-empty" class="ui2-search-empty">No items match your search.</div>
+</div>
 </body>
 </html>

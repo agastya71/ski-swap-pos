@@ -213,15 +213,80 @@ function checkVariantFlagPlacement() {
   }
 }
 
+
+/**
+ * Classes the components emit but no stylesheet defines.
+ *
+ * The mirror image of the var() problem: a `ui2-*` class with no rule renders
+ * exactly like v1, so a conversion looks done while the v2 look never lands.
+ * Found 3 of these in U4 part 2 (`ui2-pay-error`, `ui2-pos-result-remaining`,
+ * `ui2-items-row--open`) plus one emitted under the wrong name.
+ *
+ * Template-literal class names (`ui2-btn--${variant}`) are collected as the
+ * truncated prefix `ui2-btn--` and skipped; their concrete forms are covered by
+ * the literal names in the same expression.
+ */
+function checkEmittedClassesAreStyled() {
+  // Namespace markers that are deliberately rule-less: they group the
+  // `--modifier` classes below them and carry no declarations of their own.
+  const ALLOWED = new Set(["ui2-btn"]);
+
+  const tsxFiles = [];
+  (function walk(dir) {
+    for (const entry of readdirSync(dir)) {
+      const full = join(dir, entry);
+      if (statSync(full).isDirectory()) walk(full);
+      else if (entry.endsWith(".tsx") && !entry.endsWith(".test.tsx")) tsxFiles.push(full);
+    }
+  })(SRC);
+
+  const emitted = new Map();
+  for (const file of tsxFiles) {
+    const body = readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    let m;
+    const re = /ui2-[a-z0-9-]+/g;
+    while ((m = re.exec(body)) !== null) {
+      const name = m[0];
+      if (name.endsWith("--")) continue; // truncated template prefix
+      if (!emitted.has(name)) emitted.set(name, rel(file));
+    }
+  }
+
+  const defined = new Set();
+  for (const file of allCssFiles(SRC)) {
+    const body = readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    let m;
+    const re = /\.(ui2-[a-z0-9-]+)/g;
+    while ((m = re.exec(body)) !== null) defined.add(m[1]);
+  }
+
+  const offenders = [];
+  for (const [name, file] of emitted) {
+    if (ALLOWED.has(name) || defined.has(name)) continue;
+    offenders.push(`${name} (emitted in ${file})`);
+  }
+
+  if (offenders.length === 0) {
+    pass(`all ${emitted.size} emitted ui2-* classes have a rule`);
+  } else {
+    fail(
+      `${offenders.length} ui2-* class(es) are emitted with no stylesheet rule — ` +
+        "they render exactly like v1:\n        " +
+        offenders.sort().join("\n        "),
+    );
+  }
+}
+
 console.log("# UI overhaul CSS wiring\n");
 checkImportsAreFirst();
 checkEveryV2SheetIsImported();
 checkV2RulesAreScoped();
 checkCssVarsAreDefined();
 checkVariantFlagPlacement();
+checkEmittedClassesAreStyled();
 
 const failed = failures.length;
 console.log(
-  `\n${failed ? `${failed} FAILED` : "ALL CHECKS PASSED"} (${failed ? "see above" : "5 groups"})`,
+  `\n${failed ? `${failed} FAILED` : "ALL CHECKS PASSED"} (${failed ? "see above" : "6 groups"})`,
 );
 process.exit(failed ? 1 : 0);

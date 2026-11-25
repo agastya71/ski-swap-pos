@@ -296,7 +296,7 @@ export function IntakeModulePage() {
                   disabled={importing}
                   {...variantProps(
                     v2,
-                    "ui2-btn ui2-btn--secondary ui2-intake-candidate-btn",
+                    "ui2-btn ui2-btn--secondary",
                     INTAKE_MODULE.candidateButton,
                   )}
                 >
