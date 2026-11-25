@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# managed by ski-swap-pos — install with: bash scripts/install-git-hooks.sh
+#
+# Pre-push guard: run the UI CSS wiring check when a push touches frontend CSS.
+#
+# Why this hook exists: the two failure modes it checks for are invisible to
+# every other test in this repo — PostCSS drops an out-of-order `@import`
+# silently, and a v2 stylesheet that nobody imports looks identical to working
+# code. The first of those has already shipped twice.
+#
+# Install with:  bash scripts/install-git-hooks.sh
+# Skip once with: git push --no-verify
+#
+# It is deliberately narrow: it only runs when the pushed range touches CSS or
+# the check script itself, so unrelated pushes stay instant.
+
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+# Only guard pushes that could plausibly affect CSS wiring.
+if ! git diff --cached --name-only --diff-filter=ACMR | grep -qE '(frontend/src/.*\.css$|scripts/css-wiring-check\.mjs$)'; then
+  # Nothing staged matches. Widen to committed-but-unpushed files on this branch.
+  UPSTREAM="$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)"
+  if [[ -n "$UPSTREAM" ]]; then
+    CHANGED="$(git diff --name-only "$UPSTREAM"..HEAD 2>/dev/null || true)"
+  else
+    CHANGED="$(git diff --name-only HEAD~1..HEAD 2>/dev/null || true)"
+  fi
+  if ! printf '%s\n' "$CHANGED" | grep -qE '(frontend/src/.*\.css$|scripts/css-wiring-check\.mjs$)'; then
+    exit 0
+  fi
+fi
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "pre-push: node not found — skipping CSS wiring check" >&2
+  exit 0
+fi
+
+echo "pre-push: frontend CSS changed — checking v2 wiring"
+if ! node "$REPO_ROOT/scripts/css-wiring-check.mjs"; then
+  cat >&2 <<'EOF'
+
+✗ CSS wiring check failed.
+
+  The most likely cause: an @import in frontend/src/index.css sits after
+  another statement. PostCSS drops it silently and the styles never reach
+  the browser — no test will fail.
+
+  See docs/ui-verification-pitfalls.md §1–2.
+
+  To push anyway:  git push --no-verify
+EOF
+  exit 1
+fi
+echo "pre-push: CSS wiring OK"

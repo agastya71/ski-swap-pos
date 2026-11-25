@@ -5,7 +5,21 @@ Findings from building and verifying phases U0–U3 of
 Every item below **actually happened**, and most failed *silently* — green
 tests, no errors, wrong result. Each entry says what to do instead.
 
-Guard for #1 and #2 is automated: `node scripts/css-wiring-check.mjs`.
+Guard for #1 and #2 is automated: `node scripts/css-wiring-check.mjs`, and as
+of the hook install below it runs before every push that touches frontend CSS.
+
+## Install the guard once per clone
+
+`.git/hooks/` is not version-controlled, so the hook sources live in
+`scripts/hooks/` and get copied in:
+
+```bash
+bash scripts/install-git-hooks.sh
+```
+
+The pre-push hook inspects the pushed range and only runs the check when
+`frontend/src/**/*.css` (or the check script itself) changed, so unrelated
+pushes cost nothing. `git push --no-verify` bypasses it.
 
 ---
 
