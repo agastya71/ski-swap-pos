@@ -113,4 +113,5 @@ side in the PR body; checklist per Google eng-practices (what/why/risk/undo).
 
 | Phase | Date | Verdict | Notes |
 |---|---|---|---|
+| U0 | 2026-11-24 | shipped as PR #162 | /next mount + flag wiring; /next/ empty-dir no-op verified |
 | — | — | — | — |
