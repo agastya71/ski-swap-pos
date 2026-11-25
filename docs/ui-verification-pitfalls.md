@@ -5,7 +5,21 @@ Findings from building and verifying phases U0–U3 of
 Every item below **actually happened**, and most failed *silently* — green
 tests, no errors, wrong result. Each entry says what to do instead.
 
-Guard for #1 and #2 is automated: `node scripts/css-wiring-check.mjs`.
+Guard for #1 and #2 is automated: `node scripts/css-wiring-check.mjs`, and as
+of the hook install below it runs before every push that touches frontend CSS.
+
+## Install the guard once per clone
+
+`.git/hooks/` is not version-controlled, so the hook sources live in
+`scripts/hooks/` and get copied in:
+
+```bash
+bash scripts/install-git-hooks.sh
+```
+
+The pre-push hook inspects the pushed range and only runs the check when
+`frontend/src/**/*.css` (or the check script itself) changed, so unrelated
+pushes cost nothing. `git push --no-verify` bypasses it.
 
 ---
 
@@ -35,6 +49,18 @@ Rules sit in the repo reading as authoritative; the browser never receives them.
 `/v2|ui2/i` under `frontend/src` is missing from `index.css`. It also fails if
 any v2 rule is not scoped under `.ui-v2` / `.ui2-*` — unscoped rules break the
 "v1 stays pixel-identical" promise the A/B plan rests on.
+
+## 2b. A checker that reads the working tree cannot certify a commit
+
+Writing the pre-push hook, the first version read `git diff --cached` and the
+working tree — so with broken CSS sitting **unstaged**, it validated content
+that was never being pushed and exited 0. The tree was broken; the hook said
+fine.
+
+**Do:** a hook must derive what it checks from the refs git hands it on stdin
+(`<local ref> <local sha> <remote ref> <remote sha>`), and must refuse to run
+when the files it inspects are dirty — otherwise it is vouching for something
+other than the push.
 
 ## 3. `/next/` serves the v2 bundle but defaults to v1
 

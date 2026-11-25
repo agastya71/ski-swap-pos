@@ -138,4 +138,5 @@ replay). Read it before starting U4. Guarded by
 | U2 | 2026-11-25 | shipped as PR #166 (merged into phase branch) | v2 shell via `ui-v2-shell.css` + `layoutStyles.ts`; v1 inline styles preserved verbatim (probe-verified); page-state primitives + CSS-only stacked-table pattern; shell verified at 420px |
 | U3 | 2026-11-25 | shipped as PR #167 (part 1) + #168 (part 2) | POS money path: 164 inline styles across 6 files → 0. v1 tables kept verbatim in `posStyles.ts`; v2 in `pos-v2.css` + `pos-editor-v2.css`. Added `v1Only`/`v2Only` helpers for elements `variantProps` cannot express |
 | — | 2026-11-25 | verification tooling | PR #169 added the TEST SWAP checklist runner + sandbox script; `scripts/css-wiring-check.mjs` guards the two silent CSS failure modes. Checklist 12/12 PASS against a sandbox copy |
+| — | 2026-11-25 | guard wired | `scripts/hooks/pre-push` + `scripts/install-git-hooks.sh`: the wiring check now runs automatically before any push touching `frontend/src/**/*.css`. Fast-skips otherwise; `--no-verify` bypasses |
 | — | — | — | — |
