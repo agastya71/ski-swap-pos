@@ -1,0 +1,149 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   v2 styling for components/ui primitives (phase U1, U1-consume started U2).
+
+   Inert in v1: every rule here is scoped under `.ui2-*` classes that only get
+   applied when the root carries .ui-v2 (see lib/uiVariant.ts). v1 pages that
+   haven't adopted the primitives yet are unaffected; pages that adopt them
+   keep looking native in both variants.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Button ─────────────────────────────────────────────────────────────── */
+.ui2-btn--primary {
+  background: var(--navy);
+  color: var(--white);
+  border: 1px solid var(--navy);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  transition: background var(--transition);
+}
+.ui2-btn--primary:hover:enabled { background: var(--blue-hover); }
+.ui2-btn--primary:disabled { opacity: 0.55; }
+
+.ui2-btn--secondary {
+  background: var(--white);
+  color: var(--navy);
+  border: 1px solid var(--navy);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-md);
+  font-weight: 500;
+  transition: background var(--transition);
+}
+.ui2-btn--secondary:hover:enabled { background: var(--blue-light); }
+
+.ui2-btn--danger {
+  background: var(--red);
+  color: var(--white);
+  border: 1px solid var(--red);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  transition: opacity var(--transition);
+}
+.ui2-btn--danger:hover:enabled { opacity: 0.9; }
+.ui2-btn--danger:disabled { opacity: 0.55; }
+
+/* ── Fields (label + control + error) ───────────────────────────────────── */
+.ui2-field { display: flex; flex-direction: column; gap: var(--space-1); }
+.ui2-field label { font-size: var(--font-size-sm); font-weight: 600; color: var(--gray-700); }
+.ui2-field .ui-invalid {
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+.ui-field-hint { font-size: var(--font-size-xs); color: var(--gray-500); }
+.ui-field-error { font-size: var(--font-size-xs); color: var(--red); font-weight: 500; }
+
+/* ── Card ───────────────────────────────────────────────────────────────── */
+.ui2-card {
+  background: var(--white);
+  border: var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+  box-shadow: none;
+}
+.ui2-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.ui2-card-head h3 { margin: 0; color: var(--navy); font-size: var(--font-size-lg); }
+.ui2-card-actions { display: flex; gap: var(--space-2); }
+
+/* ── Table ──────────────────────────────────────────────────────────────── */
+.ui2-table th {
+  font-size: var(--font-size-xs);
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: var(--space-2) var(--space-3);
+}
+.ui2-table td { padding: var(--space-2) var(--space-3); font-size: var(--font-size-md); }
+.ui-table-caption {
+  caption-side: top;
+  text-align: left;
+  font-size: var(--font-size-sm);
+  color: var(--gray-500);
+  padding-bottom: var(--space-2);
+}
+
+/* ── Modal ──────────────────────────────────────────────────────────────── */
+.ui2-modal-backdrop {
+  position: fixed;
+  inset: 0; /* standard, widely supported shorthand (no Chromium dependency) */
+  background: rgba(15, 23, 42, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: var(--space-4);
+}
+.ui2-modal-panel {
+  background: var(--white);
+  border-radius: var(--radius);
+  border: var(--border);
+  box-shadow: var(--shadow-1);
+  padding: var(--space-4);
+  width: min(560px, 100%);
+  max-height: calc(100vh - 2 * var(--space-6));
+  overflow: auto;
+  outline: none;
+}
+.ui-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+.ui-modal-head h3 { margin: 0; font-size: var(--font-size-lg); }
+.ui-modal-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--gray-500);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+}
+.ui-modal-close:hover { color: var(--gray-900); }
+
+/* ── Toast ──────────────────────────────────────────────────────────────── */
+.ui-toast {
+  position: fixed;
+  bottom: var(--space-6);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  z-index: 60;
+  box-shadow: var(--shadow-1);
+}
+.ui2-toast--success { background: var(--green-bg); color: var(--white); }
+.ui2-toast--error { background: var(--red); color: var(--white); }
+.ui2-toast--info { background: var(--navy); color: var(--white); }
