@@ -1,0 +1,384 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   POS v2 — docs/ui-overhaul-ab-plan-2026-11-24.md (phase U3, part 1)
+
+   Checkout money path: LookupField → Cart → PaymentForm → ConfirmationScreen.
+   Every rule is scoped under .ui-v2, so with the class absent (v1, the default)
+   the components keep their original inline styles and render unchanged.
+
+   These are the screens where a misclick costs real money, so v2 only changes
+   presentation: no control moves position, no label changes, no field is
+   removed, and every interactive target grows to at least var(--touch-target)
+   (44px) on coarse pointers. Amounts stay right-aligned and tabular so digits
+   line up the way a cashier reads them.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Lookup field ─────────────────────────────────────────────────────────── */
+.ui-v2 .ui2-pos-lookup-label {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.ui-v2 .ui2-pos-lookup-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--touch-target);
+  padding: var(--space-3);
+  /* 2px keeps the scan target obviously primary vs the 1px fields below it */
+  border: 2px solid var(--navy);
+  border-radius: var(--radius-sm);
+  /* 18px, not the 16px --font-size-lg step: this field is read at arm's
+     length while scanning, so it stays deliberately larger than body text. */
+  font-size: 18px;
+  /* scanning apps emit digits fast; keep the caret visible and stable */
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-v2 .ui2-pos-lookup-input:disabled {
+  opacity: 0.6;
+}
+
+.ui-v2 .ui2-pos-lookup-error {
+  margin-top: var(--space-2);
+}
+
+/* Results render in document flow (event feedback #3): never absolute, so an
+   open list can never cover the transaction lines beneath it. */
+.ui-v2 .ui2-pos-results {
+  margin-top: var(--space-2);
+  max-height: 320px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+}
+
+.ui-v2 .ui2-pos-results-head {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--gray-200);
+  color: var(--gray-500);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+}
+
+.ui-v2 .ui2-pos-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: var(--touch-target);
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-bottom: 1px solid var(--gray-100);
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font-size: var(--font-size-sm);
+  text-align: left;
+}
+
+.ui-v2 .ui2-pos-result:last-child {
+  border-bottom: none;
+}
+
+/* Highlight is driven by a class rather than an inline background so the
+   keyboard-nav highlight and :hover can share one declaration. */
+.ui-v2 .ui2-pos-result--highlighted {
+  background: var(--blue-light);
+}
+
+.ui-v2 .ui2-pos-result[aria-disabled="true"] {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.ui-v2 .ui2-pos-result-code {
+  margin-right: var(--space-2);
+  color: var(--navy);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-v2 .ui2-pos-result-desc {
+  color: var(--gray-700);
+}
+
+.ui-v2 .ui2-pos-result-meta {
+  margin-left: var(--space-2);
+  color: var(--gray-400);
+  font-size: var(--font-size-xs);
+}
+
+.ui-v2 .ui2-pos-result-tail {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-left: var(--space-4);
+  white-space: nowrap;
+}
+
+/* Sold-out badge: uppercase red, but not the 11px v1 size — 12px is the
+   smallest step on the token scale that stays legible at 420px. */
+.ui-v2 .ui2-pos-result-status {
+  color: var(--red);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+/* ── Cart ─────────────────────────────────────────────────────────────────── */
+.ui-v2 .ui2-cart-table {
+  width: 100%;
+  margin-bottom: var(--space-2);
+  border-collapse: collapse;
+  /* the cart is the densest money table; let it scroll rather than squash */
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-v2 .ui2-cart-table th {
+  padding: var(--space-2);
+  border-bottom: 2px solid var(--gray-200);
+  color: var(--gray-500);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-align: left;
+}
+
+.ui-v2 .ui2-cart-table th.ui2-num {
+  text-align: right;
+}
+
+.ui-v2 .ui2-cart-table td {
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.ui-v2 .ui2-cart-table td.ui2-num {
+  text-align: right;
+}
+
+.ui-v2 .ui2-cart-item-meta {
+  color: var(--gray-400);
+  font-size: var(--font-size-xs);
+}
+
+.ui-v2 .ui2-cart-qty,
+.ui-v2 .ui2-cart-price {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* Widths are only declared in v2 — v1 keeps its 56/80px inline values, and
+   these are wider because a 44px-tall number input needs room for the spinner. */
+.ui-v2 .ui2-cart-qty {
+  width: 72px;
+}
+
+.ui-v2 .ui2-cart-price {
+  width: 96px;
+}
+
+.ui-v2 .ui2-cart-remove {
+  min-height: 32px;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--gray-700);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.ui-v2 .ui2-cart-remove:hover {
+  border-color: var(--red-border);
+  background: var(--red-light);
+  color: var(--red);
+}
+
+.ui-v2 .ui2-cart-txn-note {
+  margin-bottom: var(--space-1);
+  color: var(--gray-500);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-cart-notes {
+  margin-bottom: var(--space-2);
+}
+
+.ui-v2 .ui2-cart-note-row {
+  margin-bottom: var(--space-1);
+  font-size: var(--font-size-xs);
+}
+
+.ui-v2 .ui2-cart-note-label {
+  display: block;
+  margin-bottom: var(--space-1);
+  color: var(--gray-500);
+}
+
+.ui-v2 .ui2-cart-note-input {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 320px;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+}
+
+.ui-v2 .ui2-cart-total {
+  padding-top: var(--space-3);
+  border-top: 2px solid var(--gray-200);
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  text-align: right;
+}
+
+.ui-v2 .ui2-cart-empty {
+  color: var(--gray-500);
+  font-style: italic;
+}
+
+/* ── Payment form ─────────────────────────────────────────────────────────── */
+.ui-v2 .ui2-pay-field {
+  margin-bottom: var(--space-3);
+}
+
+.ui-v2 .ui2-pay-label {
+  display: block;
+  margin-bottom: var(--space-1);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+/* Money inputs share one width so the three tender fields form a single
+   readable column; v1's inconsistent 140/200px is what v2 normalizes. */
+.ui-v2 .ui2-pay-input {
+  box-sizing: border-box;
+  min-height: var(--touch-target);
+  padding: var(--space-2);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-lg);
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-v2 .ui2-pay-input--money {
+  width: 160px;
+  text-align: right;
+}
+
+.ui-v2 .ui2-pay-input--check-number {
+  width: 200px;
+}
+
+.ui-v2 .ui2-pay-notes {
+  box-sizing: border-box;
+  width: 100%;
+  padding: var(--space-2);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-pay-hint {
+  margin-top: var(--space-1);
+  color: var(--gray-500);
+  font-size: var(--font-size-xs);
+}
+
+.ui-v2 .ui2-pay-status {
+  margin-bottom: var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-pay-status--ok {
+  border: 1px solid #86efac;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.ui-v2 .ui2-pay-status--short {
+  border: 1px solid var(--red-border);
+  background: var(--red-light);
+  color: #b91c1c;
+}
+
+/* Change-due is the one number a cashier must never misread: bigger, bolder
+   and on its own line. */
+.ui-v2 .ui2-pay-change {
+  margin-bottom: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid #86efac;
+  border-radius: var(--radius-sm);
+  background: #f0fdf4;
+  color: #15803d;
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-v2 .ui2-pay-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+/* ── Confirmation (receipt) ───────────────────────────────────────────────── */
+.ui-v2 .ui2-confirm {
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+}
+
+.ui-v2 .ui2-confirm-mark {
+  margin-bottom: var(--space-4);
+  color: var(--green-bg);
+  font-size: 48px;
+  line-height: 1;
+}
+
+.ui-v2 .ui2-confirm-count {
+  font-size: var(--font-size-lg);
+}
+
+.ui-v2 .ui2-confirm-total {
+  font-size: 28px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.ui-v2 .ui2-confirm-tenders {
+  margin-bottom: var(--space-4);
+  color: var(--gray-700);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-v2 .ui2-confirm-change {
+  color: var(--green-bg);
+  font-weight: 700;
+}
+
+.ui-v2 .ui2-confirm-new {
+  min-height: var(--touch-target);
+  padding: var(--space-3) var(--space-6);
+  border: none;
+  border-radius: var(--radius);
+  background: var(--navy);
+  color: #fff;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ui-v2 .ui2-confirm-new:hover {
+  background: var(--blue-text);
+}

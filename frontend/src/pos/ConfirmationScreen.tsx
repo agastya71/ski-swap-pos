@@ -5,6 +5,8 @@
  * @module ConfirmationScreen
  */
 import type { SaleWithItemsResponse } from "../types";
+import { CONFIRM, variantProps } from "./posStyles";
+import { useUiVariant } from "../lib/uiVariant";
 
 /**
  * Displays a receipt summary including sale ID, item count, total, and per-tender
@@ -21,17 +23,18 @@ export function ConfirmationScreen({
   onNewTransaction: () => void;
 }) {
   const count = sale.sale_items.length;
+  const v2 = useUiVariant() === "v2";
   return (
-    <div style={{ textAlign: "center", padding: 32 }}>
-      <div style={{ fontSize: 48, color: "#2e7d32", marginBottom: 16 }}>✓</div>
+    <div {...variantProps(v2, "ui2-confirm", CONFIRM.container)}>
+      <div {...variantProps(v2, "ui2-confirm-mark", CONFIRM.mark)}>✓</div>
       <h2>Sale Complete!</h2>
-      <p style={{ fontSize: 20 }}>
+      <p {...variantProps(v2, "ui2-confirm-count", CONFIRM.count)}>
         Sale #{sale.id} — {count} item{count !== 1 ? "s" : ""}
       </p>
-      <p style={{ fontSize: 28, fontWeight: "bold" }}>
+      <p {...variantProps(v2, "ui2-confirm-total", CONFIRM.total)}>
         ${sale.sale_total.toFixed(2)}
       </p>
-      <div style={{ marginBottom: 24, color: "#555", fontSize: 14 }}>
+      <div {...variantProps(v2, "ui2-confirm-tenders", CONFIRM.tenders)}>
         {sale.cash_amount > 0 && (
           <div>Cash: ${sale.cash_amount.toFixed(2)}</div>
         )}
@@ -40,21 +43,14 @@ export function ConfirmationScreen({
         )}
         {sale.cc_amount > 0 && <div>Card: ${sale.cc_amount.toFixed(2)}</div>}
         {sale.balance_due < 0 && (
-          <div style={{ color: "#2e7d32", fontWeight: "bold" }}>
+          <div {...variantProps(v2, "ui2-confirm-change", CONFIRM.change)}>
             Change given: ${(-sale.balance_due).toFixed(2)}
           </div>
         )}
       </div>
       <button
         onClick={onNewTransaction}
-        style={{
-          padding: "14px 36px",
-          fontSize: 18,
-          background: "#1a237e",
-          color: "white",
-          border: "none",
-          cursor: "pointer",
-        }}
+        {...variantProps(v2, "ui2-confirm-new", CONFIRM.newButton)}
       >
         New Transaction
       </button>

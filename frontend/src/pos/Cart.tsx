@@ -7,6 +7,8 @@
  * @module Cart
  */
 import type { ItemLookupResponse } from '../types'
+import { CART, variantProps } from './posStyles'
+import { useUiVariant } from '../lib/uiVariant'
 
 /** A single line in the cart: the looked-up item plus sale-time overrides. */
 export interface CartLine {
@@ -43,33 +45,34 @@ export function Cart({ lines, onUpdate, onRemove, readOnly = false, transactionN
   transactionNumber?: number | null
 }) {
   const total = lines.reduce((sum, l) => sum + l.sell_price * l.quantity, 0)
+  const v2 = useUiVariant() === 'v2'
 
     if (lines.length === 0) {
     return transactionNumber != null ? (
-      <p style={{ color: '#555', fontStyle: 'italic' }}>
+      <p {...variantProps(v2, 'ui2-cart-empty', CART.emptyReserved)}>
         Transaction <strong>#{transactionNumber}</strong> reserved — scan an item to begin.
       </p>
     ) : (
-      <p style={{ color: '#888', fontStyle: 'italic' }}>Cart is empty. Scan an item to begin.</p>
+      <p {...variantProps(v2, 'ui2-cart-empty', CART.empty)}>Cart is empty. Scan an item to begin.</p>
     )
   }
 
   return (
     <div>
       {transactionNumber != null && (
-        <div style={{ fontSize: 13, color: '#555', marginBottom: 4 }}>
+        <div {...variantProps(v2, 'ui2-cart-txn-note', CART.txnNote)}>
           Transaction <strong>#{transactionNumber}</strong> — reserved at start; this ID stays for the whole checkout.
         </div>
       )}
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 8 }}>
+      <table {...variantProps(v2, 'ui2-cart-table', CART.table)}>
         <thead>
-          <tr style={{ borderBottom: '2px solid #ccc', fontSize: 13, color: '#555' }}>
-            <th style={{ textAlign: 'left', padding: '4px 8px' }}>Code</th>
-            <th style={{ textAlign: 'left', padding: '4px 8px' }}>Seller</th>
-            <th style={{ textAlign: 'left', padding: '4px 8px' }}>Description</th>
-            <th style={{ textAlign: 'right', padding: '4px 8px' }}>Qty</th>
-            <th style={{ textAlign: 'right', padding: '4px 8px' }}>Unit Price</th>
-            <th style={{ textAlign: 'right', padding: '4px 8px' }}>Line Total</th>
+          <tr {...variantProps(v2, '', CART.theadRow)}>
+            <th {...variantProps(v2, '', CART.thLeft)}>Code</th>
+            <th {...variantProps(v2, '', CART.thLeft)}>Seller</th>
+            <th {...variantProps(v2, '', CART.thLeft)}>Description</th>
+            <th {...variantProps(v2, 'ui2-num', CART.thRight)}>Qty</th>
+            <th {...variantProps(v2, 'ui2-num', CART.thRight)}>Unit Price</th>
+            <th {...variantProps(v2, 'ui2-num', CART.thRight)}>Line Total</th>
             <th />
           </tr>
         </thead>
@@ -77,18 +80,18 @@ export function Cart({ lines, onUpdate, onRemove, readOnly = false, transactionN
           {lines.map(line => {
             const maxQty = Math.max(1, Math.floor(line.item.remaining))
             return (
-              <tr key={line.item.id} style={{ borderBottom: '1px solid #eee' }}>
-                <td style={{ padding: '6px 8px' }}>{line.item.code}</td>
-                <td style={{ padding: '6px 8px' }}>{line.item.seller_code}</td>
-                <td style={{ padding: '6px 8px' }}>
+              <tr key={line.item.id} {...variantProps(v2, '', CART.bodyRow)}>
+                <td {...variantProps(v2, '', CART.td)}>{line.item.code}</td>
+                <td {...variantProps(v2, '', CART.td)}>{line.item.seller_code}</td>
+                <td {...variantProps(v2, '', CART.td)}>
                   {line.item.description ?? '—'}
                   {(line.item.category || line.item.type) && (
-                    <div style={{ fontSize: 12, color: '#94a3b8' }}>
+                    <div {...variantProps(v2, 'ui2-cart-item-meta', CART.itemMeta)}>
                       {[line.item.category, line.item.type].filter(Boolean).join(' · ')}
                     </div>
                   )}
                 </td>
-                <td style={{ padding: '6px 8px', textAlign: 'right' }}>
+                <td {...variantProps(v2, 'ui2-num', CART.tdRight)}>
                   {readOnly ? (
                     line.quantity
                   ) : (
@@ -102,11 +105,11 @@ export function Cart({ lines, onUpdate, onRemove, readOnly = false, transactionN
                         const q = parseInt(e.target.value, 10)
                         onUpdate(line.item.id, { quantity: Number.isNaN(q) ? 1 : Math.min(Math.max(1, q), maxQty) })
                       }}
-                      style={{ width: 56, padding: '4px 6px', fontSize: 14, textAlign: 'right' }}
+                      {...variantProps(v2, 'ui2-cart-qty', CART.qtyInput)}
                     />
                   )}
                 </td>
-                <td style={{ padding: '6px 8px', textAlign: 'right' }}>
+                <td {...variantProps(v2, 'ui2-num', CART.tdRight)}>
                   {readOnly ? (
                     `$${line.sell_price.toFixed(2)}`
                   ) : (
@@ -120,14 +123,14 @@ export function Cart({ lines, onUpdate, onRemove, readOnly = false, transactionN
                         const p = parseFloat(e.target.value)
                         onUpdate(line.item.id, { sell_price: Number.isNaN(p) ? 0 : p })
                       }}
-                      style={{ width: 80, padding: '4px 6px', fontSize: 14, textAlign: 'right' }}
+                      {...variantProps(v2, 'ui2-cart-price', CART.priceInput)}
                     />
                   )}
                 </td>
-                <td style={{ padding: '6px 8px', textAlign: 'right' }}>${(line.sell_price * line.quantity).toFixed(2)}</td>
-                <td style={{ padding: '6px 8px' }}>
+                <td {...variantProps(v2, 'ui2-num', CART.tdRight)}>${(line.sell_price * line.quantity).toFixed(2)}</td>
+                <td {...variantProps(v2, '', CART.td)}>
                   {!readOnly && (
-                    <button onClick={() => onRemove(line.item.id)} aria-label={`remove ${line.item.code}`} style={{ fontSize: 12, cursor: 'pointer' }}>Remove</button>
+                    <button onClick={() => onRemove(line.item.id)} aria-label={`remove ${line.item.code}`} {...variantProps(v2, 'ui2-cart-remove', CART.removeBtn)}>Remove</button>
                   )}
                 </td>
               </tr>
@@ -136,22 +139,22 @@ export function Cart({ lines, onUpdate, onRemove, readOnly = false, transactionN
         </tbody>
       </table>
       {lines.some(l => l.sell_price !== l.item.price) && !readOnly && (
-        <div style={{ marginBottom: 8 }}>
+        <div {...variantProps(v2, 'ui2-cart-notes', CART.noteWrap)}>
           {lines.filter(l => l.sell_price !== l.item.price).map(l => (
-            <div key={l.item.id} style={{ marginBottom: 4, fontSize: 13 }}>
-              <label style={{ color: '#64748b' }}>Reason for price adjustment — {l.item.code}:</label>
+            <div key={l.item.id} {...variantProps(v2, 'ui2-cart-note-row', CART.noteRow)}>
+              <label {...variantProps(v2, 'ui2-cart-note-label', CART.noteLabel)}>Reason for price adjustment — {l.item.code}:</label>
               <input
                 value={l.notes}
                 aria-label={`price adjustment notes for ${l.item.code}`}
                 onChange={e => onUpdate(l.item.id, { notes: e.target.value })}
                 placeholder="e.g. damaged binding"
-                style={{ marginLeft: 8, padding: '4px 6px', fontSize: 13, width: 220 }}
+                {...variantProps(v2, 'ui2-cart-note-input', CART.noteInput)}
               />
             </div>
           ))}
         </div>
       )}
-      <div style={{ textAlign: 'right', fontWeight: 'bold', fontSize: 20 }}>
+      <div {...variantProps(v2, 'ui2-cart-total', CART.total)}>
         Total: <span>${total.toFixed(2)}</span>
       </div>
     </div>
