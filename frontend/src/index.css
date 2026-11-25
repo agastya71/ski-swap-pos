@@ -148,3 +148,4 @@ tbody tr:hover { background: var(--gray-50); }
 
 /* ── Utility ───────────────────────────────────────────────────────────────── */
 hr { border: none; border-top: 1px solid var(--gray-200); margin: 20px 0; }
+
