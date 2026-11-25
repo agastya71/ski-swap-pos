@@ -11,12 +11,16 @@
  *
  * @module posV2.test
  */
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { Cart, type CartLine } from './Cart'
 import { ConfirmationScreen } from './ConfirmationScreen'
 import { PaymentForm } from './PaymentForm'
-import { LOOKUP, CART, PAY, CONFIRM } from './posStyles'
+import { LOOKUP, CART, PAY, CONFIRM, EDITOR, POS_PAGE, v1Only, variantProps } from './posStyles'
+import { TransactionEditor } from './TransactionEditor'
+import { AuthProvider } from '../auth/AuthContext'
+import { server } from '../mocks/server'
+import { http, HttpResponse } from 'msw'
 import { UiVariantContext } from '../lib/uiVariant'
 import type { ItemLookupResponse, SaleWithItemsResponse } from '../types'
 
@@ -171,5 +175,160 @@ describe('posStyles v1 tables match the values the components rendered before U3
     expect(CONFIRM.total.fontWeight).toBe('bold')
     expect(CONFIRM.tenders.fontSize).toBe(14)
     expect(CONFIRM.container.padding).toBe(32)
+  })
+})
+
+describe('TransactionEditor v2 (U3 part 2)', () => {
+  const editorSale = (): SaleWithItemsResponse =>
+    ({
+      id: 7,
+      event_id: 1,
+      date_of_sale: '2026-04-04T10:00:00',
+      customer_name: null,
+      customer_email: null,
+      sale_total: 35,
+      mysl_total: 10.5,
+      seller_total: 24.5,
+      cash_amount: 35,
+      check_amount: 0,
+      cc_amount: 0,
+      cc_fee: 0,
+      check_number: null,
+      cc_transaction_id: null,
+      total_paid: 35,
+      balance_due: 0,
+      notes: null,
+      is_voided: false,
+      transaction_number: 7,
+      is_finalized: true,
+      created_at: '2026-04-04T10:00:00',
+      created_by: 'cashier1',
+      sale_items: [
+        {
+          id: 11,
+          sale_id: 7,
+          item_id: 101,
+          item_code: '10003',
+          line_number: 1,
+          quantity: 1,
+          sell_price: 20,
+          extended_price: 20,
+          notes: null,
+          created_at: '2026-04-04T10:00:00',
+        },
+      ],
+    }) as unknown as SaleWithItemsResponse
+
+  const renderWith = (v2: boolean) => {
+    const ui = (
+      <AuthProvider>
+        <TransactionEditor saleId={7} onClose={() => {}} />
+      </AuthProvider>
+    )
+    return v2
+      ? render(<UiVariantContext.Provider value="v2">{ui}</UiVariantContext.Provider>)
+      : render(ui)
+  }
+
+  beforeEach(() => {
+    server.use(
+      http.get('/sales/:id', () => HttpResponse.json(editorSale())),
+      http.get('/sales/:id/edits', () => HttpResponse.json([])),
+    )
+  })
+
+  it('v1 keeps inline styles on the panel and the line table', async () => {
+    renderWith(false)
+    const title = await screen.findByText('Edit sale #7')
+    expect(title.getAttribute('style')).toContain('color: rgb(30, 58, 138)')
+    const table = screen.getByRole('table')
+    expect(table.getAttribute('style')).toContain('border-collapse: collapse')
+    // the container carries the inline 2px navy border in v1
+    const panel = title.closest('div')!.parentElement as HTMLElement
+    expect(panel.getAttribute('style')).toContain('border: 2px solid rgb(30, 58, 138)')
+  })
+
+  it('v2 drops the inline styles and uses ui2 classes', async () => {
+    renderWith(true)
+    const title = await screen.findByText('Edit sale #7')
+    expect(title.className).toBe('ui2-editor-title')
+    expect(title.getAttribute('style')).toBeNull()
+    const table = screen.getByRole('table')
+    expect(table.className).toBe('ui2-editor-table')
+    expect(table.getAttribute('style')).toBeNull()
+  })
+
+  it('v2 styles line inputs by class and keeps their aria labels', async () => {
+    renderWith(true)
+    const qty = await screen.findByLabelText(/quantity for 10003/i)
+    expect(qty.className).toBe('ui2-editor-qty')
+    expect(qty.getAttribute('style')).toBeNull()
+    const price = screen.getByLabelText(/unit price for 10003/i)
+    expect(price.className).toBe('ui2-editor-price')
+    const notes = screen.getByLabelText(/notes for 10003/i)
+    expect(notes.className).toBe('ui2-editor-notes')
+  })
+
+  it('v2 marks a dirty line with the dirty class and adds no inline weight', async () => {
+    renderWith(true)
+    const qty = await screen.findByLabelText(/quantity for 10003/i)
+    const row = qty.closest('tr') as HTMLElement
+    expect(row.className).toBe('')
+    fireEvent.change(qty, { target: { value: '2' } })
+    expect(row.className).toBe('ui2-editor-row--dirty')
+    expect(row.getAttribute('style')).toBeNull()
+  })
+
+  it('the Remove control stays available and labelled in v2', async () => {
+    renderWith(true)
+    await screen.findByText('Edit sale #7')
+    const remove = screen.getByLabelText(/remove 10003/i)
+    expect(remove.className).toBe('ui2-editor-remove')
+  })
+
+  it('v2 field inputs keep their per-field widths', async () => {
+    renderWith(true)
+    await screen.findByText('Edit sale #7')
+    expect(EDITOR.fieldInput(110).width).toBe(110)
+    expect(EDITOR.fieldInput(140).width).toBe(140)
+    expect(EDITOR.fieldInput(160).width).toBe(160)
+    expect(EDITOR.fieldInput(180).width).toBe(180)
+    expect(EDITOR.fieldInput(220).width).toBe(220)
+    // v1 must not gain a min-height that would change the row height
+    expect(EDITOR.fieldInput(110)).not.toHaveProperty('minHeight')
+  })
+
+  it('pins the v1 editor values a careless edit would break', () => {
+    expect(EDITOR.root.border).toBe('2px solid #1e3a8a')
+    expect(EDITOR.root.background).toBe('#f8fafc')
+    expect(EDITOR.qtyInput.width).toBe(56)
+    expect(EDITOR.priceInput.width).toBe(80)
+    expect(EDITOR.bodyRow(true).fontWeight).toBe(700)
+    expect(EDITOR.bodyRow(false).fontWeight).toBe(400)
+  })
+})
+
+describe('POSPage chrome v2 (U3 part 2)', () => {
+  it('pins the v1 banner and panel values', () => {
+    expect(POS_PAGE.successBanner.background).toBe('#f0fdf4')
+    expect(POS_PAGE.successTitle.fontSize).toBe(22)
+    expect(POS_PAGE.errorBanner.fontWeight).toBe(600)
+    expect(POS_PAGE.saleHeader.cursor).toBe('pointer')
+    expect(POS_PAGE.itemsTable.borderCollapse).toBe('collapse')
+    expect(POS_PAGE.itemNote.fontSize).toBe(11)
+  })
+
+  it('page chrome helpers choose one variant and never both', () => {
+    const a = variantProps(true, 'ui2-pos-page', POS_PAGE.root)
+    expect(a.className).toBe('ui2-pos-page')
+    expect(a.style).toBeUndefined()
+    const b = variantProps(false, 'ui2-pos-page', POS_PAGE.root)
+    expect(b.className).toBeUndefined()
+    expect(b.style).toBe(POS_PAGE.root)
+  })
+
+  it('v1Only drops the style in v2 without adding a class', () => {
+    expect(v1Only(true, POS_PAGE.itemsTd)).toEqual({ style: undefined })
+    expect(v1Only(false, POS_PAGE.itemsTd)).toEqual({ style: POS_PAGE.itemsTd })
   })
 })

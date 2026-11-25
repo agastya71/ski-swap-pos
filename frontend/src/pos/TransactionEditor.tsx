@@ -25,6 +25,8 @@ import {
   removeSaleLine,
 } from "../api/sales";
 import { LookupField } from "./LookupField";
+import { EDITOR, v1Only, v2Only, variantProps } from "./posStyles";
+import { useUiVariant } from "../lib/uiVariant";
 import { ApiError } from "../api/client";
 import { BUTTON_STYLE } from "../lib/buttons";
 import type {
@@ -32,8 +34,6 @@ import type {
   SaleItemResponse,
   SaleWithItemsResponse,
 } from "../types";
-
-const NAVY = "#1e3a8a";
 
 /** Client-side mirror of the D8 rule: never submit a remove that empties the sale. */
 const LAST_LINE_MESSAGE = "Sale keeps at least one line — void it instead";
@@ -89,6 +89,7 @@ export function TransactionEditor({
   const [customerEmail, setCustomerEmail] = useState("");
   const [saleNotes, setSaleNotes] = useState("");
   const [paymentOriginals, setPaymentOriginals] = useState<Record<string, unknown>>({});
+  const v2 = useUiVariant() === "v2";
 
   function applySale(s: SaleWithItemsResponse) {
     setSale(s);
@@ -260,22 +261,34 @@ export function TransactionEditor({
     }
   }
 
-  if (loading) return <p style={{ color: "#64748b" }}>Loading transaction…</p>;
-  if (!sale) return <p role="alert" style={{ color: "red" }}>Transaction could not be loaded.</p>;
+  if (loading) {
+    return <p {...variantProps(v2, "ui2-editor-loading", EDITOR.loading)}>Loading transaction…</p>;
+  }
+  if (!sale) {
+    return (
+      <p role="alert" {...variantProps(v2, "ui2-editor-load-error", EDITOR.loadError)}>
+        Transaction could not be loaded.
+      </p>
+    );
+  }
 
   const pendingLineTotal = lines.reduce((sum, l) => sum + l.sell_price * l.quantity, 0);
   const dirtyCount = lines.filter(isDirty).length;
   const editedCardAmt = parseFloat(cc) || 0;
 
   return (
-    <div style={{ border: "2px solid " + NAVY, borderRadius: 6, padding: 14, marginTop: 8, background: "#f8fafc" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <h3 style={{ color: NAVY, margin: 0 }}>Edit sale #{sale.id}</h3>
-        <button onClick={onClose} style={BUTTON_STYLE} aria-label="close editor">
+    <div {...variantProps(v2, "ui2-editor", EDITOR.root)}>
+      <div {...variantProps(v2, "ui2-editor-header", EDITOR.headerRow)}>
+        <h3 {...variantProps(v2, "ui2-editor-title", EDITOR.title)}>Edit sale #{sale.id}</h3>
+        <button
+          onClick={onClose}
+          {...variantProps(v2, "ui2-btn ui2-btn--secondary", BUTTON_STYLE)}
+          aria-label="close editor"
+        >
           Close
         </button>
       </div>
-      <div style={{ fontSize: 13, color: "#555", marginBottom: 8 }}>
+      <div {...variantProps(v2, "ui2-editor-meta", EDITOR.meta)}>
         Recorded by {sale.created_by ?? "—"} · recorded total ${sale.sale_total.toFixed(2)} ·
         MYSL ${sale.mysl_total.toFixed(2)} / seller ${sale.seller_total.toFixed(2)}
         {sale.cc_fee > 0 && ` · card fee (3%) $${sale.cc_fee.toFixed(2)} (historical)`}
@@ -283,32 +296,39 @@ export function TransactionEditor({
       </div>
 
       {error && (
-        <div role="alert" style={{ color: "red", marginBottom: 8 }}>
+        <div role="alert" {...variantProps(v2, "ui2-editor-error", EDITOR.error)}>
           {error}
         </div>
       )}
       {notice && !error && (
-        <div role="status" style={{ color: "#166534", marginBottom: 8 }}>
+        <div role="status" {...variantProps(v2, "ui2-editor-notice", EDITOR.notice)}>
           {notice}
         </div>
       )}
 
-      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 4 }}>
+      <table {...variantProps(v2, "ui2-editor-table", EDITOR.table)}>
         <thead>
-          <tr style={{ borderBottom: "2px solid #ccc", fontSize: 13, color: "#555" }}>
-            <th style={{ textAlign: "left", padding: "4px 8px" }}>Code</th>
-            <th style={{ textAlign: "right", padding: "4px 8px" }}>Qty</th>
-            <th style={{ textAlign: "right", padding: "4px 8px" }}>Unit Price</th>
-            <th style={{ textAlign: "right", padding: "4px 8px" }}>Line Total</th>
-            <th style={{ textAlign: "left", padding: "4px 8px" }}>Notes</th>
+          <tr {...v1Only(v2, EDITOR.theadRow)}>
+            <th {...v1Only(v2, EDITOR.thLeft)}>Code</th>
+            <th {...variantProps(v2, "ui2-num", EDITOR.thRight)}>Qty</th>
+            <th {...variantProps(v2, "ui2-num", EDITOR.thRight)}>Unit Price</th>
+            <th {...variantProps(v2, "ui2-num", EDITOR.thRight)}>Line Total</th>
+            <th {...v1Only(v2, EDITOR.thLeft)}>Notes</th>
             <th />
           </tr>
         </thead>
         <tbody>
           {lines.map((l) => (
-            <tr key={l.id} style={{ borderBottom: "1px solid #eee", fontWeight: isDirty(l) ? 700 : 400 }}>
-              <td style={{ padding: "6px 8px" }}>{l.item_code ?? "—"}</td>
-              <td style={{ padding: "6px 8px", textAlign: "right" }}>
+            <tr
+              key={l.id}
+              {...variantProps(
+                v2,
+                isDirty(l) ? "ui2-editor-row--dirty" : "",
+                EDITOR.bodyRow(isDirty(l)),
+              )}
+            >
+              <td {...v1Only(v2, EDITOR.td)}>{l.item_code ?? "—"}</td>
+              <td {...variantProps(v2, "ui2-num", EDITOR.tdRight)}>
                 <input
                   type="number"
                   min={1}
@@ -319,10 +339,10 @@ export function TransactionEditor({
                     const q = parseInt(e.target.value, 10);
                     if (!Number.isNaN(q)) updateDraft(l.id, { quantity: q });
                   }}
-                  style={{ width: 56, padding: "4px 6px", fontSize: 14, textAlign: "right" }}
+                  {...variantProps(v2, "ui2-editor-qty", EDITOR.qtyInput)}
                 />
               </td>
-              <td style={{ padding: "6px 8px", textAlign: "right" }}>
+              <td {...variantProps(v2, "ui2-num", EDITOR.tdRight)}>
                 <input
                   type="number"
                   min={0}
@@ -333,26 +353,26 @@ export function TransactionEditor({
                     const p = parseFloat(e.target.value);
                     if (!Number.isNaN(p)) updateDraft(l.id, { sell_price: p });
                   }}
-                  style={{ width: 80, padding: "4px 6px", fontSize: 14, textAlign: "right" }}
+                  {...variantProps(v2, "ui2-editor-price", EDITOR.priceInput)}
                 />
               </td>
-              <td style={{ padding: "6px 8px", textAlign: "right" }}>
+              <td {...variantProps(v2, "ui2-num", EDITOR.tdRight)}>
                 ${(l.sell_price * l.quantity).toFixed(2)}
               </td>
-              <td style={{ padding: "6px 8px" }}>
+              <td {...v1Only(v2, EDITOR.td)}>
                 <input
                   value={l.notes ?? ""}
                   aria-label={`notes for ${l.item_code ?? l.id}`}
                   onChange={(e) => updateDraft(l.id, { notes: e.target.value })}
-                  style={{ width: 200, padding: "4px 6px", fontSize: 13 }}
+                  {...variantProps(v2, "ui2-editor-notes", EDITOR.notesInput)}
                 />
               </td>
-              <td style={{ padding: "6px 8px" }}>
+              <td {...v1Only(v2, EDITOR.td)}>
                 <button
                   onClick={() => void handleRemove(l)}
                   aria-label={`remove ${l.item_code ?? l.id}`}
                   disabled={saving}
-                  style={{ fontSize: 12, cursor: "pointer" }}
+                  {...variantProps(v2, "ui2-editor-remove", EDITOR.removeBtn)}
                 >
                   Remove
                 </button>
@@ -361,96 +381,104 @@ export function TransactionEditor({
           ))}
         </tbody>
       </table>
-      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
-        <button onClick={() => void handleSaveLines()} disabled={saving}>
+      <div {...variantProps(v2, "ui2-editor-actions", EDITOR.lineActions)}>
+        <button
+          {...v2Only(v2, "ui2-btn ui2-btn--primary")}
+          onClick={() => void handleSaveLines()}
+          disabled={saving}
+        >
           Save line changes{dirtyCount > 0 ? ` (${dirtyCount})` : ""}
         </button>
-        <span style={{ fontWeight: 700, fontSize: 16 }}>
+        <span {...variantProps(v2, "ui2-editor-pending", EDITOR.pendingTotal)}>
           Pending total:{" "}
           <span>${(pendingLineTotal + (sale.cc_fee ?? 0)).toFixed(2)}</span>
         </span>
         {sale.cc_fee > 0 && (
-          <span style={{ fontSize: 13, color: "#555" }}>
+          <span {...variantProps(v2, "ui2-editor-small-note", EDITOR.smallNote)}>
             (includes card fee (3%) ${sale.cc_fee.toFixed(2)})
           </span>
         )}
       </div>
 
-      <div style={{ marginBottom: 12 }}>
-        <div style={{ fontWeight: 600, marginBottom: 4 }}>Add item:</div>
+      <div {...variantProps(v2, "ui2-editor-add", EDITOR.addItem)}>
+        <div {...variantProps(v2, "ui2-editor-add-label", EDITOR.addItemLabel)}>Add item:</div>
         <LookupField onFound={(item) => void handleAdd(item)} />
       </div>
 
-      <fieldset style={{ border: "1px solid #e2e8f0", borderRadius: 4, padding: 10, marginBottom: 12 }}>
-        <legend style={{ fontSize: 13, fontWeight: 600 }}>Payment & details</legend>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 8 }}>
-          <label style={{ fontSize: 13 }}>
+      <fieldset {...variantProps(v2, "ui2-editor-fieldset", EDITOR.fieldset)}>
+        <legend {...variantProps(v2, "ui2-editor-legend", EDITOR.legend)}>Payment & details</legend>
+        <div {...variantProps(v2, "ui2-editor-field-row", EDITOR.fieldRow)}>
+          <label {...variantProps(v2, "ui2-editor-field-label", EDITOR.fieldLabel)}>
             Cash ($)
             <input type="number" min={0} step={0.01} value={cash} aria-label="edit cash amount"
-              onChange={(e) => setCash(e.target.value)} style={{ display: "block", width: 110, padding: "4px 6px" }} />
+              onChange={(e) => setCash(e.target.value)} {...variantProps(v2, "ui2-editor-field-input", EDITOR.fieldInput(110))} />
           </label>
-          <label style={{ fontSize: 13 }}>
+          <label {...variantProps(v2, "ui2-editor-field-label", EDITOR.fieldLabel)}>
             Check ($)
             <input type="number" min={0} step={0.01} value={check} aria-label="edit check amount"
-              onChange={(e) => setCheck(e.target.value)} style={{ display: "block", width: 110, padding: "4px 6px" }} />
+              onChange={(e) => setCheck(e.target.value)} {...variantProps(v2, "ui2-editor-field-input", EDITOR.fieldInput(110))} />
           </label>
-          <label style={{ fontSize: 13 }}>
+          <label {...variantProps(v2, "ui2-editor-field-label", EDITOR.fieldLabel)}>
             Card ($)
             <input type="number" min={0} step={0.01} value={cc} aria-label="edit card amount"
-              onChange={(e) => setCc(e.target.value)} style={{ display: "block", width: 110, padding: "4px 6px" }} />
+              onChange={(e) => setCc(e.target.value)} {...variantProps(v2, "ui2-editor-field-input", EDITOR.fieldInput(110))} />
           </label>
-          <label style={{ fontSize: 13 }}>
+          <label {...variantProps(v2, "ui2-editor-field-label", EDITOR.fieldLabel)}>
             Check number
             <input value={checkNumber} aria-label="edit check number"
-              onChange={(e) => setCheckNumber(e.target.value)} style={{ display: "block", width: 140, padding: "4px 6px" }} />
+              onChange={(e) => setCheckNumber(e.target.value)} {...variantProps(v2, "ui2-editor-field-input", EDITOR.fieldInput(140))} />
           </label>
-          <label style={{ fontSize: 13 }}>
+          <label {...variantProps(v2, "ui2-editor-field-label", EDITOR.fieldLabel)}>
             Card reference
             <input value={ccTransactionId} aria-label="edit card reference"
-              onChange={(e) => setCcTransactionId(e.target.value)} style={{ display: "block", width: 160, padding: "4px 6px" }} />
+              onChange={(e) => setCcTransactionId(e.target.value)} {...variantProps(v2, "ui2-editor-field-input", EDITOR.fieldInput(160))} />
           </label>
         </div>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 8 }}>
-          <label style={{ fontSize: 13 }}>
+        <div {...variantProps(v2, "ui2-editor-field-row", EDITOR.fieldRow)}>
+          <label {...variantProps(v2, "ui2-editor-field-label", EDITOR.fieldLabel)}>
             Customer name
             <input value={customerName} aria-label="edit customer name"
-              onChange={(e) => setCustomerName(e.target.value)} style={{ display: "block", width: 180, padding: "4px 6px" }} />
+              onChange={(e) => setCustomerName(e.target.value)} {...variantProps(v2, "ui2-editor-field-input", EDITOR.fieldInput(180))} />
           </label>
-          <label style={{ fontSize: 13 }}>
+          <label {...variantProps(v2, "ui2-editor-field-label", EDITOR.fieldLabel)}>
             Customer email
             <input value={customerEmail} aria-label="edit customer email"
-              onChange={(e) => setCustomerEmail(e.target.value)} style={{ display: "block", width: 180, padding: "4px 6px" }} />
+              onChange={(e) => setCustomerEmail(e.target.value)} {...variantProps(v2, "ui2-editor-field-input", EDITOR.fieldInput(180))} />
           </label>
-          <label style={{ fontSize: 13 }}>
+          <label {...variantProps(v2, "ui2-editor-field-label", EDITOR.fieldLabel)}>
             Sale notes
             <input value={saleNotes} aria-label="edit sale notes"
-              onChange={(e) => setSaleNotes(e.target.value)} style={{ display: "block", width: 220, padding: "4px 6px" }} />
+              onChange={(e) => setSaleNotes(e.target.value)} {...variantProps(v2, "ui2-editor-field-input", EDITOR.fieldInput(220))} />
           </label>
         </div>
         {editedCardAmt > 0 && (
-          <div style={{ fontSize: 12, color: "#555", marginBottom: 8 }}>
+          <div {...variantProps(v2, "ui2-editor-card-fee-note", EDITOR.cardFeeNote)}>
             Card charge ${editedCardAmt.toFixed(2)} is charged to the buyer as
             entered (card fee removed 2026-11-24). New sales no longer derive
             a 3% fee; historical sales keep their recorded fee.
           </div>
         )}
-        <button onClick={() => void handleSavePayments()} disabled={saving}>
+        <button
+          {...v2Only(v2, "ui2-btn ui2-btn--primary")}
+          onClick={() => void handleSavePayments()}
+          disabled={saving}
+        >
           Save payment & details
         </button>
       </fieldset>
 
       <div>
-        <div style={{ fontWeight: 600, marginBottom: 4 }}>Edit history (newest first)</div>
+        <div {...variantProps(v2, "ui2-editor-history-label", EDITOR.historyLabel)}>Edit history (newest first)</div>
         {history.length === 0 ? (
-          <p style={{ color: "#888", fontStyle: "italic", fontSize: 13 }}>No edits recorded.</p>
+          <p {...variantProps(v2, "ui2-editor-history-empty", EDITOR.historyEmpty)}>No edits recorded.</p>
         ) : (
-          <ul style={{ margin: 0, paddingLeft: 16, fontSize: 13 }}>
+          <ul {...variantProps(v2, "ui2-editor-history", EDITOR.historyList)}>
             {history.map((e) => (
               <li key={e.id}>
                 <strong>{e.action}</strong> by {e.edited_by} at{" "}
                 {new Date(e.edited_at + (e.edited_at.endsWith("Z") ? "" : "Z")).toLocaleString()}
                 {e.action === "update_line" && e.before && e.after ? (
-                  <span style={{ color: "#64748b" }}>
+                  <span {...variantProps(v2, "ui2-editor-history-detail", EDITOR.historyDetail)}>
                     {" "}
                     — {String(e.before["item_code"] ?? "")}{" "}
                     ${String(e.before["sell_price"] ?? "?")} ×{" "}
@@ -458,18 +486,18 @@ export function TransactionEditor({
                     {String(e.after["sell_price"] ?? "?")} × {String(e.after["quantity"] ?? "?")}
                   </span>
                 ) : e.action === "add_line" && e.after ? (
-                  <span style={{ color: "#64748b" }}>
+                  <span {...variantProps(v2, "ui2-editor-history-detail", EDITOR.historyDetail)}>
                     {" "}
                     — {String(e.after["item_code"] ?? "")} ({"$"}
                     {String(e.after["sell_price"] ?? "?")} × {String(e.after["quantity"] ?? "?")})
                   </span>
                 ) : e.action === "remove_line" && e.before ? (
-                  <span style={{ color: "#64748b" }}>
+                  <span {...variantProps(v2, "ui2-editor-history-detail", EDITOR.historyDetail)}>
                     {" "}
                     — {String(e.before["item_code"] ?? "")} removed
                   </span>
                 ) : e.action === "update_payments" || e.action === "update_info" ? (
-                  <span style={{ color: "#64748b" }}> — fields corrected</span>
+                  <span {...variantProps(v2, "ui2-editor-history-detail", EDITOR.historyDetail)}> — fields corrected</span>
                 ) : null}
               </li>
             ))}
