@@ -50,6 +50,18 @@ Rules sit in the repo reading as authoritative; the browser never receives them.
 any v2 rule is not scoped under `.ui-v2` / `.ui2-*` — unscoped rules break the
 "v1 stays pixel-identical" promise the A/B plan rests on.
 
+## 2b. A checker that reads the working tree cannot certify a commit
+
+Writing the pre-push hook, the first version read `git diff --cached` and the
+working tree — so with broken CSS sitting **unstaged**, it validated content
+that was never being pushed and exited 0. The tree was broken; the hook said
+fine.
+
+**Do:** a hook must derive what it checks from the refs git hands it on stdin
+(`<local ref> <local sha> <remote ref> <remote sha>`), and must refuse to run
+when the files it inspects are dirty — otherwise it is vouching for something
+other than the push.
+
 ## 3. `/next/` serves the v2 bundle but defaults to v1
 
 The variant is chosen from `location.search`, and this is a **hash router**, so
