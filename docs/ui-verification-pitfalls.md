@@ -5,8 +5,9 @@ Findings from building and verifying phases U0–U3 of
 Every item below **actually happened**, and most failed *silently* — green
 tests, no errors, wrong result. Each entry says what to do instead.
 
-Guard for #1 and #2 is automated: `node scripts/css-wiring-check.mjs`, and as
-of the hook install below it runs before every push that touches frontend CSS.
+Guard for #1, #2 and #5b is automated: `node scripts/css-wiring-check.mjs`
+(five groups), and as of the hook install below it runs before every push that
+touches frontend CSS.
 
 ## Install the guard once per clone
 
@@ -105,6 +106,20 @@ unit test would have:
 **Do:** after writing a CSS assertion, break the CSS and confirm it goes red.
 Removing the dirty-row class turns exactly 1 test red; removing a per-field
 width turns the width test red.
+
+## 5b. An undefined CSS custom property is dropped silently
+
+`color: var(--gray-600)` where `--gray-600` was never defined renders as
+*inherited* `--gray-900`. No build error, no warning, no test failure — the
+legend just came out near-black instead of gray.
+
+Happened twice: `--font-size-base` in U3 (scan field rendered 16px not 18px) and
+`--gray-600` / `--gray-800` in U4 (three separate rules). Both were caught only
+by a computed-style probe, never by the test suite.
+
+**Do:** group 4 of `scripts/css-wiring-check.mjs` now fails when any `var()`
+in a v2 sheet has no definition anywhere under `frontend/src`. Add a token to
+`ui-v2.css` instead of a one-off hex so the scale stays complete.
 
 ## 6. A DOM-injection harness needs its own assertion
 

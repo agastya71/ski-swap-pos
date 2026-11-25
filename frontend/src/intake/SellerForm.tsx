@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from "react";
-import { BUTTON_STYLE } from "../lib/buttons";
 import { createSeller } from "../api/sellers";
 import { US_STATES } from "../lib/usStates";
 import { formatPhone, isUsStateCode } from "../lib/format";
+import { useUiVariant } from "../lib/uiVariant";
+import { IMPORT_BUTTON, SELLER_FORM, variantProps } from "./intakeStyles";
 import type { Seller } from "../types";
 
 /**
@@ -40,6 +41,7 @@ export function SellerForm({
   const [donateProceedsDefault, setDonateProceedsDefault] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const v2 = useUiVariant() === "v2";
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -91,8 +93,11 @@ export function SellerForm({
     onChange: (v: string) => void,
     required = false,
   ) => (
-    <div style={{ marginBottom: 10 }}>
-      <label htmlFor={id} style={{ display: "block", marginBottom: 3 }}>
+    <div {...variantProps(v2, "ui2-intake-field", SELLER_FORM.fieldWrap)}>
+      <label
+        htmlFor={id}
+        {...variantProps(v2, "ui2-intake-field-label", SELLER_FORM.fieldLabel)}
+      >
         {label}
       </label>
       <input
@@ -100,7 +105,7 @@ export function SellerForm({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         required={required}
-        style={{ width: "100%", padding: 6, boxSizing: "border-box" }}
+        {...variantProps(v2, "ui2-intake-field-input", SELLER_FORM.fieldInput)}
       />
     </div>
   );
@@ -122,7 +127,7 @@ export function SellerForm({
       )}
       {field("phone", "Phone (10 digits)", phone, (v) => setPhone(formatPhone(v)))}
       {field("email", "Email", email, setEmail)}
-      <div style={{ marginBottom: 10 }}>
+      <div {...variantProps(v2, "ui2-intake-check", SELLER_FORM.checkboxRow)}>
         <label>
           <input
             type="checkbox"
@@ -132,19 +137,17 @@ export function SellerForm({
           Vendor (not individual consignor)
         </label>
       </div>
-      <fieldset
-        style={{
-          border: "1px solid #e2e8f0",
-          borderRadius: 4,
-          padding: "10px 12px",
-          marginBottom: 10,
-        }}
-      >
-        <legend style={{ fontSize: 13, color: "#64748b" }}>Address</legend>
+      <fieldset {...variantProps(v2, "ui2-intake-fieldset", SELLER_FORM.fieldset)}>
+        <legend {...variantProps(v2, "ui2-intake-legend", SELLER_FORM.legend)}>
+          Address
+        </legend>
         {field("address", "Street Address", address, setAddress, true)}
         {field("city", "City", city, setCity, true)}
-        <div style={{ marginBottom: 10 }}>
-          <label htmlFor="state" style={{ display: "block", marginBottom: 3 }}>
+        <div {...variantProps(v2, "ui2-intake-field", SELLER_FORM.fieldWrap)}>
+          <label
+            htmlFor="state"
+            {...variantProps(v2, "ui2-intake-field-label", SELLER_FORM.fieldLabel)}
+          >
             State
           </label>
           {/* #10: type-able 2-letter code with datalist suggestions, instead
@@ -157,7 +160,7 @@ export function SellerForm({
             placeholder="MN"
             required
             onChange={(e) => setState(e.target.value.toUpperCase())}
-            style={{ width: "100%", padding: 6, boxSizing: "border-box" }}
+            {...variantProps(v2, "ui2-intake-field-input", SELLER_FORM.fieldInput)}
           />
           <datalist id="state-options">
             {US_STATES.map((s) => (
@@ -167,8 +170,11 @@ export function SellerForm({
             ))}
           </datalist>
         </div>
-        <div style={{ marginBottom: 10 }}>
-          <label htmlFor="zip" style={{ display: "block", marginBottom: 3 }}>
+        <div {...variantProps(v2, "ui2-intake-field", SELLER_FORM.fieldWrap)}>
+          <label
+            htmlFor="zip"
+            {...variantProps(v2, "ui2-intake-field-label", SELLER_FORM.fieldLabel)}
+          >
             ZIP
           </label>
           <input
@@ -179,22 +185,15 @@ export function SellerForm({
             pattern="\d{5}"
             maxLength={5}
             inputMode="numeric"
-            style={{ width: "100%", padding: 6, boxSizing: "border-box" }}
+            {...variantProps(v2, "ui2-intake-field-input", SELLER_FORM.fieldInput)}
           />
         </div>
       </fieldset>
-      <fieldset
-        style={{
-          border: "1px solid #e2e8f0",
-          borderRadius: 4,
-          padding: "10px 12px",
-          marginBottom: 10,
-        }}
-      >
-        <legend style={{ fontSize: 13, color: "#64748b" }}>
+      <fieldset {...variantProps(v2, "ui2-intake-fieldset", SELLER_FORM.fieldset)}>
+        <legend {...variantProps(v2, "ui2-intake-legend", SELLER_FORM.legend)}>
           Donation defaults (applied to new intakes)
         </legend>
-        <div style={{ marginBottom: 6 }}>
+        <div {...variantProps(v2, "ui2-intake-check", SELLER_FORM.donationRow)}>
           <label>
             <input
               type="checkbox"
@@ -205,7 +204,7 @@ export function SellerForm({
             Donate proceeds by default (MYSL keeps 100% of sale price)
           </label>
         </div>
-        <div style={{ marginBottom: 6 }}>
+        <div {...variantProps(v2, "ui2-intake-check", SELLER_FORM.donationRow)}>
           <label>
             <input
               type="checkbox"
@@ -218,15 +217,23 @@ export function SellerForm({
         </div>
       </fieldset>
       {error && (
-        <div role="alert" style={{ color: "red", marginBottom: 10 }}>
+        <div role="alert" {...variantProps(v2, "ui2-intake-error", SELLER_FORM.error)}>
           {error}
         </div>
       )}
-      <div style={{ display: "flex", gap: 8 }}>
-        <button type="submit" disabled={loading} style={BUTTON_STYLE}>
+      <div {...variantProps(v2, "ui2-intake-actions", SELLER_FORM.actions)}>
+        <button
+          type="submit"
+          disabled={loading}
+          {...variantProps(v2, "ui2-btn ui2-btn--primary", IMPORT_BUTTON.button)}
+        >
           Register
         </button>
-        <button type="button" onClick={onCancel} style={BUTTON_STYLE}>
+        <button
+          type="button"
+          onClick={onCancel}
+          {...variantProps(v2, "ui2-btn ui2-btn--secondary", IMPORT_BUTTON.button)}
+        >
           Cancel
         </button>
       </div>

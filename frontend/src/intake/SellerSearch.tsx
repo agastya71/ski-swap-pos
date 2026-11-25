@@ -5,9 +5,13 @@
  * @module SellerSearch
  */
 import { useState, useEffect } from "react";
-import { BUTTON_STYLE } from "../lib/buttons";
 import { searchSellers } from "../api/sellers";
 import { sellerDisplayName, sellerTypeLabel } from "../lib/sellerDisplay";
+import { useUiVariant } from "../lib/uiVariant";
+import {
+  SELLER_SEARCH,
+  variantProps,
+} from "./intakeStyles";
 import type { Seller } from "../types";
 
 /**
@@ -28,6 +32,7 @@ export function SellerSearch({
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Seller[] | null>(null);
   const [searched, setSearched] = useState(false);
+  const v2 = useUiVariant() === "v2";
 
   useEffect(() => {
     const q = query.trim();
@@ -50,31 +55,18 @@ export function SellerSearch({
         placeholder="Search by name or code"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        style={{
-          width: "100%",
-          padding: 8,
-          marginBottom: 8,
-          boxSizing: "border-box",
-        }}
+        {...variantProps(v2, "ui2-intake-search-input", SELLER_SEARCH.input)}
       />
       {searched && !emptyQuery && results !== null && results.length === 0 && (
         <p>No sellers found.</p>
       )}
       {!emptyQuery && results !== null && results.length > 0 && (
-        <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+        <ul {...variantProps(v2, "ui2-intake-results", SELLER_SEARCH.list)}>
           {results.map((s) => (
             <li key={s.id}>
               <button
                 onClick={() => onSelect(s)}
-                style={{
-                  width: "100%",
-                  textAlign: "left",
-                  padding: 8,
-                  cursor: "pointer",
-                  background: "none",
-                  border: "1px solid #ccc",
-                  marginBottom: 4,
-                }}
+                {...variantProps(v2, "ui2-intake-result", SELLER_SEARCH.resultButton)}
               >
                 {sellerDisplayName(s)} — {s.code}
                 {s.company && !s.is_vendor && ` (${s.company})`}
@@ -85,7 +77,14 @@ export function SellerSearch({
           ))}
         </ul>
       )}
-      <button onClick={onCreateNew} style={{ ...BUTTON_STYLE, marginTop: 8 }}>
+      <button
+        onClick={onCreateNew}
+        {...variantProps(
+          v2,
+          "ui2-btn ui2-btn--secondary ui2-intake-new-btn",
+          SELLER_SEARCH.newButton,
+        )}
+      >
         Register New Seller
       </button>
     </div>

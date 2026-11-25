@@ -1,0 +1,355 @@
+/* Intake v2 styles — phase U4 part 1 (seller entry + module chrome).
+   Every rule is scoped under .ui-v2, so v1 renders byte-identically.
+
+   Design intent, part 1:
+   - Sellers are the people standing at the table, so every *input* and every
+     primary action (Register, Cancel, tabs, result rows) is a 44px touch
+     target; the v1 form is ~34px tall per field. Header chrome (ghost buttons)
+     stays at 36px on purpose — it is tapped rarely and would otherwise push
+     the tab bar onto a second row on a laptop.
+   - Nothing is hidden or moved: the same fields, in the same order, with the
+     same labels and required-ness. The form stays one column in v2 — a
+     two-column identity block is a layout change for part 2 to try once the
+     items tables are done and the form can be seen in context.
+*/
+
+.ui-v2 .ui2-intake-fieldset {
+  border: var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-3) var(--space-4);
+  margin: 0 0 var(--space-4);
+  background: var(--gray-50);
+}
+
+.ui-v2 .ui2-intake-legend {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--gray-600);
+  padding: 0 var(--space-1);
+}
+
+/* ── Field (SellerForm) ──────────────────────────────────────────────────── */
+
+.ui-v2 .ui2-intake-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-3);
+}
+
+.ui-v2 .ui2-intake-field--wide {
+  grid-column: 1 / -1;
+}
+
+.ui-v2 .ui2-intake-field-label {
+  display: block;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--gray-700);
+}
+
+.ui-v2 .ui2-intake-field-input {
+  width: 100%;
+  min-height: var(--touch-target);
+  padding: var(--space-2) var(--space-3);
+  box-sizing: border-box;
+  font-size: var(--font-size-lg);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+}
+
+.ui-v2 .ui2-intake-field-input:focus-visible {
+  border-color: var(--blue);
+}
+
+.ui-v2 .ui2-intake-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch-target);
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-md);
+}
+
+.ui-v2 .ui2-intake-check input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.ui-v2 .ui2-intake-hint {
+  font-size: var(--font-size-xs);
+  color: var(--gray-500);
+  margin: 0;
+}
+
+.ui-v2 .ui2-intake-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.ui-v2 .ui2-intake-actions button {
+  min-height: var(--touch-target);
+}
+
+.ui-v2 .ui2-intake-error {
+  color: var(--red);
+  background: var(--red-light);
+  border: 1px solid var(--red-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-md);
+}
+
+/* ── Seller search ───────────────────────────────────────────────────────── */
+
+.ui-v2 .ui2-intake-search-input {
+  width: 100%;
+  min-height: var(--touch-target);
+  padding: var(--space-2) var(--space-3);
+  margin: 0 0 var(--space-2);
+  box-sizing: border-box;
+  font-size: var(--font-size-lg);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.ui-v2 .ui2-intake-results {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.ui-v2 .ui2-intake-result {
+  width: 100%;
+  min-height: var(--touch-target);
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  background: #ffffff;
+  border: var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-md);
+  color: var(--gray-800);
+}
+
+.ui-v2 .ui2-intake-result:hover {
+  background: var(--blue-light);
+  border-color: var(--blue);
+}
+
+.ui-v2 .ui2-intake-new-btn {
+  margin-top: var(--space-2);
+}
+
+/* ── Import items ────────────────────────────────────────────────────────── */
+
+.ui-v2 .ui2-intake-import-root {
+  display: inline-block;
+}
+
+.ui-v2 .ui2-intake-import-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.ui-v2 .ui2-intake-import-error {
+  color: var(--red);
+  font-size: var(--font-size-sm);
+  margin-top: var(--space-2);
+}
+
+.ui-v2 .ui2-intake-import-result {
+  margin-top: var(--space-2);
+}
+
+/* ── Module chrome: tab bar + actions ────────────────────────────────────── */
+
+.ui-v2 .ui2-intake-tabbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--gray-200);
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.ui-v2 .ui2-intake-tabs {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.ui-v2 .ui2-intake-tab {
+  padding: var(--space-2) var(--space-4);
+  min-height: var(--touch-target);
+  background: transparent;
+  color: var(--navy);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-md);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.ui-v2 .ui2-intake-tab[aria-current="page"] {
+  background: var(--navy);
+  color: #ffffff;
+  border-color: var(--navy);
+}
+
+.ui-v2 .ui2-intake-event-name {
+  font-size: var(--font-size-md);
+  color: var(--gray-600);
+  font-weight: 600;
+}
+
+.ui-v2 .ui2-intake-tab-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.ui-v2 .ui2-intake-ghost-btn {
+  border: 1px solid var(--navy);
+  color: var(--navy);
+  background: #ffffff;
+  padding: var(--space-1) var(--space-3);
+  min-height: 36px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ui-v2 .ui2-intake-ghost-btn:hover {
+  background: var(--blue-light);
+}
+
+.ui-v2 .ui2-intake-ghost-btn:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+/* ── Duplicate-seller review panel ───────────────────────────────────────── */
+
+.ui-v2 .ui2-intake-review {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid #f59e0b;
+  border-radius: var(--radius);
+  background: #fffbeb;
+}
+
+.ui-v2 .ui2-intake-review-title {
+  font-size: var(--font-size-md);
+  color: #92400e;
+}
+
+.ui-v2 .ui2-intake-review-meta {
+  margin-top: var(--space-1);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-intake-review-reason {
+  margin-top: var(--space-1);
+  font-size: var(--font-size-sm);
+  color: #92400e;
+}
+
+.ui-v2 .ui2-intake-candidates {
+  margin-top: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ui-v2 .ui2-intake-candidate {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  border: 1px solid #fde68a;
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+  background: #ffffff;
+}
+
+.ui-v2 .ui2-intake-candidate-info {
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-intake-candidate-sub {
+  color: var(--gray-500);
+}
+
+.ui-v2 .ui2-intake-review-foot {
+  margin-top: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-intake-force-new {
+  margin-top: var(--space-1);
+}
+
+/* ── Import error / detail error / loading ───────────────────────────────── */
+
+.ui-v2 .ui2-intake-import-error-panel {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--red-border);
+  border-radius: var(--radius);
+  background: var(--red-light);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-intake-import-error-text {
+  color: var(--red);
+  font-weight: 500;
+}
+
+.ui-v2 .ui2-intake-detail-error {
+  color: var(--red);
+  margin-bottom: var(--space-3);
+}
+
+.ui-v2 .ui2-intake-loading {
+  color: var(--gray-500);
+  font-style: italic;
+}
+
+/* ── Narrow screens ──────────────────────────────────────────────────────── */
+
+@media (width <= 720px) {
+  .ui-v2 .ui2-intake-tabbar {
+    /* Tab group and actions each take their own row; the event name sits
+       between them and would otherwise be squeezed to a sliver. */
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ui-v2 .ui2-intake-tabs,
+  .ui-v2 .ui2-intake-tab-actions {
+    flex-wrap: wrap;
+  }
+
+  .ui-v2 .ui2-intake-tab {
+    flex: 1 1 auto;
+  }
+
+  .ui-v2 .ui2-intake-candidate {
+    align-items: stretch;
+  }
+}
