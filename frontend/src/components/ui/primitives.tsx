@@ -114,7 +114,7 @@ export function Card({ title, actions, children, className }: { title?: ReactNod
   )
 }
 
-/* ── Table (structural shell; responsive behavior lands in U2) ──────────── */
+/* ── Table (structural shell + responsive behavior, U2) ──────────────────── */
 export type TableColumn<T> = {
   key: string
   header: ReactNode
@@ -127,37 +127,74 @@ export interface TableProps<T> {
   rowKey: (row: T) => string | number
   caption?: string
   emptyMessage?: string
+  /**
+   * How the table adapts to narrow screens (CSS-only, no JS measurement):
+   * - `scroll` (default): horizontal scroll region, focusable for keyboard panning.
+   * - `stack`: below 720px each row becomes a card and every cell shows its
+   *   column name (from a string header) via `data-label`.
+   * The same DOM and attributes are rendered in v1 and v2; only the v2
+   * stylesheet interprets them, so behaviour is identical in both variants.
+   */
+  responsive?: 'scroll' | 'stack'
+}
+
+/** Horizontal scroll region: keyboard focusable so wide tables can be panned. */
+export function TableScroll({ children, stack }: { children: ReactNode; stack?: boolean }) {
+  const mod = useVariantClass()
+  return (
+    <div
+      className={cx('ui-table-scroll', mod && 'ui2-table-scroll')}
+      data-stack={stack ? '' : undefined}
+      tabIndex={0}
+      role="region"
+      aria-label="Scrollable table"
+    >
+      {children}
+    </div>
+  )
 }
 
 /** Column-config data table with a11y caption + empty state. */
-export function DataTable<T>({ columns, rows, rowKey, caption, emptyMessage = 'Nothing to show' }: TableProps<T>) {
+export function DataTable<T>({
+  columns,
+  rows,
+  rowKey,
+  caption,
+  emptyMessage = 'Nothing to show',
+  responsive = 'scroll',
+}: TableProps<T>) {
   const mod = useVariantClass()
+  const stack = responsive === 'stack'
   return (
-    <table className={cx('ui-table', mod && 'ui2-table')}>
-      {caption && <caption className="ui-table-caption">{caption}</caption>}
-      <thead>
-        <tr>
-          {columns.map((c) => (
-            <th key={c.key} scope="col">{c.header}</th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.length === 0 ? (
+    <TableScroll stack={stack}>
+      <table className={cx('ui-table', mod && 'ui2-table')} data-stack={stack ? '' : undefined}>
+        {caption && <caption className="ui-table-caption">{caption}</caption>}
+        <thead>
           <tr>
-            <td colSpan={columns.length}>{emptyMessage}</td>
+            {columns.map((c) => (
+              <th key={c.key} scope="col">{c.header}</th>
+            ))}
           </tr>
-        ) : (
-          rows.map((row) => (
-            <tr key={rowKey(row)}>
-              {columns.map((c) => (
-                <td key={c.key}>{c.render(row)}</td>
-              ))}
+        </thead>
+        <tbody>
+          {rows.length === 0 ? (
+            <tr>
+              <td colSpan={columns.length}>{emptyMessage}</td>
             </tr>
-          ))
-        )}
-      </tbody>
-    </table>
+          ) : (
+            rows.map((row) => (
+              <tr key={rowKey(row)}>
+                {columns.map((c) => (
+                  <td key={c.key} data-label={stack && typeof c.header === 'string' ? c.header : undefined}>
+                    {c.render(row)}
+                  </td>
+                ))}
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </TableScroll>
   )
 }
 
@@ -212,6 +249,81 @@ export function Modal({ open, title, onClose, children }: ModalProps) {
         </div>
         {children}
       </div>
+    </div>
+  )
+}
+
+/* ── Page header ────────────────────────────────────────────────────────── */
+
+export interface PageHeaderProps {
+  title: ReactNode
+  subtitle?: ReactNode
+  actions?: ReactNode
+}
+
+/**
+ * Page title block: heading + optional subtitle on the left, actions on the
+ * right; wraps on narrow screens. Rendered inside page content, so it uses
+ * `.ui2-*` classes that the shell stylesheet scopes to the v2 variant.
+ */
+export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
+  const mod = useVariantClass()
+  return (
+    <div className={cx('ui-page-header', mod && 'ui2-page-header')}>
+      <div className={cx('ui-page-header-text', mod && 'ui2-page-header-text')}>
+        <h1>{title}</h1>
+        {subtitle && <p className={cx('ui-page-header-subtitle', mod && 'ui2-page-header-subtitle')}>{subtitle}</p>}
+      </div>
+      {actions && <div className={cx('ui-page-header-actions', mod && 'ui2-page-header-actions')}>{actions}</div>}
+    </div>
+  )
+}
+
+/* ── Page states: empty / loading / error ───────────────────────────────── */
+
+export interface EmptyStateProps {
+  title?: ReactNode
+  children?: ReactNode
+  action?: ReactNode
+}
+
+/** Neutral placeholder for a list/report with no rows (announced politely). */
+export function EmptyState({ title, children, action }: EmptyStateProps) {
+  const mod = useVariantClass()
+  return (
+    <div className={cx('ui-state', mod && 'ui2-state')} role="status">
+      {title && <p className={cx('ui-state-title', mod && 'ui2-state-title')}>{title}</p>}
+      {children && <div className={cx('ui-state-body', mod && 'ui2-state-body')}>{children}</div>}
+      {action}
+    </div>
+  )
+}
+
+/**
+ * Loading placeholder. The spinner is decorative; the live region carries the
+ * text so screen readers announce it once and never depend on the animation.
+ */
+export function LoadingState({ message = 'Loading…' }: { message?: string }) {
+  const mod = useVariantClass()
+  return (
+    <div className={cx('ui-state', mod && 'ui2-state', mod && 'ui2-state--loading')} role="status" aria-live="polite">
+      <span className={cx(mod && 'ui2-spinner')} aria-hidden="true" />
+      <span>{message}</span>
+    </div>
+  )
+}
+
+/**
+ * Inline error surface. `role="alert"` (implicit for the global banner style)
+ * so a failed fetch is announced immediately rather than on next focus.
+ */
+export function ErrorBanner({ title, children, action }: { title?: ReactNode; children: ReactNode; action?: ReactNode }) {
+  const mod = useVariantClass()
+  return (
+    <div className={cx('ui-state', mod && 'ui2-state', mod && 'ui2-state--error')} role="alert">
+      {title && <p className={cx('ui-state-title', mod && 'ui2-state-title')}>{title}</p>}
+      <div className={cx('ui-state-body', mod && 'ui2-state-body')}>{children}</div>
+      {action}
     </div>
   )
 }

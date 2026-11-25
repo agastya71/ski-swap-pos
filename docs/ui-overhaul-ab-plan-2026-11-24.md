@@ -115,4 +115,5 @@ side in the PR body; checklist per Google eng-practices (what/why/risk/undo).
 |---|---|---|---|
 | U0 | 2026-11-24 | shipped as PR #162 | /next mount + flag wiring; /next/ empty-dir no-op verified |
 | U1 | 2026-11-25 | shipped as PR #163 | v2 design tokens + components/ui primitives; no v1 change |
+| U2 | 2026-11-25 | in review (branch `ui-u2-layout`) | v2 shell via `ui-v2-shell.css` + `layoutStyles.ts`; v1 inline styles preserved verbatim (probe-verified); page-state primitives + CSS-only stacked-table pattern; shell verified at 420px |
 | — | — | — | — |
