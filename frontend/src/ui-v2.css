@@ -1,0 +1,107 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   UI overhaul v2 tokens — docs/ui-overhaul-ab-plan-2026-11-24.md (phase U1)
+
+   These overrides apply ONLY when the root element carries .ui-v2 (set by
+   lib/uiVariant.ts at boot via ?ui=v2 / localStorage). Without the class,
+   every value below is inert and the app renders exactly the v1 look.
+
+   Design rules are neutral principles (Chrome Modern Web Guidance used as a
+   guide, no Chromium-only APIs; everything must also work in Firefox/Safari):
+   - consistent 4px spacing scale (4/8/12/16/24/32)
+   - minimum 44px touch targets on interactive elements (pointer coarse only)
+   - visible focus everywhere (:focus-visible — no Chromium dependency)
+   - one radius (8px controls / 6px small), one shadow elevation
+   - reduced motion handled globally, not per-component
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── v2 token redefinition ────────────────────────────────────────────────── */
+.ui-v2 {
+  /* color: same MYXC brand hues, v2 only normalizes usages (no contrast change) */
+  --navy: #1e3a8a;
+  --blue: #2563eb;
+  --blue-hover: #1d4ed8;
+  --blue-light: #dbeafe;
+  --blue-text: #1e40af;
+
+  --red: #dc2626;
+  --red-light: #fef2f2;
+  --red-border: #fecaca;
+  --green: #166534;
+  --green-bg: #2e7d32;
+
+  /* neutrals: slightly cooler page ground for card separation */
+  --gray-50: #f8fafc;
+  --gray-100: #f1f5f9;
+  --gray-200: #e2e8f0;
+  --gray-400: #94a3b8;
+  --gray-500: #64748b;
+  --gray-700: #374151;
+  --gray-900: #0f172a;
+
+  /* spacing scale (v1 is ad-hoc; v2 snaps to 4px steps) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* shape */
+  --radius: 8px;       /* cards, modals, panels */
+  --radius-sm: 6px;    /* buttons, inputs, badges */
+  --border: 1px solid var(--gray-200);
+
+  /* elevation — single shadow for floating surfaces (dropdowns, modals, toasts) */
+  --shadow-1: 0 2px 8px rgba(15, 23, 42, 0.12);
+
+  /* type scale */
+  --font-size-xs: 12px;
+  --font-size-sm: 13px;
+  --font-size-md: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
+
+  /* touch target (applied via the coarse-pointer media query below) */
+  --touch-target: 44px;
+
+  /* motion */
+  --transition: 150ms ease;
+}
+
+/* ── Motion safety: honor the OS "reduce motion" preference ───────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .ui-v2 *,
+  .ui-v2 *::before,
+  .ui-v2 *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* ── Focus visibility (never removed, never mouse-triggered) ──────────────── */
+.ui-v2 :focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+/* ── Touch targets: only on coarse pointers (phones/tablets) ──────────────── */
+@media (pointer: coarse) {
+  .ui-v2 button,
+  .ui-v2 [role="button"],
+  .ui-v2 a,
+  .ui-v2 select,
+  .ui-v2 input[type="checkbox"],
+  .ui-v2 input[type="radio"] {
+    min-height: var(--touch-target);
+    min-width: var(--touch-target);
+  }
+}
+
+/* ── Scrollbar-free horizontal safety for small screens (tables keep their
+      own responsive wrapper in U2; this only prevents edge bleed) ─────────── */
+.ui-v2 img,
+.ui-v2 svg {
+  max-width: 100%;
+}
