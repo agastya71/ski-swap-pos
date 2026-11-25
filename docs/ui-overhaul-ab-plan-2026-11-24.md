@@ -63,15 +63,22 @@ re-theme (or dark mode) cheap.
 |---|---|---|
 | **U0** | `/next` variant-build infra: vite `next` mode, FastAPI mount, `uiVariant.ts` + boot wiring (flag, context, root class) + tests | ships first; after this you can already see the branch at `/next/` (identical to main at first) |
 | **U1** | v2 token block in `index.css` (spacing scale, 44px touch targets, consistent radii/shadows, focus-visible rings, reduced-motion) + `ui.css` primitives; `components/ui/` Button, Input, Card, Table, Modal, Toast | pure CSS + new components; v1 untouched |
-| **U2** | Layout v2: `Layout.tsx` nav, page container, headings, empty/loading/error states; responsive table pattern (Chrome "Responsive tables" guide, CSS-only) | first visible change; screenshots go in PR |
+| **U2** | Layout v2: `Layout.tsx` nav, page container, headings, empty/loading/error states; responsive table pattern (Chrome "Responsive tables" guide, CSS-only) | first visible change; screenshots generated locally, never committed |
 | **U3** | POS v2 (event-critical — smallest steps, human checklist each): LookupField + dropdown, Cart, PaymentForm, ConfirmationScreen, TransactionEditor | the money screens; practice on TEST SWAP event |
 | **U4** | Intake v2: IntakeForm, ItemForm, ItemList, SellerForm, search page | |
 | **U5** | Admin v2: ReportsPage, TransactionsPage, SellerDetail/List, panels, modals | biggest inline-style debt here |
 | **U6** | Promotion prep: default-flip decision, v1 cleanup PR, docs | separate, later |
 
 Every PR: `npm test` + `tsc -b` + `lint` (delta on *our* files only; the 4
-pre-existing main errors stay out of scope); screenshots of v1 vs v2 side by
-side in the PR body; checklist per Google eng-practices (what/why/risk/undo).
+pre-existing main errors stay out of scope); checklist per Google eng-practices
+(what/why/risk/undo).
+
+Screenshots are captured locally with `scripts/ui-screenshots.mjs` and reviewed
+side by side; they are **never committed** (`.gitignore`: `docs/screenshots-*/`).
+This repo is public, so a committed screenshot would publish live seller names,
+item descriptions and sale totals. The capture script therefore refuses to run
+unless the active event's name contains "test", and reads credentials from
+`UI_PROBE_USER` / `UI_PROBE_PASSWORD` rather than hardcoding them.
 
 ## Evaluation protocol (per phase)
 
@@ -115,5 +122,5 @@ side in the PR body; checklist per Google eng-practices (what/why/risk/undo).
 |---|---|---|---|
 | U0 | 2026-11-24 | shipped as PR #162 | /next mount + flag wiring; /next/ empty-dir no-op verified |
 | U1 | 2026-11-25 | shipped as PR #163 | v2 design tokens + components/ui primitives; no v1 change |
-| U2 | 2026-11-25 | in review (branch `ui-u2-layout`) | v2 shell via `ui-v2-shell.css` + `layoutStyles.ts`; v1 inline styles preserved verbatim (probe-verified); page-state primitives + CSS-only stacked-table pattern; shell verified at 420px |
+| U2 | 2026-11-25 | shipped as PR #166 (merged into phase branch) | v2 shell via `ui-v2-shell.css` + `layoutStyles.ts`; v1 inline styles preserved verbatim (probe-verified); page-state primitives + CSS-only stacked-table pattern; shell verified at 420px |
 | — | — | — | — |

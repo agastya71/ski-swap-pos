@@ -21,6 +21,13 @@ const argOf = (name, dflt) => {
 
 const OUT = argOf("--out", "/tmp/ui-shots");
 const BASE = argOf("--base", "http://127.0.0.1:8001");
+/**
+ * v1 is the prod build at `/` (from `main`); v2 is the `/next/` variant build
+ * (from the phase branch). They are different bundles during U2, so each
+ * variant needs its own origin — capturing both from `/` would produce two
+ * identical v1 screenshots.
+ */
+const V2_BASE = argOf("--v2-base", `${BASE.replace(/\/$/, "")}/next/`);
 const PORT = 9333;
 const PROFILE = "/tmp/ui-shots-profile";
 
@@ -40,11 +47,45 @@ async function login() {
   const res = await fetch(`${BASE}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username: "admin", password: "admin123" }),
+    body: JSON.stringify({
+      username: process.env.UI_PROBE_USER ?? "admin",
+      // Never hardcode credentials: these scripts commit output to a public repo.
+      password: process.env.UI_PROBE_PASSWORD ?? "",
+    }),
   });
   if (!res.ok) throw new Error(`login failed: ${res.status}`);
   const { access_token } = await res.json();
   return access_token;
+}
+
+/**
+ * Refuses to capture unless the ACTIVE event is a known test event.
+ *
+ * These screenshots get committed to a repository that is public, so a run
+ * against the live event would publish real seller names, item descriptions
+ * and sale totals. That is exactly what the plan forbids
+ * (docs/ui-overhaul-ab-plan-2026-11-24.md: "never MyXC real data"), and it is
+ * not hypothetical — the first capture of this script used the active MyXC
+ * event. Failing closed here is the only reliable guard: the route text can
+ * change, but the event name cannot.
+ */
+async function assertNotLiveEvent(token) {
+  const res = await fetch(`${BASE}/events`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(`could not list events: ${res.status}`);
+  const events = await res.json();
+  const active = events.find((e) => e.is_active);
+  if (!active) throw new Error("no active event; activate a TEST event first");
+  const isTest = /\btest\b/i.test(active.name);
+  if (!isTest) {
+    throw new Error(
+      `refusing to capture: active event "${active.name}" is not a test event.\n` +
+        `Activate a TEST event first (Admin → Events → Activate), or these screenshots ` +
+        `would publish real seller data to a public repository.`,
+    );
+  }
+  console.log(`# active event for capture: "${active.name}" (test event — safe)`);
 }
 
 class Cdp {
@@ -64,7 +105,8 @@ class Cdp {
       const p = cdp.#pending.get(msg.id);
       if (!p) return;
       cdp.#pending.delete(msg.id);
-      msg.error ? p.rej(new Error(msg.error.message)) : p.res(msg.result);
+      if (msg.error) p.rej(new Error(msg.error.message));
+      else p.res(msg.result);
     };
     return cdp;
   }
@@ -95,6 +137,7 @@ async function waitForHttp(url, tries = 60) {
 
 async function main() {
   const token = await login();
+  await assertNotLiveEvent(token);
   await mkdir(OUT, { recursive: true });
   await rm(PROFILE, { recursive: true, force: true });
 
@@ -148,8 +191,9 @@ async function main() {
           mobile: vp.w < 600,
         });
         for (const route of ROUTES) {
+          const origin = variant === "v2" ? V2_BASE : `${BASE.replace(/\/$/, "")}/`;
           const flag = variant === "v2" ? "?ui=v2" : "?ui=v1";
-          const url = `${BASE}/${flag}${route.hash}`;
+          const url = `${origin}${flag}${route.hash}`;
           await cdp.send("Page.navigate", { url });
           // SPA mount + data fetch; generous but bounded.
           await sleep(1800);
@@ -159,8 +203,7 @@ async function main() {
           });
           const file = `${OUT}/${variant}-${vp.label}-${route.label}.png`;
           await writeFile(file, Buffer.from(data, "base64"));
-          shots.push(file);
-        }
+          shots.push(file);        }
       }
     }
 
