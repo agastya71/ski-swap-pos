@@ -373,13 +373,13 @@ export function ItemList({
                 <td {...v1Only(v2, ITEM_LIST.cell)}>
                   {item.label_printed ? "✓ printed" : "—"}
                 </td>
-                <td {...variantProps(v2, "ui2-items-nowrap", ITEM_LIST.cellNowrap)}>
+                <td {...variantProps(v2, "ui2-items-nowrap ui2-items-actions", ITEM_LIST.cellNowrap)}>
                   {/* Print All Labels = one label per on-hand remaining unit.
                       Print N = an explicitly-specified number of labels. */}
                   <button
                     aria-label={`Print all labels for ${item.code}`}
                     onClick={() => void handlePrintOne(item.id)}
-                    {...v1Only(v2, ITEM_LIST.rowButton)}{...v2Only(v2, "ui2-btn ui2-btn--secondary ui2-items-row-actions")}
+                    {...v1Only(v2, ITEM_LIST.rowButton)}{...v2Only(v2, "ui2-btn ui2-btn--secondary")}
                   >
                     Print All Labels
                   </button>
@@ -402,13 +402,13 @@ export function ItemList({
                         Number(printQty[item.id] ?? 0),
                       )
                     }
-                    {...v1Only(v2, ITEM_LIST.rowButton)}{...v2Only(v2, "ui2-btn ui2-btn--secondary ui2-items-row-actions")}
+                    {...v1Only(v2, ITEM_LIST.rowButton)}{...v2Only(v2, "ui2-btn ui2-btn--secondary")}
                   >
                     Print
                   </button>
                   <button
                     onClick={() => openEdit(item)}
-                    {...v1Only(v2, ITEM_LIST.rowButton)}{...v2Only(v2, "ui2-btn ui2-btn--secondary ui2-items-row-actions")}
+                    {...v1Only(v2, ITEM_LIST.rowButton)}{...v2Only(v2, "ui2-btn ui2-btn--secondary")}
                   >
                     Edit
                   </button>
@@ -425,7 +425,7 @@ export function ItemList({
                           : `Delete item ${item.code}`
                     }
                     {...v1Only(v2, BUTTON_STYLE)}
-                    {...v2Only(v2, "ui2-btn ui2-btn--secondary ui2-items-row-actions")}
+                    {...v2Only(v2, "ui2-btn ui2-btn--secondary")}
                     onClick={() => {
                       if (
                         window.confirm(

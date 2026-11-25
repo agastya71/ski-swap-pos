@@ -443,16 +443,20 @@
 .ui-v2 .ui2-items-table td.ui2-items-nowrap { white-space: nowrap; }
 
 
-/* Row action cluster: 36px buttons inside a 44px min touch target so five
-   controls do not double the row height. */
-.ui-v2 .ui2-items-row-actions {
+/* Row action cluster: the CELL is the flex container (v1 markup has no wrapper),
+   and its 36px buttons sit inside a 44px min touch target so five controls do
+   not double the row height. */
+.ui-v2 .ui2-items-table td.ui2-items-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-1);
 }
 
-.ui-v2 .ui2-items-row-actions button { min-height: 36px; padding: var(--space-1) var(--space-2); }
+.ui-v2 .ui2-items-table td.ui2-items-actions button {
+  min-height: 36px;
+  padding: var(--space-1) var(--space-2);
+}
 
 /* Edit panel ------------------------------------------------------------- */
 

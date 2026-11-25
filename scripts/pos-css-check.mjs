@@ -161,6 +161,7 @@ const CHECKS = [
   ["#it-cell-num", "textAlign", "right", "numeric cells right-align"],
   ["#it-cell-num", "fontVariantNumeric", "tabular-nums", "numeric cells use tabular figures"],
   ["#it-cell-nowrap", "whiteSpace", "nowrap", "action column never wraps"],
+  ["#it-cell-nowrap", "display", "flex", "action cell is the button cluster container"],
   ["#it-row-open", "borderBottomStyle", "none", "open row drops its rule"],
   ["#it-panel-cell", "backgroundColor", "rgb(248, 250, 252)", "edit panel sits on gray-50"],
   ["#it-panel-cell", "borderBottomWidth", "1px", "edit panel closes with a hairline"],
