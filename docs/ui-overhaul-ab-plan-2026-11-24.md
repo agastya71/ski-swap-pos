@@ -108,11 +108,24 @@ unless the active event's name contains "test", and reads credentials from
 - `npm run build` for main stays exactly as today; the `/next` build is a
   separate outDir so the two can never collide.
 
+## Verification pitfalls
+
+See [`ui-verification-pitfalls.md`](./ui-verification-pitfalls.md) — twelve
+silent failure modes found while building U0–U3 (dropped `@import`s, `/next/`
+defaulting to v1, stale-tick React events, meaningless assertions, sandbox WAL
+replay). Read it before starting U4. Guarded by
+`node scripts/css-wiring-check.mjs`.
+
 ## Open items (verify at execution, not blocking plan approval)
 
 1. Exact v2 token values — offer a 2/3-screen visual sample (v1|v2) after U1.
-2. Whether any FE tests assert inline styles that a lift would break — adjust
-   assertions alongside while keeping v1 DOM identical.
+2. ~~Whether any FE tests assert inline styles that a lift would break.~~
+   **Answered by U3:** yes, in `LookupField.test.tsx` (lines 223, 224, 335,
+   343) and the admin pages (`AllSellersPayouts.test.tsx:62`,
+   `ReportsPage.test.tsx:76`, `SellerPayoutPanel.test.tsx:33,71`,
+   `EndOfDayPage.test.tsx:47`). Pattern that worked: keep the v1 value in the
+   style table, assert v1 *and* v2 in the same test. `TransactionEditor` and
+   `POSPage` had no style assertions at all.
 3. Hash-router + `/next` base-path interplay (vite `base: '/next/'` handles the
    built index.html; confirm deep links like `/next/#/admin` survive).
 
@@ -123,4 +136,6 @@ unless the active event's name contains "test", and reads credentials from
 | U0 | 2026-11-24 | shipped as PR #162 | /next mount + flag wiring; /next/ empty-dir no-op verified |
 | U1 | 2026-11-25 | shipped as PR #163 | v2 design tokens + components/ui primitives; no v1 change |
 | U2 | 2026-11-25 | shipped as PR #166 (merged into phase branch) | v2 shell via `ui-v2-shell.css` + `layoutStyles.ts`; v1 inline styles preserved verbatim (probe-verified); page-state primitives + CSS-only stacked-table pattern; shell verified at 420px |
+| U3 | 2026-11-25 | shipped as PR #167 (part 1) + #168 (part 2) | POS money path: 164 inline styles across 6 files → 0. v1 tables kept verbatim in `posStyles.ts`; v2 in `pos-v2.css` + `pos-editor-v2.css`. Added `v1Only`/`v2Only` helpers for elements `variantProps` cannot express |
+| — | 2026-11-25 | verification tooling | PR #169 added the TEST SWAP checklist runner + sandbox script; `scripts/css-wiring-check.mjs` guards the two silent CSS failure modes. Checklist 12/12 PASS against a sandbox copy |
 | — | — | — | — |
