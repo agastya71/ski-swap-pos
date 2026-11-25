@@ -16,7 +16,7 @@ export function variantProps(
   v1Style: CSSProperties,
 ): { className: string | undefined; style: CSSProperties | undefined } {
   return v2
-    ? { className, style: undefined }
+    ? { className: className || undefined, style: undefined }
     : { className: undefined, style: v1Style };
 }
 

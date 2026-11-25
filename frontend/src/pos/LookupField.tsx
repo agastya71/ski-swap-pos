@@ -10,9 +10,8 @@ import { useRef, useEffect, useState, type KeyboardEvent } from 'react'
 import { lookupItem, searchItems } from '../api/items'
 import { ApiError } from '../api/client'
 import type { ItemLookupResponse } from '../types'
-
-const NAVY = '#1e3a8a'
-const HIGHLIGHT_BG = '#e8eef9'
+import { LOOKUP, variantProps } from './posStyles'
+import { useUiVariant } from '../lib/uiVariant'
 
 /**
  * Controlled lookup input that supports barcode scanning, partial-code autocomplete,
@@ -34,6 +33,7 @@ export function LookupField({ onFound, focusSignal = 0, onError }: { onFound: (i
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState<ItemLookupResponse[] | null>(null)
   const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null)
+  const v2 = useUiVariant() === 'v2'
 
   /** Sets the inline error AND mirrors it to the parent's banner (#14). */
   function showError(message: string | null) {
@@ -194,7 +194,7 @@ export function LookupField({ onFound, focusSignal = 0, onError }: { onFound: (i
 
   return (
     <div>
-      <label htmlFor="lookup" style={{ fontWeight: 600, display: 'block', marginBottom: 4, fontSize: 14 }}>
+      <label htmlFor="lookup" {...variantProps(v2, 'ui2-pos-lookup-label', LOOKUP.label)}>
         Scan or enter item code:
       </label>
       <input
@@ -205,27 +205,20 @@ export function LookupField({ onFound, focusSignal = 0, onError }: { onFound: (i
         onKeyDown={handleKeyDown}
         disabled={loading}
         placeholder="Scan barcode, or type partial code + Enter"
-        style={{ width: '100%', padding: 12, fontSize: 18, boxSizing: 'border-box', border: `2px solid ${NAVY}`, borderRadius: 4 }}
+        {...variantProps(v2, 'ui2-pos-lookup-input', LOOKUP.input)}
         autoComplete="off"
       />
 
       {error && (
-        <div role="alert" style={{ marginTop: 6 }}>{error}</div>
+        <div role="alert" {...variantProps(v2, 'ui2-pos-lookup-error', LOOKUP.error)}>{error}</div>
       )}
 
       {/* Results list renders INLINE below the input (#3 event feedback) — the
           old position:absolute overlay covered the transaction lines beneath
           it; in document flow nothing is ever hidden, no z-index games. */}
       {results && results.length > 0 && (
-        <div style={{
-          marginTop: 6,
-          background: '#fff',
-          border: '1px solid #e2e8f0',
-          borderRadius: 4,
-          maxHeight: 320,
-          overflowY: 'auto',
-        }}>
-          <div style={{ padding: '7px 12px', fontSize: 12, color: '#64748b', borderBottom: '1px solid #e2e8f0', fontWeight: 600 }}>
+        <div {...variantProps(v2, 'ui2-pos-results', LOOKUP.results)}>
+          <div {...variantProps(v2, 'ui2-pos-results-head', LOOKUP.resultsHead)}>
             {results.length} item{results.length !== 1 ? 's' : ''} found — click to add to cart
           </div>
           {results.map((item, index) => {
@@ -236,36 +229,26 @@ export function LookupField({ onFound, focusSignal = 0, onError }: { onFound: (i
                 key={item.id}
                 onClick={isSellable ? () => handleSelectResult(item) : undefined}
                 aria-disabled={!isSellable}
-                style={{
-                  display: 'flex',
-                  width: '100%',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '9px 12px',
-                  background: isHighlighted ? HIGHLIGHT_BG : 'none',
-                  border: 'none',
-                  borderBottom: '1px solid #f1f5f9',
-                  cursor: isSellable ? 'pointer' : 'default',
-                  fontSize: 14,
-                  textAlign: 'left',
-                  opacity: isSellable ? 1 : 0.45,
-                  pointerEvents: isSellable ? 'auto' : 'none',
-                }}
+                {...variantProps(
+                  v2,
+                  `ui2-pos-result${isHighlighted ? ' ui2-pos-result--highlighted' : ''}`,
+                  LOOKUP.resultRow(isHighlighted, isSellable),
+                )}
               >
                 <span>
-                  <strong style={{ color: NAVY, marginRight: 8 }}>{item.code}</strong>
-                  {item.description && <span style={{ color: '#374151' }}>{item.description}</span>}
+                  <strong {...variantProps(v2, 'ui2-pos-result-code', LOOKUP.resultCode)}>{item.code}</strong>
+                  {item.description && <span {...variantProps(v2, 'ui2-pos-result-desc', LOOKUP.resultDesc)}>{item.description}</span>}
                   {(item.category || item.type) && (
-                    <span style={{ marginLeft: 6, fontSize: 12, color: '#94a3b8' }}>
+                    <span {...variantProps(v2, 'ui2-pos-result-meta', LOOKUP.resultMeta)}>
                         ({[item.category, item.type].filter(Boolean).join(' · ')})
                     </span>
                   )}
                 </span>
-                <span style={{ whiteSpace: 'nowrap', marginLeft: 16 }}>
-                  {isSellable && <span style={{ marginRight: 8, fontSize: 12, color: '#64748b' }}>{item.remaining} left</span>}
+                <span {...variantProps(v2, 'ui2-pos-result-tail', LOOKUP.resultTail)}>
+                  {isSellable && <span {...variantProps(v2, 'ui2-pos-result-remaining', LOOKUP.resultRemaining)}>{item.remaining} left</span>}
                   <strong>${item.price.toFixed(2)}</strong>
                   {!isSellable && (
-                    <span style={{ marginLeft: 6, fontSize: 11, color: '#ef4444', fontWeight: 700, textTransform: 'uppercase' }}>
+                    <span {...variantProps(v2, 'ui2-pos-result-status', LOOKUP.resultStatus)}>
                       {item.status}
                     </span>
                   )}
