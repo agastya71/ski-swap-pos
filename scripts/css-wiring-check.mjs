@@ -146,6 +146,42 @@ function checkV2RulesAreScoped() {
   }
 }
 
+function checkCssVarsAreDefined() {
+  // A referenced custom property that is never defined resolves to nothing and
+  // the declaration is silently dropped by the browser — no build error, no
+  // test failure. This has shipped twice (`--font-size-base` in U3, and
+  // `--gray-600`/`--gray-800` in U4) before a computed-style probe noticed.
+  const defined = new Set();
+  const defineRe = /(--[a-z0-9-]+)\s*:/g;
+  const allSheets = allCssFiles(SRC);
+  for (const file of allSheets) {
+    const body = readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    let m;
+    while ((m = defineRe.exec(body)) !== null) defined.add(m[1]);
+  }
+
+  const offenders = [];
+  for (const file of v2Files) {
+    const body = readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    const useRe = /var\(\s*(--[a-z0-9-]+)/g;
+    let m;
+    while ((m = useRe.exec(body)) !== null) {
+      const name = m[1];
+      if (!defined.has(name)) offenders.push(`${rel(file)}: ${name}`);
+    }
+  }
+
+  if (offenders.length === 0) {
+    pass(`every var() in the v2 sheets resolves to a defined custom property`);
+  } else {
+    fail(
+      `${offenders.length} undefined CSS custom propert(ies) — the declaration is ` +
+        `dropped silently by the browser:\n        ` +
+        [...new Set(offenders)].slice(0, 10).join("\n        "),
+    );
+  }
+}
+
 function checkVariantFlagPlacement() {
   // `/next/` serves the v2-aware bundle but still defaults to v1: the flag has
   // to be in the query string, before the hash, or every v2 assertion in the
@@ -181,10 +217,11 @@ console.log("# UI overhaul CSS wiring\n");
 checkImportsAreFirst();
 checkEveryV2SheetIsImported();
 checkV2RulesAreScoped();
+checkCssVarsAreDefined();
 checkVariantFlagPlacement();
 
 const failed = failures.length;
 console.log(
-  `\n${failed ? `${failed} FAILED` : "ALL CHECKS PASSED"} (${failed ? "see above" : "4 groups"})`,
+  `\n${failed ? `${failed} FAILED` : "ALL CHECKS PASSED"} (${failed ? "see above" : "5 groups"})`,
 );
 process.exit(failed ? 1 : 0);

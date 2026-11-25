@@ -9,6 +9,8 @@ import { getSeller } from "../api/sellers";
 import { navigate, useHashRoute } from "../lib/useHashRoute";
 import { ImportOutcome } from "../components/ImportOutcome";
 import { useAuth } from "../auth/AuthContext";
+import { useUiVariant } from "../lib/uiVariant";
+import { INTAKE_MODULE, variantProps } from "./intakeStyles";
 import type {
   Seller,
   SellerMatchReview,
@@ -73,6 +75,7 @@ export function IntakeModulePage() {
     null,
   );
   const pendingFileRef = useRef<File | null>(null);
+  const v2 = useUiVariant() === "v2";
   useEffect(() => {
     getActiveEvent()
       .then((e) => setEventName(e.name))
@@ -162,13 +165,7 @@ export function IntakeModulePage() {
       key={t}
       onClick={() => setTab(t)}
       aria-current={tab === t ? "page" : undefined}
-      style={{
-        padding: "6px 16px",
-        background: tab === t ? "#1a237e" : "transparent",
-        color: tab === t ? "white" : "#1a237e",
-        border: "1px solid #1a237e",
-        cursor: "pointer",
-      }}
+      {...variantProps(v2, "ui2-intake-tab", INTAKE_MODULE.tab(tab === t))}
     >
       {label}
     </button>
@@ -176,36 +173,27 @@ export function IntakeModulePage() {
 
   return (
     <div>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          borderBottom: "2px solid #1a237e",
-          paddingBottom: 8,
-          marginBottom: 16,
-        }}
-      >
-        <div style={{ display: "flex", gap: 4 }}>
+      <div {...variantProps(v2, "ui2-intake-tabbar", INTAKE_MODULE.tabBar)}>
+        <div {...variantProps(v2, "ui2-intake-tabs", INTAKE_MODULE.tabGroup)}>
           {tabBtn("intake", "Intake")}
           {tabBtn("sellers", "Sellers")}
           {tabBtn("search", "Search")}
         </div>
-        {eventName && <strong style={{ fontSize: 16 }}>{eventName}</strong>}
-        <div style={{ display: "flex", gap: 8 }}>
+        {eventName && (
+          <strong {...variantProps(v2, "ui2-intake-event-name", INTAKE_MODULE.eventName)}>
+            {eventName}
+          </strong>
+        )}
+        <div {...variantProps(v2, "ui2-intake-tab-actions", INTAKE_MODULE.actionGroup)}>
           {/* Import a seller worksheet: creates/matches the seller, then the items. */}
           <button
             onClick={handlePickWorksheet}
             disabled={importing}
-            style={{
-              border: "1px solid #1a237e",
-              color: "#1a237e",
-              background: "none",
-              padding: "4px 10px",
-              cursor: importing ? "wait" : "pointer",
-              borderRadius: 3,
-              fontSize: 13,
-            }}
+            {...variantProps(
+              v2,
+              "ui2-intake-ghost-btn",
+              INTAKE_MODULE.ghostButton(importing),
+            )}
           >
             {importing ? "Importing…" : "Import Seller Worksheet"}
           </button>
@@ -213,7 +201,7 @@ export function IntakeModulePage() {
             ref={worksheetInputRef}
             type="file"
             accept=".xlsx,.csv,.tsv"
-            style={{ display: "none" }}
+            style={INTAKE_MODULE.hiddenInput}
             aria-label="Choose seller worksheet file"
             onChange={(e) => {
               const file = e.target.files?.[0];
@@ -223,29 +211,21 @@ export function IntakeModulePage() {
           />
           <button
             onClick={() => downloadImportTemplate(true)}
-            style={{
-              border: "1px solid #1a237e",
-              color: "#1a237e",
-              background: "none",
-              padding: "4px 10px",
-              cursor: "pointer",
-              borderRadius: 3,
-              fontSize: 13,
-            }}
+            {...variantProps(
+              v2,
+              "ui2-intake-ghost-btn",
+              INTAKE_MODULE.ghostButton(),
+            )}
           >
             Download Vendor Template
           </button>
           <button
             onClick={() => downloadImportTemplate(false)}
-            style={{
-              border: "1px solid #1a237e",
-              color: "#1a237e",
-              background: "none",
-              padding: "4px 10px",
-              cursor: "pointer",
-              borderRadius: 3,
-              fontSize: 13,
-            }}
+            {...variantProps(
+              v2,
+              "ui2-intake-ghost-btn",
+              INTAKE_MODULE.ghostButton(),
+            )}
           >
             Download Non-Vendor Template
           </button>
@@ -255,16 +235,12 @@ export function IntakeModulePage() {
         <div
           role="dialog"
           aria-label="Possible duplicate seller review"
-          style={{
-            margin: "0 0 16px",
-            padding: 12,
-            border: "1px solid #f59e0b",
-            borderRadius: 6,
-            background: "#fffbeb",
-          }}
+          {...variantProps(v2, "ui2-intake-review", INTAKE_MODULE.reviewPanel)}
         >
-          <strong>⚠ Possible duplicate seller — your decision needed</strong>
-          <div style={{ marginTop: 6, fontSize: 13 }}>
+          <strong {...variantProps(v2, "ui2-intake-review-title", {})}>
+            ⚠ Possible duplicate seller — your decision needed
+          </strong>
+          <div {...variantProps(v2, "ui2-intake-review-meta", INTAKE_MODULE.reviewMeta)}>
             Worksheet seller:{" "}
             <strong>{pendingReview.worksheet_name ?? "(unnamed)"}</strong>
             {pendingReview.worksheet_email && (
@@ -274,36 +250,40 @@ export function IntakeModulePage() {
               <> · phone: {pendingReview.worksheet_phone}</>
             )}
           </div>
-          <div style={{ marginTop: 4, fontSize: 13, color: "#92400e" }}>
+          <div
+            {...variantProps(
+              v2,
+              "ui2-intake-review-reason",
+              INTAKE_MODULE.reviewReason,
+            )}
+          >
             Why flagged: {pendingReview.reason}
           </div>
           <div
-            style={{
-              marginTop: 10,
-              display: "flex",
-              flexDirection: "column",
-              gap: 6,
-            }}
+            {...variantProps(v2, "ui2-intake-candidates", INTAKE_MODULE.candidateList)}
           >
             {pendingReview.candidates.map((c) => (
               <div
                 key={c.code}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  gap: 12,
-                  border: "1px solid #fde68a",
-                  borderRadius: 4,
-                  padding: "6px 8px",
-                  background: "white",
-                }}
+                {...variantProps(v2, "ui2-intake-candidate", INTAKE_MODULE.candidateRow)}
               >
-                <div style={{ fontSize: 13 }}>
+                <div
+                  {...variantProps(
+                    v2,
+                    "ui2-intake-candidate-info",
+                    INTAKE_MODULE.candidateInfo,
+                  )}
+                >
                   <strong>{c.code}</strong> {c.name ?? "(no name)"}
                   {c.email && <> · {c.email}</>}
                   {c.phone && <> · {c.phone}</>}
-                  <div style={{ color: "#64748b" }}>
+                  <div
+                    {...variantProps(
+                      v2,
+                      "ui2-intake-candidate-sub",
+                      INTAKE_MODULE.candidateSub,
+                    )}
+                  >
                     {c.match_reason} · {c.existing_intakes} existing intake(s)
                   </div>
                 </div>
@@ -314,23 +294,20 @@ export function IntakeModulePage() {
                       void handleWorksheetChosen(file, { sellerCode: c.code });
                   }}
                   disabled={importing}
-                  style={{
-                    background: "white",
-                    color: "#1a237e",
-                    border: "1px solid #1a237e",
-                    padding: "4px 10px",
-                    fontSize: 13,
-                    borderRadius: 4,
-                    cursor: "pointer",
-                    whiteSpace: "nowrap",
-                  }}
+                  {...variantProps(
+                    v2,
+                    "ui2-btn ui2-btn--secondary ui2-intake-candidate-btn",
+                    INTAKE_MODULE.candidateButton,
+                  )}
                 >
                   Same seller — use {c.code}
                 </button>
               </div>
             ))}
           </div>
-          <div style={{ marginTop: 8, fontSize: 13 }}>
+          <div
+            {...variantProps(v2, "ui2-intake-review-foot", INTAKE_MODULE.reviewFoot)}
+          >
             Not a duplicate? Record the worksheet as a new seller instead.
           </div>
           <button
@@ -339,16 +316,11 @@ export function IntakeModulePage() {
               if (file) void handleWorksheetChosen(file, { forceNew: true });
             }}
             disabled={importing}
-            style={{
-              background: "white",
-              color: "#1a237e",
-              border: "1px solid #1a237e",
-              padding: "4px 10px",
-              fontSize: 13,
-              borderRadius: 4,
-              cursor: "pointer",
-              marginTop: 4,
-            }}
+            {...variantProps(
+              v2,
+              "ui2-btn ui2-btn--secondary ui2-intake-force-new",
+              INTAKE_MODULE.forceNewButton,
+            )}
           >
             No — create as new seller
           </button>
@@ -357,16 +329,21 @@ export function IntakeModulePage() {
       {importError && (
         <div
           role="status"
-          style={{
-            margin: "0 0 16px",
-            padding: 10,
-            border: "1px solid #fca5a5",
-            borderRadius: 6,
-            background: "#fef2f2",
-            fontSize: 13,
-          }}
+          {...variantProps(
+            v2,
+            "ui2-intake-import-error-panel",
+            INTAKE_MODULE.importErrorPanel,
+          )}
         >
-          <span style={{ color: "#b91c1c" }}>{importError}</span>
+          <span
+            {...variantProps(
+              v2,
+              "ui2-intake-import-error-text",
+              INTAKE_MODULE.importErrorText,
+            )}
+          >
+            {importError}
+          </span>
         </div>
       )}
       {importResult && (
@@ -394,19 +371,23 @@ export function IntakeModulePage() {
         (sellerId !== null ? (
           loadedForId === sellerId && detailError ? (
             <div>
-              <div role="alert" style={{ color: "#b91c1c", marginBottom: 12 }}>
+              <div
+                role="alert"
+                {...variantProps(
+                  v2,
+                  "ui2-intake-detail-error",
+                  INTAKE_MODULE.detailError,
+                )}
+              >
                 {detailError}
               </div>
               <button
                 onClick={() => navigate("/intake/sellers")}
-                style={{
-                  border: "1px solid #1a237e",
-                  color: "#1a237e",
-                  background: "none",
-                  padding: "6px 14px",
-                  cursor: "pointer",
-                  borderRadius: 3,
-                }}
+                {...variantProps(
+                  v2,
+                  "ui2-intake-ghost-btn",
+                  INTAKE_MODULE.backButton,
+                )}
               >
                 ← Back to Sellers
               </button>
@@ -419,7 +400,15 @@ export function IntakeModulePage() {
               eventId={eventId}
             />
           ) : (
-            <p style={{ color: "#64748b" }}>Loading seller…</p>
+            <p
+              {...variantProps(
+                v2,
+                "ui2-intake-loading",
+                INTAKE_MODULE.loadingText,
+              )}
+            >
+              Loading seller…
+            </p>
           )
         ) : (
           <SellerListPage

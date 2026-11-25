@@ -7,6 +7,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { createIntake } from "../api/intakes";
 import { sellerDisplayName, sellerTypeLabel } from "../lib/sellerDisplay";
+import { useUiVariant } from "../lib/uiVariant";
+import { INTAKE_FORM, variantProps, v2Only } from "./intakeStyles";
 import type { Seller, Intake } from "../types";
 
 /**
@@ -31,6 +33,7 @@ export function IntakeForm({
   );
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const v2 = useUiVariant() === "v2";
 
   // When the selected seller changes, re-seed the donation checkboxes from that
   // seller's per-seller defaults (intake inherits these unless overridden here).
@@ -64,17 +67,12 @@ export function IntakeForm({
         {sellerTypeLabel(seller)}
       </h3>
       <fieldset
-        style={{
-          border: "1px solid #e2e8f0",
-          borderRadius: 4,
-          padding: "10px 12px",
-          marginBottom: 10,
-        }}
+        {...variantProps(v2, "ui2-intake-fieldset", INTAKE_FORM.fieldset)}
       >
-        <legend style={{ fontSize: 13, color: "#64748b" }}>
+        <legend {...variantProps(v2, "ui2-intake-legend", INTAKE_FORM.legend)}>
           Donation preferences (default for this intake's items)
         </legend>
-        <div style={{ marginBottom: 10 }}>
+        <div {...variantProps(v2, "ui2-intake-check", INTAKE_FORM.row)}>
           <label>
             <input
               type="checkbox"
@@ -85,7 +83,7 @@ export function IntakeForm({
             Donate proceeds (MYSL keeps 100% of sale price)
           </label>
         </div>
-        <div style={{ marginBottom: 10 }}>
+        <div {...variantProps(v2, "ui2-intake-check", INTAKE_FORM.row)}>
           <label>
             <input
               type="checkbox"
@@ -98,17 +96,21 @@ export function IntakeForm({
         </div>
         {/* Inheritance visibility: the checkboxes above are pre-seeded from the
             seller's registration defaults; items inherit them unless overridden. */}
-        <div style={{ fontSize: 11, color: "#64748b" }}>
+        <div {...variantProps(v2, "ui2-intake-hint", INTAKE_FORM.hint)}>
           Pre-filled from {sellerDisplayName(seller)}'s registration — items
           inherit these unless overridden per item.
         </div>
       </fieldset>
       {error && (
-        <div role="alert" style={{ color: "red", marginBottom: 10 }}>
+        <div role="alert" {...variantProps(v2, "ui2-intake-error", INTAKE_FORM.error)}>
           {error}
         </div>
       )}
-      <button type="submit" disabled={loading}>
+      <button
+        type="submit"
+        disabled={loading}
+        {...v2Only(v2, "ui2-btn ui2-btn--primary")}
+      >
         Start Intake
       </button>
     </form>

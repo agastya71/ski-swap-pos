@@ -1,4 +1,4 @@
-/* UI overhaul v2 styles (phases U1–U3) — @import must come before all other
+/* UI overhaul v2 styles (phases U1–U4) — @import must come before all other
    statements or PostCSS drops them silently; every rule inside is scoped to
    the .ui-v2 root class, so they are inert in v1. */
 @import './ui-v2.css';
@@ -6,6 +6,7 @@
 @import './ui-v2-shell.css';
 @import './pos/pos-v2.css';
 @import './pos/pos-editor-v2.css';
+@import './intake/intake-v2.css';
 
 /* ── MYXC Brand Theme ─────────────────────────────────────────────────────── */
 :root {

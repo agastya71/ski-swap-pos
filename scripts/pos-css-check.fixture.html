@@ -203,5 +203,58 @@
     </div>
   </div>
 </div>
+
+<!-- U4 part 1: intake seller-entry chrome. Same contract: class names only,
+     which is what proves the rules reached the built stylesheet. -->
+<div class="ground">
+  <div id="im-tabbar" class="ui2-intake-tabbar">
+    <div class="ui2-intake-tabs">
+      <button id="im-tab-active" class="ui2-intake-tab" aria-current="page">Intake</button>
+      <button id="im-tab" class="ui2-intake-tab">Sellers</button>
+    </div>
+    <strong id="im-event" class="ui2-intake-event-name">TEST SWAP POS 2026</strong>
+    <div class="ui2-intake-tab-actions">
+      <button id="im-ghost" class="ui2-intake-ghost-btn">Import Seller Worksheet</button>
+    </div>
+  </div>
+
+  <fieldset id="im-fieldset" class="ui2-intake-fieldset">
+    <legend id="im-legend" class="ui2-intake-legend">Address</legend>
+    <div class="ui2-intake-field">
+      <label id="im-label" class="ui2-intake-field-label" for="im-input">First Name</label>
+      <input id="im-input" class="ui2-intake-field-input" value="Tess">
+    </div>
+    <div id="im-check" class="ui2-intake-check">
+      <input type="checkbox"> <span>Donate unsold items</span>
+    </div>
+    <p id="im-hint" class="ui2-intake-hint">Pre-filled from registration.</p>
+  </fieldset>
+
+  <div id="im-error" class="ui2-intake-error">At least one of phone or email is required</div>
+
+  <input id="im-search" class="ui2-intake-search-input" placeholder="Search by name or code">
+  <ul class="ui2-intake-results">
+    <li><button id="im-result" class="ui2-intake-result">Tess Trail — TRAI1 · Consignor</button></li>
+  </ul>
+  <button id="im-new-btn" class="ui2-btn ui2-btn--secondary ui2-intake-new-btn">Register New Seller</button>
+
+  <div id="im-review" class="ui2-intake-review">
+    <strong id="im-review-title" class="ui2-intake-review-title">Possible duplicate</strong>
+    <div class="ui2-intake-candidates">
+      <div id="im-candidate" class="ui2-intake-candidate">
+        <div class="ui2-intake-candidate-info">
+          <strong>TRAI1</strong> Tess Trail
+          <div id="im-candidate-sub" class="ui2-intake-candidate-sub">email match · 1 existing intake(s)</div>
+        </div>
+        <button class="ui2-btn ui2-btn--secondary ui2-intake-candidate-btn">Same seller</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="ui2-intake-actions">
+    <button id="im-primary" class="ui2-btn ui2-btn--primary">Register</button>
+    <button id="im-secondary" class="ui2-btn ui2-btn--secondary">Cancel</button>
+  </div>
+</div>
 </body>
 </html>
