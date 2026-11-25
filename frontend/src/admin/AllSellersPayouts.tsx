@@ -9,6 +9,8 @@ import { useState, useEffect } from "react";
 import { downloadFile, getAllSellerPayouts } from "../api/reports";
 import { SellerPayoutDetails } from "./SellerPayoutPanel";
 import type { SellersPayoutsReport } from "../types";
+import { useUiVariant } from "../lib/uiVariant";
+import { variantProps, v1Only, ALL_SELLERS as V1_ALL } from "./adminStyles";
 
 /**
  * Fetches and displays the payout reports for ALL sellers in an event.
@@ -21,6 +23,7 @@ export function AllSellersPayouts({ eventId }: { eventId: number }) {
     const [report, setReport] = useState<SellersPayoutsReport | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const v2 = useUiVariant() === "v2";
 
     useEffect(() => {
         getAllSellerPayouts(eventId)
@@ -37,13 +40,13 @@ export function AllSellersPayouts({ eventId }: { eventId: number }) {
 
     if (loading)
         return (
-            <p style={{ color: "#64748b", fontSize: 13 }}>
+            <p {...variantProps(v2, "ui2-payout-loading", V1_ALL.loading)}>
                 Generating all sellers' payouts…
             </p>
         );
     if (error)
         return (
-            <p role="alert" style={{ color: "#ef4444", fontSize: 13 }}>
+            <p role="alert" {...variantProps(v2, "ui2-payout-error", V1_ALL.error)}>
                 {error}
             </p>
         );
@@ -51,13 +54,7 @@ export function AllSellersPayouts({ eventId }: { eventId: number }) {
 
     return (
         <div>
-            <div
-                style={{
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    marginBottom: 8,
-                }}
-            >
+            <div {...variantProps(v2, "ui2-allzip-row", V1_ALL.zipRow)}>
                 <button
                     aria-label="Download zip of all seller payouts"
                     onClick={() =>
@@ -66,26 +63,12 @@ export function AllSellersPayouts({ eventId }: { eventId: number }) {
                             "sellers-payouts.zip",
                         )
                     }
-                    style={{
-                        border: "1px solid #1a237e",
-                        color: "#1a237e",
-                        background: "none",
-                        padding: "3px 10px",
-                        cursor: "pointer",
-                        borderRadius: 3,
-                        fontSize: 13,
-                    }}
+                    {...variantProps(v2, "ui2-outline-btn", V1_ALL.outlineButton)}
                 >
                     Download ZIP (Excel + PDF per seller)
                 </button>
             </div>
-            <table
-                style={{
-                    width: "auto",
-                    borderCollapse: "collapse",
-                    marginBottom: 16,
-                }}
-            >
+            <table {...variantProps(v2, "ui2-report-kv", V1_ALL.kvTable)}>
                 <tbody>
                     {[
                         ["Sellers", String(report.seller_count)],
@@ -98,28 +81,9 @@ export function AllSellersPayouts({ eventId }: { eventId: number }) {
                             `$${report.seller_total.toFixed(2)}`,
                         ],
                     ].map(([label, val]) => (
-                        <tr
-                            key={label}
-                            style={{ borderBottom: "1px solid #eee" }}
-                        >
-                            <td
-                                style={{
-                                    padding: "4px 16px 4px 8px",
-                                    fontWeight: "bold",
-                                    fontSize: 13,
-                                }}
-                            >
-                                {label}
-                            </td>
-                            <td
-                                style={{
-                                    padding: "4px 8px",
-                                    textAlign: "right",
-                                    fontSize: 13,
-                                }}
-                            >
-                                {val}
-                            </td>
+                        <tr key={label} {...v1Only(v2, V1_ALL.bodyRow)}>
+                            <td {...v1Only(v2, V1_ALL.kvLabel13)}>{label}</td>
+                            <td {...v1Only(v2, V1_ALL.kvValueRight)}>{val}</td>
                         </tr>
                     ))}
                 </tbody>
@@ -128,35 +92,17 @@ export function AllSellersPayouts({ eventId }: { eventId: number }) {
             {report.sellers.map((p) => (
                 <section
                     key={p.seller_id}
-                    style={{
-                        marginBottom: 24,
-                        border: "1px solid #e2e8f0",
-                        borderRadius: 6,
-                        padding: 12,
-                    }}
+                    {...variantProps(v2, "ui2-seller-card", V1_ALL.sellerCard)}
                 >
-                    <div
-                        style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            marginBottom: 8,
-                        }}
-                    >
-                        <h4 style={{ margin: 0 }}>
+                    <div {...variantProps(v2, "ui2-seller-card-head", V1_ALL.sellerHead)}>
+                        <h4 {...variantProps(v2, "ui2-seller-card-title", V1_ALL.sellerTitle)}>
                             {p.seller_name} ({p.seller_code})
-                            <span
-                                style={{
-                                    fontWeight: "normal",
-                                    fontSize: 13,
-                                    marginLeft: 8,
-                                }}
-                            >
+                            <span {...variantProps(v2, "ui2-seller-card-meta", V1_ALL.sellerMeta)}>
                                 Sold: {p.items_sold} · Unsold: {p.items_unsold}{" "}
                                 · Payout: ${p.seller_total.toFixed(2)}
                             </span>
                         </h4>
-                        <div style={{ display: "flex", gap: 8 }}>
+                        <div {...variantProps(v2, "ui2-seller-card-actions", V1_ALL.actionRow)}>
                             <button
                                 aria-label={`Download xlsx payout for ${p.seller_code}`}
                                 onClick={() =>
@@ -165,15 +111,7 @@ export function AllSellersPayouts({ eventId }: { eventId: number }) {
                                         `${p.seller_code}_payout.xlsx`,
                                     )
                                 }
-                                style={{
-                                    border: "1px solid #1a237e",
-                                    color: "#1a237e",
-                                    background: "none",
-                                    padding: "3px 10px",
-                                    cursor: "pointer",
-                                    borderRadius: 3,
-                                    fontSize: 13,
-                                }}
+                                {...variantProps(v2, "ui2-outline-btn", V1_ALL.outlineButton)}
                             >
                                 Download XLSX
                             </button>
@@ -185,15 +123,7 @@ export function AllSellersPayouts({ eventId }: { eventId: number }) {
                                         `${p.seller_code}_payout.pdf`,
                                     )
                                 }
-                                style={{
-                                    border: "1px solid #1a237e",
-                                    color: "#1a237e",
-                                    background: "none",
-                                    padding: "3px 10px",
-                                    cursor: "pointer",
-                                    borderRadius: 3,
-                                    fontSize: 13,
-                                }}
+                                {...variantProps(v2, "ui2-outline-btn", V1_ALL.outlineButton)}
                             >
                                 Download PDF
                             </button>
