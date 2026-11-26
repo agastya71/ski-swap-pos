@@ -3,6 +3,7 @@
  * persistence, default behavior, and root-class application.
  * See docs/ui-overhaul-ab-plan-2026-11-24.md.
  */
+import { createElement } from 'react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   applyVariantRootClass,
@@ -12,6 +13,8 @@ import {
   storedVariant,
   type UiVariant,
 } from './uiVariant'
+import { render } from '@testing-library/react'
+import { DEFAULT_UI_VARIANT, useUiVariant } from './uiVariant'
 
 function fakeStorage(): Storage {
   const map = new Map<string, string>()
@@ -64,8 +67,24 @@ describe('resolveUiVariant', () => {
   let storage: Storage
   beforeEach(() => { storage = fakeStorage() })
 
-  it('defaults to v1 with no URL param and nothing stored', () => {
-    expect(resolveUiVariant('', storage)).toBe('v1')
+  it('defaults to v2 with no URL param and nothing stored (U6 promotion)', () => {
+    expect(resolveUiVariant('', storage)).toBe('v2')
+  })
+
+  it('context default follows the promoted variant', () => {
+    // .ts file — no JSX. Render a probe that reads the hook OUTSIDE any
+    // Provider, so it exercises the createContext default itself.
+    const Probe = () => createElement('span', { 'data-variant': useUiVariant() })
+    render(createElement(Probe))
+    expect(document.querySelector('[data-variant]')?.getAttribute('data-variant')).toBe('v2')
+    // The declared default and the context default must agree.
+    expect(DEFAULT_UI_VARIANT).toBe('v2')
+  })
+
+  it('?ui=v1 is the escape hatch and wins over the default', () => {
+    expect(resolveUiVariant('?ui=v1', storage)).toBe('v1')
+    // ...and persists, so plain URLs keep it.
+    expect(storage.getItem('ui-variant')).toBe('v1')
   })
 
   it('URL param wins over storage and is written through', () => {

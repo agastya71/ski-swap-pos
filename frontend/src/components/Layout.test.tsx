@@ -14,16 +14,19 @@ function fakeJwt(payload: Record<string, unknown>): string {
   return `${b64({ alg: "HS256", typ: "JWT" })}.${b64(payload)}.sig`;
 }
 
+// v1 is no longer the implied default (U6 promotion): this pins it explicitly.
 function renderLayout(role: "admin" | "cashier" | "intake" | "cashier_intake" = "admin") {
   // setToken writes both the in-memory cache and localStorage ('auth_token')
   // — seeding localStorage directly is NOT seen by getToken()'s cache.
   setToken(fakeJwt({ sub: role, role, event_id: 1, exp: 9999999999 }));
   render(
-    <AuthProvider>
-      <Layout page="admin" onNavigate={() => {}}>
-        <div />
-      </Layout>
-    </AuthProvider>,
+    <UiVariantContext.Provider value="v1">
+      <AuthProvider>
+        <Layout page="admin" onNavigate={() => {}}>
+          <div />
+        </Layout>
+      </AuthProvider>
+    </UiVariantContext.Provider>,
   );
 }
 

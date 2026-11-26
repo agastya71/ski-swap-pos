@@ -9,6 +9,14 @@ import { server } from "../mocks/server";
 import { http, HttpResponse } from "msw";
 import { vi, afterEach } from "vitest";
 import { AllSellersPayouts } from "./AllSellersPayouts";
+import { UiVariantContext } from "../lib/uiVariant";
+
+// U6 promotion: v1 is no longer the render default — these assertions are
+// v1-expectation tests, so the variant is pinned explicitly.
+function renderV1(ui: React.ReactElement) {
+  return render(<UiVariantContext.Provider value="v1">{ui}</UiVariantContext.Provider>);
+}
+
 
 /** Stub the blob-download APIs jsdom lacks (mirrors the production flow). */
 function stubBlobDownload() {
@@ -34,7 +42,7 @@ describe("AllSellersPayouts", () => {
 
     /** Verifies the batch report loads with grand totals and per-seller cards. */
     it("loads batch payouts with grand totals and per-seller cards", async () => {
-        render(<AllSellersPayouts eventId={1} />);
+        renderV1(<AllSellersPayouts eventId={1} />);
         await waitFor(() =>
             expect(
                 screen.getAllByText("Jane Smith (A001)").length,
@@ -52,7 +60,7 @@ describe("AllSellersPayouts", () => {
 
     /** Verifies the grand-total rows sit next to their labels (shrink-to-fit). */
     it("keeps the batch summary amounts next to their labels", async () => {
-        render(<AllSellersPayouts eventId={1} />);
+        renderV1(<AllSellersPayouts eventId={1} />);
         await waitFor(() =>
             expect(
                 screen.getAllByText("Jane Smith (A001)").length,
@@ -77,7 +85,7 @@ describe("AllSellersPayouts", () => {
                     }),
             ),
         );
-        render(<AllSellersPayouts eventId={1} />);
+        renderV1(<AllSellersPayouts eventId={1} />);
         await waitFor(() =>
             expect(
                 screen.getByLabelText(/download xlsx payout for A001/i),
@@ -104,7 +112,7 @@ describe("AllSellersPayouts", () => {
                 },
             ),
         );
-        render(<AllSellersPayouts eventId={1} />);
+        renderV1(<AllSellersPayouts eventId={1} />);
         await waitFor(() =>
             expect(
                 screen.getByLabelText(/download zip of all seller payouts/i),
@@ -127,7 +135,7 @@ describe("AllSellersPayouts", () => {
                 ),
             ),
         );
-        render(<AllSellersPayouts eventId={1} />);
+        renderV1(<AllSellersPayouts eventId={1} />);
         await waitFor(() =>
             expect(screen.getByRole("alert")).toHaveTextContent(
                 /no active event/i,
