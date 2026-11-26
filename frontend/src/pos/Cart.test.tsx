@@ -54,6 +54,22 @@ describe('Cart', () => {
     expect(screen.getByText('$115.00')).toBeInTheDocument()
   })
 
+  it('shows running item count next to the total', () => {
+    render(<Cart lines={[line(ITEM_A), line(ITEM_B)]} onUpdate={vi.fn()} onRemove={vi.fn()} />)
+    expect(screen.getByText(/2 items ·/)).toBeInTheDocument()
+    expect(screen.queryByText(/1 item ·/)).not.toBeInTheDocument()
+  })
+
+  it('counts quantity, not line rows, in the running item count', () => {
+    render(<Cart lines={[line(ITEM_A, 3), line(ITEM_B, 2)]} onUpdate={vi.fn()} onRemove={vi.fn()} />)
+    expect(screen.getByText(/5 items ·/)).toBeInTheDocument()
+  })
+
+  it('uses singular wording for a single item', () => {
+    render(<Cart lines={[line(ITEM_A, 1)]} onUpdate={vi.fn()} onRemove={vi.fn()} />)
+    expect(screen.getByText(/1 item ·/)).toBeInTheDocument()
+  })
+
   it('calls onRemove with item id when Remove is clicked', () => {
     const onRemove = vi.fn()
     render(<Cart lines={[line(ITEM_A)]} onUpdate={vi.fn()} onRemove={onRemove} />)
@@ -78,7 +94,9 @@ describe('Cart', () => {
     const bare = { ...ITEM_A, category: null, type: null }
     render(<Cart lines={[line(bare)]} onUpdate={vi.fn()} onRemove={vi.fn()} />)
     expect(screen.getByText('Red skis')).toBeInTheDocument()
-    expect(screen.queryByText(/·/)).not.toBeInTheDocument()
+    // No category·type sub-line (the count+total separator is exempt: the
+    // header line legitimately contains "·" since the item-count feature).
+    expect(screen.queryByText(/skis · alpine/i)).not.toBeInTheDocument()
   })
 
   it('quantity input is capped at the item remaining quantity', () => {

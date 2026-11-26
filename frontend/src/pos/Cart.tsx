@@ -45,6 +45,8 @@ export function Cart({ lines, onUpdate, onRemove, readOnly = false, transactionN
   transactionNumber?: number | null
 }) {
   const total = lines.reduce((sum, l) => sum + l.sell_price * l.quantity, 0)
+  const itemCount = lines.reduce((n, l) => n + l.quantity, 0)  // running total of item units incl. qty > 1
+  const itemLabel = `${itemCount} ${itemCount === 1 ? 'item' : 'items'} · `
   const v2 = useUiVariant() === 'v2'
 
     if (lines.length === 0) {
@@ -155,7 +157,7 @@ export function Cart({ lines, onUpdate, onRemove, readOnly = false, transactionN
         </div>
       )}
       <div {...variantProps(v2, 'ui2-cart-total', CART.total)}>
-        Total: <span>${total.toFixed(2)}</span>
+        {itemLabel}Total: <span>${total.toFixed(2)}</span>
       </div>
     </div>
   )

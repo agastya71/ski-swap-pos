@@ -273,6 +273,7 @@ export function TransactionEditor({
   }
 
   const pendingLineTotal = lines.reduce((sum, l) => sum + l.sell_price * l.quantity, 0);
+  const itemCount = lines.reduce((n, l) => n + l.quantity, 0);
   const dirtyCount = lines.filter(isDirty).length;
   const editedCardAmt = parseFloat(cc) || 0;
 
@@ -392,7 +393,7 @@ export function TransactionEditor({
           Save line changes{dirtyCount > 0 ? ` (${dirtyCount})` : ""}
         </button>
         <span {...variantProps(v2, "ui2-editor-pending", EDITOR.pendingTotal)}>
-          Pending total:{" "}
+          {itemCount} {itemCount === 1 ? "item" : "items"} · Pending total:{" "}
           <span>${(pendingLineTotal + (sale.cc_fee ?? 0)).toFixed(2)}</span>
         </span>
         {sale.cc_fee > 0 && (

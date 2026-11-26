@@ -287,6 +287,7 @@ export function POSPage() {
   }
 
   const total = lines.reduce((sum, l) => sum + l.sell_price * l.quantity, 0);
+  const itemCount = lines.reduce((n, l) => n + l.quantity, 0);
   const v2 = useUiVariant() === "v2";
 
   return (
@@ -384,6 +385,7 @@ export function POSPage() {
             <PaymentForm
               key={formResetKey}
               total={total}
+              itemCount={itemCount}
               onSubmit={handlePayment}
               onCancel={handleCancelCheckout}
             />

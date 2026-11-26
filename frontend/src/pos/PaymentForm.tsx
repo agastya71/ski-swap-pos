@@ -38,10 +38,14 @@ export interface PaymentSubmit {
  */
 export function PaymentForm({
     total,
+    itemCount,
     onSubmit,
     onCancel,
 }: {
     total: number;
+    /** Running total of item units in the sale (qty summed) — shown next
+     *  to the money total; optional because legacy callers/tests omit it. */
+    itemCount?: number;
     onSubmit: (payment: PaymentSubmit) => void;
     onCancel: () => void;
 }) {
@@ -57,6 +61,7 @@ export function PaymentForm({
     const checkAmt = parseFloat(check) || 0;
     const ccAmt = parseFloat(creditCard) || 0;
     const tendered = cashAmt + checkAmt + ccAmt;
+    const itemLabel = itemCount != null ? `${itemCount} ${itemCount === 1 ? "item" : "items"} · ` : "";
 
     /** Clears any stale submit error the moment the cashier edits a payment
      *  field — the red box used to persist until the next submit, showing
@@ -92,7 +97,7 @@ export function PaymentForm({
 
     return (
         <form onSubmit={handleSubmit}>
-            <h3>Payment — Total: ${total.toFixed(2)}</h3>
+            <h3>Payment — {itemLabel}Total: ${total.toFixed(2)}</h3>
             <div {...variantProps(v2, "ui2-pay-field", PAY.field)}>
                 <label
                     htmlFor="cash"

@@ -22,9 +22,25 @@ describe("PaymentForm", () => {
     expect(
       screen.queryByText(/pay by card \(square\)/i),
     ).not.toBeInTheDocument();
-    expect(
-      screen.queryByLabelText(/card transaction id/i),
+    expect(screen.queryByLabelText(/card transaction id/i),
     ).not.toBeInTheDocument();
+  });
+
+  /** Omitted itemCount = no item-count label (legacy callers stay intact). */
+  it("omits the item-count label when itemCount is not provided", () => {
+    render(<PaymentForm total={115} onSubmit={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.getByText(/payment — total/i)).toBeInTheDocument();
+  });
+
+  /** Running item count (m03749) renders next to the money total. */
+  it("shows running item count next to the total", () => {
+    render(<PaymentForm total={115} itemCount={5} onSubmit={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.getByText(/payment — 5 items · total/i)).toBeInTheDocument();
+  });
+
+  it("uses singular wording for one item", () => {
+    render(<PaymentForm total={115} itemCount={1} onSubmit={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.getByText(/payment — 1 item · total/i)).toBeInTheDocument();
   });
 
   /** Verifies onSubmit is called with the correct breakdown when the full amount is tendered in cash. */
