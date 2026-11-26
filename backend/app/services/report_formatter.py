@@ -18,6 +18,7 @@ from pydantic import BaseModel
 
 from app.schemas.reports import (
     CheckTransactionsReport,
+    CreditCardTransactionsReport,
     DonationsReport,
     SellersPayoutsReport,
     TransactionsByUserReport,
@@ -165,6 +166,15 @@ def _to_csv(report: BaseModel, filename_base: str) -> Response:
                         t.check_number, t.check_amount, t.sale_total])
         w.writerow(["TOTALS", "", "", "", "", report.total_check_amount,
                     report.total_sale_amount])
+    elif isinstance(report, CreditCardTransactionsReport):
+        w.writerow(["sale_id", "transaction_number", "date_of_sale", "cashier",
+                    "customer_name", "sale_total", "cc_recorded", "evidence", "notes"])
+        for t in report.transactions:
+            w.writerow([t.sale_id, t.transaction_number, t.date_of_sale, t.cashier,
+                        t.customer_name, t.sale_total, t.cc_amount, t.evidence,
+                        (t.notes or "").replace("\n", " ").replace("\r", " ")])
+        w.writerow(["TOTALS", "", "", "", "",
+                    report.total_sale_amount, report.confirmed_count + report.note_only_count + report.donation_only_count])
     else:
         data = report.model_dump(mode="json")
         w.writerow(list(data.keys()))
@@ -381,6 +391,27 @@ def _to_md(report: BaseModel, filename_base: str) -> Response:
         lines.append(
             f"| **TOTAL** | | | | | **${report.total_check_amount:.2f}** | "
             f"**${report.total_sale_amount:.2f}** |")
+
+    elif isinstance(report, CreditCardTransactionsReport):
+        when = lambda t: t.date_of_sale.strftime("%Y-%m-%d %H:%M") if t.date_of_sale else "\u2014"
+        lines += [
+            f"# Credit Card Transactions: {report.event_name}",
+            f"**Transactions:** {report.count}  **Total sale amount:** ${report.total_sale_amount:.2f}  ",
+            f"**Confirmed (donation+note):** {report.confirmed_count} (${report.confirmed_total:.2f})  "
+            f"**Note-only:** {report.note_only_count} (${report.note_only_total:.2f})  "
+            f"**Donation-only:** {report.donation_only_count} (${report.donation_only_total:.2f})",
+            f"**Generated:** {report.generated_at.isoformat()}", "",
+            "| Sale | Txn # | Date | Cashier | Customer | Sale Total | Evidence | Notes |",
+            "|------|-------|------|---------|----------|------------|----------|-------|",
+        ]
+        for t in report.transactions:
+            lines.append(
+                f"| #{t.sale_id} | {t.transaction_number or ''} | {when(t)} | {t.cashier} | "
+                f"{(t.customer_name or '')[:20]} | ${t.sale_total:.2f} | {t.evidence} | "
+                f"{(t.notes or '').replace(chr(10), ' ').replace(chr(13), ' ')} |")
+        lines.append("")
+        lines.append("Note-only rows flagged a CC charge in notes without a 10043 donation line; "
+                     "donation-only rows carry the 10043 line without a CC note.")
 
     return Response(
         content="\n".join(lines),
@@ -607,6 +638,44 @@ def _to_pdf(report: BaseModel, filename_base: str) -> Response:
             "TOTAL", "", "", "", "",
             f"${report.total_check_amount:.2f}",
             f"${report.total_sale_amount:.2f}",
+        ], bold=True)
+
+    elif isinstance(report, CreditCardTransactionsReport):
+        pdf.cell(0, 8, _safe(f"Credit Card Transactions: {report.event_name}"))
+        pdf.ln()
+        pdf.cell(0, 6, f"{report.count} transactions  Total sale amount: ${report.total_sale_amount:.2f}  "
+                       f"Confirmed: {report.confirmed_count}  Note-only: {report.note_only_count}  "
+                       f"Donation-only: {report.donation_only_count}")
+        pdf.ln(8)
+        # Widths sum to exactly 190mm (printable A4 width).
+        cc_cols = [("Sale", 14), ("Txn#", 12), ("Date/Time", 30), ("Cashier", 24),
+                   ("Sale Total", 22), ("Evidence", 26), ("Notes", 62)]
+
+        def _cc_row(cells, bold: bool = False) -> None:
+            if pdf.get_y() > 260:
+                pdf.add_page()
+                _cc_row([hdr for hdr, _ in cc_cols], bold=True)
+            pdf.set_font("Helvetica", "B" if bold else "", 10 if bold else 9)
+            for text, (_, width) in zip(cells, cc_cols):
+                pdf.cell(width, 6, text, border=1)
+            pdf.ln()
+
+        _cc_row([hdr for hdr, _ in cc_cols], bold=True)
+        for t in report.transactions:
+            when = t.date_of_sale.strftime("%Y-%m-%d %H:%M") if t.date_of_sale else "\u2014"
+            flattened = (t.notes or "").replace("\n", " ").replace("\r", " ")
+            _cc_row([
+                f"#{t.sale_id}",
+                _safe(str(t.transaction_number or "")),
+                _safe(when),
+                _safe(t.cashier[:16]),
+                f"${t.sale_total:.2f}",
+                _safe(t.evidence),
+                _safe(flattened[:60]),
+            ])
+        _cc_row([
+            "TOTAL", "", "", "",
+            f"${report.total_sale_amount:.2f}", "", ""
         ], bold=True)
 
     elif isinstance(report, VendorEquipmentSummaryReport):

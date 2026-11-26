@@ -13,6 +13,8 @@ function renderV1(ui: React.ReactElement) {
   return render(<UiVariantContext.Provider value="v1">{ui}</UiVariantContext.Provider>);
 }
 
+import { server } from '../mocks/server'
+import { http, HttpResponse } from 'msw'
 import { ReportsPage } from './ReportsPage'
 
 /** ReportsPage — all report section rendering and interaction tests. */
@@ -177,5 +179,71 @@ describe('ReportsPage — Check Transactions section', () => {
     expect(screen.getByText('cashier1')).toBeInTheDocument()
     expect(screen.getByText('2041')).toBeInTheDocument()
     expect(screen.getAllByText('$120.00').length).toBeGreaterThanOrEqual(2)
+  })
+})
+
+describe('ReportsPage — Credit Card Charges section', () => {
+  /** Collapsed summary shows the CC count + total from the MSW fixture (2 rows, $180). */
+  it('shows credit-card totals in collapsed summary once loaded', async () => {
+    renderV1(<ReportsPage eventId={1} />)
+    await waitFor(() => screen.getByRole('heading', { name: 'Credit Card Charges' }))
+    await waitFor(() =>
+      expect(screen.getByText(/2 transactions/)).toBeInTheDocument(),
+    )
+  })
+
+  /** Expanding reveals rows with evidence classification and verbatim notes. */
+  it('lists credit-card transactions with evidence when expanded', async () => {
+    renderV1(<ReportsPage eventId={1} />)
+    await waitFor(() => screen.getByRole('heading', { name: 'Credit Card Charges' }))
+    fireEvent.click(screen.getByRole('heading', { name: 'Credit Card Charges' }))
+    await waitFor(() => expect(screen.getByText('#7')).toBeInTheDocument())
+    expect(screen.getByText('donation + note')).toBeInTheDocument()
+    expect(screen.getByText('note only')).toBeInTheDocument()
+    expect(screen.getByText('paid by credit card')).toBeInTheDocument() // notes verbatim
+    expect(screen.getAllByText('$120.00').length).toBeGreaterThanOrEqual(2)
+    expect(screen.getByText('$60.00')).toBeInTheDocument()
+    // per-evidence totals in the footer
+    expect(screen.getByText(/1 confirmed · 1 note-only/)).toBeInTheDocument()
+  })
+
+  /** CSV download button carries the CC-specific aria-label and filename route. */
+  it('renders a credit-card CSV download button', async () => {
+    renderV1(<ReportsPage eventId={1} />)
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Download credit card transactions csv' }),
+      ).toBeInTheDocument(),
+    )
+  })
+
+  /** Empty fixture still renders the empty state line. */
+  it('shows empty state when no credit-card transactions exist', async () => {
+    server.use(
+      http.get('/reports/:eventId/credit-card-transactions', () =>
+        HttpResponse.json({
+          event_id: 1,
+          event_name: 'Test Event',
+          transactions: [],
+          total_sale_amount: 0,
+          confirmed_count: 0,
+          confirmed_total: 0,
+          note_only_count: 0,
+          note_only_total: 0,
+          donation_only_count: 0,
+          donation_only_total: 0,
+          count: 0,
+          generated_at: '2026-04-04T10:00:00',
+        }),
+      ),
+    )
+    renderV1(<ReportsPage eventId={1} />)
+    await waitFor(() => screen.getByRole('heading', { name: 'Credit Card Charges' }))
+    fireEvent.click(screen.getByRole('heading', { name: 'Credit Card Charges' }))
+    await waitFor(() =>
+      expect(
+        screen.getByText('No credit-card transactions recorded yet.'),
+      ).toBeInTheDocument(),
+    )
   })
 })

@@ -126,6 +126,23 @@ def get_check_transactions(
     return format_report(report, fmt, f"check_transactions_{event_id}")
 
 
+@router.get("/{event_id}/credit-card-transactions")
+def get_credit_card_transactions(
+    event_id: int,
+    fmt: str = Query("json", alias="format"),
+    db: Session = Depends(get_db),
+    _user: User = Depends(_ADMIN_ONLY),
+):
+    """All suspected credit-card transactions for the event (voided excluded).
+
+    Evidence: item-code 10043 marker line and/or CC keywords in sale notes
+    ('cc', 'credit', 'credit card'). Each row is classified as
+    donation+note (confirmation), note-only, or donation-only.
+    """
+    report = report_svc.get_credit_card_transactions(db, event_id)
+    return format_report(report, fmt, f"credit_card_transactions_{event_id}")
+
+
 @router.get("/{event_id}/sellers-payouts")
 def get_all_seller_payouts(
     event_id: int,

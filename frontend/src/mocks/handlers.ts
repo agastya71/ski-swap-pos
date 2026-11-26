@@ -817,6 +817,47 @@ export const handlers = [
                 }),
         ),
 
+        /** GET /reports/:eventId/credit-card-transactions — suspected CC payments (marker line and/or CC keywords in notes). */
+        http.get("/reports/:eventId/credit-card-transactions", () =>
+                HttpResponse.json({
+                        event_id: 1,
+                        event_name: "Test Event",
+                        transactions: [
+                                {
+                                        sale_id: 7,
+                                        date_of_sale: "2026-04-04T10:00:00",
+                                        cashier: "cashier1",
+                                        customer_name: "Carol Buyer",
+                                        transaction_number: 7,
+                                        sale_total: 120,
+                                        cc_amount: 0,
+                                        evidence: "donation+note",
+                                        notes: "cc: 120 cash: 0",
+                                },
+                                {
+                                        sale_id: 9,
+                                        date_of_sale: null,
+                                        cashier: "cashier2",
+                                        customer_name: null,
+                                        transaction_number: 9,
+                                        sale_total: 60,
+                                        cc_amount: 0,
+                                        evidence: "note-only",
+                                        notes: "paid by credit card",
+                                },
+                        ],
+                        total_sale_amount: 180,
+                        confirmed_count: 1,
+                        confirmed_total: 120,
+                        note_only_count: 1,
+                        note_only_total: 60,
+                        donation_only_count: 0,
+                        donation_only_total: 0,
+                        count: 2,
+                        generated_at: "2026-04-04T10:00:00",
+                }),
+        ),
+
         /** GET /reports/:eventId/end-of-day — returns an end-of-day summary with sales counts and payment totals. */
         http.get("/reports/:eventId/end-of-day", () =>
                 HttpResponse.json({

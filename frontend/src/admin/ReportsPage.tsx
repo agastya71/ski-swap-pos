@@ -17,6 +17,7 @@ import {
   getUnsoldItems,
   getTransactionsByUser,
   getCheckTransactions,
+  getCreditCardTransactions,
   downloadFile,
 } from "../api/reports";
 import type {
@@ -25,6 +26,7 @@ import type {
   UnsoldItemsReport,
   TransactionsByUserReport,
   CheckTransactionsReport,
+  CreditCardTransactionsReport,
   Seller,
 } from "../types";
 import { SellerCombobox } from "../components/SellerCombobox";
@@ -700,7 +702,131 @@ function ChecksSection({
   );
 }
 
-/* ── Due Seller ─────────────────────────────────────────────────────────── */
+/* ── Credit Card ────────────────────────────────────────────────────────── */
+
+const CC_EVIDENCE_LABELS: Record<CreditCardTransactionsReport["transactions"][number]["evidence"], string> = {
+  "donation+note": "donation + note",
+  "note-only": "note only",
+  "donation-only": "donation line",
+};
+
+function CcSection({
+  v2,
+  eventId,
+  cc,
+  open,
+  onToggle,
+}: {
+  v2: boolean;
+  eventId: number;
+  cc: CreditCardTransactionsReport | null;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <Section v2={v2}>
+      <SectionHeader
+        v2={v2}
+        open={open}
+        sparse={false}
+        title="Credit Card Charges"
+        onToggle={onToggle}
+        summary={
+          cc && (
+            <>
+              {cc.count} transaction{cc.count !== 1 ? "s" : ""} ·{" "}
+              <strong>${cc.total_sale_amount.toFixed(2)}</strong>
+            </>
+          )
+        }
+        action={
+          <button
+            aria-label="Download credit card transactions csv"
+            onClick={() =>
+              downloadFile(
+                `/reports/${eventId}/credit-card-transactions?format=csv`,
+                "credit-card-transactions.csv",
+              )
+            }
+            {...variantProps(v2, "ui2-outline-btn", V1_REPORTS.outlineButton)}
+          >
+            Download CSV
+          </button>
+        }
+      />
+      {open && (
+        <>
+          {!cc && <p>Loading…</p>}
+          {cc && cc.transactions.length === 0 && (
+            <MutedLine v2={v2}>
+              No credit-card transactions recorded yet.
+            </MutedLine>
+          )}
+          {cc && cc.transactions.length > 0 && (
+            <div {...v2Only(v2, "ui2-scroll-x")}>
+            <table {...variantProps(v2, "ui2-report-table", V1_TABLE.tableSpaced)}>
+              <thead>
+                <tr {...v1Only(v2, V1_TABLE.headRow)}>
+                  <th {...v1Only(v2, V1_TABLE.thLeft)}>Sale</th>
+                  <th {...v1Only(v2, V1_TABLE.thLeft)}>Date</th>
+                  <th {...v1Only(v2, V1_TABLE.thLeft)}>Cashier</th>
+                  <th {...v1Only(v2, V1_TABLE.thLeft)}>Customer</th>
+                  <th {...v1Only(v2, V1_TABLE.thRight)}>Sale Total</th>
+                  <th {...v1Only(v2, V1_TABLE.thLeft)}>Evidence</th>
+                  <th {...v1Only(v2, V1_TABLE.thLeft)}>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cc.transactions.map((t) => (
+                  <tr key={t.sale_id} {...v1Only(v2, V1_TABLE.bodyRow)}>
+                    <td {...v1Only(v2, V1_TABLE.cell)}>#{t.sale_id}</td>
+                    <td {...v1Only(v2, V1_TABLE.cell)}>
+                      {t.date_of_sale
+                        ? new Date(t.date_of_sale).toLocaleString()
+                        : "—"}
+                    </td>
+                    <td {...v1Only(v2, V1_TABLE.cell)}>{t.cashier}</td>
+                    <td {...v1Only(v2, V1_TABLE.cell)}>
+                      {t.customer_name ?? "—"}
+                    </td>
+                    <td {...v1Only(v2, V1_TABLE.cellRight)}>
+                      ${t.sale_total.toFixed(2)}
+                    </td>
+                    <td {...v1Only(v2, V1_TABLE.cell)}>
+                      {CC_EVIDENCE_LABELS[t.evidence]}
+                    </td>
+                    <td {...v1Only(v2, V1_TABLE.cell)}>{t.notes ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr {...v1Only(v2, V1_TABLE.totalsRow)}>
+                  <td {...v1Only(v2, V1_TABLE.cell)} colSpan={4}>
+                    Total ({cc.count} transaction{cc.count !== 1 ? "s" : ""}
+                    ; {cc.confirmed_count} confirmed · {cc.note_only_count} note-only ·{" "}
+                    {cc.donation_only_count} donation-line)
+                  </td>
+                  <td {...v1Only(v2, V1_TABLE.cellRight)}>
+                    ${cc.total_sale_amount.toFixed(2)}
+                  </td>
+                  <td {...v1Only(v2, V1_TABLE.cell)} colSpan={2}></td>
+                </tr>
+              </tfoot>
+            </table>
+            </div>
+          )}
+          {cc && cc.transactions.length > 0 && (
+            <MutedLine v2={v2}>
+              "Donation + note" = confirmed credit-card sale; "note only" = CC
+              noted without a donation line; "donation line" = 10043 line
+              without a CC note. Notes are shown verbatim.
+            </MutedLine>
+          )}
+        </>
+      )}
+    </Section>
+  );
+}
 
 function DueSellerSection({
   v2,
@@ -834,9 +960,11 @@ export function ReportsPage({ eventId }: { eventId: number }) {
   const [openVendorSales, setOpenVendorSales] = useState(false);
   const [openNonVendorSales, setOpenNonVendorSales] = useState(false);
   const [openChecks, setOpenChecks] = useState(false);
+  const [openCc, setOpenCc] = useState(false);
   const [transactions, setTransactions] =
     useState<TransactionsByUserReport | null>(null);
   const [checks, setChecks] = useState<CheckTransactionsReport | null>(null);
+  const [cc, setCc] = useState<CreditCardTransactionsReport | null>(null);
   const [open, setOpen] = useState({
     revenue: false,
     donations: false,
@@ -852,6 +980,7 @@ export function ReportsPage({ eventId }: { eventId: number }) {
       getUnsoldItems(eventId).then(setUnsold),
       getTransactionsByUser(eventId).then(setTransactions),
       getCheckTransactions(eventId).then(setChecks),
+      getCreditCardTransactions(eventId).then(setCc),
     ]).catch(() => {});
   }, [eventId]);
 
@@ -918,6 +1047,13 @@ export function ReportsPage({ eventId }: { eventId: number }) {
         checks={checks}
         open={openChecks}
         onToggle={() => setOpenChecks((prev) => !prev)}
+      />
+      <CcSection
+        v2={v2}
+        eventId={eventId}
+        cc={cc}
+        open={openCc}
+        onToggle={() => setOpenCc((prev) => !prev)}
       />
       <WorkbookSection
         v2={v2}
