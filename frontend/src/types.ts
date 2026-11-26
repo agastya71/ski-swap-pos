@@ -334,6 +334,21 @@ export interface ItemSearchResult extends ItemLookupResponse {
  /** Seller display name: "First Last" for individuals, company name for vendors. */
  seller_name: string | null;
 }
+export interface ItemSearchResult extends ItemLookupResponse {
+ /** Seller display name: "First Last" for individuals, company name for vendors. */
+ seller_name: string | null;
+}
+
+
+/** Paged response of GET /items/intake-search. `total` counts ALL matching
+ *  rows (server computes it before limit/offset) so counts and paging are
+ *  accurate beyond the page size. */
+export interface IntakeSearchPage {
+  total: number;
+  limit: number;
+  offset: number;
+  items: ItemSearchResult[];
+}
 
 /** A single skipped row from an Excel import. */
 export interface ImportRowError {

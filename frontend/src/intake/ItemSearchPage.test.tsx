@@ -18,6 +18,14 @@ import {
 } from "../mocks/tokens";
 import type { ItemSearchResult } from "../types";
 
+/** Wraps a flat item array in the paged IntakeSearchPage envelope. */
+const pageOf = (items: unknown[], total = items.length) => ({
+    total,
+    limit: 100,
+    offset: 0,
+    items,
+});
+
 const RESULT_A: ItemSearchResult = {
     id: 1,
     intake_id: 1,
@@ -101,7 +109,7 @@ describe("ItemSearchPage", () => {
     it("loads all items on mount", async () => {
         server.use(
             http.get("/items/intake-search", () =>
-                HttpResponse.json([RESULT_A, RESULT_B]),
+                HttpResponse.json(pageOf([RESULT_A, RESULT_B])),
             ),
         );
         renderPage("admin");
@@ -114,13 +122,43 @@ describe("ItemSearchPage", () => {
         expect(screen.getByText(/A001 — Jane Smith/)).toBeInTheDocument();
     });
 
+    /** The reported bug: with >100 matches, the count line shows the SERVER
+     *  total (not the page length) and a pager appears with working bounds. */
+    it("shows server total + pager when matches exceed the page size", async () => {
+        const bigPage = Array.from({ length: 100 }, (_, i) => ({
+            ...RESULT_A,
+            id: i + 1,
+            code: `PG-${String(i).padStart(3, "0")}`,
+        }));
+        server.use(
+            http.get("/items/intake-search", ({ request }) =>
+                HttpResponse.json({
+                    total: 1290,
+                    limit: 100,
+                    offset: Number(new URL(request.url).searchParams.get("offset") ?? 0),
+                    items: bigPage,
+                }),
+            ),
+        );
+        renderPage("admin");
+        await waitFor(() =>
+            expect(screen.getByText(/1,?290 items found/i)).toBeInTheDocument(),
+        );
+        expect(screen.getByText(/1–100 of 1,?290/)).toBeInTheDocument();
+        const prev = screen.getByRole("button", { name: /previous/i });
+        expect(prev).toBeDisabled();
+        fireEvent.click(screen.getByRole("button", { name: /next/i }));
+        await waitFor(() => expect(screen.getByText(/101–200 of 1,?290/)).toBeInTheDocument());
+        expect(screen.getByRole("button", { name: /previous/i })).toBeEnabled();
+    });
+
     /** Verifies submitting the search form calls the API with the typed query. */
     it("submits the search query and shows filtered results", async () => {
         let queried = "";
         server.use(
             http.get("/items/intake-search", ({ request }) => {
                 queried = new URL(request.url).searchParams.get("q") ?? "";
-                return HttpResponse.json([RESULT_B]);
+                return HttpResponse.json(pageOf([RESULT_B]));
             }),
         );
         renderPage("admin");
@@ -144,7 +182,7 @@ describe("ItemSearchPage", () => {
             http.get("/items/intake-search", ({ request }) => {
                 statusParam =
                     new URL(request.url).searchParams.get("status") ?? "";
-                return HttpResponse.json([]);
+                return HttpResponse.json(pageOf([]));
             }),
         );
         renderPage("admin");
@@ -221,7 +259,7 @@ describe("ItemSearchPage", () => {
                     categoryParam = params.get("category") ?? "";
                     brandParam = params.get("brand") ?? "";
                 }
-                return HttpResponse.json([RESULT_A]);
+                return HttpResponse.json(pageOf([RESULT_A]));
             }),
         );
         renderPage("admin");
@@ -248,7 +286,7 @@ describe("ItemSearchPage", () => {
     it("hides column filter inputs for non-admin (intake) users", async () => {
         server.use(
             http.get("/items/intake-search", () =>
-                HttpResponse.json([RESULT_A]),
+                HttpResponse.json(pageOf([RESULT_A])),
             ),
         );
         renderPage("intake");
@@ -267,7 +305,7 @@ describe("ItemSearchPage", () => {
         server.use(
             http.get("/items/intake-search", ({ request }) => {
                 brandParam = new URL(request.url).searchParams.get("brand") ?? "";
-                return HttpResponse.json([]);
+                return HttpResponse.json(pageOf([]));
             }),
         );
         renderPage("admin");

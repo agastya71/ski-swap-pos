@@ -7,8 +7,8 @@ import type {
  Item,
  ItemUpdate,
  ItemLookupResponse,
- ItemSearchResult,
  WorksheetImportResponse,
+  IntakeSearchPage,
 } from "../types";
 
 /**
@@ -307,19 +307,26 @@ function columnFilterParams(
  * @param q - Search string matched against every field.
  * @param status - Optional lifecycle status filter (available/sold/donated/returned).
  * @param columnFilters - Optional per-column substring filters (category/brand/size/description).
- * @returns Array of matching ItemSearchResult records; may be empty.
+ * @param limit - Page size (server-clamped to 1..500; default 100).
+ * @param offset - Row offset for paging.
+ * @returns Paged envelope: `items` is the current page, `total` counts ALL
+ *          matches (ignoring limit/offset).
  * @throws {ApiError} 401 if the session token is invalid; 403 for cashier role.
  */
 export const searchIntakeItems = (
  q: string,
  status = "",
  columnFilters?: ItemSearchColumnFilters,
+ limit = 100,
+ offset = 0,
 ) => {
  const params = new URLSearchParams({ q });
  if (status) params.set("status", status);
+ if (limit !== 100) params.set("limit", String(limit));
+ if (offset > 0) params.set("offset", String(offset));
  for (const [key, value] of columnFilterParams(columnFilters))
   params.set(key, value);
- return apiFetch<ItemSearchResult[]>(
+ return apiFetch<IntakeSearchPage>(
   `/items/intake-search?${params.toString()}`,
  );
 };

@@ -203,7 +203,11 @@ describe("IntakeModulePage — Download Template button (functional)", () => {
 
   /** Verifies the Search tab renders the intake item search page. */
   it("renders the item search page when the Search tab is clicked", async () => {
-    server.use(http.get("/items/intake-search", () => HttpResponse.json([])));
+    server.use(
+        http.get("/items/intake-search", () =>
+            HttpResponse.json({ total: 0, limit: 100, offset: 0, items: [] }),
+        ),
+    );
     renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: /^search$/i }));

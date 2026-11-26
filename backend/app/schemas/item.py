@@ -110,6 +110,22 @@ class ItemSearchResult(ItemLookupResponse):
     )
 
 
+class IntakeSearchPage(BaseModel):
+    """Paged result envelope for GET /items/intake-search.
+
+    `total` is the count of ALL matching rows for the active event (computed
+    BEFORE any limit/offset is applied) so the UI can show an accurate count
+    and pager even when `items` holds only the current page. Legacy flat
+    responses (pre-envelope deployments) are not represented here; the
+    server version of the endpoint decides the shape.
+    """
+
+    total: int = Field(description="Total number of matching rows ignoring limit/offset.")
+    limit: int = Field(description="Page size actually applied (server-clamped).")
+    offset: int = Field(description="Row offset actually applied.")
+    items: list[ItemSearchResult] = Field(description="Current page of matching items.")
+
+
 class ImportRowError(BaseModel):
     """Describes a single skipped row from an Excel import."""
 

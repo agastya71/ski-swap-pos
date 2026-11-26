@@ -140,7 +140,9 @@ export const handlers = [
                 }),
         ),
         /** GET /items/intake-search — full-field intake item search (empty by default; tests override). */
-        http.get("/items/intake-search", () => HttpResponse.json([])),
+        http.get("/items/intake-search", () =>
+            HttpResponse.json({ total: 0, limit: 100, offset: 0, items: [] }),
+        ),
         /** POST /events — returns a new stub event with id 3 (Swap 2027). */
         http.post("/events", () =>
                 HttpResponse.json({

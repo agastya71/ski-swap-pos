@@ -801,6 +801,15 @@
 }
 
 .ui-v2 .ui2-search-count { margin-bottom: var(--space-2); font-size: var(--font-size-md); }
+
+.ui-v2 .ui2-search-pager {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+  font-size: var(--font-size-md);
+  color: var(--gray-600);
+}
 .ui-v2 .ui2-search-empty { color: var(--gray-500); margin-top: var(--space-3); }
 
 .ui-v2 .ui2-search-table { width: 100%; border-collapse: collapse; font-size: var(--font-size-md); }

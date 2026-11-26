@@ -368,7 +368,9 @@ describe('ItemSearchPage renders the same results table in both variants', () =>
   beforeEach(() => {
     setToken(ADMIN_TOKEN)
     server.use(
-      http.get('/items/intake-search', () => HttpResponse.json([ITEM_RESULT])),
+      http.get('/items/intake-search', () =>
+          HttpResponse.json({ total: 1, limit: 100, offset: 0, items: [ITEM_RESULT] }),
+        ),
     )
   })
   afterEach(() => setToken(null))
