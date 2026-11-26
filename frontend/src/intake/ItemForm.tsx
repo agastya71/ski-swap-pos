@@ -43,11 +43,16 @@ export function ItemForm({
   intakeId,
   onAdded,
   defaultDonateUnsold = false,
+  onCancel,
 }: {
   intakeId: number;
   onAdded: (item: Item) => void;
   /** Per-item donate-unsold initial state; inherits the intake's (and seller's) preference. */
   defaultDonateUnsold?: boolean;
+  /** When provided, renders a Cancel button next to Add Item. Both Add Item
+   *  surfaces (Intake items step + Seller detail panel) pass it so the two
+   *  flows look and behave identically. */
+  onCancel?: () => void;
 }) {
   const [f, setF] = useState(() => emptyForm(defaultDonateUnsold));
   const [error, setError] = useState<string | null>(null);
@@ -209,6 +214,7 @@ export function ItemForm({
           </label>
           <input
             id="brand"
+            type="text"
             list="brand-suggestions"
             value={f.brand}
             onChange={(e) => handleBrandInput(e.target.value)}
@@ -229,6 +235,7 @@ export function ItemForm({
           </label>
           <input
             id="description"
+            type="text"
             value={f.description}
             onChange={(e) => set("description", capitalizeWords(e.target.value))}
             maxLength={99}
@@ -255,6 +262,7 @@ export function ItemForm({
               cover it, and intake staff type what is printed on the item. */}
           <input
             id="size"
+            type="text"
             value={f.size}
             onChange={(e) => set("size", e.target.value)}
             placeholder="e.g. 170cm, 27.5, M"
@@ -308,9 +316,28 @@ export function ItemForm({
           {error}
         </div>
       )}
-      <button type="submit" disabled={loading} {...v1Only(v2, BUTTON_STYLE)} {...v2Only(v2, "ui2-btn ui2-btn--primary")}>
-        {loading ? "Adding…" : "Add Item"}
-      </button>
+      <div
+        {...variantProps(v2, "ui2-itemform-actions", ITEM_FORM.actions)}
+      >
+        <button
+          type="submit"
+          disabled={loading}
+          {...v1Only(v2, BUTTON_STYLE)}
+          {...v2Only(v2, "ui2-btn ui2-btn--primary")}
+        >
+          {loading ? "Adding…" : "Add Item"}
+        </button>
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            {...v1Only(v2, ITEM_FORM.cancelButton)}
+            {...v2Only(v2, "ui2-btn ui2-btn--secondary")}
+          >
+            Cancel
+          </button>
+        )}
+      </div>
     </form>
   );
 }

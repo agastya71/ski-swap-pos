@@ -138,6 +138,40 @@ describe("IntakePage workflow", () => {
     ).toBeInTheDocument();
   });
 
+  /** Shared Add Item surface (user report): the items step shows the form in
+   *  the bordered panel with a Cancel button next to Add Item, and Cancel
+   *  goes back to the select-intake step (not to search). */
+  it("shows Add Item form in a panel with Cancel that returns to select-intake", async () => {
+    server.use(
+      http.get("/sellers", () => HttpResponse.json([SELLER])),
+      http.get("/sellers/:id/intakes", () => HttpResponse.json([INTAKE])),
+      http.get("/intakes/:id", () => HttpResponse.json(INTAKE_WITH_ITEMS)),
+    );
+    renderPage();
+    await selectSeller();
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: /continue/i }),
+      ).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /continue/i }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /add item/i })).toBeInTheDocument(),
+    );
+    expect(screen.getByRole("button", { name: /^cancel$/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^cancel$/i }));
+    // Back at the previous-intakes chooser for the same seller (not search);
+    // the intakes list re-fetches, so wait for the Continue button.
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: /continue/i }),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByPlaceholderText(/search by name or code/i),
+    ).not.toBeInTheDocument();
+  });
+
   /** Verifies that clicking the breadcrumb "Intake" link resets the workflow to seller search. */
   it("returns to search when Intake breadcrumb link is clicked", async () => {
     server.use(

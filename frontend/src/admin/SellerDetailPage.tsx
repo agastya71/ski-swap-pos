@@ -444,6 +444,7 @@ export function SellerDetailPage({
             ref={fileInputRef}
             type="file"
             accept=".xlsx,.csv,.tsv"
+            className={v2 ? "ui2-hidden" : undefined}
             {...v1Only(v2, SELLER_DETAIL.hiddenFile)}
             onChange={handleImportFile}
           />
@@ -522,21 +523,18 @@ export function SellerDetailPage({
         </div>
       )}
 
-      {/* Add Item inline form */}
+      {/* Add Item inline form — same panel + footer Cancel as the Intake
+          items step (ItemForm owns the Cancel button now; the old floating
+          "✕ Cancel" above the form was removed). */}
       {showAddItem && addItemIntakeId !== null && (
         <div {...variantProps(v2, "ui2-sd-panel", SELLER_DETAIL.addItemPanel)}>
-          <button
-            onClick={() => {
-              setShowAddItem(false);
-              setAddItemIntakeId(null);
-            }}
-            {...variantProps(v2, "ui2-sd-back", SELLER_DETAIL.addItemCancel)}
-          >
-            ✕ Cancel
-          </button>
           <ItemForm
             intakeId={addItemIntakeId}
             defaultDonateUnsold={seller.donate_unsold_default ?? false}
+            onCancel={() => {
+              setShowAddItem(false);
+              setAddItemIntakeId(null);
+            }}
             onAdded={(item) => {
               setItems((prev) => [...prev, item]);
               setShowAddItem(false);

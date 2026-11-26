@@ -624,6 +624,16 @@
   font-size: var(--font-size-sm);
 }
 
+/* Shared panel around the Add Item form — mirrors admin-v2 .ui2-sd-panel so
+   the Intake items step and the Seller → View Add Item form look identical. */
+.ui-v2 .ui2-itemform-panel {
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--gray-50);
+}
+
 
 @media (width <= 720px) {
   .ui-v2 .ui2-itemform-grid { grid-template-columns: 1fr; }

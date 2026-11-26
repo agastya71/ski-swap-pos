@@ -209,3 +209,17 @@
 .ui-v2 svg {
   max-width: 100%;
 }
+
+/* ── Utility: keep an element in the DOM (refs, live regions) but out of
+      sight. Replaces ad-hoc display:none inline styles in v2. ─────────── */
+.ui-v2 .ui2-hidden {
+  display: none;
+}
+
+/* ── ItemForm footer (shared): Add Item + optional Cancel side by side ── */
+.ui-v2 .ui2-itemform-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}

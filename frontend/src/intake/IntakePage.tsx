@@ -399,11 +399,16 @@ export function IntakePage() {
             Intake #{intake.id} · recorded by{" "}
             <strong>{intake.created_by ?? "—"}</strong>
           </p>
-          <ItemForm
-            intakeId={intake.id}
-            onAdded={handleItemAdded}
-            defaultDonateUnsold={intake.donate_unsold}
-          />
+          {/* Same bordered panel + footer Cancel as the Seller → View Add
+              Item form — the two Add Item surfaces look identical. */}
+          <div {...variantProps(v2, "ui2-itemform-panel", INTAKE_PAGE.itemFormPanel)}>
+            <ItemForm
+              intakeId={intake.id}
+              onAdded={handleItemAdded}
+              defaultDonateUnsold={intake.donate_unsold}
+              onCancel={handleGoToSelectIntake}
+            />
+          </div>
           <div {...variantProps(v2, "ui2-intakepage-import", INTAKE_PAGE.importWrap)}>
             <ImportItemsButton
               intakeId={intake.id}

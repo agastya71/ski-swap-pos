@@ -275,6 +275,23 @@ describe("SellerDetailPage", () => {
     ).toBeInTheDocument();
   });
 
+  /** Shared Add Item surface: opening the panel renders the ItemForm with a
+   *  footer Cancel (no floating "✕ Cancel" above the form), and clicking
+   *  Cancel closes the panel again. */
+  it("opens Add Item panel with in-form Cancel and no floating ✕", async () => {
+    render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />);
+    fireEvent.click(screen.getByRole("button", { name: /add item/i }));
+    await waitFor(() =>
+      expect(screen.getByLabelText(/^description$/i)).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(/✕/)).not.toBeInTheDocument();
+    const cancel = screen.getByRole("button", { name: /^cancel$/i });
+    fireEvent.click(cancel);
+    await waitFor(() =>
+      expect(screen.queryByLabelText(/description/i)).not.toBeInTheDocument(),
+    );
+  });
+
   it("shows Import Items button", () => {
     render(<SellerDetailPage seller={seller} onBack={vi.fn()} eventId={1} />);
     expect(
