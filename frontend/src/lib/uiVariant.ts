@@ -7,8 +7,10 @@
  *   - <html class="ui-v2">  → v2 CSS token overrides in index.css
  *   - a React context (useUiVariant()) for the rare structural differences
  *
- * Default for everyone is v1 (identical to the pre-overhaul UI) so tests stay
- * deterministic and staff are unaffected until a promotion is approved.
+ * Default is v2 since the U6 promotion (docs/ui-overhaul-ab-plan-2026-11-24.md
+ * "U6 verdict"). Staff who want the pre-overhaul look use ?ui=v1, which is
+ * written through to storage exactly like ?ui=v2 was — so the escape hatch
+ * persists, and a plain URL keeps the stored choice either way.
  */
 
 import { createContext, useContext } from "react";
@@ -44,8 +46,10 @@ export function storedVariant(storage: Storage | null = typeof localStorage === 
 /**
  * Boot-time variant resolution: URL wins over storage; a valid URL value is
  * written through to storage so plain URLs keep the choice. Nothing else
- * writes the key, so clearing it (?ui=v1) always wins over storage.
+ * writes the key, so a stored ?ui=v1 always wins over the default.
  */
+export const DEFAULT_UI_VARIANT: UiVariant = "v2";
+
 export function resolveUiVariant(search: string, storage: Storage | null = typeof localStorage === "undefined" ? null : localStorage): UiVariant {
   const fromUrl = variantFromSearch(search);
   if (fromUrl) {
@@ -56,7 +60,7 @@ export function resolveUiVariant(search: string, storage: Storage | null = typeo
     }
     return fromUrl;
   }
-  return storedVariant(storage) ?? "v1";
+  return storedVariant(storage) ?? DEFAULT_UI_VARIANT;
 }
 
 /** Clear the persisted variant (used by tests and the ?ui=v1 switch). */
@@ -69,7 +73,7 @@ export function clearUiVariant(storage: Storage | null = typeof localStorage ===
 }
 
 /** React side: context set once in main.tsx; consumers use the hook. */
-export const UiVariantContext = createContext<UiVariant>("v1");
+export const UiVariantContext = createContext<UiVariant>(DEFAULT_UI_VARIANT);
 
 export function useUiVariant(): UiVariant {
   return useContext(UiVariantContext);

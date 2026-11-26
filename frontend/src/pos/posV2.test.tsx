@@ -52,9 +52,14 @@ const SALE: SaleWithItemsResponse = {
 const inV2 = (ui: ReactElement) =>
   render(<UiVariantContext.Provider value="v2">{ui}</UiVariantContext.Provider>)
 
+// U6 promotion: v1 is no longer the render default — the "v1 keeps …"
+// assertions must pin the variant explicitly, mirroring inV2().
+const inV1 = (ui: ReactElement) =>
+  render(<UiVariantContext.Provider value="v1">{ui}</UiVariantContext.Provider>)
+
 describe('POS v1 inline styles are preserved verbatim', () => {
   it('cart keeps width/borderCollapse inline and right-aligns money columns', () => {
-    render(<Cart lines={[line()]} onUpdate={vi.fn()} onRemove={vi.fn()} />)
+    inV1(<Cart lines={[line()]} onUpdate={vi.fn()} onRemove={vi.fn()} />)
     const table = screen.getByRole('table')
     expect(table.style.width).toBe('100%')
     expect(table.style.borderCollapse).toBe('collapse')
@@ -64,13 +69,13 @@ describe('POS v1 inline styles are preserved verbatim', () => {
   })
 
   it('cart quantity and unit-price inputs keep their v1 widths', () => {
-    render(<Cart lines={[line()]} onUpdate={vi.fn()} onRemove={vi.fn()} />)
+    inV1(<Cart lines={[line()]} onUpdate={vi.fn()} onRemove={vi.fn()} />)
     expect((screen.getByLabelText(/quantity for A001-001/i) as HTMLInputElement).style.width).toBe('56px')
     expect((screen.getByLabelText(/unit price for A001-001/i) as HTMLInputElement).style.width).toBe('80px')
   })
 
   it('cart total keeps its 20px bold right-aligned style', () => {
-    const { container } = render(<Cart lines={[line({ quantity: 2, sell_price: 50 })]} onUpdate={vi.fn()} onRemove={vi.fn()} />)
+    const { container } = inV1(<Cart lines={[line({ quantity: 2, sell_price: 50 })]} onUpdate={vi.fn()} onRemove={vi.fn()} />)
     // Cart's root div's last child is the styled total row.
     const total = (container.lastElementChild as HTMLElement).lastElementChild as HTMLElement
     expect(total.textContent).toContain('Total:')
@@ -80,7 +85,7 @@ describe('POS v1 inline styles are preserved verbatim', () => {
   })
 
   it('confirmation keeps its green mark, 48px, and navy button', () => {
-    render(<ConfirmationScreen sale={SALE} onNewTransaction={vi.fn()} />)
+    inV1(<ConfirmationScreen sale={SALE} onNewTransaction={vi.fn()} />)
     const mark = screen.getByText('✓')
     expect(mark.style.fontSize).toBe('48px')
     expect(mark.style.color).toBe('rgb(46, 125, 50)')
@@ -90,7 +95,7 @@ describe('POS v1 inline styles are preserved verbatim', () => {
   })
 
   it('payment money inputs keep the 140px v1 width and the change box its 17px bold', () => {
-    render(<PaymentForm total={50} onSubmit={vi.fn()} onCancel={vi.fn()} />)
+    inV1(<PaymentForm total={50} onSubmit={vi.fn()} onCancel={vi.fn()} />)
     expect((screen.getByLabelText(/cash/i) as HTMLInputElement).style.width).toBe('140px')
     expect((screen.getByLabelText(/credit card/i) as HTMLInputElement).style.width).toBe('140px')
   })
@@ -227,7 +232,7 @@ describe('TransactionEditor v2 (U3 part 2)', () => {
     )
     return v2
       ? render(<UiVariantContext.Provider value="v2">{ui}</UiVariantContext.Provider>)
-      : render(ui)
+      : render(<UiVariantContext.Provider value="v1">{ui}</UiVariantContext.Provider>)
   }
 
   beforeEach(() => {

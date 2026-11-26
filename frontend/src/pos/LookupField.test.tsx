@@ -6,6 +6,13 @@
  */
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { server } from '../mocks/server'
+import { UiVariantContext } from "../lib/uiVariant";
+// U6 promotion: v1 is no longer the render default — these assertions are
+// v1-expectation tests, so the variant is pinned explicitly.
+function renderV1(ui: React.ReactElement) {
+  return render(<UiVariantContext.Provider value="v1">{ui}</UiVariantContext.Provider>);
+}
+
 import { http, HttpResponse } from 'msw'
 import { LookupField } from './LookupField'
 import type { ItemLookupResponse } from '../types'
@@ -33,7 +40,7 @@ function enter(value: string) {
 describe('LookupField', () => {
   /** Verifies the input receives focus automatically when the component mounts. */
   it('renders an input that is focused on mount', () => {
-    render(<LookupField onFound={vi.fn()} />)
+    renderV1(<LookupField onFound={vi.fn()} />)
     expect(document.activeElement).toBe(screen.getByRole('textbox'))
   })
 
@@ -43,7 +50,7 @@ describe('LookupField', () => {
   it('returns focus to the scan field after a lookup completes', async () => {
     server.use(http.get('/items/lookup', () => HttpResponse.json(FOUND)))
     const onFound = vi.fn()
-    render(<LookupField onFound={onFound} />)
+    renderV1(<LookupField onFound={onFound} />)
     enter('A001-001')
     await waitFor(() => expect(onFound).toHaveBeenCalledWith(FOUND))
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('textbox')))
@@ -53,7 +60,7 @@ describe('LookupField', () => {
   it('calls onFound with the item when exact lookup succeeds', async () => {
     server.use(http.get('/items/lookup', () => HttpResponse.json(FOUND)))
     const onFound = vi.fn()
-    render(<LookupField onFound={onFound} />)
+    renderV1(<LookupField onFound={onFound} />)
     enter('A001-001')
     await waitFor(() => expect(onFound).toHaveBeenCalledWith(FOUND))
   })
@@ -61,7 +68,7 @@ describe('LookupField', () => {
   /** Verifies the input field is cleared after a successful exact-match lookup. */
   it('clears the input after a successful exact lookup', async () => {
     server.use(http.get('/items/lookup', () => HttpResponse.json(FOUND)))
-    render(<LookupField onFound={vi.fn()} />)
+    renderV1(<LookupField onFound={vi.fn()} />)
     enter('A001-001')
     await waitFor(() => expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe(''))
   })
@@ -72,7 +79,7 @@ describe('LookupField', () => {
       http.get('/items/lookup', () => HttpResponse.json({ detail: 'Item not found' }, { status: 404 })),
       http.get('/items/search', () => HttpResponse.json([])),
     )
-    render(<LookupField onFound={vi.fn()} />)
+    renderV1(<LookupField onFound={vi.fn()} />)
     enter('ZZZZ')
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/item not found/i))
   })
@@ -81,7 +88,7 @@ describe('LookupField', () => {
   it('shows sold-out error when item has no remaining units', async () => {
     server.use(http.get('/items/lookup', () => HttpResponse.json({ ...FOUND, remaining: 0 })))
     const onError = vi.fn()
-    render(<LookupField onFound={vi.fn()} onError={onError} />)
+    renderV1(<LookupField onFound={vi.fn()} onError={onError} />)
     enter('A001-001')
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/sold out/i))
     // The error is mirrored to the parent hook (top-of-panel banner, #14).
@@ -96,7 +103,7 @@ describe('LookupField', () => {
       http.get('/items/search', () => HttpResponse.json([])),
     )
     const onError = vi.fn()
-    render(<LookupField onFound={vi.fn()} onError={onError} />)
+    renderV1(<LookupField onFound={vi.fn()} onError={onError} />)
     enter('ZZZZ')
     await waitFor(() => expect(onError).toHaveBeenCalledWith(expect.stringMatching(/item not found/i)))
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'A' } })
@@ -109,7 +116,7 @@ describe('LookupField', () => {
     const partiallySold = { ...FOUND, id: 4, code: 'A001-001', status: 'sold' as const, remaining: 1, quantity: 2 }
     server.use(http.get('/items/lookup', () => HttpResponse.json(partiallySold)))
     const onFound = vi.fn()
-    render(<LookupField onFound={onFound} />)
+    renderV1(<LookupField onFound={onFound} />)
     enter('A001-001')
     await waitFor(() => expect(onFound).toHaveBeenCalledWith(partiallySold))
   })
@@ -120,7 +127,7 @@ describe('LookupField', () => {
       http.get('/items/lookup', () => HttpResponse.json({ detail: 'Item not found' }, { status: 404 })),
       http.get('/items/search', () => HttpResponse.json([])),
     )
-    render(<LookupField onFound={vi.fn()} />)
+    renderV1(<LookupField onFound={vi.fn()} />)
     enter('ZZZZ')
     await waitFor(() => screen.getByRole('alert'))
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'A' } })
@@ -133,7 +140,7 @@ describe('LookupField', () => {
       http.get('/items/lookup', () => HttpResponse.json({ detail: 'Not found' }, { status: 404 })),
       http.get('/items/search', () => HttpResponse.json([FOUND, FOUND2])),
     )
-    render(<LookupField onFound={vi.fn()} />)
+    renderV1(<LookupField onFound={vi.fn()} />)
     enter('A001')
     await waitFor(() => expect(screen.getByText('A001-001')).toBeInTheDocument())
     expect(screen.getByText('A001-002')).toBeInTheDocument()
@@ -147,7 +154,7 @@ describe('LookupField', () => {
       http.get('/items/search', () => HttpResponse.json([FOUND])),
     )
     const onFound = vi.fn()
-    render(<LookupField onFound={onFound} />)
+    renderV1(<LookupField onFound={onFound} />)
     enter('A001-001')
     await waitFor(() => expect(onFound).toHaveBeenCalledWith(FOUND))
   })
@@ -159,7 +166,7 @@ describe('LookupField', () => {
       http.get('/items/search', () => HttpResponse.json([FOUND, FOUND2])),
     )
     const onFound = vi.fn()
-    render(<LookupField onFound={onFound} />)
+    renderV1(<LookupField onFound={onFound} />)
     enter('A001')
     await waitFor(() => screen.getByText('A001-001'))
     fireEvent.click(screen.getByText('A001-001').closest('button')!)
@@ -172,7 +179,7 @@ describe('LookupField', () => {
       http.get('/items/lookup', () => HttpResponse.json({ detail: 'Not found' }, { status: 404 })),
       http.get('/items/search', () => HttpResponse.json([FOUND, FOUND2])),
     )
-    render(<LookupField onFound={vi.fn()} />)
+    renderV1(<LookupField onFound={vi.fn()} />)
     enter('A001')
     await waitFor(() => screen.getByText('A001-001'))
     fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Escape' })
@@ -186,7 +193,7 @@ describe('LookupField', () => {
       http.get('/items/lookup', () => HttpResponse.json({ detail: 'Not found' }, { status: 404 })),
       http.get('/items/search', () => HttpResponse.json([{ ...FOUND, remaining: 3 }, FOUND2])),
     )
-    render(<LookupField onFound={vi.fn()} />)
+    renderV1(<LookupField onFound={vi.fn()} />)
     enter('A001')
     await waitFor(() => expect(screen.getByText('3 left')).toBeInTheDocument())
   })
@@ -199,7 +206,7 @@ describe('LookupField', () => {
       http.get('/items/lookup', () => HttpResponse.json({ detail: 'Not found' }, { status: 404 })),
       http.get('/items/search', () => HttpResponse.json([typed, sold])),
     )
-    render(<LookupField onFound={vi.fn()} />)
+    renderV1(<LookupField onFound={vi.fn()} />)
     enter('A001')
     await waitFor(() => expect(screen.getByText('(Skis · Alpine)')).toBeInTheDocument())
     expect(screen.getByText('(Boots)')).toBeInTheDocument()
@@ -216,7 +223,7 @@ it('renders results list inline, not as an absolute overlay over the cart', asyn
     http.get('/items/lookup', () => HttpResponse.json({ detail: 'Not found' }, { status: 404 })),
     http.get('/items/search', () => HttpResponse.json([FOUND, FOUND2])),
   )
-  render(<LookupField onFound={vi.fn()} />)
+  renderV1(<LookupField onFound={vi.fn()} />)
   enter('A001')
   await waitFor(() => screen.getByText('A001-001'))
   const dropdown = screen.getByText(/2 items found/i).parentElement!
@@ -232,7 +239,7 @@ it('Tab selects the highlighted dropdown item', async () => {
     http.get('/items/lookup', () => HttpResponse.json({ detail: 'Not found' }, { status: 404 })),
     http.get('/items/search', () => HttpResponse.json([FOUND, FOUND2])),
   )
-  render(<LookupField onFound={onFound} />)
+  renderV1(<LookupField onFound={onFound} />)
   enter('A001')
   await waitFor(() => screen.getByText('A001-001'))
   fireEvent.keyDown(screen.getByRole('textbox'), { key: 'ArrowDown' })
@@ -249,7 +256,7 @@ it('Tab without highlight selects the first available item', async () => {
     http.get('/items/lookup', () => HttpResponse.json({ detail: 'Not found' }, { status: 404 })),
     http.get('/items/search', () => HttpResponse.json([sold, FOUND2])),
   )
-  render(<LookupField onFound={onFound} />)
+  renderV1(<LookupField onFound={onFound} />)
   enter('A001')
   await waitFor(() => screen.getByText('A001-002'))
   fireEvent.keyDown(screen.getByRole('textbox'), { key: 'Tab', code: 'Tab' })
@@ -259,10 +266,11 @@ it('Tab without highlight selects the first available item', async () => {
 /** Cart-change focus signal (#1): bumping focusSignal refocuses the scan
    *  field even when the input never had focus back after a manual click away. */
   it('refocuses the scan field when focusSignal bumps', async () => {
-    const { rerender } = render(<LookupField onFound={vi.fn()} />)
+    const { rerender } = renderV1(<LookupField onFound={vi.fn()} />)
     expect(document.activeElement).toBe(screen.getByRole('textbox'))
     screen.getByRole('textbox').blur()
     expect(document.activeElement).not.toBe(screen.getByRole('textbox'))
+    // rerender keeps the v1 provider from the first render call.
     rerender(<LookupField onFound={vi.fn()} focusSignal={1} />)
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('textbox')))
   })
@@ -275,7 +283,7 @@ it('Tab without highlight selects the first available item', async () => {
     /** Verifies the dropdown appears after the 300 ms debounce fires when at least 3 characters are typed. */
     it('shows dropdown after typing 3 chars and waiting 300ms', async () => {
       server.use(http.get('/items/search', () => HttpResponse.json([FOUND, FOUND2])))
-      render(<LookupField onFound={vi.fn()} />)
+      renderV1(<LookupField onFound={vi.fn()} />)
       fireEvent.change(screen.getByRole('textbox'), { target: { value: 'A00' } })
       expect(screen.queryByText('A001-001')).not.toBeInTheDocument()
       await act(async () => { vi.advanceTimersByTime(300) })
@@ -285,7 +293,7 @@ it('Tab without highlight selects the first available item', async () => {
     /** Verifies no search is triggered and no dropdown appears when fewer than 3 characters are typed. */
     it('does not show dropdown after typing only 2 chars', () => {
       server.use(http.get('/items/search', () => HttpResponse.json([FOUND])))
-      render(<LookupField onFound={vi.fn()} />)
+      renderV1(<LookupField onFound={vi.fn()} />)
       fireEvent.change(screen.getByRole('textbox'), { target: { value: 'A0' } })
       act(() => { vi.advanceTimersByTime(300) })
       expect(screen.queryByText('A001-001')).not.toBeInTheDocument()
@@ -295,7 +303,7 @@ it('Tab without highlight selects the first available item', async () => {
     it('does not fire search before 300ms', () => {
       const handler = vi.fn(() => HttpResponse.json([FOUND]))
       server.use(http.get('/items/search', handler))
-      render(<LookupField onFound={vi.fn()} />)
+      renderV1(<LookupField onFound={vi.fn()} />)
       fireEvent.change(screen.getByRole('textbox'), { target: { value: 'A00' } })
       act(() => { vi.advanceTimersByTime(200) })
       expect(handler).not.toHaveBeenCalled()
@@ -304,7 +312,7 @@ it('Tab without highlight selects the first available item', async () => {
     /** Verifies the dropdown is dismissed immediately when the input is trimmed back below 3 characters. */
     it('closes dropdown when input drops below 3 chars', async () => {
       server.use(http.get('/items/search', () => HttpResponse.json([FOUND, FOUND2])))
-      render(<LookupField onFound={vi.fn()} />)
+      renderV1(<LookupField onFound={vi.fn()} />)
       fireEvent.change(screen.getByRole('textbox'), { target: { value: 'A00' } })
       await act(async () => { vi.advanceTimersByTime(300) })
       expect(screen.getByText('A001-001')).toBeInTheDocument()
@@ -322,7 +330,7 @@ it('Tab without highlight selects the first available item', async () => {
 
     async function openDropdown(results = [FOUND, FOUND2], onFound = vi.fn()) {
       server.use(http.get('/items/search', () => HttpResponse.json(results)))
-      render(<LookupField onFound={onFound} />)
+      renderV1(<LookupField onFound={onFound} />)
       fireEvent.change(screen.getByRole('textbox'), { target: { value: 'A00' } })
       await act(async () => { vi.advanceTimersByTime(300) })
     }
@@ -356,7 +364,7 @@ it('Tab without highlight selects the first available item', async () => {
     it('non-available item row is not clickable', async () => {
       const onFound = vi.fn()
       server.use(http.get('/items/search', () => HttpResponse.json([SOLD])))
-      render(<LookupField onFound={onFound} />)
+      renderV1(<LookupField onFound={onFound} />)
       fireEvent.change(screen.getByRole('textbox'), { target: { value: 'A00' } })
       await act(async () => { vi.advanceTimersByTime(300) })
       screen.getByText('A001-003')

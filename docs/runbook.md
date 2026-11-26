@@ -461,3 +461,11 @@ its "reset" flow is retired for multi-event setups.
 
 **Backups.** `POST /admin/backup` now includes the ACTIVE event's database
 plus a `registry.db` snapshot in the ZIP.
+
+### UI variant (v2 is the default since the U6 promotion)
+
+The single bundle serves both looks. The default is **v2**; append `?ui=v1`
+before the hash to get the pre-overhaul UI (`https://…/​?ui=v1#/pos`), which
+persists in the browser. `?ui=v2` switches back. The flag lives in
+`frontend/src/lib/uiVariant.ts` (`DEFAULT_UI_VARIANT`) — reverting promotion is
+a one-line change there plus `npm run build`.

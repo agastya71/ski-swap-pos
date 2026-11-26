@@ -6,20 +6,27 @@
  */
 
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { UiVariantContext } from "../lib/uiVariant";
+// U6 promotion: v1 is no longer the render default — these assertions are
+// v1-expectation tests, so the variant is pinned explicitly.
+function renderV1(ui: React.ReactElement) {
+  return render(<UiVariantContext.Provider value="v1">{ui}</UiVariantContext.Provider>);
+}
+
 import { ReportsPage } from './ReportsPage'
 
 /** ReportsPage — all report section rendering and interaction tests. */
 describe('ReportsPage', () => {
   /** Verifies that the Event Revenue section loads and displays gross revenue totals in the collapsed summary. */
   it('loads and displays event revenue totals', async () => {
-    render(<ReportsPage eventId={1} />)
+    renderV1(<ReportsPage eventId={1} />)
     await waitFor(() => expect(screen.getByText(/gross revenue/i)).toBeInTheDocument())
     expect(screen.getByText('$190.00')).toBeInTheDocument()
   })
 
   /** Verifies that donated items appear in the Donations section table after expanding the section. */
   it('shows donations summary with items', async () => {
-    render(<ReportsPage eventId={1} />)
+    renderV1(<ReportsPage eventId={1} />)
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Donations' })).toBeInTheDocument())
     fireEvent.click(screen.getByRole('heading', { name: 'Donations' }))
     await waitFor(() => expect(screen.getByText('A001-004')).toBeInTheDocument())
@@ -28,7 +35,7 @@ describe('ReportsPage', () => {
 
   /** Verifies that unsold inventory items appear in the Unsold Items section table after expanding the section. */
   it('shows unsold items table', async () => {
-    render(<ReportsPage eventId={1} />)
+    renderV1(<ReportsPage eventId={1} />)
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Unsold Items' })).toBeInTheDocument())
     fireEvent.click(screen.getByRole('heading', { name: 'Unsold Items' }))
     await waitFor(() => expect(screen.getByText('A001-005')).toBeInTheDocument())
@@ -37,13 +44,13 @@ describe('ReportsPage', () => {
 
   /** Verifies that the Seller Payout section renders a combobox for seller selection. */
   it('renders seller combobox for payout lookup', () => {
-    render(<ReportsPage eventId={1} />)
+    renderV1(<ReportsPage eventId={1} />)
     expect(screen.getByRole('combobox')).toBeInTheDocument()
   })
 
   /** Verifies that selecting a seller and submitting shows the payout summary and line items table. */
   it('shows payout and line items table when seller selected', async () => {
-    render(<ReportsPage eventId={1} />)
+    renderV1(<ReportsPage eventId={1} />)
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Jane' } })
     await waitFor(() => screen.getByText(/Jane Smith/))
     fireEvent.click(screen.getByText(/Jane Smith/))
@@ -57,7 +64,7 @@ describe('ReportsPage', () => {
 
   /** Verifies that CSV download buttons are rendered for each collapsible section even when collapsed. */
   it('shows CSV download buttons', async () => {
-    render(<ReportsPage eventId={1} />)
+    renderV1(<ReportsPage eventId={1} />)
     await waitFor(() => screen.getByText(/gross revenue/i))
     const csvButtons = screen.getAllByRole('button', { name: /download csv/i })
     expect(csvButtons.length).toBeGreaterThan(0)
@@ -69,7 +76,7 @@ describe('ReportsPage — collapsible sections', () => {
    *  is shrink-to-fit, overriding the global table { width: 100% } rule
    *  (same fix as the payout summary tables, fe93c09). */
   it('keeps the event revenue amounts next to their labels', async () => {
-    render(<ReportsPage eventId={1} />)
+    renderV1(<ReportsPage eventId={1} />)
     await waitFor(() => screen.getByRole('heading', { name: 'Event Revenue' }))
     fireEvent.click(screen.getByRole('heading', { name: 'Event Revenue' }))
     const revenueTable = await screen.findByText('MYSL Total').then((el) => el.closest('table'))
@@ -78,7 +85,7 @@ describe('ReportsPage — collapsible sections', () => {
 
   /** Verifies that Event Revenue table rows are hidden by default and appear after clicking the header. */
   it('expands Event Revenue section when header is clicked', async () => {
-    render(<ReportsPage eventId={1} />)
+    renderV1(<ReportsPage eventId={1} />)
     await waitFor(() => screen.getByRole('heading', { name: 'Event Revenue' }))
     // Table body row 'MYSL Total' is not visible while collapsed
     expect(screen.queryByText('MYSL Total')).not.toBeInTheDocument()
@@ -88,7 +95,7 @@ describe('ReportsPage — collapsible sections', () => {
 
   /** Verifies that the three CSV buttons are accessible even when all sections are collapsed. */
   it('shows Download CSV buttons for all four sections when collapsed', async () => {
-    render(<ReportsPage eventId={1} />)
+    renderV1(<ReportsPage eventId={1} />)
     await waitFor(() => screen.getByRole('heading', { name: 'Event Revenue' }))
     const csvButtons = screen.getAllByRole('button', { name: /download csv/i })
     expect(csvButtons.length).toBe(4)  // revenue, donations, unsold, transactions-by-user
@@ -96,7 +103,7 @@ describe('ReportsPage — collapsible sections', () => {
 
   /** Verifies that clicking an expanded header collapses the section again. */
   it('collapses section when header is clicked a second time', async () => {
-    render(<ReportsPage eventId={1} />)
+    renderV1(<ReportsPage eventId={1} />)
     await waitFor(() => screen.getByRole('heading', { name: 'Event Revenue' }))
     fireEvent.click(screen.getByRole('heading', { name: 'Event Revenue' }))
     expect(screen.getByText('MYSL Total')).toBeInTheDocument()
@@ -109,7 +116,7 @@ describe('ReportsPage — collapsible sections', () => {
 describe('ReportsPage — Vendor Sales section', () => {
   /** The section renders collapsed with its XLSX download always accessible. */
   it('shows the Vendor Sales section with an XLSX download button when collapsed', async () => {
-    render(<ReportsPage eventId={1} />)
+    renderV1(<ReportsPage eventId={1} />)
     await waitFor(() => screen.getByRole('heading', { name: 'Event Revenue' }))
     expect(screen.getByRole('heading', { name: 'Vendor Sales' })).toBeInTheDocument()
     expect(
@@ -120,7 +127,7 @@ describe('ReportsPage — Vendor Sales section', () => {
 
   /** Clicking the header expands the section to show the description. */
   it('expands Vendor Sales section when header is clicked', async () => {
-    render(<ReportsPage eventId={1} />)
+    renderV1(<ReportsPage eventId={1} />)
     await waitFor(() => screen.getByRole('heading', { name: 'Vendor Sales' }))
     fireEvent.click(screen.getByRole('heading', { name: 'Vendor Sales' }))
     expect(screen.getByText(/Consolidated per-vendor workbook/i)).toBeInTheDocument()
@@ -132,7 +139,7 @@ describe('ReportsPage — Vendor Sales section', () => {
 describe('ReportsPage — Non-Vendor Sales section', () => {
   /** Mirrors the Vendor Sales section: collapsed by default, XLSX always accessible. */
   it('shows the Non-Vendor Sales section with an XLSX download button when collapsed', async () => {
-    render(<ReportsPage eventId={1} />)
+    renderV1(<ReportsPage eventId={1} />)
     await waitFor(() => screen.getByRole('heading', { name: 'Event Revenue' }))
     expect(screen.getByRole('heading', { name: 'Non-Vendor Sales' })).toBeInTheDocument()
     expect(
@@ -143,7 +150,7 @@ describe('ReportsPage — Non-Vendor Sales section', () => {
 
   /** Clicking the header expands the section to show the description. */
   it('expands Non-Vendor Sales section when header is clicked', async () => {
-    render(<ReportsPage eventId={1} />)
+    renderV1(<ReportsPage eventId={1} />)
     await waitFor(() => screen.getByRole('heading', { name: 'Non-Vendor Sales' }))
     fireEvent.click(screen.getByRole('heading', { name: 'Non-Vendor Sales' }))
     expect(screen.getByText(/Consolidated per-seller workbook/i)).toBeInTheDocument()
@@ -155,7 +162,7 @@ describe('ReportsPage — Non-Vendor Sales section', () => {
 describe('ReportsPage — Check Transactions section', () => {
   /** Collapsed shows count + check total from the MSW fixture (sale #7, $120). */
   it('shows check totals in collapsed summary once loaded', async () => {
-    render(<ReportsPage eventId={1} />)
+    renderV1(<ReportsPage eventId={1} />)
     await waitFor(() =>
       expect(screen.getByText(/1 transaction/)).toBeInTheDocument(),
     )
@@ -163,7 +170,7 @@ describe('ReportsPage — Check Transactions section', () => {
 
   /** Expanding reveals the per-transaction table with cashier, check # and amounts. */
   it('lists check transactions when expanded', async () => {
-    render(<ReportsPage eventId={1} />)
+    renderV1(<ReportsPage eventId={1} />)
     await waitFor(() => screen.getByRole('heading', { name: 'Check Transactions' }))
     fireEvent.click(screen.getByRole('heading', { name: 'Check Transactions' }))
     await waitFor(() => expect(screen.getByText('#7')).toBeInTheDocument())

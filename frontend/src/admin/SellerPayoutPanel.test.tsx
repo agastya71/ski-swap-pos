@@ -3,15 +3,22 @@ import { describe, it, expect } from "vitest";
 import { http, HttpResponse } from "msw";
 import { server } from "../mocks/server";
 import { SellerPayoutPanel } from "./SellerPayoutPanel";
+import { UiVariantContext } from "../lib/uiVariant";
+// U6 promotion: v1 is no longer the render default — these assertions are
+// v1-expectation tests, so the variant is pinned explicitly.
+function renderV1(ui: React.ReactElement) {
+  return render(<UiVariantContext.Provider value="v1">{ui}</UiVariantContext.Provider>);
+}
+
 
 describe("SellerPayoutPanel", () => {
   it("shows loading state initially", () => {
-    render(<SellerPayoutPanel eventId={1} sellerId={1} />);
+    renderV1(<SellerPayoutPanel eventId={1} sellerId={1} />);
     expect(screen.getByText(/loading payout/i)).toBeInTheDocument();
   });
 
   it("renders payout summary after data loads", async () => {
-    render(<SellerPayoutPanel eventId={1} sellerId={1} />);
+    renderV1(<SellerPayoutPanel eventId={1} sellerId={1} />);
     await waitFor(() =>
       expect(screen.queryByText(/loading/i)).not.toBeInTheDocument(),
     );
@@ -25,7 +32,7 @@ describe("SellerPayoutPanel", () => {
   /** Verifies the summary amounts sit next to their labels (the table is
    *  shrink-to-fit, overriding the global table { width: 100% } rule). */
   it("keeps the summary amounts next to their labels", async () => {
-    render(<SellerPayoutPanel eventId={1} sellerId={1} />);
+    renderV1(<SellerPayoutPanel eventId={1} sellerId={1} />);
     await waitFor(() =>
       expect(screen.queryByText(/loading/i)).not.toBeInTheDocument(),
     );
@@ -34,7 +41,7 @@ describe("SellerPayoutPanel", () => {
   });
 
   it("renders the seller information block after data loads", async () => {
-    render(<SellerPayoutPanel eventId={1} sellerId={1} />);
+    renderV1(<SellerPayoutPanel eventId={1} sellerId={1} />);
     await waitFor(() =>
       expect(screen.getByText("Jane Smith (A001)")).toBeInTheDocument(),
     );
@@ -45,7 +52,7 @@ describe("SellerPayoutPanel", () => {
   });
 
   it("renders the Items list and Sales Detail sections after data loads", async () => {
-    render(<SellerPayoutPanel eventId={1} sellerId={1} />);
+    renderV1(<SellerPayoutPanel eventId={1} sellerId={1} />);
     await waitFor(() =>
       expect(screen.getAllByText("Atomic skis").length).toBeGreaterThan(0),
     );
@@ -77,14 +84,14 @@ describe("SellerPayoutPanel", () => {
         HttpResponse.json({ detail: "Not found" }, { status: 404 }),
       ),
     );
-    render(<SellerPayoutPanel eventId={1} sellerId={1} />);
+    renderV1(<SellerPayoutPanel eventId={1} sellerId={1} />);
     await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
   });
 
   /** The cashier's price-adjustment reason (sale_item.notes) surfaces on the
    *  SALES lines under the item code (Phase D surface (a) — admin UI). */
   it("shows the price-adjustment reason on SALES lines", async () => {
-    render(<SellerPayoutPanel eventId={1} sellerId={1} />);
+    renderV1(<SellerPayoutPanel eventId={1} sellerId={1} />);
     await waitFor(() =>
       expect(screen.getAllByText("Atomic skis").length).toBeGreaterThan(0),
     );
@@ -98,7 +105,7 @@ describe("SellerPayoutPanel — Sales Detail columns", () => {
   /** The Sales Detail table carries Category/Type/Brand per item and no
    *  longer shows the Date Sold column (dropped 2026-11-23). */
   it("renders Category/Type/Brand columns and drops Date Sold", async () => {
-    render(<SellerPayoutPanel eventId={1} sellerId={1} />);
+    renderV1(<SellerPayoutPanel eventId={1} sellerId={1} />);
     await waitFor(() =>
       expect(screen.getAllByText("Atomic skis").length).toBeGreaterThan(0),
     );

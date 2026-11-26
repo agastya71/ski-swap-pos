@@ -142,3 +142,26 @@ replay). Read it before starting U4. Guarded by
 | — | — | — | — |
 | U4 part 1 | 2026-11-25 | shipped as PR #172 | Intake identity half (IntakeForm, SellerForm, SellerSearch, ImportItemsButton, IntakeModulePage): 57 inline styles → 0. Found `--gray-600`/`--gray-800` referenced but undefined → added, plus `css-wiring-check` group 5 for that failure class. Narrow overflow 581px → 404px |
 | U4 part 2 | 2026-11-25 | shipped (PR pending) | Intake items half (IntakePage, ItemForm, ItemList, ItemSearchPage): 145 inline styles → 0, so `frontend/src/intake/` is now style-free. `TableScroll` adopted: stacked for the previous-intakes table, scroll for `ItemList` (13 columns) and `ItemSearchPage` (interactive filter row inside `<thead>` — stacked mode clip-hides `thead`, so it must not be used there). v2 verified at 420px: widest element now fits the viewport (v1 is +161px over). Added `css-wiring-check` group 6 after finding 4 emitted-but-unstyled classes |
+
+---
+
+## U6 verdict (recorded at promotion)
+
+**Promotion approved 2026-11-25.** The default variant is flipped to **v2**;
+`?ui=v1` is the permanent escape hatch (it clears the stored choice, same
+mechanism `?ui=v2` used to opt in). v1 stays in the bundle — the variants
+remain one build — so reverting is a one-line change plus `npm run build`.
+
+What was verified before the flip, across U2–U6:
+
+- frontend 525/525 · backend 574/574 (CI-identical commands)
+- `css-wiring-check` 6/6 — 404 emitted classes all styled, 572 rules scoped,
+  every `var()` defined, `/next/` links always carry `?ui=`
+- `pos-css-check` 315/315 against the built sheet
+- shell probe: v2 fits a 420px viewport exactly (widest shell edge 420/420);
+  v1 overflowed to 819px — the responsiveness that motivated the overhaul
+- narrow-page debt fell 581px → 404px (fits) from U4's TableScroll work
+
+Known residue, accepted: `.ui2-ghost-btn` stays 36px by design (header tab
+bar) and page-body overflow at narrow widths was fixed where it mattered
+(intake, transactions) — remaining long tables scroll inside their wrapper.

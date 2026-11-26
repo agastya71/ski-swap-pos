@@ -60,6 +60,11 @@ const SELLER = {
 const inV2 = (ui: ReactElement) =>
   render(<UiVariantContext.Provider value="v2">{ui}</UiVariantContext.Provider>)
 
+// U6 promotion: v1 is no longer the render default — the "v1 keeps …"
+// assertions must pin the variant explicitly, mirroring inV2().
+const inV1 = (ui: ReactElement) =>
+  render(<UiVariantContext.Provider value="v1">{ui}</UiVariantContext.Provider>)
+
 const renderV2 = inV2
 
 const ITEM = {
@@ -166,7 +171,7 @@ describe('intake style tables keep the v1 values verbatim', () => {
 
 describe('IntakeForm renders the same fields in both variants', () => {
   it('v1 keeps the inline fieldset/legend and browser-default submit button', () => {
-    render(<IntakeForm seller={SELLER} onCreated={vi.fn()} />)
+    inV1(<IntakeForm seller={SELLER} onCreated={vi.fn()} />)
     const fieldset = screen.getByRole('group')
     // jsdom normalises the hex colour to rgb() on read-back.
     expect(fieldset.style.border).toBe('1px solid rgb(226, 232, 240)')
@@ -208,7 +213,7 @@ describe('IntakeForm renders the same fields in both variants', () => {
 
 describe('SellerSearch renders results identically in both variants', () => {
   it('v1 keeps the transparent left-aligned result button', () => {
-    render(<SellerSearch onSelect={vi.fn()} onCreateNew={vi.fn()} />)
+    inV1(<SellerSearch onSelect={vi.fn()} onCreateNew={vi.fn()} />)
     const input = screen.getByPlaceholderText('Search by name or code')
     expect(input.style.width).toBe('100%')
     expect(input.style.padding).toBe('8px')
@@ -232,7 +237,7 @@ describe('SellerSearch renders results identically in both variants', () => {
 
 describe('SellerForm renders the same fields in both variants', () => {
   it('v1 keeps the plain input sizing', () => {
-    render(<SellerForm onCreated={vi.fn()} onCancel={vi.fn()} />)
+    inV1(<SellerForm onCreated={vi.fn()} onCancel={vi.fn()} />)
     const first = screen.getByLabelText('First Name')
     expect(first.style.width).toBe('100%')
     expect(first.style.padding).toBe('6px')
@@ -255,7 +260,7 @@ describe('SellerForm renders the same fields in both variants', () => {
 
 describe('ImportItemsButton keeps both actions in both variants', () => {
   it('v1 keeps BUTTON_STYLE inline on both buttons', () => {
-    render(<ImportItemsButton intakeId={1} onImported={vi.fn()} />)
+    inV1(<ImportItemsButton intakeId={1} onImported={vi.fn()} />)
     for (const name of ['Import Items', 'Download Template']) {
       const btn = screen.getByRole('button', { name })
       expect(btn.style.color).toBe('rgb(30, 58, 138)')
@@ -333,7 +338,7 @@ describe('U4 part 2 style tables keep the v1 values verbatim', () => {
 
 describe('ItemList renders the same table in both variants', () => {
   it('v1 keeps per-cell inline padding and the plain table element', () => {
-    render(<ItemList items={[ITEM]} intakeId={3} onItemsChanged={vi.fn()} />)
+    inV1(<ItemList items={[ITEM]} intakeId={3} onItemsChanged={vi.fn()} />)
     const table = screen.getByRole('table')
     expect(table.className).toBe('')
     expect(table.style.width).toBe('100%')
