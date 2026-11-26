@@ -395,3 +395,37 @@ it("defaults the donate-unsold checkbox to false when defaultDonateUnsold is not
   }) as HTMLInputElement;
   expect(checkbox.checked).toBe(false);
 });
+
+/** Text-type inputs (Brand/Description/Size) must carry type="text" so the
+ *  global input[type="text"] border styling applies — bare inputs fall back
+ *  to the browser's native inset border (user-reported intake mismatch). */
+it("gives Brand, Description and Size inputs type=text", () => {
+  render(<ItemForm intakeId={5} onAdded={vi.fn()} />);
+  for (const label of [/brand/i, /description/i, /size/i]) {
+    const el = screen.getByLabelText(label) as HTMLInputElement;
+    expect(el.tagName).toBe("INPUT");
+    expect(el.type).toBe("text");
+  }
+});
+
+/** Without onCancel there is no Cancel button (existing callers unchanged). */
+it("hides Cancel when no onCancel is provided", () => {
+  render(<ItemForm intakeId={5} onAdded={vi.fn()} />);
+  expect(screen.queryByRole("button", { name: /^cancel$/i })).not.toBeInTheDocument();
+});
+
+/** With onCancel the footer renders Cancel next to Add Item and clicking it
+ *  calls onCancel without submitting or touching the API. */
+it("renders Cancel next to Add Item and calls onCancel on click", () => {
+  const onCancel = vi.fn();
+  render(<ItemForm intakeId={5} onAdded={vi.fn()} onCancel={onCancel} />);
+  const footerButtons = screen
+    .getAllByRole("button")
+    .filter((b) => /add item|^cancel$/i.test(b.textContent || ""));
+  expect(footerButtons.map((b) => b.textContent?.trim())).toEqual([
+    "Add Item",
+    "Cancel",
+  ]);
+  fireEvent.click(screen.getByRole("button", { name: /^cancel$/i }));
+  expect(onCancel).toHaveBeenCalledTimes(1);
+});

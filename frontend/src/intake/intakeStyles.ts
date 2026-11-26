@@ -341,6 +341,15 @@ export const ITEM_FORM = {
   } satisfies CSSProperties,
   inheritNote: { fontSize: 11, color: "#64748b", marginTop: 2 } satisfies CSSProperties,
   error: { color: "red", marginBottom: 8 } satisfies CSSProperties,
+  /** Footer row: Add Item (primary) and optional Cancel side by side — shared
+   *  by both Add Item surfaces so cancel sits next to add everywhere. */
+  actions: {
+    display: "flex",
+    gap: 8,
+    marginTop: 12,
+    alignItems: "center",
+  } satisfies CSSProperties,
+  cancelButton: { ...BUTTON_STYLE } satisfies CSSProperties,
 } as const;
 
 /* ── IntakePage (part 2) ──────────────────────────────────────────────────── */
@@ -389,6 +398,14 @@ export const INTAKE_PAGE = {
     color: "#666",
     fontSize: 13,
     margin: "0 0 8px",
+  } satisfies CSSProperties,
+  /** Bordered panel around the Add Item form — mirrors the Seller → View
+   *  addItemPanel so both Add Item surfaces look identical. */
+  itemFormPanel: {
+    marginBottom: 16,
+    padding: 16,
+    border: "1px solid #e2e8f0",
+    borderRadius: 6,
   } satisfies CSSProperties,
   importWrap: { margin: "12px 0" } satisfies CSSProperties,
   divider: { margin: "16px 0" } satisfies CSSProperties,
