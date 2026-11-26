@@ -7,6 +7,7 @@ import { apiFetch, getToken } from "./client";
 import type {
  SellerPayoutReport,
  SellersPayoutsReport,
+ CreditCardTransactionsReport,
  EventRevenueReport,
  DonationsReport,
  UnsoldItemsReport,
@@ -120,6 +121,22 @@ export function getTransactionsByUser(eventId: number) {
 export function getCheckTransactions(eventId: number) {
  return apiFetch<CheckTransactionsReport>(
   `/reports/${eventId}/check-transactions`,
+ );
+}
+
+/**
+ * Fetch the credit-card-transactions report for an event.
+ *
+ * A sale qualifies via a 10043 marker line and/or CC keywords in its notes
+ * ('cc', 'credit', 'credit card'). Each row carries an evidence class:
+ * donation+note (confirmation), note-only, or donation-only.
+ *
+ * @param eventId - ID of the event to report on.
+ * @returns CreditCardTransactionsReport: one row per suspected CC sale (voided excluded).
+ */
+export function getCreditCardTransactions(eventId: number) {
+ return apiFetch<CreditCardTransactionsReport>(
+  `/reports/${eventId}/credit-card-transactions`,
  );
 }
 

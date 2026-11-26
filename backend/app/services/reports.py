@@ -7,6 +7,7 @@ object ready to be serialised by the report formatter.
 """
 
 from datetime import date, datetime, timezone
+import re
 from typing import Any
 
 from fastapi import HTTPException
@@ -21,6 +22,8 @@ from app.models.seller import Seller
 from app.schemas.reports import (
     CheckTransactionRow,
     CheckTransactionsReport,
+    CcTransactionRow,
+    CreditCardTransactionsReport,
     DonationItem,
     DonationsReport,
     EndOfDayReport,
@@ -56,6 +59,26 @@ def _get_event_or_404(db: Session, event_id: int) -> Event:
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     return event
+
+
+# Item code that flagged credit-card charges during the Ski Swap 2026 event:
+# the $3 "Donation" line (code 10043) was also used to mark CC-tendered
+# sales that the POS recorded as cash. See docs note on the CC report.
+CC_MARKER_ITEM_CODE = "10043"
+
+
+def _sale_has_cc_marker(db: Session, sale_id: int) -> bool:
+    """True when a sale includes a SaleItem line of code '10043'."""
+    marker = (  # pyright: ignore[reportUnknownVariableType]
+        db.query(SaleItem.id)  # pyright: ignore[reportAttributeAccessIssue]
+        .join(Item, SaleItem.item_id == Item.id)  # pyright: ignore[reportAttributeAccessIssue]
+        .filter(
+            SaleItem.sale_id == sale_id,  # pyright: ignore[reportAttributeAccessIssue]
+            Item.code == CC_MARKER_ITEM_CODE,  # pyright: ignore[reportAttributeAccessIssue]
+        )
+        .first()
+    )
+    return marker is not None
 
 
 def _exempt_seller_codes(event: Event) -> frozenset[str]:
@@ -994,6 +1017,93 @@ def get_check_transactions(db: Session, event_id: int) -> CheckTransactionsRepor
         transactions=transactions,
         total_check_amount=round(sum(t.check_amount for t in transactions), 2),
         total_sale_amount=round(sum(t.sale_total for t in transactions), 2),
+        count=len(transactions),
+        generated_at=_now(),
+    )
+
+
+def _note_indicates_cc(notes: str | None) -> bool:
+    """True when free-text sale notes mention a credit card by keyword.
+
+    Matches 'credit card', 'cc', or 'credit' (case-insensitive). The
+    \b boundary avoids matching inside longer words ("access").
+    """
+    if not notes:
+        return False
+    lowered = notes.lower()
+    if "credit card" in lowered:
+        return True
+    return bool(re.search(r"\b(cc|credit)\b", lowered))
+
+
+def get_credit_card_transactions(db: Session, event_id: int) -> CreditCardTransactionsReport:
+    """List transactions that look like credit-card charges for an event.
+
+    During the Ski Swap 2026 event, CC charges were tracked two ways:
+    a $3 "Donation" line (item code ``10043``) and free-text sale notes
+    ("cc", "credit", "credit card"). Both are treated as evidence here.
+
+    Voided and draft (unfinalized) sales are excluded, matching the
+    check-transactions report. Sorted newest first (timestamp, then ID).
+    """
+    event = _get_event_or_404(db, event_id)
+    marker_item_ids = [
+        row[0]
+        for row in db.query(Item.id)  # pyright: ignore[reportAttributeAccessIssue]
+        .filter(Item.code == CC_MARKER_ITEM_CODE)  # pyright: ignore[reportAttributeAccessIssue]
+        .all()
+    ]
+
+    sales = (
+        db.query(Sale)
+        .filter(
+            Sale.event_id == event_id,  # pyright: ignore[reportArgumentType]
+            Sale.is_voided.is_(False),  # pyright: ignore[reportAttributeAccessIssue]
+            Sale.is_finalized.is_(True),  # pyright: ignore[reportAttributeAccessIssue] — drafts (issue #12) never reported
+        )
+        .options(joinedload(Sale.sale_items).joinedload(SaleItem.item))  # pyright: ignore[reportAttributeAccessIssue,reportCallIssue]
+        .order_by(Sale.date_of_sale.desc().nullslast(), Sale.id.desc())  # pyright: ignore[reportAttributeAccessIssue,reportCallIssue]
+        .all()
+    )
+
+    transactions: list[CcTransactionRow] = []
+    for sale in sales:
+        has_marker = any(si.item_id in marker_item_ids for si in sale.sale_items)
+        has_note = _note_indicates_cc(sale.notes)  # pyright: ignore[reportArgumentType]
+        if not has_marker and not has_note:
+            continue
+        if has_marker and has_note:
+            evidence = "donation+note"
+        elif has_note:
+            evidence = "note-only"
+        else:
+            evidence = "donation-only"
+        transactions.append(CcTransactionRow(
+            sale_id=sale.id,  # pyright: ignore[reportArgumentType]
+            date_of_sale=sale.date_of_sale,  # pyright: ignore[reportArgumentType]
+            cashier=str(sale.created_by) if sale.created_by else "(unknown)",  # pyright: ignore[reportGeneralTypeIssues,reportArgumentType]
+            customer_name=sale.customer_name,  # pyright: ignore[reportArgumentType]
+            transaction_number=sale.transaction_number,  # pyright: ignore[reportArgumentType]
+            sale_total=round(sale.sale_total or 0.0, 2),  # pyright: ignore[reportArgumentType,reportCallIssue]
+            cc_amount=round(sale.cc_amount or 0.0, 2),  # pyright: ignore[reportArgumentType,reportCallIssue]
+            evidence=evidence,
+            notes=sale.notes,  # pyright: ignore[reportArgumentType]
+        ))
+
+    def _sum(evidence: str) -> float:
+        return round(sum(t.sale_total for t in transactions if t.evidence == evidence), 2)
+
+    return CreditCardTransactionsReport(
+        event_id=event_id,
+        event_name=event.name,  # pyright: ignore[reportArgumentType]
+        transactions=transactions,
+        total_sale_amount=round(sum(t.sale_total for t in transactions), 2),
+        confirmed_count=sum(1 for t in transactions if t.evidence == "donation+note"),
+        confirmed_total=_sum("donation+note"),
+        note_only_count=sum(1 for t in transactions if t.evidence == "note-only"),
+        note_only_total=_sum("note-only"),
+        donation_only_count=sum(1 for t in transactions if t.evidence == "donation-only"),
+        donation_only_total=_sum("donation-only"),
         count=len(transactions),
         generated_at=_now(),
     )

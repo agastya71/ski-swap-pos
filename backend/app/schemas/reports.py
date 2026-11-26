@@ -1,7 +1,7 @@
 """Pydantic schemas for end-of-event and end-of-day report payloads."""
 
 from datetime import date, datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -375,6 +375,45 @@ class CheckTransactionsReport(BaseModel):
     total_check_amount: float = Field(description="Sum of check_amount across all listed transactions.")
     total_sale_amount: float = Field(description="Sum of sale_total across all listed transactions.")
     count: int = Field(description="Number of check-tendered transactions listed.")
+    generated_at: datetime = Field(description="UTC timestamp when this report was generated.")
+
+
+class CcTransactionRow(BaseModel):
+    """One suspected credit-card transaction, for the credit-card report.
+
+    Evidence is classified against the sale's line items (item code 10043,
+    the event's CC-tracker "Donation" line) and free-text notes.
+    """
+
+    sale_id: int = Field(description="Unique ID of the sale.")
+    date_of_sale: Optional[datetime] = Field(default=None, description="Full timestamp of the transaction; null if not recorded.")
+    cashier: str = Field(description="Login name of the user who completed this sale ('(unknown)' when not stored).")
+    customer_name: Optional[str] = Field(default=None, description="Customer name captured at checkout; null when not recorded.")
+    transaction_number: Optional[int] = Field(default=None, description="Human-facing transaction number within the event; null when not assigned.")
+    sale_total: float = Field(description="Extended price total for this sale.")
+    cc_amount: float = Field(description="Card tender recorded on the sale (0.00 for almost all event sales — CC was tracked via the marker line/notes, not this field).")
+    evidence: Literal["donation+note", "note-only", "donation-only"] = Field(description="How this sale was identified as a CC charge: donation+note = confirmation; note-only = flagged, no donation line; donation-only = marker line without CC note.")
+    notes: Optional[str] = Field(default=None, description="Free-text sale notes as recorded (shown verbatim; splits like 'cc: 274 cash: 245' are not parsed).")
+
+
+class CreditCardTransactionsReport(BaseModel):
+    """All suspected credit-card transactions for an event (voided/drafts excluded).
+
+    A sale qualifies via a 10043 marker line, an explicit CC keyword in its
+    notes ('cc', 'credit', 'credit card'), or both.
+    """
+
+    event_id: int = Field(description="ID of the event this report covers.")
+    event_name: str = Field(description="Name of the event.")
+    transactions: list[CcTransactionRow] = Field(description="Suspected CC sales, newest first (by timestamp, then sale ID).")
+    total_sale_amount: float = Field(description="Sum of sale_total across all listed transactions.")
+    confirmed_count: int = Field(description="Number of 'donation+note' (confirmation) transactions.")
+    confirmed_total: float = Field(description="Sum of sale_total for 'donation+note' transactions.")
+    note_only_count: int = Field(description="Number of 'note-only' transactions (CC note, no marker line).")
+    note_only_total: float = Field(description="Sum of sale_total for 'note-only' transactions.")
+    donation_only_count: int = Field(description="Number of 'donation-only' transactions (marker line, no CC note).")
+    donation_only_total: float = Field(description="Sum of sale_total for 'donation-only' transactions.")
+    count: int = Field(description="Number of transactions listed (all evidence classes).")
     generated_at: datetime = Field(description="UTC timestamp when this report was generated.")
 
 

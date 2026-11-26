@@ -1017,6 +1017,35 @@ export interface CheckTransactionsReport {
  generated_at: string;
 }
 
+export interface CcTransactionRow {
+ sale_id: number;
+ date_of_sale: string | null;
+ cashier: string;
+ customer_name: string | null;
+ transaction_number: number | null;
+ sale_total: number;
+ /** Card tender recorded on the sale — 0.00 for nearly all event sales (CC was tracked via marker line/notes). */
+ cc_amount: number;
+ /** donation+note = confirmation; note-only = flagged by notes, no 10043 line; donation-only = marker line, no CC note. */
+ evidence: "donation+note" | "note-only" | "donation-only";
+ notes: string | null;
+}
+
+export interface CreditCardTransactionsReport {
+ event_id: number;
+ event_name: string;
+ transactions: CcTransactionRow[];
+ total_sale_amount: number;
+ confirmed_count: number;
+ confirmed_total: number;
+ note_only_count: number;
+ note_only_total: number;
+ donation_only_count: number;
+ donation_only_total: number;
+ count: number;
+ generated_at: string;
+}
+
 export interface LoginSession {
   id: number;
   /** Owning account's id (registry-level). */

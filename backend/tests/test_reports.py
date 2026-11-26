@@ -972,3 +972,195 @@ def test_check_transactions_unknown_event_404(client, admin_token):
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert resp.status_code == 404
+
+
+def _cc_marker_item(db, active_event):
+    """Marker item with code 10043, fully FK-valid (intake_id + seller_id NOT NULL)."""
+    seller = Seller(event_id=active_event.id, code="CCD", first_name="CC", last_name="Donor",
+                    is_vendor=False, created_by="admin")
+    db.add(seller); db.commit(); db.refresh(seller)
+    intake = Intake(seller_id=seller.id, donate_proceeds=False, donate_unsold=False,
+                    created_by="admin")
+    db.add(intake); db.commit(); db.refresh(intake)
+    it = Item(intake_id=intake.id, seller_id=seller.id, code="10043",
+              description="Donation", category="Other", price=3.00,
+              quantity=99.0, remaining=97.0, status="available", created_by="admin")
+    db.add(it); db.commit(); db.refresh(it)
+    return it
+
+
+# ── Credit Card Transactions ────────────────────────────────────────────────
+
+def test_cc_transactions_marker_and_note_classified(client, admin_token, active_event, db):
+    """10043 marker line and/or CC keywords classify evidence per row."""
+    marker = _cc_marker_item(db, active_event)
+
+    confirmed = Sale(event_id=active_event.id, sale_total=50.0, mysl_total=15.0,
+                     seller_total=35.0, cash_amount=50.0, cc_amount=0.0,
+                     total_paid=50.0, is_voided=False, created_by="cashier1",
+                     notes="cc + donation")
+    confirmed2 = Sale(event_id=active_event.id, sale_total=30.0, mysl_total=9.0,
+                      seller_total=21.0, cash_amount=30.0, cc_amount=0.0,
+                      total_paid=30.0, is_voided=False, created_by="cashier1",
+                      notes="paid by credit card")
+    db.add_all([confirmed, confirmed2]); db.flush()
+    db.add_all([
+        SaleItem(sale_id=confirmed.id, item_id=marker.id, line_number=1,
+                 quantity=1.0, sell_price=3.0, extended_price=3.0, created_by="admin"),
+        SaleItem(sale_id=confirmed2.id, item_id=marker.id, line_number=1,
+                 quantity=1.0, sell_price=3.0, extended_price=3.0, created_by="admin"),
+    ])
+
+    note_only = Sale(event_id=active_event.id, sale_total=80.0, mysl_total=24.0,
+                     seller_total=56.0, cash_amount=80.0, cc_amount=0.0,
+                     total_paid=80.0, is_voided=False, created_by="cashier2",
+                     notes="CC no donate")
+    db.add(note_only); db.flush()
+    # note_only gets a NON-marker line below (after the regular item exists)
+    intake = db.query(Intake).join(Seller, Intake.seller_id == Seller.id).filter(
+        Seller.code == "CCD").one()
+    seller = db.query(Seller).filter(Seller.code == "CCD").one()
+    regular = Item(intake_id=intake.id, seller_id=seller.id, code="TST-CC-1",
+                   description="Regular", category="Skis", price=80.0,
+                   quantity=1.0, remaining=0.0, status="sold", created_by="admin")
+    db.add(regular); db.commit(); db.refresh(regular)
+    db.add(SaleItem(sale_id=note_only.id, item_id=regular.id, line_number=2,
+                    quantity=1.0, sell_price=80.0, extended_price=80.0, created_by="admin"))
+
+    donation_only = Sale(event_id=active_event.id, sale_total=20.0, mysl_total=6.0,
+                         seller_total=14.0, cash_amount=20.0, cc_amount=0.0,
+                         total_paid=20.0, is_voided=False, created_by="cashier2",
+                         notes="cash only")
+    db.add(donation_only); db.flush()
+    db.add(SaleItem(sale_id=donation_only.id, item_id=marker.id, line_number=1,
+                    quantity=1.0, sell_price=3.0, extended_price=3.0, created_by="admin"))
+
+    plain = Sale(event_id=active_event.id, sale_total=10.0, mysl_total=3.0,
+                 seller_total=7.0, cash_amount=10.0, cc_amount=0.0,
+                 total_paid=10.0, is_voided=False, created_by="cashier2",
+                 notes="nothing special")
+    db.add(plain); db.commit()
+
+    resp = client.get(
+        f"/reports/{active_event.id}/credit-card-transactions",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["count"] == 4  # plain sale excluded
+    by_id = {t["sale_id"]: t for t in data["transactions"]}
+    assert by_id[confirmed.id]["evidence"] == "donation+note"
+    assert by_id[note_only.id]["evidence"] == "note-only"
+    assert by_id[donation_only.id]["evidence"] == "donation-only"
+    assert data["confirmed_count"] == 2
+    assert data["confirmed_total"] == 80.0
+    assert data["note_only_count"] == 1
+    assert data["note_only_total"] == 80.0
+    assert data["donation_only_count"] == 1
+    assert data["donation_only_total"] == 20.0
+    assert data["total_sale_amount"] == 180.0
+    assert by_id[note_only.id]["notes"] == "CC no donate"
+
+
+def test_cc_transactions_note_keyword_variants(client, admin_token, active_event, db):
+    """'credit card', 'CC', 'credit' all match; non-matching notes don't."""
+    cases = [
+        ("Paid by credit card", True),
+        ("CC no donate", True),
+        ("part on credit", True),
+        ("cc: 274 cash: 245", True),
+        ("CASH ONLY", False),
+        ("accessory sale", False),   # 'access' must not match \bcc\b
+        (None, False),
+    ]
+    for i, (notes, expect) in enumerate(cases):
+        s = Sale(event_id=active_event.id, sale_total=float(10 + i),
+                 mysl_total=3.0, seller_total=7.0, cash_amount=10.0,
+                 cc_amount=0.0, total_paid=10.0, is_voided=False,
+                 created_by="cashier1", notes=notes)
+        db.add(s)
+    db.commit()
+
+    resp = client.get(
+        f"/reports/{active_event.id}/credit-card-transactions",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    data = resp.json()
+    assert data["count"] == 4
+    assert data["note_only_count"] == 4
+    assert data["donation_only_count"] == 0
+
+
+def test_cc_transactions_excludes_voided_and_drafts(client, admin_token, active_event, db):
+    """Voided and unfinalized sales are excluded, matching checks report."""
+    marker = _cc_marker_item(db, active_event)
+    voided = Sale(event_id=active_event.id, sale_total=42.0, mysl_total=12.6,
+                  seller_total=29.4, cash_amount=42.0, cc_amount=0.0,
+                  total_paid=42.0, is_voided=True, created_by="cashier1",
+                  notes="cc but voided")
+    draft = Sale(event_id=active_event.id, sale_total=43.0, mysl_total=12.9,
+                 seller_total=30.1, cash_amount=43.0, cc_amount=0.0,
+                 total_paid=43.0, is_voided=False, is_finalized=False,
+                 created_by="cashier1", notes="cc but draft")
+    live = Sale(event_id=active_event.id, sale_total=44.0, mysl_total=13.2,
+                seller_total=30.8, cash_amount=44.0, cc_amount=0.0,
+                total_paid=44.0, is_voided=False, is_finalized=True,
+                created_by="cashier1", notes="cc live")
+    db.add_all([voided, draft, live]); db.flush()
+    db.add(SaleItem(sale_id=voided.id, item_id=marker.id, line_number=1,
+                    quantity=1.0, sell_price=3.0, extended_price=3.0, created_by="admin"))
+    db.add(SaleItem(sale_id=draft.id, item_id=marker.id, line_number=1,
+                    quantity=1.0, sell_price=3.0, extended_price=3.0, created_by="admin"))
+    db.add(SaleItem(sale_id=live.id, item_id=marker.id, line_number=1,
+                    quantity=1.0, sell_price=3.0, extended_price=3.0, created_by="admin"))
+    db.commit()
+
+    resp = client.get(
+        f"/reports/{active_event.id}/credit-card-transactions",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    data = resp.json()
+    assert data["count"] == 1
+    assert data["transactions"][0]["sale_id"] == live.id
+    assert data["transactions"][0]["evidence"] == "donation+note"
+
+
+def test_cc_transactions_md_pdf_formats(client, admin_token, active_event, db):
+    """format=md and format=pdf render the CC report; csv exports rows."""
+    from pypdf import PdfReader
+    s = Sale(event_id=active_event.id, sale_total=25.0, mysl_total=7.5,
+             seller_total=17.5, cash_amount=25.0, cc_amount=0.0,
+             total_paid=25.0, is_voided=False, created_by="cashier1",
+             notes="cc via note\nsecond line")
+    db.add(s); db.commit()
+
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    md = client.get(f"/reports/{active_event.id}/credit-card-transactions?format=md", headers=headers)
+    assert md.status_code == 200
+    assert "# Credit Card Transactions" in md.text and "note-only" in md.text
+
+    pdf = client.get(f"/reports/{active_event.id}/credit-card-transactions?format=pdf", headers=headers)
+    assert pdf.status_code == 200
+    assert "application/pdf" in pdf.headers["content-type"]
+    text = "\n".join(p.extract_text() for p in PdfReader(io.BytesIO(pdf.content)).pages)
+    assert "note-only" in text
+
+    csv_resp = client.get(f"/reports/{active_event.id}/credit-card-transactions?format=csv", headers=headers)
+    assert csv_resp.status_code == 200
+    assert "evidence" in csv_resp.text and "cc via note" in csv_resp.text
+
+
+def test_cc_transactions_requires_admin(client, cashier_token, active_event):
+    resp = client.get(
+        f"/reports/{active_event.id}/credit-card-transactions",
+        headers={"Authorization": f"Bearer {cashier_token}"},
+    )
+    assert resp.status_code == 403
+
+
+def test_cc_transactions_unknown_event_404(client, admin_token):
+    resp = client.get(
+        "/reports/999999/credit-card-transactions",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 404
