@@ -392,6 +392,7 @@ export function ItemList({
                       setPrintQty((p) => ({ ...p, [item.id]: e.target.value }))
                     }
                     {...v1Only(v2, ITEM_LIST.printInput)}
+                    {...v2Only(v2, "ui2-items-print-input")}
                   />
                   <button
                     aria-label={`Print the specified number of labels for ${item.code}`}
@@ -662,18 +663,35 @@ export function ItemList({
         <tfoot>
           <tr {...v1Only(v2, ITEM_LIST.footRow)}>
             <td {...v1Only(v2, ITEM_LIST.footCell)} />
-            <td {...v1Only(v2, ITEM_LIST.footCellRight)}>{totalUnits}</td>
-            <td colSpan={5} {...v1Only(v2, ITEM_LIST.footCellRight)}>
+            <td
+              {...v1Only(v2, ITEM_LIST.footCellRight)}
+              {...v2Only(v2, "ui2-num")}
+            >
+              {totalUnits}
+            </td>
+            <td
+              colSpan={5}
+              {...v1Only(v2, ITEM_LIST.footCellRight)}
+              {...v2Only(v2, "ui2-items-foot-total")}
+            >
               Total — {items.length} item
               {items.length !== 1 ? "s" : ""}
             </td>
             <td />
-            <td {...v1Only(v2, ITEM_LIST.footCellRight)}>
+            <td
+              {...v1Only(v2, ITEM_LIST.footCellRight)}
+              {...v2Only(v2, "ui2-num")}
+            >
               ${totalPrice.toFixed(2)}
             </td>
             <td />
-            <td {...v1Only(v2, ITEM_LIST.footCellRight)}>{totalOnHand}</td>
-            <td colSpan={2} />
+            <td
+              {...v1Only(v2, ITEM_LIST.footCellRight)}
+              {...v2Only(v2, "ui2-num")}
+            >
+              {totalOnHand}
+            </td>
+            <td colSpan={3} />
           </tr>
         </tfoot>
       </table>

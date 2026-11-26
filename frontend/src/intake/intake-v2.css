@@ -458,6 +458,29 @@
   padding: var(--space-1) var(--space-2);
 }
 
+/* Per-row label-count input: the global width:100% made it swallow the
+   whole actions cell and wrap the buttons (user report: count field sat
+   "above" the Print button). Small bordered box on the same line. */
+.ui-v2 .ui2-items-table td.ui2-items-actions {
+  /* One-line action row: no wrapping under the count input (user report —
+     the input grabbed a full-width line above the buttons). Min widths +
+     white-space let Print All / count / Print / Edit / Delete share a line. */
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.ui-v2 .ui2-items-table td.ui2-items-actions input.ui2-items-print-input {
+  width: 64px;
+  flex: 0 0 auto;
+  min-height: 36px;
+  box-sizing: border-box;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-md);
+  border: 1px solid var(--gray-400);
+  border-radius: var(--radius-field);
+  background: var(--white);
+}
+
 /* Edit panel ------------------------------------------------------------- */
 
 .ui-v2 .ui2-items-panel-cell {
@@ -506,6 +529,9 @@
   min-height: var(--touch-target);
   padding: var(--space-1) var(--space-2);
   font-size: var(--font-size-md);
+  border: 1px solid var(--gray-400);
+  border-radius: var(--radius-field);
+  background: var(--white);
 }
 
 .ui-v2 .ui2-items-qty-error { color: var(--red); font-size: var(--font-size-sm); }
@@ -538,6 +564,12 @@
 }
 
 .ui-v2 .ui2-items-table tfoot td.ui2-num { font-variant-numeric: tabular-nums; }
+
+/* Totals row: label cell right-aligns to the Sell Price boundary (same as
+   v1); the three value cells carry .ui2-num so they sit under the
+   right-aligned Qty / Total Price / On Hand columns (user report: totals
+   appeared shifted because only thead/tbody had the ui2-num class). */
+.ui-v2 .ui2-items-table tfoot td.ui2-items-foot-total { text-align: right; }
 
 @media (width <= 720px) {
   .ui-v2 .ui2-items-header { align-items: stretch; }
@@ -642,6 +674,12 @@
 /* ── IntakePage chrome + previous-intakes table (part 2) ──────────────────── */
 
 .ui-v2 .ui2-intakepage { max-width: 860px; }
+
+/* Items step holds the 13-column ItemList (same table as Seller → View,
+   which has no page cap) — a capped column forced horizontal scrolling to
+   reach the per-row actions (user report). Uncap it on that step only so
+   search/select keep the focused single-column look. */
+.ui-v2 .ui2-intakepage--wide { max-width: none; }
 
 .ui-v2 .ui2-intakepage-crumbs {
   font-size: var(--font-size-sm);
