@@ -11,9 +11,11 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { applyVariantRootClass, UiVariantContext, resolveUiVariant } from './lib/uiVariant'
+import { installRipple } from './lib/ripple'
 
 const uiVariant = resolveUiVariant(window.location.search)
 applyVariantRootClass(uiVariant)
+installRipple()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

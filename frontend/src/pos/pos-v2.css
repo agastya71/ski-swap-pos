@@ -27,7 +27,7 @@
   padding: var(--space-3);
   /* 2px keeps the scan target obviously primary vs the 1px fields below it */
   border: 2px solid var(--navy);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-field);
   /* 18px, not the 16px --font-size-lg step: this field is read at arm's
      length while scanning, so it stays deliberately larger than body text. */
   font-size: 18px;
@@ -233,7 +233,7 @@
   max-width: 320px;
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--gray-200);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-field);
   font-size: var(--font-size-xs);
 }
 
@@ -269,7 +269,7 @@
   min-height: var(--touch-target);
   padding: var(--space-2);
   border: 1px solid var(--gray-200);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-field);
   font-size: var(--font-size-lg);
   font-variant-numeric: tabular-nums;
 }

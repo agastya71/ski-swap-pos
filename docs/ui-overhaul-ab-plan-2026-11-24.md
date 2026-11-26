@@ -171,3 +171,52 @@ bar) and page-body overflow at narrow widths was fixed where it mattered
 `docs/ui-refresh-ab-plan-2026-11-22.md` — the earlier A/B draft this plan replaced — was removed now that U0–U6 shipped. Its still-relevant ideas (parallel variant build, `?ui=` flag, phase discipline) were carried here when this doc was written; nothing else in it survived review.
 
 Also closed out with U7 (2026-11-25): the last measured narrow-width defect — the v2 admin tables (`ui2-settings-table--wide`, sessions, report data tables, transaction tables, editor lines table) overflowed at 420px (+144px, widest `ui2-settings-table--wide`). Fixed with a generic `.ui2-scroll-x` wrapper (plain unstyled div in v1, so v1 stays pixel-identical); overflow scan at 420/768/1280 now passes for every route in both variants' reachable states.
+
+## Material pass, PR 1 (2026-11-26, branch `ui-material-m1`)
+
+The v2 token sheet was re-skinned to **Material Design 3**, replacing the
+"neutral v2" look in place (still one build, `?ui=v1` unchanged as the escape
+hatch). Scope of PR 1: tokens + self-hosted Roboto + primitives/shell state
+layers + MD3 press ripple. Deliberately NOT MUI — the class-driven v2 system
+stays in control; Emotion-based components would not know `?ui=v1`.
+
+- Tokens (`frontend/src/ui-v2.css`): `--radius` 8→12px (MD3 large, cards/modals),
+  `--radius-sm` 6→9999px (MD3 "full" pill, buttons/chips), new `--radius-md`
+  28px (dialogs) and `--radius-field` 6px (inputs — MD3 does not pill inputs;
+  18 input/panel blocks re-pointed by selector classification), MD3 elevation
+  ladder (`--shadow-1/2/3`; legacy `--shadow-1` name keeps its role on cards/toasts,
+  dialogs use `--shadow-3`), MD3 color roles (`--md-primary` = ski-navy seed,
+  container/tonal/state-layer tokens), Roboto @font-face (self-hosted woff2 in
+  `frontend/public/fonts/`, 400/500/700, no CDN).
+- Typeface application: `.ui-v2 body` carries the literal Roboto-first stack —
+  routing through `var(--font)` does not work because `.ui-v2` and index.css
+  `:root` are the SAME element and index.css's later `:root` re-declaration
+  would win (verified via computed style; var-on-`--font` also cannot see the
+  .ui-v2 redefinition from the body element at all).
+- Ripple (`frontend/src/lib/ripple.ts` + tests, 5): one delegated pointerdown
+  listener, injected only under `.ui-v2`, skips disabled/aria-disabled targets
+  and the `ui2-reduced-motion` flag, spans sized 2×larger-axis centered at the
+  press point, removed on animationend. **Chromium quirk found:**
+  `animation-duration: var(--custom-prop)` computes to `0s` in Chrome (verified
+  vs a literal twin in CDP) — the ripple pins a literal 0.15s duration and the
+  pitfall note says why everything else may keep `var(--transition)`.
+- Buttons (`frontend/src/components/ui/primitives.css`): filled (primary),
+  tonal (secondary = `--md-primary-container`), text/danger; MD3 38% disabled
+  opacity; hover = elevation-1 + state layer, active = press state layer.
+  Cards gained elevation-1; toasts elevation-2; modals radius 28px + elevation-3.
+  Shell navlinks/role-badge stay pill-shaped via the same tokens.
+- Probe re-baseline (`scripts/pos-css-check.mjs`): 9 assertions deliberately
+  moved to MD3 values (radius 8→12px ×4, ghost/outline buttons → pill,
+  secondary button → container color, modal elevation string) plus 3 new MD3
+  assertions (font stack leads with Roboto, primary pill radius, tonal
+  secondary) = **322 assertions**. Mutation-checked: de-pilling `#im-ghost`
+  fails the probe exactly as expected.
+
+Gates (branch): FE 532/532 (+5 ripple), tsc clean, eslint = the pre-existing
+4+1, `css-wiring-check` 6/6, `pos-css-check` 322/322, shell probe PASS,
+ripple CDP probe (span created, animates 0.15s, self-removes, inert in v1
+and under the reduced-motion flag).
+
+PR 2 (planned): the stragglers — nav/header active-tint polish, chip shape on
+`ui2-role-badge`-adjacent surfaces if desired, and any values the user's pixel
+review flags.

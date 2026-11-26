@@ -82,7 +82,7 @@
   min-height: var(--touch-target);
   padding: 0 var(--space-3);
   border: var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-field);
   background: #fff;
   font-size: var(--font-size-lg);
   box-sizing: border-box;
@@ -182,7 +182,7 @@
   min-height: var(--touch-target);
   padding: 0 var(--space-2);
   border: var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-field);
   font-size: var(--font-size-md);
   box-sizing: border-box;
 }
@@ -292,7 +292,7 @@
   padding: var(--space-2) var(--space-3);
   margin-bottom: var(--space-3);
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-field);
   color: var(--gray-700);
   font-size: var(--font-size-sm);
 }
@@ -355,7 +355,7 @@
   min-height: var(--touch-target);
   padding: 0 var(--space-3);
   border: 1px solid var(--navy);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-field);
   font-size: var(--font-size-md);
 }
 
@@ -387,7 +387,7 @@
   max-height: 240px;
   overflow-y: auto;
   border: var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-field);
   background: #fff;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }

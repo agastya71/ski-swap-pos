@@ -626,7 +626,7 @@
   width: 100%;
   padding: 0 var(--space-2);
   border: var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-field);
   background: #fff;
   font-size: var(--font-size-md);
 }
@@ -701,7 +701,7 @@
   padding: 0 var(--space-3);
   margin-bottom: var(--space-3);
   border: 1px solid var(--navy);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-field);
   font-size: var(--font-size-md);
 }
 
@@ -831,7 +831,7 @@
   padding: 0 var(--space-2);
   margin-top: 2px;
   border: var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-field);
   font-size: var(--font-size-md);
 }
 
@@ -1013,7 +1013,7 @@
   width: 100%;
   padding: 0 var(--space-2);
   border: var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-field);
   font-size: var(--font-size-md);
 }
 
@@ -1026,7 +1026,7 @@
   padding: var(--space-3);
   margin-bottom: var(--space-2);
   border: var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-field);
 }
 
 .ui-v2 .ui2-sd-legend {
@@ -1228,7 +1228,7 @@
 .ui-v2 .ui2-modal-value {
   flex: 1;
   padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-field);
   background: var(--gray-100);
   font-family: var(--font-mono);
   font-size: var(--font-size-md);
@@ -1251,7 +1251,7 @@
   width: 100%;
   padding: 0 var(--space-2);
   border: var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-field);
   font-size: var(--font-size-md);
   box-sizing: border-box;
 }

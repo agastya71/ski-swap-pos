@@ -9,29 +9,39 @@
 
 /* ── Button ─────────────────────────────────────────────────────────────── */
 .ui2-btn--primary {
-  background: var(--navy);
-  color: var(--white);
-  border: 1px solid var(--navy);
+  background: var(--md-primary);
+  color: var(--md-on-primary);
+  border: 1px solid var(--md-primary);
   border-radius: var(--radius-sm);
   padding: var(--space-2) var(--space-4);
   font-size: var(--font-size-md);
-  font-weight: 600;
-  transition: background var(--transition);
+  font-weight: 500;
+  transition: background var(--transition), box-shadow var(--transition);
 }
-.ui2-btn--primary:hover:enabled { background: var(--blue-hover); }
-.ui2-btn--primary:disabled { opacity: 0.55; }
+.ui2-btn--primary:hover:enabled {
+  background: var(--md-primary);
+  box-shadow: var(--shadow-1);
+  background-image: linear-gradient(var(--md-state-hover), var(--md-state-hover));
+}
+.ui2-btn--primary:active:enabled { background-image: linear-gradient(var(--md-state-press), var(--md-state-press)); }
+.ui2-btn--primary:disabled { opacity: 0.38; }
 
 .ui2-btn--secondary {
-  background: var(--white);
-  color: var(--navy);
-  border: 1px solid var(--navy);
+  /* MD3 tonal variant: primary-container surface, no outline. */
+  background: var(--md-primary-container);
+  color: var(--md-on-primary-container);
+  border: none;
   border-radius: var(--radius-sm);
   padding: var(--space-2) var(--space-4);
   font-size: var(--font-size-md);
   font-weight: 500;
   transition: background var(--transition);
 }
-.ui2-btn--secondary:hover:enabled { background: var(--blue-light); }
+.ui2-btn--secondary:hover:enabled {
+  background: var(--md-secondary-container);
+  background-image: linear-gradient(var(--md-state-hover), var(--md-state-hover));
+}
+.ui2-btn--secondary:active:enabled { background-image: linear-gradient(var(--md-state-press), var(--md-state-press)); }
 
 .ui2-btn--danger {
   background: var(--red);
@@ -40,11 +50,11 @@
   border-radius: var(--radius-sm);
   padding: var(--space-2) var(--space-4);
   font-size: var(--font-size-md);
-  font-weight: 600;
+  font-weight: 500;
   transition: opacity var(--transition);
 }
-.ui2-btn--danger:hover:enabled { opacity: 0.9; }
-.ui2-btn--danger:disabled { opacity: 0.55; }
+.ui2-btn--danger:hover:enabled { opacity: 0.92; }
+.ui2-btn--danger:disabled { opacity: 0.38; }
 
 /* ── Fields (label + control + error) ───────────────────────────────────── */
 .ui2-field { display: flex; flex-direction: column; gap: var(--space-1); }
@@ -58,11 +68,11 @@
 
 /* ── Card ───────────────────────────────────────────────────────────────── */
 .ui2-card {
-  background: var(--white);
+  background: var(--md-surface);
   border: var(--border);
   border-radius: var(--radius);
   padding: var(--space-4);
-  box-shadow: none;
+  box-shadow: var(--shadow-1);
 }
 .ui2-card-head {
   display: flex;
@@ -104,9 +114,9 @@
 }
 .ui2-modal-panel {
   background: var(--white);
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
   border: var(--border);
-  box-shadow: var(--shadow-1);
+  box-shadow: var(--shadow-3);
   padding: var(--space-4);
   width: min(560px, 100%);
   max-height: calc(100vh - 2 * var(--space-6));
@@ -142,7 +152,7 @@
   font-size: var(--font-size-sm);
   font-weight: 500;
   z-index: 60;
-  box-shadow: var(--shadow-1);
+  box-shadow: var(--shadow-2);
 }
 .ui2-toast--success { background: var(--green-bg); color: var(--white); }
 .ui2-toast--error { background: var(--red); color: var(--white); }
