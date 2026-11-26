@@ -24,6 +24,14 @@ import {
 } from "../lib/labelPrinter";
 import { CATEGORIES, typesForCategory } from "../lib/itemSizes";
 import type { Item, ItemUpdate } from "../types";
+import {
+  ITEM_LIST,
+  variantProps,
+  v1Only,
+  v2Only,
+} from "./intakeStyles";
+import { useUiVariant } from "../lib/uiVariant";
+import { TableScroll } from "../components/ui/primitives";
 
 /**
  * Renders a tabular list of items belonging to a single intake session.
@@ -76,6 +84,7 @@ export function ItemList({
   // Inline donate-unsold toggle per line item (PATCHes immediately).
   const [donatePendingId, setDonatePendingId] = useState<number | null>(null);
   const [donateError, setDonateError] = useState<string | null>(null);
+  const v2 = useUiVariant() === "v2";
 
   /** Opens the edit panel for the given item, or closes it if already open. */
   function openEdit(item: Item) {
@@ -239,32 +248,25 @@ export function ItemList({
   return (
     <div>
       {deleteError && (
-        <div role="alert" style={{ color: "red", marginBottom: 8 }}>
+        <div role="alert" {...variantProps(v2, "ui2-items-error", ITEM_LIST.errorLine)}>
           {deleteError}
         </div>
       )}
       {donateError && (
-        <div role="alert" style={{ color: "red", marginBottom: 8 }}>
+        <div role="alert" {...variantProps(v2, "ui2-items-error", ITEM_LIST.errorLine)}>
           {donateError}
         </div>
       )}
       {printError && (
-        <div role="alert" style={{ color: "red", marginBottom: 8 }}>
+        <div role="alert" {...variantProps(v2, "ui2-items-error", ITEM_LIST.errorLine)}>
           {printError}
         </div>
       )}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 8,
-        }}
-      >
-        <h4 style={{ margin: 0 }}>
+      <div {...variantProps(v2, "ui2-items-header", ITEM_LIST.header)}>
+        <h4 {...variantProps(v2, "ui2-items-title", ITEM_LIST.title)}>
           {items.length} item{items.length !== 1 ? "s" : ""}
         </h4>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div {...variantProps(v2, "ui2-items-actions", ITEM_LIST.headerActions)}>
           {/* Print the item code as text instead of a barcode — applies to
               every label printed from this list (per-item and bulk). */}
           {/* Label printer target: server-attached Zebra (default), this
@@ -278,21 +280,13 @@ export function ItemList({
               setPrinterMode(mode);
               setLabelPrinterMode(mode);
             }}
-            style={{ fontSize: 13, padding: "4px 6px" }}
+            {...variantProps(v2, "ui2-items-printer-select", ITEM_LIST.printerSelect)}
           >
             <option value="server">Print on server</option>
             <option value="agent">Print here (Browser Print agent)</option>
             <option value="download">Download .zpl file</option>
           </select>
-          <label
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              fontSize: 13,
-              whiteSpace: "nowrap",
-            }}
-          >
+          <label {...variantProps(v2, "ui2-items-code-toggle", ITEM_LIST.codeAsTextLabel)}>
             <input
               type="checkbox"
               checked={codeAsText}
@@ -301,34 +295,39 @@ export function ItemList({
             />
             Code as text (no barcode)
           </label>
-          <button onClick={handlePrintAll} style={BUTTON_STYLE}>
+          <button
+            onClick={handlePrintAll}
+            {...v1Only(v2, BUTTON_STYLE)}
+            {...v2Only(v2, "ui2-btn ui2-btn--secondary")}
+          >
             Print Labels for All Items
           </button>
         </div>
       </div>
+      <TableScroll>
       <table
-        style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}
+        {...variantProps(v2, "ui2-items-table", ITEM_LIST.table)}
       >
         <thead>
-          <tr style={{ borderBottom: "2px solid #ccc" }}>
-            <th style={{ textAlign: "left", padding: "4px 8px" }}>Code</th>
-            <th style={{ textAlign: "right", padding: "4px 8px" }}>Qty</th>
-            <th style={{ textAlign: "left", padding: "4px 8px" }}>Category</th>
-            <th style={{ textAlign: "left", padding: "4px 8px" }}>Type</th>
-            <th style={{ textAlign: "left", padding: "4px 8px" }}>Brand</th>
-            <th style={{ textAlign: "left", padding: "4px 8px" }}>
+          <tr {...v1Only(v2, ITEM_LIST.headRow)}>
+            <th {...v1Only(v2, ITEM_LIST.thLeft)}>Code</th>
+            <th {...v1Only(v2, ITEM_LIST.thRight)}>Qty</th>
+            <th {...v1Only(v2, ITEM_LIST.thLeft)}>Category</th>
+            <th {...v1Only(v2, ITEM_LIST.thLeft)}>Type</th>
+            <th {...v1Only(v2, ITEM_LIST.thLeft)}>Brand</th>
+            <th {...v1Only(v2, ITEM_LIST.thLeft)}>
               Description
             </th>
-            <th style={{ textAlign: "left", padding: "4px 8px" }}>Size</th>
-            <th style={{ textAlign: "right", padding: "4px 8px" }}>
+            <th {...v1Only(v2, ITEM_LIST.thLeft)}>Size</th>
+            <th {...v1Only(v2, ITEM_LIST.thRight)}>
               Sell Price
             </th>
-            <th style={{ textAlign: "right", padding: "4px 8px" }}>
+            <th {...v1Only(v2, ITEM_LIST.thRight)}>
               Total Price
             </th>
-            <th style={{ textAlign: "left", padding: "4px 8px" }}>Donate?</th>
-            <th style={{ textAlign: "right", padding: "4px 8px" }}>On Hand</th>
-            <th style={{ textAlign: "left", padding: "4px 8px" }}>Label</th>
+            <th {...v1Only(v2, ITEM_LIST.thLeft)}>Donate?</th>
+            <th {...v1Only(v2, ITEM_LIST.thRight)}>On Hand</th>
+            <th {...v1Only(v2, ITEM_LIST.thLeft)}>Label</th>
             <th />
           </tr>
         </thead>
@@ -336,29 +335,30 @@ export function ItemList({
           {items.map((item) => (
             <Fragment key={item.id}>
               <tr
-                style={{
-                  borderBottom:
-                    expandedEditId === item.id ? "none" : "1px solid #eee",
-                }}
+                {...variantProps(
+                  v2,
+                  expandedEditId === item.id ? "ui2-items-row--open" : "",
+                  ITEM_LIST.row(expandedEditId === item.id),
+                )}
               >
-                <td style={{ padding: "4px 8px" }}>{item.code}</td>
-                <td style={{ padding: "4px 8px", textAlign: "right" }}>
+                <td {...v1Only(v2, ITEM_LIST.cell)}>{item.code}</td>
+                <td {...variantProps(v2, "ui2-num", ITEM_LIST.cellRight)}>
                   {item.quantity}
                 </td>
-                <td style={{ padding: "4px 8px" }}>{item.category}</td>
-                <td style={{ padding: "4px 8px" }}>{item.type ?? "—"}</td>
-                <td style={{ padding: "4px 8px" }}>{item.brand ?? "—"}</td>
-                <td style={{ padding: "4px 8px" }}>
+                <td {...v1Only(v2, ITEM_LIST.cell)}>{item.category}</td>
+                <td {...v1Only(v2, ITEM_LIST.cell)}>{item.type ?? "—"}</td>
+                <td {...v1Only(v2, ITEM_LIST.cell)}>{item.brand ?? "—"}</td>
+                <td {...v1Only(v2, ITEM_LIST.cell)}>
                   {item.description ?? "—"}
                 </td>
-                <td style={{ padding: "4px 8px" }}>{item.size ?? "—"}</td>
-                <td style={{ padding: "4px 8px", textAlign: "right" }}>
+                <td {...v1Only(v2, ITEM_LIST.cell)}>{item.size ?? "—"}</td>
+                <td {...variantProps(v2, "ui2-num", ITEM_LIST.cellRight)}>
                   ${item.price.toFixed(2)}
                 </td>
-                <td style={{ padding: "4px 8px", textAlign: "right" }}>
+                <td {...variantProps(v2, "ui2-num", ITEM_LIST.cellRight)}>
                   ${(item.price * item.quantity).toFixed(2)}
                 </td>
-                <td style={{ padding: "4px 8px" }}>
+                <td {...v1Only(v2, ITEM_LIST.cell)}>
                   <input
                     type="checkbox"
                     aria-label={`Donate if unsold for ${item.code}`}
@@ -367,19 +367,19 @@ export function ItemList({
                     onChange={() => void handleToggleDonate(item)}
                   />
                 </td>
-                <td style={{ padding: "4px 8px", textAlign: "right" }}>
+                <td {...variantProps(v2, "ui2-num", ITEM_LIST.cellRight)}>
                   {item.remaining}
                 </td>
-                <td style={{ padding: "4px 8px" }}>
+                <td {...v1Only(v2, ITEM_LIST.cell)}>
                   {item.label_printed ? "✓ printed" : "—"}
                 </td>
-                <td style={{ padding: "4px 8px", whiteSpace: "nowrap" }}>
+                <td {...variantProps(v2, "ui2-items-nowrap ui2-items-actions", ITEM_LIST.cellNowrap)}>
                   {/* Print All Labels = one label per on-hand remaining unit.
                       Print N = an explicitly-specified number of labels. */}
                   <button
                     aria-label={`Print all labels for ${item.code}`}
                     onClick={() => void handlePrintOne(item.id)}
-                    style={{ ...BUTTON_STYLE, marginRight: 4 }}
+                    {...v1Only(v2, ITEM_LIST.rowButton)}{...v2Only(v2, "ui2-btn ui2-btn--secondary")}
                   >
                     Print All Labels
                   </button>
@@ -391,7 +391,7 @@ export function ItemList({
                     onChange={(e) =>
                       setPrintQty((p) => ({ ...p, [item.id]: e.target.value }))
                     }
-                    style={{ width: 52, marginRight: 2 }}
+                    {...v1Only(v2, ITEM_LIST.printInput)}
                   />
                   <button
                     aria-label={`Print the specified number of labels for ${item.code}`}
@@ -402,13 +402,13 @@ export function ItemList({
                         Number(printQty[item.id] ?? 0),
                       )
                     }
-                    style={{ ...BUTTON_STYLE, marginRight: 4 }}
+                    {...v1Only(v2, ITEM_LIST.rowButton)}{...v2Only(v2, "ui2-btn ui2-btn--secondary")}
                   >
                     Print
                   </button>
                   <button
                     onClick={() => openEdit(item)}
-                    style={{ ...BUTTON_STYLE, marginRight: 4 }}
+                    {...v1Only(v2, ITEM_LIST.rowButton)}{...v2Only(v2, "ui2-btn ui2-btn--secondary")}
                   >
                     Edit
                   </button>
@@ -424,7 +424,8 @@ export function ItemList({
                           ? "Only available items can be deleted"
                           : `Delete item ${item.code}`
                     }
-                    style={BUTTON_STYLE}
+                    {...v1Only(v2, BUTTON_STYLE)}
+                    {...v2Only(v2, "ui2-btn ui2-btn--secondary")}
                     onClick={() => {
                       if (
                         window.confirm(
@@ -442,29 +443,11 @@ export function ItemList({
                 <tr>
                   <td
                     colSpan={13}
-                    style={{
-                      padding: "8px 16px 16px",
-                      background: "#f8fafc",
-                      borderBottom: "1px solid #eee",
-                    }}
+                    {...variantProps(v2, "ui2-items-panel-cell", ITEM_LIST.panelCell)}
                   >
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr 1fr 1fr",
-                        gap: 8,
-                        marginBottom: 8,
-                      }}
-                    >
+                    <div {...variantProps(v2, "ui2-items-edit-grid", ITEM_LIST.editGrid)}>
                       <div>
-                        <label
-                          style={{
-                            display: "block",
-                            fontSize: 12,
-                            color: "#64748b",
-                            marginBottom: 2,
-                          }}
-                        >
+                        <label {...variantProps(v2, "ui2-items-edit-label", ITEM_LIST.editLabel)}>
                           Description
                         </label>
                         <input
@@ -476,23 +459,11 @@ export function ItemList({
                               description: capitalizeWords(e.target.value),
                             }))
                           }
-                          style={{
-                            width: "100%",
-                            padding: "4px 6px",
-                            boxSizing: "border-box",
-                            fontSize: 13,
-                          }}
+                          {...variantProps(v2, "ui2-items-edit-input", ITEM_LIST.editInput)}
                         />
                       </div>
                       <div>
-                        <label
-                          style={{
-                            display: "block",
-                            fontSize: 12,
-                            color: "#64748b",
-                            marginBottom: 2,
-                          }}
-                        >
+                        <label {...variantProps(v2, "ui2-items-edit-label", ITEM_LIST.editLabel)}>
                           Price
                         </label>
                         <input
@@ -503,23 +474,11 @@ export function ItemList({
                           onChange={(e) =>
                             setDraft((d) => ({ ...d, price: e.target.value }))
                           }
-                          style={{
-                            width: "100%",
-                            padding: "4px 6px",
-                            boxSizing: "border-box",
-                            fontSize: 13,
-                          }}
+                          {...variantProps(v2, "ui2-items-edit-input", ITEM_LIST.editInput)}
                         />
                       </div>
                       <div>
-                        <label
-                          style={{
-                            display: "block",
-                            fontSize: 12,
-                            color: "#64748b",
-                            marginBottom: 2,
-                          }}
-                        >
+                        <label {...variantProps(v2, "ui2-items-edit-label", ITEM_LIST.editLabel)}>
                           Brand
                         </label>
                         <input
@@ -527,23 +486,11 @@ export function ItemList({
                           onChange={(e) =>
                             setDraft((d) => ({ ...d, brand: e.target.value }))
                           }
-                          style={{
-                            width: "100%",
-                            padding: "4px 6px",
-                            boxSizing: "border-box",
-                            fontSize: 13,
-                          }}
+                          {...variantProps(v2, "ui2-items-edit-input", ITEM_LIST.editInput)}
                         />
                       </div>
                       <div>
-                        <label
-                          style={{
-                            display: "block",
-                            fontSize: 12,
-                            color: "#64748b",
-                            marginBottom: 2,
-                          }}
-                        >
+                        <label {...variantProps(v2, "ui2-items-edit-label", ITEM_LIST.editLabel)}>
                           Category
                         </label>
                         <select
@@ -556,12 +503,7 @@ export function ItemList({
                               size: "",
                             }))
                           }
-                          style={{
-                            width: "100%",
-                            padding: "4px 6px",
-                            boxSizing: "border-box",
-                            fontSize: 13,
-                          }}
+                          {...variantProps(v2, "ui2-items-edit-input", ITEM_LIST.editInput)}
                         >
                           <option value="">— select —</option>
                           {CATEGORIES.map((c) => (
@@ -572,14 +514,7 @@ export function ItemList({
                         </select>
                       </div>
                       <div>
-                        <label
-                          style={{
-                            display: "block",
-                            fontSize: 12,
-                            color: "#64748b",
-                            marginBottom: 2,
-                          }}
-                        >
+                        <label {...variantProps(v2, "ui2-items-edit-label", ITEM_LIST.editLabel)}>
                           Type
                         </label>
                         <select
@@ -591,12 +526,7 @@ export function ItemList({
                               size: d.type ? "" : d.size,
                             }))
                           }
-                          style={{
-                            width: "100%",
-                            padding: "4px 6px",
-                            boxSizing: "border-box",
-                            fontSize: 13,
-                          }}
+                          {...variantProps(v2, "ui2-items-edit-input", ITEM_LIST.editInput)}
                         >
                           <option value="">— select type —</option>
                           {typesForCategory(draft.category).map((t) => (
@@ -607,14 +537,7 @@ export function ItemList({
                         </select>
                       </div>
                       <div>
-                        <label
-                          style={{
-                            display: "block",
-                            fontSize: 12,
-                            color: "#64748b",
-                            marginBottom: 2,
-                          }}
-                        >
+                        <label {...variantProps(v2, "ui2-items-edit-label", ITEM_LIST.editLabel)}>
                           Size
                         </label>
                         {/* Free text: size scales vary per item (cm lengths,
@@ -626,25 +549,12 @@ export function ItemList({
                             setDraft((d) => ({ ...d, size: e.target.value }))
                           }
                           placeholder="e.g. 170cm, 27.5, M"
-                          style={{
-                            width: "100%",
-                            padding: "4px 6px",
-                            boxSizing: "border-box",
-                            fontSize: 13,
-                          }}
+                          {...variantProps(v2, "ui2-items-edit-input", ITEM_LIST.editInput)}
                         />
                       </div>
                     </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        marginBottom: 8,
-                        fontSize: 13,
-                      }}
-                    >
-                      <span style={{ color: "#64748b" }}>
+                    <div {...variantProps(v2, "ui2-items-note-row", ITEM_LIST.noteRow)}>
+                      <span {...variantProps(v2, "ui2-items-note-text", ITEM_LIST.noteText)}>
                         On hand: <strong>{item.remaining}</strong> of{" "}
                         {item.quantity} intake
                         {item.quantity !== 1 ? " units" : " unit"}
@@ -657,13 +567,13 @@ export function ItemList({
                         const target = parseInt(raw.slice(1), 10);
                         if (Number.isNaN(target)) return null;
                         return (
-                          <span style={{ color: "#2563eb", fontSize: 12 }}>
+                          <span {...variantProps(v2, "ui2-items-note-preview", ITEM_LIST.notePreview)}>
                             → {target} on hand ({target - item.remaining >= 0 ? "+" : ""}
                             {target - item.remaining})
                           </span>
                         );
                       })()}
-                      <label style={{ color: "#64748b" }}>
+                      <label {...variantProps(v2, "ui2-items-note-text", ITEM_LIST.noteText)}>
                         Adjust by (or =target):
                       </label>
                       <input
@@ -686,51 +596,42 @@ export function ItemList({
                           }
                         }}
                         placeholder="e.g. 3, -2, or =8"
-                        style={{ width: 120, padding: "4px 6px", fontSize: 13 }}
+                        {...variantProps(v2, "ui2-items-qty-input", ITEM_LIST.qtyInput)}
                       />
                       <button
                         type="button"
                         onClick={() =>
                           void handleAdjustQty(item.id, qtyAdjust[item.id] ?? "")
                         }
-                        style={BUTTON_STYLE}
+                        {...v1Only(v2, BUTTON_STYLE)}
+                        {...v2Only(v2, "ui2-btn ui2-btn--secondary")}
                       >
                         Apply
                       </button>
                       {qtyError[item.id] && (
-                        <span role="alert" style={{ color: "#ef4444" }}>
+                        <span role="alert" {...variantProps(v2, "ui2-items-qty-error", ITEM_LIST.qtyError)}>
                           {qtyError[item.id]}
                         </span>
                       )}
                     </div>
                     {saveError && (
-                      <p
-                        role="alert"
-                        style={{
-                          color: "#ef4444",
-                          fontSize: 12,
-                          margin: "0 0 8px",
-                        }}
-                      >
+                      <p role="alert" {...variantProps(v2, "ui2-items-save-error", ITEM_LIST.saveError)}>
                         {saveError}
                       </p>
                     )}
-                    <div
-                      style={{ display: "flex", gap: 8, alignItems: "center" }}
-                    >
+                    <div {...variantProps(v2, "ui2-items-panel-actions", ITEM_LIST.actionRow)}>
                       <button
                         onClick={() => handleSave(item.id)}
                         disabled={saving}
-                        style={{
-                          ...BUTTON_STYLE,
-                          cursor: saving ? "default" : "pointer",
-                        }}
+                        style={v1Only(v2, ITEM_LIST.saveButton(saving)).style}
+                        {...v2Only(v2, "ui2-btn ui2-btn--primary")}
                       >
                         {saving ? "Saving…" : "Save"}
                       </button>
                       <button
                         onClick={() => setExpandedEditId(null)}
-                        style={BUTTON_STYLE}
+                        {...v1Only(v2, BUTTON_STYLE)}
+                        {...v2Only(v2, "ui2-btn ui2-btn--secondary")}
                       >
                         Cancel
                       </button>
@@ -746,10 +647,8 @@ export function ItemList({
                               ? "Cannot delete an item that has been sold"
                               : ""
                         }
-                        style={{
-                          ...BUTTON_STYLE,
-                          marginLeft: "auto",
-                        }}
+                        {...v1Only(v2, BUTTON_STYLE)}
+                        {...v2Only(v2, "ui2-btn ui2-btn--danger ui2-items-panel-delete")}
                       >
                         Delete
                       </button>
@@ -761,36 +660,24 @@ export function ItemList({
           ))}
         </tbody>
         <tfoot>
-          <tr
-            style={{
-              borderTop: "2px solid #333",
-              fontWeight: "bold",
-              background: "#f8fafc",
-            }}
-          >
-            <td style={{ padding: "6px 8px" }} />
-            <td style={{ padding: "6px 8px", textAlign: "right" }}>
-              {totalUnits}
-            </td>
-            <td
-              colSpan={5}
-              style={{ padding: "6px 8px", textAlign: "right" }}
-            >
+          <tr {...v1Only(v2, ITEM_LIST.footRow)}>
+            <td {...v1Only(v2, ITEM_LIST.footCell)} />
+            <td {...v1Only(v2, ITEM_LIST.footCellRight)}>{totalUnits}</td>
+            <td colSpan={5} {...v1Only(v2, ITEM_LIST.footCellRight)}>
               Total — {items.length} item
               {items.length !== 1 ? "s" : ""}
             </td>
             <td />
-            <td style={{ padding: "6px 8px", textAlign: "right" }}>
+            <td {...v1Only(v2, ITEM_LIST.footCellRight)}>
               ${totalPrice.toFixed(2)}
             </td>
             <td />
-            <td style={{ padding: "6px 8px", textAlign: "right" }}>
-              {totalOnHand}
-            </td>
+            <td {...v1Only(v2, ITEM_LIST.footCellRight)}>{totalOnHand}</td>
             <td colSpan={2} />
           </tr>
         </tfoot>
       </table>
+      </TableScroll>
     </div>
   );
 }

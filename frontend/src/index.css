@@ -1,7 +1,14 @@
-/* UI overhaul v2 tokens (phase U1) — inert without the .ui-v2 root class */
+/* UI overhaul v2 styles (phases U1–U6) — @import must come before all other
+   statements or PostCSS drops them silently; every rule inside is scoped to
+   the .ui-v2 root class, so they are inert in v1. */
 @import './ui-v2.css';
-/* v2 styling for the components/ui primitives (also inert in v1) */
 @import './components/ui/primitives.css';
+@import './ui-v2-shell.css';
+@import './pos/pos-v2.css';
+@import './pos/pos-editor-v2.css';
+@import './intake/intake-v2.css';
+@import './admin/admin-v2.css';
+@import './ui-v2-auth.css';
 
 /* ── MYXC Brand Theme ─────────────────────────────────────────────────────── */
 :root {

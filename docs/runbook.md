@@ -80,6 +80,21 @@ APP_HOST=0.0.0.0 APP_PORT=8000 bash start.sh     # backend only, LAN-direct
 ```cd frontend && npm run dev                        # http://localhost:5173, proxies API → :8000
 ```
 
+### Dev workflow: one-time hook install
+
+A pre-push hook guards the two silent frontend-CSS failures (an `@import`
+sitting after another statement, and a v2 stylesheet nothing imports). It
+lives in `scripts/hooks/` so it is version-controlled, but git does not track
+`.git/hooks/` — install it once per clone:
+
+```bash
+bash scripts/install-git-hooks.sh
+```
+
+The hook only runs when the pushed range touches `frontend/src/**/*.css`, so
+unrelated pushes stay instant. Skip it for one command with `--no-verify`.
+Background and the full list of traps: `docs/ui-verification-pitfalls.md`.
+
 ### Run as a system daemon at boot (systemd)
 
 The app runs as a **system service** (`ski-swap-pos.service`) that starts

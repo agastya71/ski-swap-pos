@@ -17,6 +17,8 @@ import { CATEGORIES, typesForCategory } from "../lib/itemSizes";
 import type { Item } from "../types";
 
 import { BUTTON_STYLE } from "../lib/buttons";
+import { ITEM_FORM, variantProps, v1Only, v2Only } from "./intakeStyles";
+import { useUiVariant } from "../lib/uiVariant";
 
 const emptyForm = (donateUnsold: boolean) => ({
   quantity: "1",
@@ -52,6 +54,7 @@ export function ItemForm({
   const [priceNote, setPriceNote] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [brandSuggestions, setBrandSuggestions] = useState<string[]>([]);
+  const v2 = useUiVariant() === "v2";
   // Focus handle for the Quantity field (#6): focused on mount and again after
   // each successful add, so back-to-back entries start where the staff always
   // begin — the Qty box.
@@ -134,20 +137,15 @@ export function ItemForm({
     }
   }
 
+  const descOver = f.description.length >= 90;
+
   return (
     <form onSubmit={handleSubmit}>
       <h4>Add Item</h4>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "0 12px",
-        }}
-      >
-        <div style={{ marginBottom: 8 }}>
-          <label
-            htmlFor="quantity"
-            style={{ display: "block", fontSize: 13, marginBottom: 2 }}
+      <div {...variantProps(v2, "ui2-itemform-grid", ITEM_FORM.grid)}>
+        <div {...variantProps(v2, "ui2-itemform-field", ITEM_FORM.field)}>
+          <label htmlFor="quantity"
+            {...variantProps(v2, "ui2-itemform-label", ITEM_FORM.label)}
           >
             Qty
           </label>
@@ -159,13 +157,12 @@ export function ItemForm({
             step="1"
             value={f.quantity}
             onChange={(e) => set("quantity", e.target.value)}
-            style={{ width: "100%", padding: 5, boxSizing: "border-box" }}
+            {...variantProps(v2, "ui2-itemform-input", ITEM_FORM.inputBox)}
           />
         </div>
-        <div style={{ marginBottom: 8 }}>
-          <label
-            htmlFor="category"
-            style={{ display: "block", fontSize: 13, marginBottom: 2 }}
+        <div {...variantProps(v2, "ui2-itemform-field", ITEM_FORM.field)}>
+          <label htmlFor="category"
+            {...variantProps(v2, "ui2-itemform-label", ITEM_FORM.label)}
           >
             Category *
           </label>
@@ -174,7 +171,7 @@ export function ItemForm({
             value={f.category}
             onChange={(e) => handleCategoryChange(e.target.value)}
             required
-            style={{ width: "100%", padding: 5 }}
+            {...variantProps(v2, "ui2-itemform-input", ITEM_FORM.inputPlain)}
           >
             <option value="">— select —</option>
             {CATEGORIES.map((c) => (
@@ -184,10 +181,9 @@ export function ItemForm({
             ))}
           </select>
         </div>
-        <div style={{ marginBottom: 8 }}>
-          <label
-            htmlFor="type"
-            style={{ display: "block", fontSize: 13, marginBottom: 2 }}
+        <div {...variantProps(v2, "ui2-itemform-field", ITEM_FORM.field)}>
+          <label htmlFor="type"
+            {...variantProps(v2, "ui2-itemform-label", ITEM_FORM.label)}
           >
             Type
           </label>
@@ -195,7 +191,7 @@ export function ItemForm({
             id="type"
             value={f.type}
             onChange={(e) => handleTypeChange(e.target.value)}
-            style={{ width: "100%", padding: 5 }}
+            {...variantProps(v2, "ui2-itemform-input", ITEM_FORM.inputPlain)}
           >
             <option value="">— select type —</option>
             {typesForCategory(f.category).map((t) => (
@@ -205,10 +201,9 @@ export function ItemForm({
             ))}
           </select>
         </div>
-        <div style={{ marginBottom: 8 }}>
-          <label
-            htmlFor="brand"
-            style={{ display: "block", fontSize: 13, marginBottom: 2 }}
+        <div {...variantProps(v2, "ui2-itemform-field", ITEM_FORM.field)}>
+          <label htmlFor="brand"
+            {...variantProps(v2, "ui2-itemform-label", ITEM_FORM.label)}
           >
             Brand *
           </label>
@@ -218,7 +213,7 @@ export function ItemForm({
             value={f.brand}
             onChange={(e) => handleBrandInput(e.target.value)}
             required
-            style={{ width: "100%", padding: 5 }}
+            {...variantProps(v2, "ui2-itemform-input", ITEM_FORM.inputPlain)}
           />
           <datalist id="brand-suggestions">
             {brandSuggestions.map((b) => (
@@ -226,10 +221,9 @@ export function ItemForm({
             ))}
           </datalist>
         </div>
-        <div style={{ marginBottom: 8 }}>
-          <label
-            htmlFor="description"
-            style={{ display: "block", fontSize: 13, marginBottom: 2 }}
+        <div {...variantProps(v2, "ui2-itemform-field", ITEM_FORM.field)}>
+          <label htmlFor="description"
+            {...variantProps(v2, "ui2-itemform-label", ITEM_FORM.label)}
           >
             Description
           </label>
@@ -238,23 +232,21 @@ export function ItemForm({
             value={f.description}
             onChange={(e) => set("description", capitalizeWords(e.target.value))}
             maxLength={99}
-            style={{ width: "100%", padding: 5, boxSizing: "border-box" }}
+            {...variantProps(v2, "ui2-itemform-input", ITEM_FORM.inputBox)}
           />
           <div
-            style={{
-              textAlign: "right",
-              fontSize: 11,
-              color: f.description.length >= 90 ? "#ef4444" : "#94a3b8",
-              marginTop: 2,
-            }}
+            {...variantProps(
+              v2,
+              descOver ? "ui2-itemform-counter ui2-itemform-counter--over" : "ui2-itemform-counter",
+              ITEM_FORM.counter(descOver),
+            )}
           >
             {f.description.length} / 99
           </div>
         </div>
-        <div style={{ marginBottom: 8 }}>
-          <label
-            htmlFor="size"
-            style={{ display: "block", fontSize: 13, marginBottom: 2 }}
+        <div {...variantProps(v2, "ui2-itemform-field", ITEM_FORM.field)}>
+          <label htmlFor="size"
+            {...variantProps(v2, "ui2-itemform-label", ITEM_FORM.label)}
           >
             Size
           </label>
@@ -266,13 +258,12 @@ export function ItemForm({
             value={f.size}
             onChange={(e) => set("size", e.target.value)}
             placeholder="e.g. 170cm, 27.5, M"
-            style={{ width: "100%", padding: 5, boxSizing: "border-box" }}
+            {...variantProps(v2, "ui2-itemform-input", ITEM_FORM.inputBox)}
           />
         </div>
-        <div style={{ marginBottom: 8 }}>
-          <label
-            htmlFor="price"
-            style={{ display: "block", fontSize: 13, marginBottom: 2 }}
+        <div {...variantProps(v2, "ui2-itemform-field", ITEM_FORM.field)}>
+          <label htmlFor="price"
+            {...variantProps(v2, "ui2-itemform-label", ITEM_FORM.label)}
           >
             Sell Price * (whole dollars)
           </label>
@@ -284,23 +275,16 @@ export function ItemForm({
             value={f.price}
             onChange={(e) => handlePriceInput(e.target.value)}
             required
-            style={{ width: "100%", padding: 5, boxSizing: "border-box" }}
+            {...variantProps(v2, "ui2-itemform-input", ITEM_FORM.inputBox)}
           />
           {priceNote && (
-            <div style={{ fontSize: 11, color: "#b45309", marginTop: 2 }}>
+            <div {...variantProps(v2, "ui2-itemform-price-note", ITEM_FORM.priceNote)}>
               {priceNote}
             </div>
           )}
         </div>
       </div>
-      <div
-        style={{
-          marginBottom: 10,
-          display: "flex",
-          gap: 16,
-          alignItems: "flex-start",
-        }}
-      >
+      <div {...variantProps(v2, "ui2-itemform-donate", ITEM_FORM.donateRow)}>
         <div>
           <label>
             <input
@@ -313,18 +297,18 @@ export function ItemForm({
           {/* Inheritance visibility (tester feedback: "inherit donation permission
               from seller registration onto equipment intake — not sure this is working").
               Show the inherited value the checkbox starts from. */}
-          <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+          <div {...variantProps(v2, "ui2-itemform-inherit", ITEM_FORM.inheritNote)}>
             Intake default: donate unsold {defaultDonateUnsold ? "Yes" : "No"} —
             inherited from the seller's registration
           </div>
         </div>
       </div>
       {error && (
-        <div role="alert" style={{ color: "red", marginBottom: 8 }}>
+        <div role="alert" {...variantProps(v2, "ui2-itemform-error", ITEM_FORM.error)}>
           {error}
         </div>
       )}
-      <button type="submit" disabled={loading} style={BUTTON_STYLE}>
+      <button type="submit" disabled={loading} {...v1Only(v2, BUTTON_STYLE)} {...v2Only(v2, "ui2-btn ui2-btn--primary")}>
         {loading ? "Adding…" : "Add Item"}
       </button>
     </form>

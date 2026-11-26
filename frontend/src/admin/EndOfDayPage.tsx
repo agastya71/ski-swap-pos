@@ -5,9 +5,10 @@
  */
 
 import { useState, useEffect } from "react";
-import { BUTTON_STYLE } from "../lib/buttons";
 import { getEndOfDay, downloadFile } from "../api/reports";
 import type { EndOfDayReport } from "../types";
+import { useUiVariant } from "../lib/uiVariant";
+import { variantProps, v1Only, END_OF_DAY as V1_EOD } from "./adminStyles";
 
 /**
  * Displays the end-of-day financial summary and download controls for the given event.
@@ -16,6 +17,7 @@ import type { EndOfDayReport } from "../types";
  */
 export function EndOfDayPage({ eventId }: { eventId: number }) {
   const [report, setReport] = useState<EndOfDayReport | null>(null);
+  const v2 = useUiVariant() === "v2";
 
   useEffect(() => {
     getEndOfDay(eventId)
@@ -24,22 +26,15 @@ export function EndOfDayPage({ eventId }: { eventId: number }) {
   }, [eventId]);
 
   return (
-    <div style={{ maxWidth: 600 }}>
+    <div {...variantProps(v2, "ui2-eod", V1_EOD.root)}>
       <h3>End of Day</h3>
 
-      <section
-        style={{
-          marginBottom: 24,
-          padding: 16,
-          background: "#f5f5f5",
-          borderRadius: 4,
-        }}
-      >
-        <h4 style={{ margin: "0 0 12px" }}>Summary</h4>
+      <section {...variantProps(v2, "ui2-eod-panel", V1_EOD.panel)}>
+        <h4 {...variantProps(v2, "ui2-eod-title", V1_EOD.title)}>Summary</h4>
         {!report && <p>Loading…</p>}
         {report && (
           <>
-            <table style={{ width: "auto", borderCollapse: "collapse" }}>
+            <table {...variantProps(v2, "ui2-report-kv", V1_EOD.kvTable)}>
               <tbody>
                 {[
                   [
@@ -62,21 +57,14 @@ export function EndOfDayPage({ eventId }: { eventId: number }) {
                   ["Check", `$${report.check_total.toFixed(2)}`],
                   ["Card (Square)", `$${report.cc_total.toFixed(2)}`],
                 ].map(([label, val]) => (
-                  <tr key={label} style={{ borderBottom: "1px solid #ddd" }}>
-                    <td
-                      style={{
-                        padding: "4px 24px 4px 8px",
-                        fontWeight: "bold",
-                      }}
-                    >
-                      {label}
-                    </td>
-                    <td style={{ padding: "4px 8px" }}>{val}</td>
+                  <tr key={label} {...v1Only(v2, V1_EOD.kvRow)}>
+                    <td {...v1Only(v2, V1_EOD.kvLabelWide)}>{label}</td>
+                    <td {...v1Only(v2, V1_EOD.kvValue)}>{val}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+            <div {...variantProps(v2, "ui2-eod-buttons", V1_EOD.buttonRow)}>
               {(["pdf", "csv", "md"] as const).map((fmt) => {
                 const label = fmt === "md" ? "Markdown" : fmt.toUpperCase();
                 return (
@@ -88,7 +76,7 @@ export function EndOfDayPage({ eventId }: { eventId: number }) {
                         `end_of_day_${eventId}.${fmt}`,
                       )
                     }
-                    style={BUTTON_STYLE}
+                    style={v2 ? undefined : V1_EOD.button}
                   >
                     {label}
                   </button>
@@ -99,16 +87,18 @@ export function EndOfDayPage({ eventId }: { eventId: number }) {
         )}
       </section>
 
-      <section style={{ padding: 16, background: "#f5f5f5", borderRadius: 4 }}>
-        <h4 style={{ margin: "0 0 8px" }}>Database Backup</h4>
-        <p style={{ fontSize: 14, color: "#555", marginBottom: 12 }}>
+      <section {...variantProps(v2, "ui2-eod-panel", V1_EOD.panelLast)}>
+        <h4 {...variantProps(v2, "ui2-eod-title ui2-eod-title--tight", V1_EOD.titleTight)}>
+          Database Backup
+        </h4>
+        <p {...variantProps(v2, "ui2-eod-hint", V1_EOD.hint)}>
           Downloads a ZIP containing the SQLite database and a JSON export.
         </p>
         <button
           onClick={() =>
             downloadFile("/admin/backup", "ski-swap-backup.zip", "POST")
           }
-          style={BUTTON_STYLE}
+          style={v2 ? undefined : V1_EOD.button}
         >
           Download Backup
         </button>

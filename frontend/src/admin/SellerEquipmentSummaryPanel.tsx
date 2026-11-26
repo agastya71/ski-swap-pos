@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { getVendorEquipmentSummary } from "../api/reports";
 import type { VendorEquipmentSummaryReport } from "../types";
-import { BUTTON_STYLE } from "../lib/buttons";
+import { useUiVariant } from "../lib/uiVariant";
+import { variantProps, v1Only, v2Only, EQUIPMENT as V1_EQ } from "./adminStyles";
 
 /**
  * Admin panel: on-demand vendor summary grouped by equipment type
@@ -21,6 +22,7 @@ export function SellerEquipmentSummaryPanel({
     );
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const v2 = useUiVariant() === "v2";
 
     const load = async () => {
         setLoading(true);
@@ -34,13 +36,6 @@ export function SellerEquipmentSummaryPanel({
         }
     };
 
-    const th = { textAlign: "left" as const, padding: "4px 8px", fontSize: 12 };
-    const tdNum = {
-        padding: "4px 8px",
-        textAlign: "right" as const,
-        fontSize: 12,
-    };
-
     return (
         <div>
             {!summary && (
@@ -48,68 +43,71 @@ export function SellerEquipmentSummaryPanel({
                     onClick={load}
                     disabled={loading}
                     aria-label="show equipment summary"
-                    style={BUTTON_STYLE}
+                    style={v2 ? undefined : V1_EQ.button}
                 >
                     {loading ? "Loading…" : "Show Equipment Summary"}
                 </button>
             )}
             {error && (
-                <p role="alert" style={{ color: "red", marginTop: 8 }}>
+                <p role="alert" {...variantProps(v2, "ui2-equipment-error", V1_EQ.error)}>
                     {error}
                 </p>
             )}
             {summary && (
-                <table
-                    style={{
-                        width: "auto",
-                        borderCollapse: "collapse",
-                        marginTop: 8,
-                    }}
-                >
-                    <thead>
-                        <tr style={{ borderBottom: "1px solid #ccc" }}>
-                            <th style={th}>Category</th>
-                            <th style={th}>Consigned</th>
-                            <th style={th}>Units Sold</th>
-                            <th style={th}>Gross</th>
-                            <th style={th}>MYSL</th>
-                            <th style={th}>Vendor Payout</th>
-                            <th style={th}>Unsold Units</th>
-                            <th style={th}>Unsold $</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {summary.categories.map((c) => (
-                            <tr
-                                key={c.category}
-                                style={{ borderBottom: "1px solid #eee" }}
-                            >
-                                <td style={{ padding: "4px 8px", fontSize: 12 }}>
-                                    {c.category}
-                                </td>
-                                <td style={tdNum}>{c.items_consigned}</td>
-                                <td style={tdNum}>{c.units_sold}</td>
-                                <td style={tdNum}>${c.gross_sales.toFixed(2)}</td>
-                                <td style={tdNum}>${c.mysl_share.toFixed(2)}</td>
-                                <td style={tdNum}>${c.seller_share.toFixed(2)}</td>
-                                <td style={tdNum}>{c.units_unsold}</td>
-                                <td style={tdNum}>${c.unsold_value.toFixed(2)}</td>
+                /* Wrapper (not `TableScroll`): the equipment table keeps its own
+                   auto width, so the v2 rule here scrolls without forcing 100%. */
+                <div {...v2Only(v2, "ui2-equipment-scroll")}>
+                    <table
+                        {...variantProps(v2, "ui2-equipment-table", V1_EQ.table)}
+                    >
+                        <thead>
+                            <tr {...v1Only(v2, V1_EQ.headRow)}>
+                                {[
+                                    ["Category", false],
+                                    ["Consigned", true],
+                                    ["Units Sold", true],
+                                    ["Gross", true],
+                                    ["MYSL", true],
+                                    ["Vendor Payout", true],
+                                    ["Unsold Units", true],
+                                    ["Unsold $", true],
+                                ].map(([label, numeric]) => (
+                                    <th
+                                        key={label as string}
+                                        {...v1Only(v2, V1_EQ.th)}
+                                        className={numeric ? "ui2-num" : undefined}
+                                    >
+                                        {label}
+                                    </th>
+                                ))}
                             </tr>
-                        ))}
-                        <tr style={{ fontWeight: 700, borderTop: "1px solid #ccc" }}>
-                            <td style={{ padding: "4px 8px", fontSize: 12 }}>
-                                {summary.total.category}
-                            </td>
-                            <td style={tdNum}>{summary.total.items_consigned}</td>
-                            <td style={tdNum}>{summary.total.units_sold}</td>
-                            <td style={tdNum}>${summary.total.gross_sales.toFixed(2)}</td>
-                            <td style={tdNum}>${summary.total.mysl_share.toFixed(2)}</td>
-                            <td style={tdNum}>${summary.total.seller_share.toFixed(2)}</td>
-                            <td style={tdNum}>{summary.total.units_unsold}</td>
-                            <td style={tdNum}>${summary.total.unsold_value.toFixed(2)}</td>
-                        </tr>
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {summary.categories.map((c) => (
+                                <tr key={c.category} {...v1Only(v2, V1_EQ.bodyRow)}>
+                                    <td {...v1Only(v2, V1_EQ.cellCompact)}>{c.category}</td>
+                                    <td {...v1Only(v2, V1_EQ.cellCompactRight)}>{c.items_consigned}</td>
+                                    <td {...v1Only(v2, V1_EQ.cellCompactRight)}>{c.units_sold}</td>
+                                    <td {...v1Only(v2, V1_EQ.cellCompactRight)}>${c.gross_sales.toFixed(2)}</td>
+                                    <td {...v1Only(v2, V1_EQ.cellCompactRight)}>${c.mysl_share.toFixed(2)}</td>
+                                    <td {...v1Only(v2, V1_EQ.cellCompactRight)}>${c.seller_share.toFixed(2)}</td>
+                                    <td {...v1Only(v2, V1_EQ.cellCompactRight)}>{c.units_unsold}</td>
+                                    <td {...v1Only(v2, V1_EQ.cellCompactRight)}>${c.unsold_value.toFixed(2)}</td>
+                                </tr>
+                            ))}
+                            <tr {...variantProps(v2, "ui2-row--total", V1_EQ.totalsRow)}>
+                                <td {...v1Only(v2, V1_EQ.cellCompact)}>{summary.total.category}</td>
+                                <td {...v1Only(v2, V1_EQ.cellCompactRight)}>{summary.total.items_consigned}</td>
+                                <td {...v1Only(v2, V1_EQ.cellCompactRight)}>{summary.total.units_sold}</td>
+                                <td {...v1Only(v2, V1_EQ.cellCompactRight)}>${summary.total.gross_sales.toFixed(2)}</td>
+                                <td {...v1Only(v2, V1_EQ.cellCompactRight)}>${summary.total.mysl_share.toFixed(2)}</td>
+                                <td {...v1Only(v2, V1_EQ.cellCompactRight)}>${summary.total.seller_share.toFixed(2)}</td>
+                                <td {...v1Only(v2, V1_EQ.cellCompactRight)}>{summary.total.units_unsold}</td>
+                                <td {...v1Only(v2, V1_EQ.cellCompactRight)}>${summary.total.unsold_value.toFixed(2)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             )}
         </div>
     );

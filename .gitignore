@@ -9,3 +9,7 @@ __pycache__/
 backend/.jwt_secret
 backend/logs/
 legacy_transformed/
+
+# UI A/B review screenshots — generated locally by scripts/ui-screenshots.mjs;
+# they capture live app state, so they must never be committed.
+docs/screenshots-*/

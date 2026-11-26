@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { getSellerPayout } from "../api/reports";
 import type { SellerPayoutReport } from "../types";
+import { useUiVariant } from "../lib/uiVariant";
+import { variantProps, v1Only, PAYOUT as V1_PAYOUT } from "./adminStyles";
 
 /** Contact lines shown in the seller-info block (nulls skipped at render). */
 function contactString(payout: SellerPayoutReport): string {
@@ -18,10 +20,6 @@ function contactString(payout: SellerPayoutReport): string {
         .join(", ");
 }
 
-const th = { textAlign: "left" as const, padding: "4px 8px", fontSize: 12 };
-const td = { padding: "4px 8px", fontSize: 12 };
-const tdNum = { padding: "4px 8px", textAlign: "right" as const, fontSize: 12 };
-
 /**
  * Renders the detail sections of a payout report: seller contact information,
  * the single ITEMS list (every consigned item in the intake worksheet layout
@@ -35,6 +33,7 @@ export function SellerPayoutDetails({
     payout: SellerPayoutReport;
 }) {
     const info = payout.seller_info;
+    const v2 = useUiVariant() === "v2";
     const typeLabel = info.is_vendor
         ? `Vendor${info.company ? ` — ${info.company}` : ""}`
         : "Individual";
@@ -43,13 +42,7 @@ export function SellerPayoutDetails({
     return (
         <div>
             {/* ── Seller information ─────────────────────────────────────── */}
-            <table
-                style={{
-                    width: "auto",
-                    borderCollapse: "collapse",
-                    marginBottom: 16,
-                }}
-            >
+            <table {...variantProps(v2, "ui2-report-kv", V1_PAYOUT.kvTable)}>
                 <tbody>
                     {[
                         [
@@ -64,35 +57,16 @@ export function SellerPayoutDetails({
                         ["Email", info.email ?? "—"],
                         ["Address", contact],
                     ].map(([label, val]) => (
-                        <tr
-                            key={label}
-                            style={{ borderBottom: "1px solid #eee" }}
-                        >
-                            <td
-                                style={{
-                                    padding: "3px 16px 3px 8px",
-                                    fontWeight: "bold",
-                                    fontSize: 12,
-                                }}
-                            >
-                                {label}
-                            </td>
-                            <td style={{ padding: "3px 8px", fontSize: 12 }}>
-                                {val}
-                            </td>
+                        <tr key={label} {...v1Only(v2, V1_PAYOUT.bodyRow)}>
+                            <td {...v1Only(v2, V1_PAYOUT.kvLabelSm)}>{label}</td>
+                            <td {...v1Only(v2, V1_PAYOUT.kvValue)}>{val}</td>
                         </tr>
                     ))}
                 </tbody>
             </table>
 
             {/* ── Summary ─────────────────────────────────────────────────── */}
-            <table
-                style={{
-                    width: "auto",
-                    borderCollapse: "collapse",
-                    marginBottom: 16,
-                }}
-            >
+            <table {...variantProps(v2, "ui2-report-kv", V1_PAYOUT.kvTable)}>
                 <tbody>
                     {[
                         ["Items Consigned", String(payout.items_consigned)],
@@ -100,45 +74,22 @@ export function SellerPayoutDetails({
                         ["Gross Sales", `$${payout.gross_sales.toFixed(2)}`],
                         ["Due Seller", `$${payout.seller_total.toFixed(2)}`],
                     ].map(([label, val]) => (
-                        <tr
-                            key={label}
-                            style={{ borderBottom: "1px solid #eee" }}
-                        >
-                            <td
-                                style={{
-                                    padding: "4px 16px 4px 8px",
-                                    fontWeight: "bold",
-                                    fontSize: 13,
-                                }}
-                            >
-                                {label}
-                            </td>
-                            <td
-                                style={{
-                                    padding: "4px 8px",
-                                    textAlign: "right",
-                                    fontSize: 13,
-                                }}
-                            >
-                                {val}
-                            </td>
+                        <tr key={label} {...v1Only(v2, V1_PAYOUT.bodyRow)}>
+                            <td {...v1Only(v2, V1_PAYOUT.kvLabel13)}>{label}</td>
+                            <td {...v1Only(v2, V1_PAYOUT.kvValueRight)}>{val}</td>
                         </tr>
                     ))}
                 </tbody>
             </table>
 
             {/* ── ITEMS (single list, worksheet layout) ───────────────────── */}
-            <h4 style={{ margin: "0 0 4px" }}>Items</h4>
+            <h4 {...variantProps(v2, "ui2-payout-section-title", V1_PAYOUT.sectionTitle)}>
+                Items
+            </h4>
             {payout.items.length > 0 ? (
-                <table
-                    style={{
-                        width: "100%",
-                        borderCollapse: "collapse",
-                        marginBottom: 16,
-                    }}
-                >
+                <table {...variantProps(v2, "ui2-report-table", V1_PAYOUT.dataTable)}>
                     <thead>
-                        <tr style={{ borderBottom: "2px solid #ccc" }}>
+                        <tr {...v1Only(v2, V1_PAYOUT.headRow)}>
                             {(
                                 [
                                     "Item Code",
@@ -153,16 +104,12 @@ export function SellerPayoutDetails({
                             ).map((h) => (
                                 <th
                                     key={h}
-                                    style={{
-                                        ...th,
-                                        textAlign: [
-                                            "Sell Price",
-                                            "Quantity",
-                                            "Remaining",
-                                        ].includes(h)
-                                            ? "right"
-                                            : "left",
-                                    }}
+                                    {...v1Only(v2, V1_PAYOUT.thCompact)}
+                                    className={
+                                        V1_PAYOUT.itemsNumericColumns.includes(h)
+                                            ? "ui2-num"
+                                            : undefined
+                                    }
                                 >
                                     {h}
                                 </th>
@@ -173,43 +120,44 @@ export function SellerPayoutDetails({
                         {payout.items.map((it, i) => (
                             <tr
                                 key={`${it.item_code}-${i}`}
-                                style={{
-                                    borderBottom: "1px solid #eee",
-                                    color: it.remaining === 0 ? "#64748b" : undefined,
-                                }}
+                                {...variantProps(
+                                    v2,
+                                    it.remaining === 0
+                                        ? "ui2-row--soldout"
+                                        : "",
+                                    it.remaining === 0
+                                        ? V1_PAYOUT.bodyRowSoldOut
+                                        : V1_PAYOUT.bodyRow,
+                                )}
                             >
-                                <td style={td}>{it.item_code}</td>
-                                <td style={td}>{it.category ?? "—"}</td>
-                                <td style={td}>{it.brand ?? "—"}</td>
-                                <td style={td}>{it.description ?? "—"}</td>
-                                <td style={td}>{it.size ?? "—"}</td>
-                                <td style={tdNum}>
+                                <td {...v1Only(v2, V1_PAYOUT.cellCompact)}>{it.item_code}</td>
+                                <td {...v1Only(v2, V1_PAYOUT.cellCompact)}>{it.category ?? "—"}</td>
+                                <td {...v1Only(v2, V1_PAYOUT.cellCompact)}>{it.brand ?? "—"}</td>
+                                <td {...v1Only(v2, V1_PAYOUT.cellCompact)}>{it.description ?? "—"}</td>
+                                <td {...v1Only(v2, V1_PAYOUT.cellCompact)}>{it.size ?? "—"}</td>
+                                <td {...v1Only(v2, V1_PAYOUT.cellCompactRight)}>
                                     ${it.price.toFixed(2)}
                                 </td>
-                                <td style={tdNum}>{it.quantity}</td>
-                                <td style={tdNum}>{it.remaining}</td>
+                                <td {...v1Only(v2, V1_PAYOUT.cellCompactRight)}>{it.quantity}</td>
+                                <td {...v1Only(v2, V1_PAYOUT.cellCompactRight)}>{it.remaining}</td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
             ) : (
-                <p style={{ color: "#64748b", fontSize: 13, marginBottom: 16 }}>
+                <p {...variantProps(v2, "ui2-payout-empty", V1_PAYOUT.emptyLine)}>
                     No items consigned.
                 </p>
             )}
 
             {/* ── SALES DETAIL ──────────────────────────────────────────────── */}
-            <h4 style={{ margin: "0 0 4px" }}>Sales Detail</h4>
+            <h4 {...variantProps(v2, "ui2-payout-section-title", V1_PAYOUT.sectionTitle)}>
+                Sales Detail
+            </h4>
             {payout.sales.length > 0 ? (
-                <table
-                    style={{
-                        width: "100%",
-                        borderCollapse: "collapse",
-                        marginBottom: 16,
-                    }}
-                >
+                <table {...variantProps(v2, "ui2-report-table", V1_PAYOUT.dataTable)}>
                     <thead>
-                        <tr style={{ borderBottom: "2px solid #ccc" }}>
+                        <tr {...v1Only(v2, V1_PAYOUT.headRow)}>
                             {(
                                 [
                                     "Item Code",
@@ -226,18 +174,12 @@ export function SellerPayoutDetails({
                             ).map((h) => (
                                 <th
                                     key={h}
-                                    style={{
-                                        ...th,
-                                        textAlign: [
-                                            "Qty",
-                                            "Sell Price",
-                                            "Extended",
-                                            "Due Seller",
-                                            "Rate",
-                                        ].includes(h)
-                                            ? "right"
-                                            : "left",
-                                    }}
+                                    {...v1Only(v2, V1_PAYOUT.thCompact)}
+                                    className={
+                                        V1_PAYOUT.salesNumericColumns.includes(h)
+                                            ? "ui2-num"
+                                            : undefined
+                                    }
                                 >
                                     {h}
                                 </th>
@@ -248,62 +190,57 @@ export function SellerPayoutDetails({
                         {payout.sales.map((s, i) => (
                             <tr
                                 key={`${s.item_code}-${i}`}
-                                style={{ borderBottom: "1px solid #eee" }}
+                                {...v1Only(v2, V1_PAYOUT.bodyRow)}
                             >
-                                <td style={td}>
+                                <td {...v1Only(v2, V1_PAYOUT.cellCompact)}>
                                     {s.item_code}
                                     {s.price_adjustment_reason && (
                                         <div
-                                            style={{
-                                                fontSize: 11,
-                                                color: "#64748b",
-                                                marginTop: 2,
-                                            }}
+                                            {...variantProps(
+                                                v2,
+                                                "ui2-payout-price-adj",
+                                                V1_PAYOUT.priceAdj,
+                                            )}
                                         >
                                             Price adj.: {s.price_adjustment_reason}
                                         </div>
                                     )}
                                 </td>
-                                <td style={td}>{s.category ?? "—"}</td>
-                                <td style={td}>{s.type ?? "—"}</td>
-                                <td style={td}>{s.brand ?? "—"}</td>
-                                <td style={td}>{s.description ?? "—"}</td>
-                                <td style={tdNum}>{s.quantity_sold}</td>
-                                <td style={tdNum}>
+                                <td {...v1Only(v2, V1_PAYOUT.cellCompact)}>{s.category ?? "—"}</td>
+                                <td {...v1Only(v2, V1_PAYOUT.cellCompact)}>{s.type ?? "—"}</td>
+                                <td {...v1Only(v2, V1_PAYOUT.cellCompact)}>{s.brand ?? "—"}</td>
+                                <td {...v1Only(v2, V1_PAYOUT.cellCompact)}>{s.description ?? "—"}</td>
+                                <td {...v1Only(v2, V1_PAYOUT.cellCompactRight)}>{s.quantity_sold}</td>
+                                <td {...v1Only(v2, V1_PAYOUT.cellCompactRight)}>
                                     ${s.sell_price.toFixed(2)}
                                 </td>
-                                <td style={tdNum}>
+                                <td {...v1Only(v2, V1_PAYOUT.cellCompactRight)}>
                                     ${s.extended_price.toFixed(2)}
                                 </td>
-                                <td style={tdNum}>
+                                <td {...v1Only(v2, V1_PAYOUT.cellCompactRight)}>
                                     ${s.seller_share.toFixed(2)}
                                 </td>
-                                <td style={tdNum}>
+                                <td {...v1Only(v2, V1_PAYOUT.cellCompactRight)}>
                                     {(s.commission_rate * 100).toFixed(0)}%
                                 </td>
                             </tr>
                         ))}
-                        <tr
-                            style={{
-                                fontWeight: "bold",
-                                borderTop: "2px solid #ccc",
-                            }}
-                        >
-                            <td style={td} colSpan={7}>
+                        <tr {...variantProps(v2, "ui2-row--total", V1_PAYOUT.totalsRow)}>
+                            <td {...v1Only(v2, V1_PAYOUT.cellCompact)} colSpan={7}>
                                 Sales Total
                             </td>
-                            <td style={tdNum}>
+                            <td {...v1Only(v2, V1_PAYOUT.cellCompactRight)}>
                                 ${payout.gross_sales.toFixed(2)}
                             </td>
-                            <td style={tdNum}>
+                            <td {...v1Only(v2, V1_PAYOUT.cellCompactRight)}>
                                 ${payout.seller_total.toFixed(2)}
                             </td>
-                            <td style={td} />
+                            <td {...v1Only(v2, V1_PAYOUT.cellCompact)} />
                         </tr>
                     </tbody>
                 </table>
             ) : (
-                <p style={{ color: "#64748b", fontSize: 13, marginBottom: 16 }}>
+                <p {...variantProps(v2, "ui2-payout-empty", V1_PAYOUT.emptyLine)}>
                     No sales in this event.
                 </p>
             )}
@@ -328,6 +265,7 @@ export function SellerPayoutPanel({
     const [payout, setPayout] = useState<SellerPayoutReport | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const v2 = useUiVariant() === "v2";
 
     useEffect(() => {
         getSellerPayout(eventId, sellerId)
@@ -344,11 +282,13 @@ export function SellerPayoutPanel({
 
     if (loading)
         return (
-            <p style={{ color: "#64748b", fontSize: 13 }}>Loading payout…</p>
+            <p {...variantProps(v2, "ui2-payout-loading", V1_PAYOUT.loading)}>
+                Loading payout…
+            </p>
         );
     if (error)
         return (
-            <p role="alert" style={{ color: "#ef4444", fontSize: 13 }}>
+            <p role="alert" {...variantProps(v2, "ui2-payout-error", V1_PAYOUT.error)}>
                 {error}
             </p>
         );

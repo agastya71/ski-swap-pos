@@ -3,11 +3,10 @@
  * the returned JWT in AuthContext on success.
  */
 import { useState, type FormEvent } from "react";
-import { BUTTON_STYLE } from "../lib/buttons";
 import { login } from "../api/auth";
+import { useUiVariant } from "../lib/uiVariant";
+import { LOGIN, variantProps } from "../uiStyles";
 import { useAuth } from "./AuthContext";
-
-const NAVY = "#1e3a8a";
 
 /**
  * Renders the full-page login form with username/password fields and a submit button.
@@ -25,6 +24,7 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
   const [error, setError] = useState<string | null>(null);
   /** Whether a login request is in-flight; used to disable the submit button. */
   const [loading, setLoading] = useState(false);
+  const v2 = useUiVariant() === "v2";
 
   /** Submit the login form, call the auth API, and handle success or failure. */
   async function handleSubmit(e: FormEvent) {
@@ -43,64 +43,26 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
   }
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#f8fafc",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
+    <div {...variantProps(v2, "ui2-login", LOGIN.shell)}>
       {/* Brand stripe */}
-      <div style={{ height: 4, background: NAVY }} />
+      <div {...variantProps(v2, "ui2-login-stripe", LOGIN.brandStripe)} />
 
       {/* Centered card */}
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: 24,
-        }}
-      >
-        <div
-          style={{
-            background: "#ffffff",
-            border: "1px solid #e2e8f0",
-            borderRadius: 8,
-            padding: "40px 48px",
-            width: "100%",
-            maxWidth: 400,
-            boxShadow: "0 4px 24px rgba(0,0,0,0.07)",
-          }}
-        >
+      <div {...variantProps(v2, "ui2-login-centre", LOGIN.centre)}>
+        <div {...variantProps(v2, "ui2-login-card", LOGIN.card)}>
           {/* Logo / brand */}
-          <div style={{ textAlign: "center", marginBottom: 32 }}>
-            <div
-              style={{
-                fontSize: 30,
-                fontWeight: 800,
-                color: NAVY,
-                letterSpacing: "-0.03em",
-                marginBottom: 6,
-              }}
-            >
+          <div {...variantProps(v2, "ui2-login-brand", LOGIN.brandBlock)}>
+            <div {...variantProps(v2, "ui2-login-brand-title", LOGIN.brandTitle)}>
               ⛷ Ski Swap POS
             </div>
-            <div style={{ fontSize: 13, color: "#64748b" }}>
+            <div {...variantProps(v2, "ui2-login-brand-sub", LOGIN.brandSub)}>
               Minnesota Youth Ski League
             </div>
           </div>
 
           <form onSubmit={handleSubmit}>
-            <div style={{ marginBottom: 16 }}>
-              <label
-                htmlFor="username"
-                style={{ display: "block", marginBottom: 5 }}
-              >
-                Username
-              </label>
+            <div {...variantProps(v2, "ui2-login-field", LOGIN.field)}>
+              <label htmlFor="username">Username</label>
               <input
                 id="username"
                 value={username}
@@ -110,13 +72,8 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
               />
             </div>
 
-            <div style={{ marginBottom: 20 }}>
-              <label
-                htmlFor="password"
-                style={{ display: "block", marginBottom: 5 }}
-              >
-                Password
-              </label>
+            <div {...variantProps(v2, "ui2-login-field ui2-login-field--last", LOGIN.fieldLast)}>
+              <label htmlFor="password">Password</label>
               <input
                 id="password"
                 type="password"
@@ -128,7 +85,10 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
             </div>
 
             {error && (
-              <div role="alert" style={{ marginBottom: 16 }}>
+              <div
+                role="alert"
+                {...variantProps(v2, "ui2-login-error", LOGIN.error)}
+              >
                 {error}
               </div>
             )}
@@ -136,10 +96,7 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
             <button
               type="submit"
               disabled={loading}
-              style={{
-                ...BUTTON_STYLE,
-                width: "100%",
-              }}
+              {...variantProps(v2, "ui2-login-submit", LOGIN.submit)}
             >
               Sign In
             </button>
@@ -148,16 +105,7 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
       </div>
 
       {/* Footer */}
-      <div
-        style={{
-          padding: "14px 24px",
-          textAlign: "center",
-          fontSize: 12,
-          color: "#94a3b8",
-          borderTop: "1px solid #e2e8f0",
-          background: "#ffffff",
-        }}
-      >
+      <div {...variantProps(v2, "ui2-login-footer", LOGIN.footer)}>
         Minnesota Youth Ski League — myxc.org
       </div>
     </div>

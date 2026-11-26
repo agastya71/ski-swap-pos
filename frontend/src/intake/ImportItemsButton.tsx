@@ -10,10 +10,16 @@
  * @module ImportItemsButton
  */
 import { useRef, useState, type ChangeEvent } from "react";
-import { BUTTON_STYLE } from "../lib/buttons";
 import { importItems } from "../api/intakes";
 import { downloadImportTemplate } from "../api/items";
 import { ImportOutcome } from "../components/ImportOutcome";
+import { useUiVariant } from "../lib/uiVariant";
+import {
+  IMPORT_BUTTON,
+  variantProps,
+  v1Only,
+  v2Only,
+} from "./intakeStyles";
 import type { ImportResult } from "../types";
 
 /**
@@ -34,6 +40,7 @@ export function ImportItemsButton({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const v2 = useUiVariant() === "v2";
 
   async function handleFile(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -61,12 +68,13 @@ export function ImportItemsButton({
   }
 
   return (
-    <div style={{ display: "inline-block" }}>
-      <div style={{ display: "flex", gap: 8 }}>
+    <div {...variantProps(v2, "ui2-intake-import-root", IMPORT_BUTTON.root)}>
+      <div {...variantProps(v2, "ui2-intake-import-row", IMPORT_BUTTON.row)}>
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          style={BUTTON_STYLE}
+          {...v1Only(v2, IMPORT_BUTTON.button)}
+          {...v2Only(v2, "ui2-btn ui2-btn--secondary")}
         >
           Import Items
         </button>
@@ -74,7 +82,8 @@ export function ImportItemsButton({
           type="button"
           onClick={handleDownloadTemplate}
           title="Download the blank .xlsx bulk-import template to fill out (vendor or non-vendor layout, matching this seller)"
-          style={BUTTON_STYLE}
+          {...v1Only(v2, IMPORT_BUTTON.button)}
+          {...v2Only(v2, "ui2-btn ui2-btn--secondary")}
         >
           Download Template
         </button>
@@ -83,19 +92,19 @@ export function ImportItemsButton({
         ref={fileInputRef}
         type="file"
         accept=".xlsx,.csv,.tsv"
-        style={{ display: "none" }}
+        style={IMPORT_BUTTON.hiddenInput}
         onChange={handleFile}
       />
       {error && (
         <div
           role="alert"
-          style={{ color: "#ef4444", fontSize: 13, marginTop: 6 }}
+          {...variantProps(v2, "ui2-intake-import-error", IMPORT_BUTTON.error)}
         >
           {error}
         </div>
       )}
       {result && (
-        <div style={{ marginTop: 6 }}>
+        <div {...variantProps(v2, "ui2-intake-import-result", IMPORT_BUTTON.result)}>
           <ImportOutcome result={result} onDismiss={() => setResult(null)} />
         </div>
       )}

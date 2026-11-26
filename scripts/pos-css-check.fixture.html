@@ -1,0 +1,524 @@
+<!doctype html>
+<html class="ui-v2">
+<head>
+<meta charset="utf-8">
+<title>POS v2 CSS contract check</title>
+<!-- The built /next bundle's stylesheet: proves the rules survive PostCSS. -->
+<link rel="stylesheet" href="/next/assets/BUILT_CSS">
+<style>
+  /* Minimal page ground; the app would supply these via index.css :root. */
+  body { margin: 0; font-family: system-ui, sans-serif; }
+  .ground { width: 420px; }
+</style>
+</head>
+<body>
+<!-- Markup mirroring exactly what the POS components emit in v2 (class names
+     only, no inline styles — that is the contract under test). -->
+<div class="ground">
+  <div id="lookup-wrap">
+    <label id="lk-label" class="ui2-pos-lookup-label">Scan or enter item code:</label>
+    <input id="lk-input" class="ui2-pos-lookup-input" value="A001">
+    <div id="lk-error" role="alert" class="ui2-pos-lookup-error">Item not found: X</div>
+    <div id="lk-results" class="ui2-pos-results">
+      <div id="lk-head" class="ui2-pos-results-head">2 items found — click to add to cart</div>
+      <button id="lk-row-hot" class="ui2-pos-result ui2-pos-result--highlighted">
+        <span>
+          <strong id="lk-code" class="ui2-pos-result-code">A001-001</strong>
+          <span id="lk-desc" class="ui2-pos-result-desc">Red skis</span>
+          <span id="lk-meta" class="ui2-pos-result-meta">(Skis · Alpine)</span>
+        </span>
+        <span id="lk-tail" class="ui2-pos-result-tail">
+          <span id="lk-rem" class="ui2-pos-result-remaining">3 left</span>
+          <strong>$75.00</strong>
+        </span>
+      </button>
+      <button id="lk-row-sold" class="ui2-pos-result" aria-disabled="true">
+        <span><strong class="ui2-pos-result-code">B001-002</strong></span>
+        <span class="ui2-pos-result-tail">
+          <strong>$40.00</strong>
+          <span id="lk-status" class="ui2-pos-result-status">sold</span>
+        </span>
+      </button>
+    </div>
+  </div>
+
+  <table id="cart" class="ui2-cart-table">
+    <thead>
+      <tr>
+        <th id="th-code">Code</th><th>Seller</th><th>Description</th>
+        <th id="th-qty" class="ui2-num">Qty</th>
+        <th class="ui2-num">Unit Price</th>
+        <th class="ui2-num">Line Total</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td id="td-code">A001-001</td>
+        <td>A001</td>
+        <td>Red skis<div id="td-meta" class="ui2-cart-item-meta">Skis · Alpine</div></td>
+        <td class="ui2-num"><input id="cart-qty" class="ui2-cart-qty" type="number" value="1"></td>
+        <td class="ui2-num"><input id="cart-price" class="ui2-cart-price" type="number" value="75"></td>
+        <td class="ui2-num">$75.00</td>
+        <td><button id="cart-remove" class="ui2-cart-remove">Remove</button></td>
+      </tr>
+    </tbody>
+  </table>
+  <div id="cart-note-row" class="ui2-cart-note-row">
+    <label class="ui2-cart-note-label">Reason for price adjustment — A001-001:</label>
+    <input id="cart-note" class="ui2-cart-note-input">
+  </div>
+  <div id="cart-total" class="ui2-cart-total">Total: <span>$75.00</span></div>
+
+  <form>
+    <div class="ui2-pay-field">
+      <label id="pay-label" class="ui2-pay-label" for="cash">Cash ($)</label>
+      <input id="pay-cash" class="ui2-pay-input ui2-pay-input--money" type="number">
+    </div>
+    <div class="ui2-pay-field">
+      <label class="ui2-pay-label" for="cn">Check Number</label>
+      <input id="pay-checknum" class="ui2-pay-input ui2-pay-input--check-number">
+    </div>
+    <div id="pay-hint" class="ui2-pay-hint">Amount run on the card (charged to the buyer as entered)</div>
+    <textarea id="pay-notes" class="ui2-pay-notes" rows="2"></textarea>
+    <div id="pay-ok" role="status" class="ui2-pay-status ui2-pay-status--ok">Amount tendered: $120.00 of $100.00 — ✓ payment covers total</div>
+    <div id="pay-short" role="status" class="ui2-pay-status ui2-pay-status--short">Amount tendered: $50.00 of $100.00 — $50.00 short</div>
+    <div id="pay-change" role="status" class="ui2-pay-change">Change due to buyer: $20.00</div>
+    <div id="pay-actions" class="ui2-pay-actions"><button>Complete Sale</button></div>
+  </form>
+
+  <div id="confirm" class="ui2-confirm">
+    <div id="confirm-mark" class="ui2-confirm-mark">✓</div>
+    <h2>Sale Complete!</h2>
+    <p id="confirm-count" class="ui2-confirm-count">Sale #42 — 1 item</p>
+    <p id="confirm-total" class="ui2-confirm-total">$100.00</p>
+    <div id="confirm-tenders" class="ui2-confirm-tenders">
+      Cash: $120.00
+      <div id="confirm-change" class="ui2-confirm-change">Change given: $20.00</div>
+    </div>
+    <button id="confirm-new" class="ui2-confirm-new">New Transaction</button>
+  </div>
+
+  <!-- U3 part 2: TransactionEditor -->
+  <div id="editor" class="ui2-editor">
+    <div id="editor-header" class="ui2-editor-header">
+      <h3 id="editor-title" class="ui2-editor-title">Edit sale #7</h3>
+      <button id="editor-close" class="ui2-btn ui2-btn--secondary">Close</button>
+    </div>
+    <div id="editor-meta" class="ui2-editor-meta">Recorded by cashier1 · recorded total $35.00</div>
+    <div id="editor-error" role="alert" class="ui2-editor-error">You can only edit your own transactions</div>
+    <div id="editor-notice" role="status" class="ui2-editor-notice">Line changes saved.</div>
+    <table id="editor-table" class="ui2-editor-table">
+      <thead>
+        <tr>
+          <th id="editor-th-code">Code</th>
+          <th class="ui2-num">Qty</th>
+          <th class="ui2-num">Unit Price</th>
+          <th class="ui2-num">Line Total</th>
+          <th>Notes</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr id="editor-row-dirty" class="ui2-editor-row--dirty">
+          <td id="editor-dirty-cell">10003</td>
+          <td class="ui2-num"><input id="editor-qty" class="ui2-editor-qty" type="number" value="2"></td>
+          <td class="ui2-num"><input id="editor-price" class="ui2-editor-price" type="number" value="20"></td>
+          <td id="editor-line-total" class="ui2-num">$40.00</td>
+          <td><input id="editor-notes" class="ui2-editor-notes"></td>
+          <td><button id="editor-remove" class="ui2-editor-remove">Remove</button></td>
+        </tr>
+      </tbody>
+    </table>
+    <div id="editor-actions" class="ui2-editor-actions">
+      <button id="editor-save-lines" class="ui2-btn ui2-btn--primary">Save line changes (1)</button>
+      <span id="editor-pending" class="ui2-editor-pending">Pending total: $40.00</span>
+      <span id="editor-small-note" class="ui2-editor-small-note">(includes card fee)</span>
+    </div>
+    <div id="editor-add" class="ui2-editor-add">
+      <div id="editor-add-label" class="ui2-editor-add-label">Add item:</div>
+      <input id="editor-add-input" class="ui2-pos-lookup-input" value="10004">
+    </div>
+    <fieldset id="editor-fieldset" class="ui2-editor-fieldset">
+      <legend id="editor-legend" class="ui2-editor-legend">Payment &amp; details</legend>
+      <div id="editor-field-row" class="ui2-editor-field-row">
+        <label id="editor-field-label" class="ui2-editor-field-label">Cash ($)
+          <input id="editor-field-input" class="ui2-editor-field-input" type="number" value="35">
+        </label>
+      </div>
+      <div id="editor-card-fee-note" class="ui2-editor-card-fee-note">Card charge is charged as entered</div>
+      <button id="editor-save-payments" class="ui2-btn ui2-btn--primary">Save payment &amp; details</button>
+    </fieldset>
+    <div id="editor-history-label" class="ui2-editor-history-label">Edit history (newest first)</div>
+    <p id="editor-history-empty" class="ui2-editor-history-empty">No edits recorded.</p>
+    <ul id="editor-history" class="ui2-editor-history">
+      <li><strong>update_line</strong> <span id="editor-history-detail" class="ui2-editor-history-detail">— $20 × 1 → $15 × 1</span></li>
+    </ul>
+  </div>
+
+  <!-- U3 part 2: POSPage chrome -->
+  <div id="pos-page" class="ui2-pos-page">
+    <div id="pos-success" class="ui2-pos-success">
+      <div id="pos-success-title" class="ui2-pos-success-title">✓ Sale Complete!</div>
+      <div id="pos-success-line" class="ui2-pos-success-line">Transaction #7 — $35.00</div>
+      <div id="pos-success-meta" class="ui2-pos-success-meta">Event: TEST SWAP POS 2026</div>
+      <button id="pos-new-btn" class="ui2-pos-new-btn">New Transaction</button>
+    </div>
+    <div id="pos-error" role="alert" class="ui2-pos-error">Payment failed</div>
+    <div id="pos-cart" class="ui2-pos-cart"></div>
+    <div id="pos-checkout" class="ui2-pos-checkout">
+      <div id="pos-checkout-col" class="ui2-pos-checkout-col">
+        <div id="pos-square-panel" class="ui2-pos-square-panel">
+          <h4 id="pos-square-title" class="ui2-pos-square-title">Pay by Card (Square)</h4>
+        </div>
+      </div>
+    </div>
+    <div id="pos-history" class="ui2-pos-history">
+      <button id="pos-history-toggle" class="ui2-btn ui2-btn--secondary">My Transactions</button>
+      <div id="pos-history-body" class="ui2-pos-history-body">
+        <p id="pos-history-empty" class="ui2-pos-history-empty">No transactions recorded yet.</p>
+        <div id="pos-sale" class="ui2-pos-sale">
+          <div id="pos-sale-header" class="ui2-pos-sale-header" role="button" tabindex="0">
+            <span id="pos-sale-title" class="ui2-pos-sale-title">Transaction #7</span>
+            <span>1 item(s) · $35.00</span>
+          </div>
+          <div id="pos-sale-body" class="ui2-pos-sale-body">
+            <div id="pos-edit-row" class="ui2-pos-edit-row">
+              <button id="pos-edit-btn" class="ui2-btn ui2-btn--secondary">Edit</button>
+              <span id="pos-edit-hint" class="ui2-pos-edit-hint">correct items, prices, or payments</span>
+            </div>
+            <div id="pos-pay-line" class="ui2-pos-pay-line">Payment: cash $35.00</div>
+            <table id="pos-items" class="ui2-pos-items">
+              <thead><tr><th>Code</th><th class="ui2-num">Qty</th><th class="ui2-num">Unit Price</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>10003<div id="pos-item-note" class="ui2-pos-item-note">Price adj.: damaged</div></td>
+                  <td class="ui2-num">1</td>
+                  <td class="ui2-num">$20.00</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- U4 part 1: intake seller-entry chrome. Same contract: class names only,
+     which is what proves the rules reached the built stylesheet. -->
+<div class="ground">
+  <div id="im-tabbar" class="ui2-intake-tabbar">
+    <div class="ui2-intake-tabs">
+      <button id="im-tab-active" class="ui2-intake-tab" aria-current="page">Intake</button>
+      <button id="im-tab" class="ui2-intake-tab">Sellers</button>
+    </div>
+    <strong id="im-event" class="ui2-intake-event-name">TEST SWAP POS 2026</strong>
+    <div class="ui2-intake-tab-actions">
+      <button id="im-ghost" class="ui2-intake-ghost-btn">Import Seller Worksheet</button>
+    </div>
+  </div>
+
+  <fieldset id="im-fieldset" class="ui2-intake-fieldset">
+    <legend id="im-legend" class="ui2-intake-legend">Address</legend>
+    <div class="ui2-intake-field">
+      <label id="im-label" class="ui2-intake-field-label" for="im-input">First Name</label>
+      <input id="im-input" class="ui2-intake-field-input" value="Tess">
+    </div>
+    <div id="im-check" class="ui2-intake-check">
+      <input type="checkbox"> <span>Donate unsold items</span>
+    </div>
+    <p id="im-hint" class="ui2-intake-hint">Pre-filled from registration.</p>
+  </fieldset>
+
+  <div id="im-error" class="ui2-intake-error">At least one of phone or email is required</div>
+
+  <input id="im-search" class="ui2-intake-search-input" placeholder="Search by name or code">
+  <ul class="ui2-intake-results">
+    <li><button id="im-result" class="ui2-intake-result">Tess Trail — TRAI1 · Consignor</button></li>
+  </ul>
+  <button id="im-new-btn" class="ui2-btn ui2-btn--secondary ui2-intake-new-btn">Register New Seller</button>
+
+  <div id="im-review" class="ui2-intake-review">
+    <strong id="im-review-title" class="ui2-intake-review-title">Possible duplicate</strong>
+    <div class="ui2-intake-candidates">
+      <div id="im-candidate" class="ui2-intake-candidate">
+        <div class="ui2-intake-candidate-info">
+          <strong>TRAI1</strong> Tess Trail
+          <div id="im-candidate-sub" class="ui2-intake-candidate-sub">email match · 1 existing intake(s)</div>
+        </div>
+        <button class="ui2-btn ui2-btn--secondary ui2-intake-candidate-btn">Same seller</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="ui2-intake-actions">
+    <button id="im-primary" class="ui2-btn ui2-btn--primary">Register</button>
+    <button id="im-secondary" class="ui2-btn ui2-btn--secondary">Cancel</button>
+  </div>
+</div>
+
+<style>
+  /* U4 part 2 fixture: the items table, ItemForm grid, breadcrumb and search bar. */
+  #it-table { }
+</style>
+<div class="ui-v2" id="u4p2-root">
+  <nav id="ip-crumbs" class="ui2-intakepage-crumbs">
+    <button id="ip-crumb-link" class="ui2-intakepage-crumb-link">Intake</button>
+    <span class="ui2-intakepage-crumb-sep">›</span>
+    <span id="ip-crumb-text" class="ui2-intakepage-crumb-text">Intake #3</span>
+  </nav>
+
+  <div id="it-header" class="ui2-items-header">
+    <h4 id="it-title" class="ui2-items-title">2 items</h4>
+    <div class="ui2-items-actions">
+      <select id="it-printer" class="ui2-items-printer-select"><option>Print on server</option></select>
+      <label id="it-code-toggle" class="ui2-items-code-toggle">
+        <input type="checkbox" /> Code as text
+      </label>
+    </div>
+  </div>
+
+  <div class="ui2-table-scroll">
+    <table id="it-table" class="ui2-items-table">
+      <thead>
+        <tr><th>Code</th><th class="ui2-num">Qty</th><th>Brand</th></tr>
+      </thead>
+      <tbody>
+        <tr id="it-row">
+          <td>A001</td>
+          <td id="it-cell-num" class="ui2-num">2</td>
+          <td id="it-cell-nowrap" class="ui2-items-nowrap ui2-items-actions">Rossignol</td>
+        </tr>
+        <tr class="ui2-items-row--open" id="it-row-open">
+          <td colspan="3" id="it-panel-cell" class="ui2-items-panel-cell">
+            <div id="it-edit-grid" class="ui2-items-edit-grid">
+              <div><label id="it-edit-label" class="ui2-items-edit-label">Price</label><input id="it-edit-input" class="ui2-items-edit-input" /></div>
+            </div>
+            <div id="it-note-row" class="ui2-items-note-row">
+              <span id="it-note-text" class="ui2-items-note-text">On hand: 2</span>
+              <input id="it-qty-input" class="ui2-items-qty-input" />
+              <span id="it-qty-error" class="ui2-items-qty-error">nope</span>
+            </div>
+            <p id="it-save-error" class="ui2-items-save-error">failed</p>
+            <div id="it-panel-actions" class="ui2-items-panel-actions">
+              <button id="it-save" class="ui2-btn ui2-btn--primary">Save</button>
+              <button id="it-cancel" class="ui2-btn ui2-btn--secondary">Cancel</button>
+              <button id="it-panel-delete" class="ui2-btn ui2-btn--danger ui2-items-panel-delete">Delete</button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr id="it-foot-row"><td class="ui2-items-foot-cell"></td><td id="it-foot-num" class="ui2-num">2</td><td></td></tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <form id="if-grid" class="ui2-itemform-grid">
+    <div id="if-field" class="ui2-itemform-field">
+      <label id="if-label" class="ui2-itemform-label">Qty</label>
+      <input id="if-input" class="ui2-itemform-input" />
+      <div id="if-counter" class="ui2-itemform-counter">12 / 99</div>
+      <div id="if-counter-over" class="ui2-itemform-counter ui2-itemform-counter--over">95 / 99</div>
+      <div id="if-price-note" class="ui2-itemform-price-note">Rounded up</div>
+      <div id="if-inherit" class="ui2-itemform-inherit">Intake default: donate unsold No</div>
+    </div>
+    <div id="if-donate" class="ui2-itemform-donate">
+      <div><label><input type="checkbox" /> Donate?</label></div>
+    </div>
+    <div id="if-error" class="ui2-itemform-error" role="alert">Required</div>
+  </form>
+
+  <form id="sp-form" class="ui2-search-form">
+    <div><label id="sp-label" class="ui2-search-label">Search</label><input id="sp-query" class="ui2-search-query" /></div>
+    <select id="sp-status" class="ui2-search-status"><option>All</option></select>
+    <button id="sp-primary" class="ui2-btn ui2-btn--primary">Search</button>
+  </form>
+  <div id="sp-count" class="ui2-search-count">3 items found</div>
+  <table id="sp-table" class="ui2-search-table">
+    <thead><tr><th>Code</th></tr><tr><td id="sp-filter-cell" class="ui2-search-filter-cell"><input id="sp-filter" class="ui2-search-filter" /></td></tr></thead>
+    <tbody><tr><td>A001</td></tr></tbody>
+  </table>
+  <div id="sp-empty" class="ui2-search-empty">No items match your search.</div>
+
+  <!-- ── U5 part 1: admin reports & payouts ─────────────────────────────── -->
+  <section id="rp-section" class="ui2-report-section">
+    <div id="rp-row" class="ui2-section-row ui2-section-row--open">
+      <div id="rp-click" class="ui2-section-clickable">
+        <span id="rp-chevron" class="ui2-section-chevron">&#9660;</span>
+        <h3 id="rp-title" class="ui2-section-title">Event Revenue</h3>
+        <span id="rp-summary" class="ui2-section-summary">Gross: $1.00</span>
+      </div>
+      <button id="rp-csv" class="ui2-outline-btn">Download CSV</button>
+    </div>
+    <table id="rp-kv" class="ui2-report-kv">
+      <tbody>
+        <tr><td id="rp-kv-label">MYSL Total</td><td id="rp-kv-num" class="ui2-num">$12.00</td></tr>
+      </tbody>
+    </table>
+    <table id="rp-table" class="ui2-report-table">
+      <thead><tr><th>Sale</th><th id="rp-th-num" class="ui2-num">Total</th><th id="rp-th-center" class="ui2-center">Voided</th></tr></thead>
+      <tbody>
+        <tr id="rp-row-voided" class="ui2-row--voided"><td id="rp-cell-voided">#1</td><td class="ui2-num">$1.00</td><td class="ui2-center">&#10003;</td></tr>
+        <tr id="rp-row-soldout" class="ui2-row--soldout"><td id="rp-cell-soldout">A001</td><td class="ui2-num">$2.00</td><td class="ui2-center"></td></tr>
+      </tbody>
+      <tfoot><tr id="rp-row-total" class="ui2-row--total"><td id="rp-cell-total">Total</td><td id="rp-foot-num" class="ui2-num">$3.00</td><td></td></tr></tfoot>
+    </table>
+    <span id="rp-item-name" class="ui2-item-name">Jane Smith</span><span id="rp-item-code" class="ui2-item-code">(A001)</span>
+  </section>
+  <div id="rp-cashier" class="ui2-cashier-block">
+    <h4 id="rp-cashier-heading" class="ui2-cashier-heading">
+      <span id="rp-cashier-name" class="ui2-cashier-name">admin</span><span id="rp-cashier-meta" class="ui2-cashier-meta">3 sales</span>
+    </h4>
+  </div>
+  <form id="rp-lookup" class="ui2-lookup-form">
+    <div id="rp-lookup-field" class="ui2-lookup-field">
+      <label id="rp-lookup-label" class="ui2-lookup-label">Seller</label>
+      <input />
+    </div>
+    <button class="ui2-btn ui2-btn--primary">Get Payout</button>
+  </form>
+  <div id="rp-gen" class="ui2-generate-panel">
+    <div id="rp-gen-head" class="ui2-generate-head"><h4 id="rp-gen-title" class="ui2-generate-title">All Due Sellers</h4></div>
+  </div>
+  <p id="rp-muted" class="ui2-muted-line">No check transactions recorded yet.</p>
+  <div id="po-loading" class="ui2-payout-loading">Loading payout&#8230;</div>
+  <p id="po-error" class="ui2-payout-error" role="alert">Failed</p>
+  <h4 id="po-title" class="ui2-payout-section-title">Items</h4>
+  <p id="po-empty" class="ui2-payout-empty">No items consigned.</p>
+  <div id="po-price-adj" class="ui2-payout-price-adj">Price adj.: damaged</div>
+  <div id="as-zip-row" class="ui2-allzip-row"><button id="as-zip-btn" class="ui2-outline-btn">Download ZIP</button></div>
+  <section id="as-card" class="ui2-seller-card">
+    <div id="as-card-head" class="ui2-seller-card-head">
+      <h4 id="as-card-title" class="ui2-seller-card-title">Jane (A001)<span id="as-card-meta" class="ui2-seller-card-meta">Sold: 1</span></h4>
+      <div id="as-card-actions" class="ui2-seller-card-actions"><button class="ui2-outline-btn">XLSX</button></div>
+    </div>
+  </section>
+  <div id="eod" class="ui2-eod">
+    <section id="eod-panel" class="ui2-eod-panel">
+      <h4 id="eod-title" class="ui2-eod-title ui2-eod-title--tight">Summary</h4>
+      <div id="eod-buttons" class="ui2-eod-buttons"><button class="ui2-btn ui2-btn--secondary">PDF</button></div>
+    </section>
+  </div>
+  <p id="eod-hint" class="ui2-eod-hint">Downloads a ZIP.</p>
+  <p id="eq-error" class="ui2-equipment-error" role="alert">Failed</p>
+  <div id="eq-scroll" class="ui2-equipment-scroll"><table id="eq-table" class="ui2-equipment-table"><tbody><tr id="eq-row" class="ui2-row--total"><td id="eq-num" class="ui2-num">$1.00</td></tr></tbody></table></div>
+</div>
+
+  <!-- U5 part 2: sellers & settings -->
+  <div id="ap-tabs" class="ui2-admin-tabs">
+    <button id="ap-tab-active" class="ui2-admin-tab" aria-current="page">Events</button>
+    <button id="ap-tab" class="ui2-admin-tab">Users</button>
+    <button id="ap-back" class="ui2-admin-back-btn">Back to Sellers</button>
+  </div>
+
+  <table id="ev-table" class="ui2-settings-table ui2-settings-table--wide">
+    <thead><tr><th>Name</th></tr></thead>
+    <tbody>
+      <tr id="ev-row"><td>TEST SWAP POS 2026</td><td id="ev-actions" class="ui2-settings-actions"><button>Activate</button><button>Delete</button></td></tr>
+    </tbody>
+  </table>
+
+  <form id="ev-form" class="ui2-settings-form ui2-settings-form--events">
+    <div><label for="ev-name">Event Name</label><input id="ev-name" /></div>
+    <button id="ev-submit" class="ui2-btn ui2-btn--primary">Create Event</button>
+  </form>
+  <div id="ev-error" class="ui2-settings-error" role="alert">Failed</div>
+
+  <div class="ui2-settings-form ui2-settings-form--users">
+    <div id="um-pw-row" class="ui2-password-row">
+      <input id="um-pw" />
+      <button id="um-generate">Generate</button>
+    </div>
+  </div>
+
+  <table id="ss-table" class="ui2-settings-table ui2-settings-table--auto">
+    <thead><tr><th>User</th></tr></thead>
+    <tbody><tr><td id="ss-device" class="ui2-settings-device">Mozilla/5.0 (very long user agent string)</td></tr></tbody>
+  </table>
+  <div id="ss-empty" class="ui2-settings-empty">No sessions recorded yet.</div>
+  <p id="ss-footer" class="ui2-settings-footer">2 active sessions</p>
+
+  <input id="sl-search" class="ui2-seller-search" />
+  <table id="sl-table" class="ui2-seller-table">
+    <thead><tr><th>Code</th></tr></thead>
+    <tbody>
+      <tr id="sl-row-open" class="ui2-row--open"><td id="sl-code" class="ui2-seller-code">A001</td><td id="sl-vendor" class="ui2-seller-badge--vendor">Yes</td><td id="sl-done" class="ui2-seller-badge--done">All 3</td><td id="sl-partial" class="ui2-seller-badge--partial">2/3</td><td id="sl-none" class="ui2-seller-badge--none-printed">Not yet</td><td id="sl-actions" class="ui2-seller-actions"><button>View</button></td></tr>
+      <tr><td id="sl-payout-cell" class="ui2-seller-payout-cell" colspan="6"><strong class="ui2-seller-payout-title">Seller Payout</strong></td></tr>
+    </tbody>
+  </table>
+  <div id="sl-empty" class="ui2-seller-empty">No sellers found</div>
+
+  <div id="tx-filters" class="ui2-txn-filters"><label id="tx-label" class="ui2-txn-filter-label">Cashier<input id="tx-input" class="ui2-txn-filter-input" /></label><label id="tx-check" class="ui2-txn-check"><input type="checkbox" /> Include voided</label></div>
+  <table id="tx-table" class="ui2-txn-table">
+    <thead><tr><th>Sale</th><th class="ui2-num">Total</th></tr></thead>
+    <tbody>
+      <tr id="tx-row-void" class="ui2-row--voided"><td id="tx-id" class="ui2-txn-id">#1</td><td id="tx-void-cell">$10.00</td><td id="tx-void-status" class="ui2-txn-status--void">VOIDED</td></tr>
+      <tr id="tx-row-ok"><td>#2</td><td id="tx-ok-status" class="ui2-txn-status--ok">OK</td></tr>
+    </tbody>
+  </table>
+  <div id="tx-pager" class="ui2-txn-pager"><button>Previous</button><button>Next</button></div>
+
+  <div id="sd-card" class="ui2-sd-card">
+    <div id="sd-contact" class="ui2-sd-contact-row"><span id="sd-contact-label" class="ui2-sd-contact-label">Phone:</span><span>555</span></div>
+    <label id="sd-toggle" class="ui2-sd-toggle"><input type="checkbox" /> Vendor</label>
+    <div id="sd-warning" class="ui2-sd-warning">Rate changes</div>
+    <div id="sd-field" class="ui2-sd-field"><label>Company</label><input id="sd-input" /></div>
+    <fieldset id="sd-fieldset" class="ui2-sd-fieldset"><legend id="sd-legend" class="ui2-sd-legend">Address</legend></fieldset>
+    <div id="sd-actions" class="ui2-sd-actions"><button id="sd-save" class="ui2-sd-save">Save</button><button id="sd-cancel" class="ui2-sd-cancel">Cancel</button></div>
+  </div>
+  <div id="sd-items-header" class="ui2-sd-items-header"><h4 id="sd-items-title" class="ui2-sd-items-title">Items (3)</h4><div class="ui2-sd-items-actions"><button id="sd-outline" class="ui2-sd-outline">Import Items</button><button id="sd-outline-disabled" class="ui2-sd-outline" disabled>Reprint</button></div></div>
+  <div id="sd-panel" class="ui2-sd-panel"><strong id="sd-panel-title" class="ui2-sd-panel-title">Seller Payout</strong></div>
+  <div id="sd-intake-group" class="ui2-sd-intake-group"><h5 id="sd-intake-heading" class="ui2-sd-intake-heading">Intake #1</h5></div>
+
+  <div id="rp-modal" class="ui2-modal-backdrop"><form id="rp-panel" class="ui2-modal-panel">
+    <h3 id="rpm-title" class="ui2-modal-title">Reset Password</h3>
+    <div id="rp-field" class="ui2-modal-field"><label>New Password</label><div id="rp-pw-row" class="ui2-modal-password-row"><input id="rp-input" /><button id="rp-suggest">Suggest</button></div></div>
+    <ul id="rp-policy" class="ui2-modal-policy"><li id="rp-unmet" data-met="false">At least 8 characters</li><li id="rp-met" data-met="true">Password meets all requirements.</li></ul>
+    <div id="rp-mismatch" class="ui2-modal-mismatch">Passwords do not match.</div>
+    <div id="rp-footer" class="ui2-modal-footer"><button id="rp-cancel">Cancel</button><button id="rp-submit">Reset</button></div>
+  </form></div>
+  <div id="cu-value" class="ui2-modal-value">s3cret</div>
+  <div id="cu-row-label" class="ui2-modal-row-label">Username</div>
+  <!-- U6: login, password modal, import banner, combobox, docs, square -->
+  <div id="lg-shell" class="ui2-login">
+    <div id="lg-stripe" class="ui2-login-stripe"></div>
+    <div id="lg-centre" class="ui2-login-centre">
+      <div id="lg-card" class="ui2-login-card">
+        <div id="lg-brand" class="ui2-login-brand">
+          <div id="lg-title" class="ui2-login-brand-title">Ski Swap POS</div>
+          <div id="lg-sub" class="ui2-login-brand-sub">Sign in to continue</div>
+        </div>
+        <div id="lg-field" class="ui2-login-field"><label>Username</label><input id="lg-input" /></div>
+        <div id="lg-field-last" class="ui2-login-field ui2-login-field--last"><label>Password</label><input id="lg-input-last" /></div>
+        <div id="lg-error" class="ui2-login-error" role="alert">Bad credentials</div>
+        <button id="lg-submit" class="ui2-login-submit">Sign In</button>
+      </div>
+    </div>
+    <div id="lg-footer" class="ui2-login-footer">v1.0</div>
+  </div>
+
+  <div id="cp-backdrop" class="ui2-cp-backdrop"><form id="cp-panel" class="ui2-cp-panel">
+    <h3 id="cp-title" class="ui2-cp-title">Change Password</h3>
+    <div id="cp-field" class="ui2-cp-field"><label>Current Password</label><input id="cp-input" /></div>
+    <div id="cp-pw-row" class="ui2-cp-password-row"><input id="cp-input2" /><button id="cp-suggest" class="ui2-cp-suggest">Suggest</button></div>
+    <div id="cp-mismatch" class="ui2-cp-mismatch">Passwords do not match.</div>
+    <ul id="cp-policy" class="ui2-cp-policy"><li id="cp-unmet" data-met="false">At least 8 characters</li><li id="cp-met" data-met="true">Password meets all requirements.</li></ul>
+    <div id="cp-error" class="ui2-cp-error">Wrong current password</div>
+    <div id="cp-footer" class="ui2-cp-footer"><button id="cp-cancel" class="ui2-cp-cancel">Cancel</button><button id="cp-submit" class="ui2-cp-submit">Change Password</button></div>
+  </form></div>
+
+  <div id="io-error" class="ui2-io ui2-io--error"><span>2 imported, 1 skipped</span><button id="io-dismiss" class="ui2-io-dismiss">x</button><div id="io-errors" class="ui2-io-errors"><div>row 3: bad code</div></div></div>
+  <div id="io-warn" class="ui2-io ui2-io--warn"><div id="io-note" class="ui2-io-note">Note</div><div id="io-warnings" class="ui2-io-warnings"><div>duplicate upload</div></div></div>
+  <div id="io-ok" class="ui2-io ui2-io--ok">3 imported</div>
+
+  <div id="cb-root" class="ui2-combobox"><input id="cb-input" class="ui2-combobox-input" /><button id="cb-clear" class="ui2-combobox-clear">x</button></div>
+  <div id="cb-list" class="ui2-combobox-list"><button id="cb-option" class="ui2-combobox-option"><strong id="cb-code" class="ui2-combobox-code">TRAI1</strong><span id="cb-company" class="ui2-combobox-company">(Trailhead)</span></button></div>
+
+  <div id="dc-panel" class="ui2-docs-panel"><div id="dc-blurb" class="ui2-docs-blurb">Blurb</div><div id="dc-links" class="ui2-docs-links"><a id="dc-link" class="ui2-docs-link" href="#/docs">Workbook</a></div></div>
+
+  <div id="sq-container" class="ui2-square-container"></div>
+  <button id="sq-capture" class="ui2-square-capture">Capture</button>
+  <p id="sq-message" class="ui2-square-message">Card payment unavailable.</p>
+</body>
+</html>

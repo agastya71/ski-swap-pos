@@ -19,6 +19,8 @@ import { SellerDetailPage } from './SellerDetailPage'
 import { TransactionsPage } from './TransactionsPage'
 import { navigate, useHashRoute } from '../lib/useHashRoute'
 import { getSeller } from '../api/sellers'
+import { useUiVariant } from '../lib/uiVariant'
+import { ADMIN_TABS, variantProps } from './adminStyles'
 import type { Seller } from '../types'
 
 type AdminSection =
@@ -109,23 +111,21 @@ function SellersSection({ eventId }: { eventId: number }) {
     }
   }, [sellerId, loadedForId])
 
+  const v2 = useUiVariant() === 'v2'
+
   if (sellerId !== null) {
     if (loadedForId === sellerId && detailError) {
       return (
         <div>
-          <div role="alert" style={{ color: '#b91c1c', marginBottom: 12 }}>
+          <div
+            role="alert"
+            {...variantProps(v2, 'ui2-admin-section-error', ADMIN_TABS.sectionError)}
+          >
             {detailError}
           </div>
           <button
             onClick={() => navigate('/admin/sellers')}
-            style={{
-              border: '1px solid #1e3a8a',
-              color: '#1e3a8a',
-              background: 'none',
-              padding: '6px 14px',
-              cursor: 'pointer',
-              borderRadius: 3,
-            }}
+            {...variantProps(v2, 'ui2-admin-back-btn', ADMIN_TABS.backButton)}
           >
             ← Back to Sellers
           </button>
@@ -142,7 +142,11 @@ function SellersSection({ eventId }: { eventId: number }) {
         />
       )
     }
-    return <p style={{ color: '#64748b' }}>Loading seller…</p>
+    return (
+      <p {...variantProps(v2, 'ui2-admin-loading', ADMIN_TABS.loading)}>
+        Loading seller…
+      </p>
+    )
   }
   return (
     <SellerListPage
@@ -161,22 +165,17 @@ export function AdminPage() {
   const eventId = decoded?.event_id ?? 1
   const hash = useHashRoute()
   const { section } = routeForHash(hash)
+  const v2 = useUiVariant() === 'v2'
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '2px solid #1a237e', paddingBottom: 8 }}>
+      <div {...variantProps(v2, 'ui2-admin-tabs', ADMIN_TABS.bar)}>
         {SECTIONS.map(s => (
           <button
             key={s.key}
             onClick={() => navigate(s.hash)}
             aria-current={section === s.key ? 'page' : undefined}
-            style={{
-              padding: '6px 16px',
-              background: section === s.key ? '#1a237e' : 'transparent',
-              color: section === s.key ? 'white' : '#1a237e',
-              border: '1px solid #1a237e',
-              cursor: 'pointer',
-            }}
+            {...variantProps(v2, 'ui2-admin-tab', ADMIN_TABS.tab(section === s.key))}
           >
             {s.label}
           </button>

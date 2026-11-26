@@ -17,6 +17,9 @@ import {
 } from "../api/items";
 import type { ItemSearchResult } from "../types";
 import { useAuth } from "../auth/AuthContext";
+import { SEARCH_PAGE, variantProps, v1Only, v2Only } from "./intakeStyles";
+import { useUiVariant } from "../lib/uiVariant";
+import { TableScroll } from "../components/ui/primitives";
 
 const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
     { value: "", label: "All statuses" },
@@ -61,6 +64,7 @@ type ColumnFilterState = Record<string, string>;
  */
 export function ItemSearchPage() {
     const { decoded } = useAuth();
+    const v2 = useUiVariant() === "v2";
     const isAdmin = decoded?.role === "admin";
     const [q, setQ] = useState("");
     const [status, setStatus] = useState("");
@@ -132,33 +136,22 @@ export function ItemSearchPage() {
         }
     }
 
-    const cell = { padding: "6px 8px", textAlign: "left" as const };
-
     return (
         <div>
             <h3>Search Intake Items</h3>
-            <p style={{ fontSize: 13, color: "#555", marginTop: 0 }}>
+            <p {...variantProps(v2, "ui2-search-intro", SEARCH_PAGE.intro)}>
                 Searches every field: code, description, category, brand, type,
                 color, size, gender/age, year, price, quantity, status, and
                 seller name/code.
             </p>
             <form
                 onSubmit={handleSubmit}
-                style={{
-                    display: "flex",
-                    gap: 8,
-                    alignItems: "end",
-                    marginBottom: 16,
-                }}
+                {...variantProps(v2, "ui2-search-form", SEARCH_PAGE.form)}
             >
                 <div>
                     <label
                         htmlFor="itemSearch"
-                        style={{
-                            display: "block",
-                            fontSize: 13,
-                            marginBottom: 3,
-                        }}
+                        {...variantProps(v2, "ui2-search-label", SEARCH_PAGE.label)}
                     >
                         Search all fields
                     </label>
@@ -167,17 +160,13 @@ export function ItemSearchPage() {
                         value={q}
                         onChange={(e) => setQ(e.target.value)}
                         placeholder="e.g. skis, Rossignol, A001, red, 2018, 45"
-                        style={{ width: 320, padding: 8 }}
+                        {...variantProps(v2, "ui2-search-query", SEARCH_PAGE.queryInput)}
                     />
                 </div>
                 <div>
                     <label
                         htmlFor="itemSearchStatus"
-                        style={{
-                            display: "block",
-                            fontSize: 13,
-                            marginBottom: 3,
-                        }}
+                        {...variantProps(v2, "ui2-search-label", SEARCH_PAGE.label)}
                     >
                         Status
                     </label>
@@ -185,7 +174,7 @@ export function ItemSearchPage() {
                         id="itemSearchStatus"
                         value={status}
                         onChange={(e) => handleStatusChange(e.target.value)}
-                        style={{ padding: 8 }}
+                        {...variantProps(v2, "ui2-search-status", SEARCH_PAGE.statusSelect)}
                     >
                         {STATUS_OPTIONS.map((o) => (
                             <option key={o.value} value={o.value}>
@@ -197,7 +186,8 @@ export function ItemSearchPage() {
                 <button
                     type="submit"
                     disabled={loading}
-                    style={{ padding: "8px 20px" }}
+                    style={v1Only(v2, SEARCH_PAGE.formButton).style}
+                    {...v2Only(v2, "ui2-btn ui2-btn--primary")}
                 >
                     Search
                 </button>
@@ -205,53 +195,58 @@ export function ItemSearchPage() {
                     type="button"
                     onClick={() => void handleExport()}
                     disabled={exporting || loading}
-                    style={{ padding: "8px 20px" }}
+                    style={v1Only(v2, SEARCH_PAGE.formButton).style}
+                    {...v2Only(v2, "ui2-btn ui2-btn--primary")}
                 >
                     {exporting ? "Exporting…" : "Download results (xlsx)"}
                 </button>
             </form>
 
             {loading && (
-                <div style={{ color: "#555", marginBottom: 8 }}>Searching…</div>
+                <div {...variantProps(v2, "ui2-search-searching", SEARCH_PAGE.searching)}>
+                    Searching…
+                </div>
             )}
             {error && (
-                <div role="alert" style={{ color: "red", marginBottom: 8 }}>
+                <div role="alert" {...variantProps(v2, "ui2-search-error", SEARCH_PAGE.errorLine)}>
                     {error}
                 </div>
             )}
             {searched && !loading && (
-                <div style={{ marginBottom: 8, fontSize: 14 }}>
+                <div {...variantProps(v2, "ui2-search-count", SEARCH_PAGE.foundCount)}>
                     {results.length} item{results.length === 1 ? "" : "s"} found
                 </div>
             )}
 
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <TableScroll>
+            <table {...variantProps(v2, "ui2-search-table", SEARCH_PAGE.table)}>
                 <thead>
-                    <tr style={{ borderBottom: "2px solid #ccc" }}>
-                        <th style={cell}>Code</th>
-                        <th style={cell}>Qty</th>
-                        <th style={cell}>Category</th>
-                        <th style={cell}>Type</th>
-                        <th style={cell}>Brand</th>
-                        <th style={cell}>Description</th>
-                        <th style={cell}>Size</th>
-                        <th style={cell}>Sell Price</th>
-                        <th style={cell}>Donate?</th>
-                        <th style={cell}>Remaining</th>
-                        <th style={cell}>Status</th>
-                        <th style={cell}>Seller</th>
+                    <tr {...v1Only(v2, SEARCH_PAGE.headRow)}>
+                        <th {...v1Only(v2, SEARCH_PAGE.cell)}>Code</th>
+                        <th {...v1Only(v2, SEARCH_PAGE.cell)}>Qty</th>
+                        <th {...v1Only(v2, SEARCH_PAGE.cell)}>Category</th>
+                        <th {...v1Only(v2, SEARCH_PAGE.cell)}>Type</th>
+                        <th {...v1Only(v2, SEARCH_PAGE.cell)}>Brand</th>
+                        <th {...v1Only(v2, SEARCH_PAGE.cell)}>Description</th>
+                        <th {...v1Only(v2, SEARCH_PAGE.cell)}>Size</th>
+                        <th {...v1Only(v2, SEARCH_PAGE.cell)}>Sell Price</th>
+                        <th {...v1Only(v2, SEARCH_PAGE.cell)}>Donate?</th>
+                        <th {...v1Only(v2, SEARCH_PAGE.cell)}>Remaining</th>
+                        <th {...v1Only(v2, SEARCH_PAGE.cell)}>Status</th>
+                        <th {...v1Only(v2, SEARCH_PAGE.cell)}>Seller</th>
                     </tr>
                     {isAdmin && (
                         <tr>
                             {FILTER_ROW.map((entry, i) =>
                                 entry === null ? (
-                                    <td key={`col-${i}`} style={cell} />
+                                    <td key={`col-${i}`} {...v1Only(v2, SEARCH_PAGE.cell)} />
                                 ) : (
                                     <td
                                         key={entry.filterKey}
-                                        style={{ ...cell, paddingBottom: 4 }}
+                                        {...v1Only(v2, SEARCH_PAGE.filterCell)}
                                     >
                                         <ColumnFilterInput
+                                            v2={v2}
                                             filterKey={entry.filterKey}
                                             label={FILTER_LABELS[entry.filterKey]}
                                             value={
@@ -270,24 +265,24 @@ export function ItemSearchPage() {
                     {results.map((item) => (
                         <tr
                             key={item.id}
-                            style={{ borderBottom: "1px solid #eee" }}
+                            {...v1Only(v2, SEARCH_PAGE.bodyRow)}
                         >
-                            <td style={cell}>{item.code}</td>
-                            <td style={cell}>{item.quantity}</td>
-                            <td style={cell}>{item.category}</td>
-                            <td style={cell}>{item.type ?? "—"}</td>
-                            <td style={cell}>{item.brand ?? "—"}</td>
-                            <td style={cell}>{item.description}</td>
-                            <td style={cell}>{item.size}</td>
-                            <td style={cell}>
+                            <td {...v1Only(v2, SEARCH_PAGE.cell)}>{item.code}</td>
+                            <td {...v1Only(v2, SEARCH_PAGE.cell)}>{item.quantity}</td>
+                            <td {...v1Only(v2, SEARCH_PAGE.cell)}>{item.category}</td>
+                            <td {...v1Only(v2, SEARCH_PAGE.cell)}>{item.type ?? "—"}</td>
+                            <td {...v1Only(v2, SEARCH_PAGE.cell)}>{item.brand ?? "—"}</td>
+                            <td {...v1Only(v2, SEARCH_PAGE.cell)}>{item.description}</td>
+                            <td {...v1Only(v2, SEARCH_PAGE.cell)}>{item.size}</td>
+                            <td {...v1Only(v2, SEARCH_PAGE.cell)}>
                                 ${(item.price ?? 0).toFixed(2)}
                             </td>
-                            <td style={cell}>
+                            <td {...v1Only(v2, SEARCH_PAGE.cell)}>
                                 {item.donate_unsold ? "Yes" : "—"}
                             </td>
-                            <td style={cell}>{item.remaining}</td>
-                            <td style={cell}>{item.status}</td>
-                            <td style={cell}>
+                            <td {...v1Only(v2, SEARCH_PAGE.cell)}>{item.remaining}</td>
+                            <td {...v1Only(v2, SEARCH_PAGE.cell)}>{item.status}</td>
+                            <td {...v1Only(v2, SEARCH_PAGE.cell)}>
                                 {item.seller_code}
                                 {item.seller_name
                                     ? ` — ${item.seller_name}`
@@ -297,8 +292,9 @@ export function ItemSearchPage() {
                     ))}
                 </tbody>
             </table>
+            </TableScroll>
             {searched && !loading && results.length === 0 && !error && (
-                <div style={{ color: "#555", marginTop: 12 }}>
+                <div {...variantProps(v2, "ui2-search-empty", SEARCH_PAGE.noResults)}>
                     No items match your search.
                 </div>
             )}
@@ -313,12 +309,14 @@ function ColumnFilterInput({
     value,
     onChange,
     onApply,
+    v2,
 }: {
     filterKey: string;
     label: string;
     value: string;
     onChange: (key: string, value: string) => void;
     onApply: () => void;
+    v2: boolean;
 }) {
     return (
         <input
@@ -333,12 +331,7 @@ function ColumnFilterInput({
                 }
             }}
             placeholder="Filter"
-            style={{
-                width: "100%",
-                minWidth: 90,
-                padding: "3px 6px",
-                fontSize: 12,
-            }}
+            {...variantProps(v2, "ui2-search-filter", SEARCH_PAGE.filterInput)}
         />
     );
 }

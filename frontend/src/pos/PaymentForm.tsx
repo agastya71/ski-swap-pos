@@ -12,6 +12,8 @@
  */
 import { useState, type FormEvent } from "react";
 import { BUTTON_STYLE } from "../lib/buttons";
+import { PAY, variantProps } from "./posStyles";
+import { useUiVariant } from "../lib/uiVariant";
 
 export interface PaymentSubmit {
     cash: number;
@@ -49,6 +51,7 @@ export function PaymentForm({
     const [creditCard, setCreditCard] = useState("");
     const [notes, setNotes] = useState("");
     const [error, setError] = useState<string | null>(null);
+    const v2 = useUiVariant() === "v2";
 
     const cashAmt = parseFloat(cash) || 0;
     const checkAmt = parseFloat(check) || 0;
@@ -90,10 +93,10 @@ export function PaymentForm({
     return (
         <form onSubmit={handleSubmit}>
             <h3>Payment — Total: ${total.toFixed(2)}</h3>
-            <div style={{ marginBottom: 12 }}>
+            <div {...variantProps(v2, "ui2-pay-field", PAY.field)}>
                 <label
                     htmlFor="cash"
-                    style={{ display: "block", marginBottom: 4 }}
+                    {...variantProps(v2, "ui2-pay-label", PAY.label)}
                 >
                     Cash ($)
                 </label>
@@ -104,13 +107,13 @@ export function PaymentForm({
                     step="0.01"
                     value={cash}
                     onChange={updatePayment(setCash)}
-                    style={{ padding: 8, fontSize: 16, width: 140 }}
+                    {...variantProps(v2, "ui2-pay-input ui2-pay-input--money", PAY.inputMoney)}
                 />
             </div>
-            <div style={{ marginBottom: 12 }}>
+            <div {...variantProps(v2, "ui2-pay-field", PAY.field)}>
                 <label
                     htmlFor="check"
-                    style={{ display: "block", marginBottom: 4 }}
+                    {...variantProps(v2, "ui2-pay-label", PAY.label)}
                 >
                     Check ($)
                 </label>
@@ -121,14 +124,14 @@ export function PaymentForm({
                     step="0.01"
                     value={check}
                     onChange={updatePayment(setCheck)}
-                    style={{ padding: 8, fontSize: 16, width: 140 }}
+                    {...variantProps(v2, "ui2-pay-input ui2-pay-input--money", PAY.inputMoney)}
                 />
             </div>
             {checkAmt > 0 && (
-                <div style={{ marginBottom: 12 }}>
+                <div {...variantProps(v2, "ui2-pay-field", PAY.field)}>
                     <label
                         htmlFor="checkNumber"
-                        style={{ display: "block", marginBottom: 4 }}
+                        {...variantProps(v2, "ui2-pay-label", PAY.label)}
                     >
                         Check Number
                     </label>
@@ -137,14 +140,14 @@ export function PaymentForm({
                         type="text"
                         value={checkNumber}
                         onChange={updatePayment(setCheckNumber)}
-                        style={{ padding: 8, fontSize: 16, width: 200 }}
+                        {...variantProps(v2, "ui2-pay-input ui2-pay-input--check-number", PAY.inputCheckNumber)}
                     />
                 </div>
             )}
-            <div style={{ marginBottom: 12 }}>
+            <div {...variantProps(v2, "ui2-pay-field", PAY.field)}>
                 <label
                     htmlFor="creditCard"
-                    style={{ display: "block", marginBottom: 4 }}
+                    {...variantProps(v2, "ui2-pay-label", PAY.label)}
                 >
                     Credit Card ($)
                 </label>
@@ -155,16 +158,16 @@ export function PaymentForm({
                     step="0.01"
                     value={creditCard}
                     onChange={updatePayment(setCreditCard)}
-                    style={{ padding: 8, fontSize: 16, width: 140 }}
+                    {...variantProps(v2, "ui2-pay-input ui2-pay-input--money", PAY.inputMoney)}
                 />
-                <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
+                <div {...variantProps(v2, "ui2-pay-hint", PAY.hint)}>
                     Amount run on the card (charged to the buyer as entered)
                 </div>
             </div>
-            <div style={{ marginBottom: 12 }}>
+            <div {...variantProps(v2, "ui2-pay-field", PAY.field)}>
                 <label
                     htmlFor="saleNotes"
-                    style={{ display: "block", marginBottom: 4 }}
+                    {...variantProps(v2, "ui2-pay-label", PAY.label)}
                 >
                     Sale notes (optional, printed on receipt)
                 </label>
@@ -173,36 +176,22 @@ export function PaymentForm({
                     value={notes}
                     onChange={updatePayment(setNotes)}
                     rows={2}
-                    style={{
-                        width: "100%",
-                        padding: 8,
-                        fontSize: 14,
-                        boxSizing: "border-box",
-                    }}
+                    {...variantProps(v2, "ui2-pay-notes", PAY.notes)}
                 />
             </div>
             {error && (
-                <div role="alert" style={{ color: "red", marginBottom: 10 }}>
+                <div role="alert" {...variantProps(v2, "ui2-pay-error", PAY.error)}>
                     {error}
                 </div>
             )}
             {!error && tendered > 0 && (
                 <div
                     role="status"
-                    style={{
-                        marginBottom: 10,
-                        padding: 8,
-                        borderRadius: 4,
-                        fontSize: 14,
-                        border:
-                            tendered + 0.001 >= total
-                                ? "1px solid #86efac"
-                                : "1px solid #fca5a5",
-                        background:
-                            tendered + 0.001 >= total ? "#f0fdf4" : "#fef2f2",
-                        color:
-                            tendered + 0.001 >= total ? "#166534" : "#b91c1c",
-                    }}
+                    {...variantProps(
+                        v2,
+                        `ui2-pay-status ${tendered + 0.001 >= total ? "ui2-pay-status--ok" : "ui2-pay-status--short"}`,
+                        PAY.status(tendered + 0.001 >= total),
+                    )}
                 >
                     Amount tendered: ${tendered.toFixed(2)} of $
                     {total.toFixed(2)}
@@ -216,21 +205,12 @@ export function PaymentForm({
             {!error && tendered - 0.001 > total && (
                 <div
                     role="status"
-                    style={{
-                        marginBottom: 10,
-                        padding: "10px 12px",
-                        borderRadius: 4,
-                        fontSize: 17,
-                        fontWeight: 700,
-                        border: "1px solid #86efac",
-                        background: "#f0fdf4",
-                        color: "#15803d",
-                    }}
+                    {...variantProps(v2, "ui2-pay-change", PAY.changeDue)}
                 >
                     Change due to buyer: ${(tendered - total).toFixed(2)}
                 </div>
             )}
-            <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+            <div {...variantProps(v2, "ui2-pay-actions", PAY.actions)}>
                 <button
                     type="submit"
                     disabled={total <= 0}

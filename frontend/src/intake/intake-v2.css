@@ -1,0 +1,792 @@
+/* Intake v2 styles — phase U4 part 1 (seller entry + module chrome).
+   Every rule is scoped under .ui-v2, so v1 renders byte-identically.
+
+   Design intent, part 1:
+   - Sellers are the people standing at the table, so every *input* and every
+     primary action (Register, Cancel, tabs, result rows) is a 44px touch
+     target; the v1 form is ~34px tall per field. Header chrome (ghost buttons)
+     stays at 36px on purpose — it is tapped rarely and would otherwise push
+     the tab bar onto a second row on a laptop.
+   - Nothing is hidden or moved: the same fields, in the same order, with the
+     same labels and required-ness. The form stays one column in v2 — a
+     two-column identity block is a layout change for part 2 to try once the
+     items tables are done and the form can be seen in context.
+*/
+
+.ui-v2 .ui2-intake-fieldset {
+  border: var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-3) var(--space-4);
+  margin: 0 0 var(--space-4);
+  background: var(--gray-50);
+}
+
+.ui-v2 .ui2-intake-legend {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--gray-600);
+  padding: 0 var(--space-1);
+}
+
+/* ── Field (SellerForm) ──────────────────────────────────────────────────── */
+
+.ui-v2 .ui2-intake-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-3);
+}
+
+
+.ui-v2 .ui2-intake-field-label {
+  display: block;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--gray-700);
+}
+
+.ui-v2 .ui2-intake-field-input {
+  width: 100%;
+  min-height: var(--touch-target);
+  padding: var(--space-2) var(--space-3);
+  box-sizing: border-box;
+  font-size: var(--font-size-lg);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+}
+
+.ui-v2 .ui2-intake-field-input:focus-visible {
+  border-color: var(--blue);
+}
+
+.ui-v2 .ui2-intake-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch-target);
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-md);
+}
+
+.ui-v2 .ui2-intake-check input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.ui-v2 .ui2-intake-hint {
+  font-size: var(--font-size-xs);
+  color: var(--gray-500);
+  margin: 0;
+}
+
+.ui-v2 .ui2-intake-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.ui-v2 .ui2-intake-actions button {
+  min-height: var(--touch-target);
+}
+
+.ui-v2 .ui2-intake-error {
+  color: var(--red);
+  background: var(--red-light);
+  border: 1px solid var(--red-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-md);
+}
+
+/* ── Seller search ───────────────────────────────────────────────────────── */
+
+.ui-v2 .ui2-intake-search-input {
+  width: 100%;
+  min-height: var(--touch-target);
+  padding: var(--space-2) var(--space-3);
+  margin: 0 0 var(--space-2);
+  box-sizing: border-box;
+  font-size: var(--font-size-lg);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.ui-v2 .ui2-intake-results {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.ui-v2 .ui2-intake-result {
+  width: 100%;
+  min-height: var(--touch-target);
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  background: #ffffff;
+  border: var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-md);
+  color: var(--gray-800);
+}
+
+.ui-v2 .ui2-intake-result:hover {
+  background: var(--blue-light);
+  border-color: var(--blue);
+}
+
+.ui-v2 .ui2-intake-new-btn {
+  margin-top: var(--space-2);
+}
+
+/* ── Import items ────────────────────────────────────────────────────────── */
+
+.ui-v2 .ui2-intake-import-root {
+  display: inline-block;
+}
+
+.ui-v2 .ui2-intake-import-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.ui-v2 .ui2-intake-import-error {
+  color: var(--red);
+  font-size: var(--font-size-sm);
+  margin-top: var(--space-2);
+}
+
+.ui-v2 .ui2-intake-import-result {
+  margin-top: var(--space-2);
+}
+
+/* ── Module chrome: tab bar + actions ────────────────────────────────────── */
+
+.ui-v2 .ui2-intake-tabbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--gray-200);
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.ui-v2 .ui2-intake-tabs {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.ui-v2 .ui2-intake-tab {
+  padding: var(--space-2) var(--space-4);
+  min-height: var(--touch-target);
+  background: transparent;
+  color: var(--navy);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-md);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.ui-v2 .ui2-intake-tab[aria-current="page"] {
+  background: var(--navy);
+  color: #ffffff;
+  border-color: var(--navy);
+}
+
+.ui-v2 .ui2-intake-event-name {
+  font-size: var(--font-size-md);
+  color: var(--gray-600);
+  font-weight: 600;
+}
+
+.ui-v2 .ui2-intake-tab-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.ui-v2 .ui2-intake-ghost-btn {
+  border: 1px solid var(--navy);
+  color: var(--navy);
+  background: #ffffff;
+  padding: var(--space-1) var(--space-3);
+  min-height: 36px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ui-v2 .ui2-intake-ghost-btn:hover {
+  background: var(--blue-light);
+}
+
+.ui-v2 .ui2-intake-ghost-btn:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+/* ── Duplicate-seller review panel ───────────────────────────────────────── */
+
+.ui-v2 .ui2-intake-review {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid #f59e0b;
+  border-radius: var(--radius);
+  background: #fffbeb;
+}
+
+.ui-v2 .ui2-intake-review-title {
+  font-size: var(--font-size-md);
+  color: #92400e;
+}
+
+.ui-v2 .ui2-intake-review-meta {
+  margin-top: var(--space-1);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-intake-review-reason {
+  margin-top: var(--space-1);
+  font-size: var(--font-size-sm);
+  color: #92400e;
+}
+
+.ui-v2 .ui2-intake-candidates {
+  margin-top: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ui-v2 .ui2-intake-candidate {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  border: 1px solid #fde68a;
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+  background: #ffffff;
+}
+
+.ui-v2 .ui2-intake-candidate-info {
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-intake-candidate-sub {
+  color: var(--gray-500);
+}
+
+.ui-v2 .ui2-intake-review-foot {
+  margin-top: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-intake-force-new {
+  margin-top: var(--space-1);
+}
+
+/* ── Import error / detail error / loading ───────────────────────────────── */
+
+.ui-v2 .ui2-intake-import-error-panel {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--red-border);
+  border-radius: var(--radius);
+  background: var(--red-light);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-intake-import-error-text {
+  color: var(--red);
+  font-weight: 500;
+}
+
+.ui-v2 .ui2-intake-detail-error {
+  color: var(--red);
+  margin-bottom: var(--space-3);
+}
+
+.ui-v2 .ui2-intake-loading {
+  color: var(--gray-500);
+  font-style: italic;
+}
+
+/* ── Narrow screens ──────────────────────────────────────────────────────── */
+
+@media (width <= 720px) {
+  .ui-v2 .ui2-intake-tabbar {
+    /* Tab group and actions each take their own row; the event name sits
+       between them and would otherwise be squeezed to a sliver. */
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ui-v2 .ui2-intake-tabs,
+  .ui-v2 .ui2-intake-tab-actions {
+    flex-wrap: wrap;
+  }
+
+  .ui-v2 .ui2-intake-tab {
+    flex: 1 1 auto;
+  }
+
+  .ui-v2 .ui2-intake-candidate {
+    align-items: stretch;
+  }
+}
+
+/* ── ItemList (part 2) ────────────────────────────────────────────────────── */
+
+.ui-v2 .ui2-items-error {
+  color: var(--red);
+  background: var(--red-light);
+  border: 1px solid var(--red-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-items-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+
+.ui-v2 .ui2-items-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.ui-v2 .ui2-items-actions select,
+.ui-v2 .ui2-items-actions button {
+  min-height: 36px;
+}
+
+.ui-v2 .ui2-items-title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  color: var(--gray-900);
+}
+
+.ui-v2 .ui2-items-printer-select { font-size: var(--font-size-md); padding: var(--space-1) var(--space-2); }
+
+.ui-v2 .ui2-items-code-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 44px;
+  font-size: var(--font-size-md);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ui-v2 .ui2-items-code-toggle input { width: 18px; height: 18px; }
+
+/* Table: readable density, right-aligned numerals, hairline row rules. */
+.ui-v2 .ui2-items-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-md);
+}
+
+.ui-v2 .ui2-items-table th,
+.ui-v2 .ui2-items-table td { padding: var(--space-1) var(--space-2); }
+
+.ui-v2 .ui2-items-table thead th {
+  text-align: left;
+  border-bottom: 2px solid var(--gray-300);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.ui-v2 .ui2-items-table thead th.ui2-num { text-align: right; }
+
+.ui-v2 .ui2-items-table tbody tr { border-bottom: 1px solid var(--gray-100); }
+.ui-v2 .ui2-items-table tbody tr:hover { background: var(--gray-50); }
+
+/* An open edit panel continues its row: the row rule would draw a line
+   through the middle of the panel. */
+.ui-v2 .ui2-items-table tbody tr.ui2-items-row--open { border-bottom: none; }
+
+.ui-v2 .ui2-items-table td.ui2-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-v2 .ui2-items-table td.ui2-items-nowrap { white-space: nowrap; }
+
+
+/* Row action cluster: the CELL is the flex container (v1 markup has no wrapper),
+   and its 36px buttons sit inside a 44px min touch target so five controls do
+   not double the row height. */
+.ui-v2 .ui2-items-table td.ui2-items-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.ui-v2 .ui2-items-table td.ui2-items-actions button {
+  min-height: 36px;
+  padding: var(--space-1) var(--space-2);
+}
+
+/* Edit panel ------------------------------------------------------------- */
+
+.ui-v2 .ui2-items-panel-cell {
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  background: var(--gray-50);
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.ui-v2 .ui2-items-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.ui-v2 .ui2-items-edit-label {
+  display: block;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--gray-500);
+  margin-bottom: 2px;
+}
+
+.ui-v2 .ui2-items-edit-input {
+  width: 100%;
+  min-height: var(--touch-target);
+  padding: var(--space-1) var(--space-2);
+  box-sizing: border-box;
+  font-size: var(--font-size-md);
+}
+
+.ui-v2 .ui2-items-note-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-md);
+}
+
+.ui-v2 .ui2-items-note-text { color: var(--gray-500); }
+.ui-v2 .ui2-items-note-preview { color: var(--blue); font-size: var(--font-size-xs); }
+
+.ui-v2 .ui2-items-qty-input {
+  width: 130px;
+  min-height: var(--touch-target);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-md);
+}
+
+.ui-v2 .ui2-items-qty-error { color: var(--red); font-size: var(--font-size-sm); }
+
+.ui-v2 .ui2-items-save-error {
+  color: var(--red);
+  font-size: var(--font-size-sm);
+  margin: 0 0 var(--space-2);
+}
+
+.ui-v2 .ui2-items-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.ui-v2 .ui2-items-panel-actions button { min-height: var(--touch-target); }
+
+/* Pushes the panel's Delete away from Save/Cancel. */
+.ui-v2 .ui2-items-panel-delete { margin-left: auto; }
+
+/* Totals row ------------------------------------------------------------ */
+
+.ui-v2 .ui2-items-table tfoot td {
+  padding: var(--space-2);
+  border-top: 2px solid var(--gray-400);
+  background: var(--gray-50);
+  font-weight: 700;
+}
+
+.ui-v2 .ui2-items-table tfoot td.ui2-num { font-variant-numeric: tabular-nums; }
+
+@media (width <= 720px) {
+  .ui-v2 .ui2-items-header { align-items: stretch; }
+  .ui-v2 .ui2-items-actions { flex: 1 1 100%; }
+  .ui-v2 .ui2-items-actions button { flex: 1 1 auto; }
+  .ui-v2 .ui2-items-edit-grid { grid-template-columns: 1fr; }
+  .ui-v2 .ui2-items-panel-cell { padding: var(--space-2); }
+  .ui-v2 .ui2-items-panel-delete { margin-left: 0; }
+}
+
+/* ── ItemForm (part 2) ────────────────────────────────────────────────────── */
+
+.ui-v2 .ui2-itemform-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 var(--space-3);
+}
+
+.ui-v2 .ui2-itemform-field { margin-bottom: var(--space-2); }
+
+.ui-v2 .ui2-itemform-label {
+  display: block;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--gray-600);
+  margin-bottom: 2px;
+}
+
+.ui-v2 .ui2-itemform-input {
+  width: 100%;
+  min-height: var(--touch-target);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-lg);
+}
+
+.ui-v2 .ui2-itemform-counter {
+  text-align: right;
+  font-size: var(--font-size-xs);
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+  color: var(--gray-400);
+}
+
+/* The counter turns red past the 90-character mark. */
+.ui-v2 .ui2-itemform-counter--over { color: var(--red); }
+
+.ui-v2 .ui2-itemform-price-note {
+  font-size: var(--font-size-xs);
+  color: #b45309;
+  margin-top: 2px;
+}
+
+.ui-v2 .ui2-itemform-donate {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.ui-v2 .ui2-itemform-donate label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--touch-target);
+  cursor: pointer;
+}
+
+.ui-v2 .ui2-itemform-donate input { width: 18px; height: 18px; }
+
+.ui-v2 .ui2-itemform-inherit {
+  font-size: var(--font-size-xs);
+  color: var(--gray-500);
+  margin-top: 2px;
+}
+
+.ui-v2 .ui2-itemform-error {
+  color: var(--red);
+  background: var(--red-light);
+  border: 1px solid var(--red-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+
+@media (width <= 720px) {
+  .ui-v2 .ui2-itemform-grid { grid-template-columns: 1fr; }
+}
+
+/* ── IntakePage chrome + previous-intakes table (part 2) ──────────────────── */
+
+.ui-v2 .ui2-intakepage { max-width: 860px; }
+
+.ui-v2 .ui2-intakepage-crumbs {
+  font-size: var(--font-size-sm);
+  color: var(--gray-500);
+  margin-bottom: var(--space-3);
+}
+
+.ui-v2 .ui2-intakepage-crumb-link {
+  min-height: 32px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--blue-text);
+  font-size: var(--font-size-sm);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.ui-v2 .ui2-intakepage-crumb-sep { margin: 0 var(--space-1); color: var(--gray-400); }
+.ui-v2 .ui2-intakepage-crumb-current { color: var(--gray-900); font-weight: 600; }
+.ui-v2 .ui2-intakepage-crumb-text { color: var(--gray-900); }
+
+.ui-v2 .ui2-intakepage-seller-code {
+  font-size: var(--font-size-md);
+  font-weight: 400;
+  margin-left: var(--space-1);
+  color: var(--gray-500);
+}
+
+.ui-v2 .ui2-intakepage-previous {
+  font-weight: 500;
+  margin-bottom: var(--space-2);
+}
+
+.ui-v2 .ui2-intakepage-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: var(--space-3);
+  font-size: var(--font-size-md);
+}
+
+.ui-v2 .ui2-intakepage-table th {
+  text-align: left;
+  border-bottom: 2px solid var(--gray-300);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.ui-v2 .ui2-intakepage-table td { padding: var(--space-2); }
+.ui-v2 .ui2-intakepage-table tbody tr { border-bottom: 1px solid var(--gray-100); }
+.ui-v2 .ui2-intakepage-table tbody tr:hover { background: var(--gray-50); }
+.ui-v2 .ui2-intakepage-table td button { min-height: 36px; }
+
+.ui-v2 .ui2-intakepage-empty { color: var(--gray-500); }
+
+.ui-v2 .ui2-intakepage-items-meta {
+  color: var(--gray-500);
+  font-size: var(--font-size-sm);
+  margin: 0 0 var(--space-2);
+}
+
+.ui-v2 .ui2-intakepage-import { margin: var(--space-3) 0; }
+.ui-v2 .ui2-intakepage-divider { margin: var(--space-4) 0; }
+
+/* ── ItemSearchPage (part 2) ──────────────────────────────────────────────── */
+
+.ui-v2 .ui2-search-intro {
+  font-size: var(--font-size-sm);
+  color: var(--gray-500);
+  margin-top: 0;
+}
+
+.ui-v2 .ui2-search-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: end;
+  margin-bottom: var(--space-4);
+}
+
+.ui-v2 .ui2-search-label {
+  display: block;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--gray-600);
+  margin-bottom: 3px;
+}
+
+.ui-v2 .ui2-search-query {
+  width: 320px;
+  min-height: var(--touch-target);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-md);
+}
+
+.ui-v2 .ui2-search-status {
+  min-height: var(--touch-target);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-md);
+}
+
+.ui-v2 .ui2-search-form button { min-height: var(--touch-target); padding: var(--space-1) var(--space-4); }
+
+.ui-v2 .ui2-search-searching { color: var(--gray-500); margin-bottom: var(--space-2); }
+
+.ui-v2 .ui2-search-error {
+  color: var(--red);
+  background: var(--red-light);
+  border: 1px solid var(--red-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-search-count { margin-bottom: var(--space-2); font-size: var(--font-size-md); }
+.ui-v2 .ui2-search-empty { color: var(--gray-500); margin-top: var(--space-3); }
+
+.ui-v2 .ui2-search-table { width: 100%; border-collapse: collapse; font-size: var(--font-size-md); }
+
+.ui-v2 .ui2-search-table th,
+.ui-v2 .ui2-search-table td {
+  padding: var(--space-1) var(--space-2);
+  text-align: left;
+}
+
+.ui-v2 .ui2-search-table thead th {
+  border-bottom: 2px solid var(--gray-300);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.ui-v2 .ui2-search-table tbody tr { border-bottom: 1px solid var(--gray-100); }
+.ui-v2 .ui2-search-table tbody tr:hover { background: var(--gray-50); }
+
+
+.ui-v2 .ui2-search-filter {
+  width: 100%;
+  min-width: 90px;
+  min-height: 32px;
+  padding: 3px var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+@media (width <= 720px) {
+  .ui-v2 .ui2-search-query { width: 100%; }
+  .ui-v2 .ui2-search-form { align-items: stretch; }
+  .ui-v2 .ui2-search-form > div { flex: 1 1 100%; }
+}

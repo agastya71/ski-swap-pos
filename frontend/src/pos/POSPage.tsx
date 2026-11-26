@@ -25,6 +25,8 @@ import { PaymentForm, type PaymentSubmit } from "./PaymentForm";
 import { SquarePayment } from "./SquarePayment";
 import type { ItemLookupResponse, SaleWithItemsResponse } from "../types";
 import { TransactionEditor } from "./TransactionEditor";
+import { POS_PAGE, v1Only, variantProps } from "./posStyles";
+import { useUiVariant } from "../lib/uiVariant";
 
 const CART_KEY = "pos_cart";
 /** localStorage key preserving the completed sale across reloads. Without it,
@@ -285,42 +287,28 @@ export function POSPage() {
   }
 
   const total = lines.reduce((sum, l) => sum + l.sell_price * l.quantity, 0);
+  const v2 = useUiVariant() === "v2";
 
   return (
-    <div style={{ maxWidth: 900 }}>
+    <div {...variantProps(v2, "ui2-pos-page", POS_PAGE.root)}>
       <h2>Checkout{eventName ? ` — ${eventName}` : ""}</h2>
 
       {/* Inline confirmation banner — same screen as the cart. */}
       {sale && (
-        <div
-          style={{
-            border: "2px solid #2e7d32",
-            borderRadius: 6,
-            padding: 16,
-            marginBottom: 16,
-            background: "#f0fdf4",
-          }}
-        >
-          <div
-            style={{
-              fontSize: 22,
-              color: "#2e7d32",
-              fontWeight: 700,
-              marginBottom: 4,
-            }}
-          >
+        <div {...variantProps(v2, "ui2-pos-success", POS_PAGE.successBanner)}>
+          <div {...variantProps(v2, "ui2-pos-success-title", POS_PAGE.successTitle)}>
             ✓ Sale Complete!
           </div>
-          <div style={{ fontSize: 16 }}>
+          <div {...variantProps(v2, "ui2-pos-success-line", POS_PAGE.successLine)}>
             Transaction #{sale.transaction_number ?? sale.id} — <strong>${sale.sale_total.toFixed(2)}</strong> —
             Cashier: {sale.created_by ?? "—"}
           </div>
           {eventName && (
-            <div style={{ fontSize: 13, color: "#555", marginTop: 2 }}>
+            <div {...variantProps(v2, "ui2-pos-success-meta", POS_PAGE.successMetaTop)}>
               Event: <strong>{eventName}</strong>
             </div>
           )}
-          <div style={{ fontSize: 13, color: "#555", marginTop: 4 }}>
+          <div {...variantProps(v2, "ui2-pos-success-meta", POS_PAGE.successMeta)}>
             {sale.cash_amount > 0 && (
               <span>Cash: ${sale.cash_amount.toFixed(2)} </span>
             )}
@@ -344,7 +332,7 @@ export function POSPage() {
           </div>
           <button
             onClick={handleNewTransaction}
-            style={{ ...BUTTON_STYLE, marginTop: 12 }}
+            {...variantProps(v2, "ui2-pos-new-btn", POS_PAGE.successNewButton)}
           >
             New Transaction
           </button>
@@ -355,18 +343,7 @@ export function POSPage() {
           transaction panel — at the very bottom (below the payment form) staff
           never saw them. role=alert is an assertive live region. */}
       {error && (
-        <div
-          role="alert"
-          style={{
-            color: "red",
-            border: "2px solid red",
-            borderRadius: 6,
-            padding: 12,
-            marginBottom: 16,
-            background: "#fef2f2",
-            fontWeight: 600,
-          }}
-        >
+        <div role="alert" {...variantProps(v2, "ui2-pos-error", POS_PAGE.errorBanner)}>
           {error}
         </div>
       )}
@@ -382,7 +359,7 @@ export function POSPage() {
         />
       )}
 
-      <div style={{ margin: "16px 0" }}>
+      <div {...variantProps(v2, "ui2-pos-cart", POS_PAGE.cartWrap)}>
         <Cart
           lines={lines}
           onUpdate={handleUpdate}
@@ -393,18 +370,11 @@ export function POSPage() {
       </div>
 
       {!sale && (
-        <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
-          <div style={{ minWidth: 320 }}>
+        <div {...variantProps(v2, "ui2-pos-checkout", POS_PAGE.checkoutRow)}>
+          <div {...variantProps(v2, "ui2-pos-checkout-col", POS_PAGE.checkoutCol)}>
             {SQUARE_CARD_ENABLED && !squareToken && (
-              <div
-                style={{
-                  marginBottom: 16,
-                  padding: 12,
-                  border: "1px solid #ccc",
-                  borderRadius: 4,
-                }}
-              >
-                <h4 style={{ margin: "0 0 8px" }}>Pay by Card (Square)</h4>
+              <div {...variantProps(v2, "ui2-pos-square-panel", POS_PAGE.squarePanel)}>
+                <h4 {...variantProps(v2, "ui2-pos-square-title", POS_PAGE.squareTitle)}>Pay by Card (Square)</h4>
                 <SquarePayment
                   onToken={(token) => setSquareToken(token)}
                   onError={(msg) => setError(msg)}
@@ -423,50 +393,37 @@ export function POSPage() {
 
       {/* My Transactions — the cashier's own sales, read-only. */}
       {!sale && (
-        <div style={{ marginTop: 24 }}>
+        <div {...variantProps(v2, "ui2-pos-history", POS_PAGE.historySection)}>
           <button
             onClick={handleToggleHistory}
             aria-expanded={historyOpen}
-            style={BUTTON_STYLE}
+            {...variantProps(v2, "ui2-btn ui2-btn--secondary", BUTTON_STYLE)}
           >
             {historyOpen ? "Hide My Transactions" : "My Transactions"}
           </button>
           {historyOpen && (
-            <div style={{ marginTop: 12 }}>
+            <div {...variantProps(v2, "ui2-pos-history-body", POS_PAGE.historyBody)}>
               {historyLoading && (
-                <p style={{ color: "#888", fontStyle: "italic" }}>
+                <p {...variantProps(v2, "ui2-pos-history-empty", POS_PAGE.historyEmpty)}>
                   Loading transactions…
                 </p>
               )}
               {historyError && (
-                <p role="alert" style={{ color: "red" }}>
+                <p role="alert" {...variantProps(v2, "ui2-pos-history-error", POS_PAGE.historyError)}>
                   {historyError}
                 </p>
               )}
               {!historyLoading &&
                 !historyError &&
                 historySales.length === 0 && (
-                  <p style={{ color: "#888", fontStyle: "italic" }}>
+                  <p {...variantProps(v2, "ui2-pos-history-empty", POS_PAGE.historyEmpty)}>
                     No transactions recorded yet.
                   </p>
                 )}
               {historySales.map((s) => (
-                <div
-                  key={s.id}
-                  style={{
-                    border: "1px solid #e2e8f0",
-                    borderRadius: 6,
-                    marginBottom: 8,
-                    padding: 10,
-                  }}
-                >
+                <div key={s.id} {...variantProps(v2, "ui2-pos-sale", POS_PAGE.saleCard)}>
                   <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      cursor: "pointer",
-                    }}
+                    {...variantProps(v2, "ui2-pos-sale-header", POS_PAGE.saleHeader)}
                     onClick={() =>
                       setExpandedSaleId((cur) => (cur === s.id ? null : s.id))
                     }
@@ -474,7 +431,7 @@ export function POSPage() {
                     aria-expanded={expandedSaleId === s.id}
                     aria-label={`transaction ${s.transaction_number ?? s.id} details`}
                   >
-                    <span style={{ fontWeight: 600 }}>
+                    <span {...variantProps(v2, "ui2-pos-sale-title", POS_PAGE.saleTitle)}>
                       Transaction #{s.transaction_number ?? s.id}
                       {s.is_voided ? " — VOIDED" : ""}
                     </span>
@@ -494,17 +451,17 @@ export function POSPage() {
                         }
                       />
                     ) : (
-                    <div style={{ marginTop: 8, fontSize: 13 }}>
+                    <div {...variantProps(v2, "ui2-pos-sale-body", POS_PAGE.saleBody)}>
                       {!s.is_voided && (
-                        <div style={{ marginBottom: 8 }}>
+                        <div {...variantProps(v2, "ui2-pos-edit-row", POS_PAGE.editRow)}>
                           <button
                             onClick={() => setEditingSaleId(s.id)}
                             aria-label={`edit sale ${s.transaction_number ?? s.id}`}
-                            style={{ ...BUTTON_STYLE, fontSize: 13 }}
+                            {...variantProps(v2, "ui2-btn ui2-btn--secondary", POS_PAGE.editButton)}
                           >
                             Edit
                           </button>
-                          <span style={{ color: "#64748b", marginLeft: 8, fontSize: 12 }}>
+                          <span {...variantProps(v2, "ui2-pos-edit-hint", POS_PAGE.editHint)}>
                             correct items, prices, or payments
                           </span>
                         </div>
@@ -515,53 +472,31 @@ export function POSPage() {
                           ? new Date(s.date_of_sale).toLocaleString()
                           : "—"}
                       </div>
-                      <div style={{ marginTop: 4 }}>
+                      <div {...variantProps(v2, "ui2-pos-pay-line", POS_PAGE.payLine)}>
                         Payment: cash ${s.cash_amount.toFixed(2)} · check $
                         {s.check_amount.toFixed(2)} · card $
                         {s.cc_amount.toFixed(2)}
                       </div>
-                      <table
-                        style={{
-                          width: "100%",
-                          borderCollapse: "collapse",
-                          marginTop: 6,
-                        }}
-                      >
+                      <table {...variantProps(v2, "ui2-pos-items", POS_PAGE.itemsTable)}>
                         <thead>
-                          <tr
-                            style={{
-                              borderBottom: "1px solid #ccc",
-                            }}
-                          >
+                          <tr {...v1Only(v2, POS_PAGE.itemsHeadRow)}>
                             <th
-                              style={{
-                                textAlign: "left",
-                                padding: "2px 6px",
-                              }}
+                              {...v1Only(v2, POS_PAGE.itemsThLeft)}
                             >
                               Code
                             </th>
                             <th
-                              style={{
-                                textAlign: "right",
-                                padding: "2px 6px",
-                              }}
+                              {...variantProps(v2, "ui2-num", POS_PAGE.itemsThRight)}
                             >
                               Qty
                             </th>
                             <th
-                              style={{
-                                textAlign: "right",
-                                padding: "2px 6px",
-                              }}
+                              {...variantProps(v2, "ui2-num", POS_PAGE.itemsThRight)}
                             >
                               Unit Price
                             </th>
                             <th
-                              style={{
-                                textAlign: "right",
-                                padding: "2px 6px",
-                              }}
+                              {...variantProps(v2, "ui2-num", POS_PAGE.itemsThRight)}
                             >
                               Extended
                             </th>
@@ -571,45 +506,30 @@ export function POSPage() {
                           {s.sale_items.map((si) => (
                             <tr
                               key={si.id}
-                              style={{
-                                borderBottom: "1px solid #eee",
-                              }}
+                              {...v1Only(v2, POS_PAGE.itemsBodyRow)}
                             >
-                              <td style={{ padding: "4px 6px" }}>
+                              <td {...v1Only(v2, POS_PAGE.itemsTd)}>
                                 {si.item_code ?? "—"}
                                 {si.notes && (
                                   <div
-                                    style={{
-                                      fontSize: 11,
-                                      color: "#64748b",
-                                      marginTop: 2,
-                                    }}
+                                    {...variantProps(v2, "ui2-pos-item-note", POS_PAGE.itemNote)}
                                   >
                                     Price adj.: {si.notes}
                                   </div>
                                 )}
                               </td>
                               <td
-                                style={{
-                                  padding: "4px 6px",
-                                  textAlign: "right",
-                                }}
+                                {...variantProps(v2, "ui2-num", POS_PAGE.itemsTdRight)}
                               >
                                 {si.quantity}
                               </td>
                               <td
-                                style={{
-                                  padding: "4px 6px",
-                                  textAlign: "right",
-                                }}
+                                {...variantProps(v2, "ui2-num", POS_PAGE.itemsTdRight)}
                               >
                                 ${si.sell_price.toFixed(2)}
                               </td>
                               <td
-                                style={{
-                                  padding: "4px 6px",
-                                  textAlign: "right",
-                                }}
+                                {...variantProps(v2, "ui2-num", POS_PAGE.itemsTdRight)}
                               >
                                 ${si.extended_price.toFixed(2)}
                               </td>

@@ -1,0 +1,443 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   POS v2 — docs/ui-overhaul-ab-plan-2026-11-24.md (phase U3, part 2)
+
+   TransactionEditor + POSPage chrome. Same contract as part 1 (pos-v2.css):
+   every rule is scoped under .ui-v2, so v1 keeps its inline styles and renders
+   unchanged; v2 re-expresses the same layout with the shared tokens.
+
+   These screens EDIT money that has already been taken, which makes the
+   constraints tighter than part 1:
+   - nothing moves horizontally — the editor is opened from inside a
+     transactions list, so a wider panel would reflow the whole page;
+   - nothing is hidden — every field and every column of part 1 is still there;
+   - the destructive control (Remove) stays visually subordinate to Save,
+     because a misclick here restocks units and rewrites a receipt;
+   - the only new affordance is size: 44px targets on coarse pointers.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Transaction editor shell ─────────────────────────────────────────────── */
+.ui-v2 .ui2-editor {
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  border: 2px solid var(--navy);
+  border-radius: var(--radius);
+  background: var(--gray-50);
+}
+
+.ui-v2 .ui2-editor-loading {
+  color: var(--gray-500);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-editor-load-error {
+  color: var(--red);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-editor-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+
+.ui-v2 .ui2-editor-title {
+  margin: 0;
+  color: var(--navy);
+  font-size: var(--font-size-lg);
+}
+
+.ui-v2 .ui2-editor-meta {
+  margin-bottom: var(--space-2);
+  color: var(--gray-500);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-v2 .ui2-editor-error,
+.ui-v2 .ui2-editor-notice {
+  margin-bottom: var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-editor-error {
+  border: 1px solid var(--red-border);
+  background: var(--red-light);
+  color: var(--red);
+}
+
+.ui-v2 .ui2-editor-notice {
+  border: 1px solid #86efac;
+  background: #f0fdf4;
+  color: var(--green);
+}
+
+/* ── Line table ───────────────────────────────────────────────────────────── */
+.ui-v2 .ui2-editor-table {
+  width: 100%;
+  margin-bottom: var(--space-1);
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-v2 .ui2-editor-table th {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 2px solid var(--gray-200);
+  color: var(--gray-500);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-align: left;
+}
+
+.ui-v2 .ui2-editor-table th.ui2-num {
+  text-align: right;
+}
+
+.ui-v2 .ui2-editor-table td {
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.ui-v2 .ui2-editor-table td.ui2-num {
+  text-align: right;
+}
+
+/* A dirty line is bold in v1 (font-weight only, no colour). v2 adds the
+   pending tint as a background so the row reads as "unsaved" at a glance
+   without changing the weight contract. */
+.ui-v2 .ui2-editor-row--dirty td {
+  background: #fffbeb;
+}
+
+.ui-v2 .ui2-editor-qty,
+.ui-v2 .ui2-editor-price,
+.ui-v2 .ui2-editor-notes {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-editor-qty {
+  /* 72px, matching the cart in part 1 — the same field, the same width */
+  width: 72px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-v2 .ui2-editor-price {
+  width: 96px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-v2 .ui2-editor-notes {
+  width: 200px;
+}
+
+.ui-v2 .ui2-editor-remove {
+  min-height: 32px;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--red-border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--red);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ui-v2 .ui2-editor-remove:hover:not(:disabled) {
+  background: var(--red-light);
+}
+
+.ui-v2 .ui2-editor-remove:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Line actions row ─────────────────────────────────────────────────────── */
+.ui-v2 .ui2-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+
+.ui-v2 .ui2-editor-pending {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-v2 .ui2-editor-small-note {
+  color: var(--gray-500);
+  font-size: var(--font-size-xs);
+}
+
+/* ── Add item ─────────────────────────────────────────────────────────────── */
+.ui-v2 .ui2-editor-add {
+  margin-bottom: var(--space-3);
+}
+
+.ui-v2 .ui2-editor-add-label {
+  margin-bottom: var(--space-1);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+/* ── Payment & details ────────────────────────────────────────────────────── */
+.ui-v2 .ui2-editor-fieldset {
+  margin-bottom: var(--space-3);
+  padding: var(--space-3);
+  border: var(--border);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.ui-v2 .ui2-editor-legend {
+  padding: 0 var(--space-1);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.ui-v2 .ui2-editor-field-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.ui-v2 .ui2-editor-field-label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--gray-500);
+}
+
+.ui-v2 .ui2-editor-field-input {
+  display: block;
+  min-height: var(--touch-target);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-md);
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-v2 .ui2-editor-card-fee-note {
+  margin-bottom: var(--space-2);
+  color: var(--gray-500);
+  font-size: var(--font-size-xs);
+}
+
+/* ── Edit history ─────────────────────────────────────────────────────────── */
+.ui-v2 .ui2-editor-history-label {
+  margin-bottom: var(--space-1);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.ui-v2 .ui2-editor-history-empty {
+  color: var(--gray-400);
+  font-size: var(--font-size-xs);
+  font-style: italic;
+}
+
+.ui-v2 .ui2-editor-history {
+  margin: 0;
+  padding-left: var(--space-4);
+  font-size: var(--font-size-xs);
+  color: var(--gray-700);
+}
+
+.ui-v2 .ui2-editor-history-detail {
+  color: var(--gray-500);
+}
+
+/* ── POS page chrome ──────────────────────────────────────────────────────── */
+.ui-v2 .ui2-pos-page {
+  max-width: 900px;
+}
+
+.ui-v2 .ui2-pos-success {
+  margin-bottom: var(--space-4);
+  padding: var(--space-4);
+  border: 2px solid var(--green-bg);
+  border-radius: var(--radius);
+  background: #f0fdf4;
+}
+
+.ui-v2 .ui2-pos-success-title {
+  margin-bottom: var(--space-1);
+  color: var(--green-bg);
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+}
+
+.ui-v2 .ui2-pos-success-line {
+  font-size: var(--font-size-lg);
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-v2 .ui2-pos-success-meta {
+  color: var(--gray-500);
+  font-size: var(--font-size-xs);
+}
+
+.ui-v2 .ui2-pos-success-meta + .ui2-pos-success-meta {
+  margin-top: var(--space-1);
+}
+
+.ui-v2 .ui2-pos-success .ui2-pos-new-btn {
+  margin-top: var(--space-3);
+}
+
+.ui-v2 .ui2-pos-error {
+  margin-bottom: var(--space-4);
+  padding: var(--space-3);
+  border: 2px solid var(--red);
+  border-radius: var(--radius);
+  background: var(--red-light);
+  color: var(--red);
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-pos-cart {
+  margin: var(--space-4) 0;
+}
+
+.ui-v2 .ui2-pos-checkout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  align-items: flex-start;
+}
+
+.ui-v2 .ui2-pos-checkout-col {
+  min-width: 320px;
+}
+
+.ui-v2 .ui2-pos-square-panel {
+  margin-bottom: var(--space-4);
+  padding: var(--space-3);
+  border: var(--border);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.ui-v2 .ui2-pos-square-title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-md);
+}
+
+/* ── My Transactions ──────────────────────────────────────────────────────── */
+.ui-v2 .ui2-pos-history {
+  margin-top: var(--space-6);
+}
+
+.ui-v2 .ui2-pos-history-body {
+  margin-top: var(--space-3);
+}
+
+.ui-v2 .ui2-pos-history-empty {
+  color: var(--gray-400);
+  font-size: var(--font-size-sm);
+  font-style: italic;
+}
+
+.ui-v2 .ui2-pos-history-error {
+  color: var(--red);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-pos-sale {
+  margin-bottom: var(--space-2);
+  padding: var(--space-3);
+  border: var(--border);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.ui-v2 .ui2-pos-sale-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: var(--touch-target);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-v2 .ui2-pos-sale-header:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.ui-v2 .ui2-pos-sale-title {
+  font-weight: 600;
+}
+
+.ui-v2 .ui2-pos-sale-body {
+  margin-top: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-pos-edit-row {
+  margin-bottom: var(--space-2);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.ui-v2 .ui2-pos-edit-hint {
+  color: var(--gray-500);
+  font-size: var(--font-size-xs);
+}
+
+.ui-v2 .ui2-pos-pay-line {
+  margin-top: var(--space-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-v2 .ui2-pos-items {
+  width: 100%;
+  margin-top: var(--space-2);
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-v2 .ui2-pos-items th {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--gray-200);
+  color: var(--gray-500);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-align: left;
+}
+
+.ui-v2 .ui2-pos-items th.ui2-num {
+  text-align: right;
+}
+
+.ui-v2 .ui2-pos-items td {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.ui-v2 .ui2-pos-items td.ui2-num {
+  text-align: right;
+}
+
+.ui-v2 .ui2-pos-item-note {
+  margin-top: 2px;
+  color: var(--gray-500);
+  font-size: 11px;
+}

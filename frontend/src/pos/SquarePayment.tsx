@@ -6,6 +6,8 @@
  * @module SquarePayment
  */
 import { Component, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useUiVariant } from '../lib/uiVariant'
+import { SQUARE, variantProps } from '../uiStyles'
 
 declare global {
   interface Window {
@@ -24,12 +26,16 @@ const SQUARE_APP_ID = import.meta.env.VITE_SQUARE_APP_ID ?? ''
 const SQUARE_LOCATION_ID = import.meta.env.VITE_SQUARE_LOCATION_ID ?? ''
 const INIT_TIMEOUT_MS = 8000
 
-class SquareErrorBoundary extends Component<{ children: ReactNode }, { crashed: boolean }> {
+class SquareErrorBoundary extends Component<{ children: ReactNode; v2: boolean }, { crashed: boolean }> {
   state = { crashed: false }
   static getDerivedStateFromError() { return { crashed: true } }
   render() {
     if (this.state.crashed) {
-      return <p style={{ color: 'orange', margin: 0 }}>Card payment unavailable. Use cash or check below.</p>
+      return (
+        <p {...variantProps(this.props.v2, 'ui2-square-message', SQUARE.message)}>
+          Card payment unavailable. Use cash or check below.
+        </p>
+      )
     }
     return this.props.children
   }
@@ -43,6 +49,7 @@ function SquarePaymentInner({ onToken, onError }: {
   const cardRef = useRef<{ tokenize: () => Promise<{ status: string; token?: string; errors?: { message: string }[] }> } | null>(null)
   const [ready, setReady] = useState(false)
   const [loading, setLoading] = useState(false)
+  const v2 = useUiVariant() === 'v2'
   const [sdkError, setSdkError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -107,17 +114,27 @@ function SquarePaymentInner({ onToken, onError }: {
   }
 
   if (sdkError) {
-    return <p style={{ color: 'orange', margin: 0 }}>{sdkError}</p>
+    return (
+      <p {...variantProps(v2, 'ui2-square-message', SQUARE.message)}>{sdkError}</p>
+    )
   }
 
   return (
     <div>
-      <div id="square-card-container" ref={containerRef} style={{ minHeight: 89, border: '1px solid #ccc', padding: 4, marginBottom: 8 }} />
+      <div
+        id="square-card-container"
+        ref={containerRef}
+        {...variantProps(v2, 'ui2-square-container', SQUARE.container)}
+      />
       <button
         type="button"
         onClick={handleCapture}
         disabled={!ready || loading}
-        style={{ padding: '8px 20px', background: '#2e7d32', color: 'white', border: 'none', cursor: ready ? 'pointer' : 'not-allowed' }}
+        {...variantProps(
+          v2,
+          'ui2-square-capture',
+          ready ? SQUARE.captureButton : SQUARE.captureButtonDisabled,
+        )}
       >
         {loading ? 'Processing…' : ready ? 'Capture Card' : 'Connecting to Square…'}
       </button>
@@ -133,8 +150,11 @@ function SquarePaymentInner({ onToken, onError }: {
  * @param props.onError - Callback invoked with a human-readable error message when card capture fails.
  */
 export function SquarePayment(props: { onToken: (token: string) => void; onError: (msg: string) => void }) {
+  // The boundary is a class component, so it cannot read the variant itself;
+  // hand it down as a prop (a crashed boundary must still look right).
+  const v2 = useUiVariant() === 'v2'
   return (
-    <SquareErrorBoundary>
+    <SquareErrorBoundary v2={v2}>
       <SquarePaymentInner {...props} />
     </SquareErrorBoundary>
   )

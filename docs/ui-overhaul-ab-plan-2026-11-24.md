@@ -63,15 +63,22 @@ re-theme (or dark mode) cheap.
 |---|---|---|
 | **U0** | `/next` variant-build infra: vite `next` mode, FastAPI mount, `uiVariant.ts` + boot wiring (flag, context, root class) + tests | ships first; after this you can already see the branch at `/next/` (identical to main at first) |
 | **U1** | v2 token block in `index.css` (spacing scale, 44px touch targets, consistent radii/shadows, focus-visible rings, reduced-motion) + `ui.css` primitives; `components/ui/` Button, Input, Card, Table, Modal, Toast | pure CSS + new components; v1 untouched |
-| **U2** | Layout v2: `Layout.tsx` nav, page container, headings, empty/loading/error states; responsive table pattern (Chrome "Responsive tables" guide, CSS-only) | first visible change; screenshots go in PR |
+| **U2** | Layout v2: `Layout.tsx` nav, page container, headings, empty/loading/error states; responsive table pattern (Chrome "Responsive tables" guide, CSS-only) | first visible change; screenshots generated locally, never committed |
 | **U3** | POS v2 (event-critical — smallest steps, human checklist each): LookupField + dropdown, Cart, PaymentForm, ConfirmationScreen, TransactionEditor | the money screens; practice on TEST SWAP event |
 | **U4** | Intake v2: IntakeForm, ItemForm, ItemList, SellerForm, search page | |
 | **U5** | Admin v2: ReportsPage, TransactionsPage, SellerDetail/List, panels, modals | biggest inline-style debt here |
 | **U6** | Promotion prep: default-flip decision, v1 cleanup PR, docs | separate, later |
 
 Every PR: `npm test` + `tsc -b` + `lint` (delta on *our* files only; the 4
-pre-existing main errors stay out of scope); screenshots of v1 vs v2 side by
-side in the PR body; checklist per Google eng-practices (what/why/risk/undo).
+pre-existing main errors stay out of scope); checklist per Google eng-practices
+(what/why/risk/undo).
+
+Screenshots are captured locally with `scripts/ui-screenshots.mjs` and reviewed
+side by side; they are **never committed** (`.gitignore`: `docs/screenshots-*/`).
+This repo is public, so a committed screenshot would publish live seller names,
+item descriptions and sale totals. The capture script therefore refuses to run
+unless the active event's name contains "test", and reads credentials from
+`UI_PROBE_USER` / `UI_PROBE_PASSWORD` rather than hardcoding them.
 
 ## Evaluation protocol (per phase)
 
@@ -101,11 +108,24 @@ side in the PR body; checklist per Google eng-practices (what/why/risk/undo).
 - `npm run build` for main stays exactly as today; the `/next` build is a
   separate outDir so the two can never collide.
 
+## Verification pitfalls
+
+See [`ui-verification-pitfalls.md`](./ui-verification-pitfalls.md) — twelve
+silent failure modes found while building U0–U3 (dropped `@import`s, `/next/`
+defaulting to v1, stale-tick React events, meaningless assertions, sandbox WAL
+replay). Read it before starting U4. Guarded by
+`node scripts/css-wiring-check.mjs`.
+
 ## Open items (verify at execution, not blocking plan approval)
 
 1. Exact v2 token values — offer a 2/3-screen visual sample (v1|v2) after U1.
-2. Whether any FE tests assert inline styles that a lift would break — adjust
-   assertions alongside while keeping v1 DOM identical.
+2. ~~Whether any FE tests assert inline styles that a lift would break.~~
+   **Answered by U3:** yes, in `LookupField.test.tsx` (lines 223, 224, 335,
+   343) and the admin pages (`AllSellersPayouts.test.tsx:62`,
+   `ReportsPage.test.tsx:76`, `SellerPayoutPanel.test.tsx:33,71`,
+   `EndOfDayPage.test.tsx:47`). Pattern that worked: keep the v1 value in the
+   style table, assert v1 *and* v2 in the same test. `TransactionEditor` and
+   `POSPage` had no style assertions at all.
 3. Hash-router + `/next` base-path interplay (vite `base: '/next/'` handles the
    built index.html; confirm deep links like `/next/#/admin` survive).
 
@@ -115,4 +135,10 @@ side in the PR body; checklist per Google eng-practices (what/why/risk/undo).
 |---|---|---|---|
 | U0 | 2026-11-24 | shipped as PR #162 | /next mount + flag wiring; /next/ empty-dir no-op verified |
 | U1 | 2026-11-25 | shipped as PR #163 | v2 design tokens + components/ui primitives; no v1 change |
+| U2 | 2026-11-25 | shipped as PR #166 (merged into phase branch) | v2 shell via `ui-v2-shell.css` + `layoutStyles.ts`; v1 inline styles preserved verbatim (probe-verified); page-state primitives + CSS-only stacked-table pattern; shell verified at 420px |
+| U3 | 2026-11-25 | shipped as PR #167 (part 1) + #168 (part 2) | POS money path: 164 inline styles across 6 files → 0. v1 tables kept verbatim in `posStyles.ts`; v2 in `pos-v2.css` + `pos-editor-v2.css`. Added `v1Only`/`v2Only` helpers for elements `variantProps` cannot express |
+| — | 2026-11-25 | verification tooling | PR #169 added the TEST SWAP checklist runner + sandbox script; `scripts/css-wiring-check.mjs` guards the two silent CSS failure modes. Checklist 12/12 PASS against a sandbox copy |
+| — | 2026-11-25 | guard wired | `scripts/hooks/pre-push` + `scripts/install-git-hooks.sh`: the wiring check now runs automatically before any push touching `frontend/src/**/*.css`. Fast-skips otherwise; `--no-verify` bypasses |
 | — | — | — | — |
+| U4 part 1 | 2026-11-25 | shipped as PR #172 | Intake identity half (IntakeForm, SellerForm, SellerSearch, ImportItemsButton, IntakeModulePage): 57 inline styles → 0. Found `--gray-600`/`--gray-800` referenced but undefined → added, plus `css-wiring-check` group 5 for that failure class. Narrow overflow 581px → 404px |
+| U4 part 2 | 2026-11-25 | shipped (PR pending) | Intake items half (IntakePage, ItemForm, ItemList, ItemSearchPage): 145 inline styles → 0, so `frontend/src/intake/` is now style-free. `TableScroll` adopted: stacked for the previous-intakes table, scroll for `ItemList` (13 columns) and `ItemSearchPage` (interactive filter row inside `<thead>` — stacked mode clip-hides `thead`, so it must not be used there). v2 verified at 420px: widest element now fits the viewport (v1 is +161px over). Added `css-wiring-check` group 6 after finding 4 emitted-but-unstyled classes |

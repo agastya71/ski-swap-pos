@@ -1,0 +1,300 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   UI overhaul v2 — application shell + page-state patterns (phase U2 of
+   docs/ui-overhaul-ab-plan-2026-11-24.md).
+
+   Every rule is scoped under `.ui-v2`, the root class that lib/uiVariant.ts
+   sets at boot only for the v2 variant. Without it the file is inert and v1
+   renders exactly as before.
+
+   Neutral principles only (Chrome Modern Web Guidance read as a UI-quality
+   guide — no Chromium-only APIs; everything here must also work in Firefox
+   and Safari):
+   - responsive shell: brand / nav / account actions reflow, never overflow
+   - one container width, one page padding scale (tokens from ui-v2.css)
+   - tables get a scroll region and, opt-in, a stacked card mode
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Shell ───────────────────────────────────────────────────────────────── */
+.ui2-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--gray-50);
+}
+
+.ui2-brand-stripe { height: 4px; background: var(--navy); }
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+.ui2-header {
+  background: var(--white);
+  border-bottom: var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  min-height: 56px;
+}
+
+.ui2-brand {
+  font-weight: 800;
+  font-size: 17px;
+  color: var(--navy);
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+  user-select: none;
+  margin-right: auto; /* pushes nav + actions to the right on wide screens */
+}
+
+/* ── Nav ─────────────────────────────────────────────────────────────────── */
+.ui2-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  /* Narrow screens scroll the tabs sideways instead of clipping them. */
+  overflow-x: auto;
+  scrollbar-width: thin;
+  max-width: 100%;
+}
+
+.ui2-navlink {
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-3);
+  min-height: 36px;
+  font-size: var(--font-size-md);
+  font-weight: 400;
+  color: var(--gray-700);
+  white-space: nowrap;
+  transition: background var(--transition), color var(--transition);
+}
+
+.ui2-navlink:hover { background: var(--gray-100); color: var(--navy); }
+
+/* Active tab is marked by aria-current (set by Layout, not by a class). */
+.ui2-navlink[aria-current="page"] {
+  background: var(--blue-light);
+  color: var(--navy);
+  font-weight: 600;
+}
+
+/* ── Account area ───────────────────────────────────────────────────────── */
+.ui2-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.ui2-user-name {
+  font-size: var(--font-size-sm);
+  color: var(--gray-500);
+  max-width: 18ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui2-role-badge {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: var(--blue-light);
+  color: var(--blue-text);
+  padding: 3px 7px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+.ui2-btn-header {
+  background: var(--white);
+  color: var(--navy);
+  border: 1px solid var(--navy);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background var(--transition);
+}
+
+.ui2-btn-header:hover:enabled { background: var(--blue-light); }
+
+/* ── Responsive reflow ───────────────────────────────────────────────────── */
+/* Tablet and below: nav drops to its own row under brand + account actions. */
+@media (max-width: 900px) {
+  .ui2-header { gap: var(--space-2); }
+  .ui2-nav {
+    order: 3;
+    flex-basis: 100%;
+    width: 100%;
+    padding-bottom: var(--space-1);
+  }
+}
+
+/* Phone: tighten the page padding and let account buttons shrink instead of
+   pushing the shell wider than the viewport. */
+@media (max-width: 640px) {
+  .ui2-header { padding: var(--space-2) var(--space-3); }
+  .ui2-brand { font-size: 15px; }
+  .ui2-btn-header { padding: var(--space-1) var(--space-2); }
+}
+
+/* ── Page container + headings ───────────────────────────────────────────── */
+.ui2-main {
+  flex: 1;
+  width: 100%;
+  max-width: 1600px;
+  margin-inline: auto;
+  padding: var(--space-6) var(--space-8);
+  /* Grid/flex children that hold tables must be allowed to shrink; this is
+     the "container" half of the responsive-table pattern. */
+  min-width: 0;
+}
+
+@media (max-width: 900px) { .ui2-main { padding: var(--space-4); } }
+
+/* Typographic scale — headings sit on the 4px spacing scale and stay navy
+   for hierarchy against the blue interactive colour. */
+.ui-v2 h1 { font-size: 26px; color: var(--navy); margin-bottom: var(--space-4); }
+.ui-v2 h2 { font-size: 21px; color: var(--navy); margin-bottom: var(--space-3); }
+.ui-v2 h3 { font-size: var(--font-size-lg); color: var(--gray-900); margin-bottom: var(--space-2); }
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+.ui2-footer {
+  background: var(--white);
+  border-top: var(--border);
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  font-size: var(--font-size-xs);
+  color: var(--gray-500);
+}
+
+/* ── Page states (EmptyState / LoadingState / ErrorBanner) ───────────────── */
+.ui2-page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.ui2-page-header-text { min-width: 0; }
+.ui2-page-header-subtitle { color: var(--gray-500); font-size: var(--font-size-md); margin: 0; }
+.ui2-page-header-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+
+.ui2-state {
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--white);
+  padding: var(--space-6) var(--space-4);
+  text-align: center;
+  color: var(--gray-500);
+  font-size: var(--font-size-md);
+}
+
+.ui2-state--loading { display: flex; align-items: center; justify-content: center; gap: var(--space-2); }
+.ui2-state--error {
+  border-color: var(--red-border);
+  background: var(--red-light);
+  color: var(--red);
+  text-align: left;
+  padding: var(--space-3) var(--space-4);
+}
+.ui2-state-title { margin: 0 0 var(--space-1); font-weight: 600; color: var(--gray-700); }
+.ui2-state-body { margin: 0 0 var(--space-3); }
+.ui2-state-body:last-child { margin-bottom: 0; }
+
+/* Spinner: pure CSS, and the global reduced-motion rule in ui-v2.css stops it. */
+.ui2-spinner {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  border: 2px solid var(--gray-200);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: ui2-spin 700ms linear infinite;
+}
+
+@keyframes ui2-spin { to { transform: rotate(360deg); } }
+
+/* ── Responsive table pattern ────────────────────────────────────────────── */
+/* Scroll region: keyboard-focusable so arrow keys can pan a wide table. */
+.ui2-table-scroll {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-radius: var(--radius);
+  border: var(--border);
+  background: var(--white);
+}
+
+.ui2-table-scroll:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+.ui2-table-scroll > table { width: 100%; border-collapse: collapse; }
+
+/*
+ * Stacked mode (`data-stack` on the table + `data-label` on every cell):
+ * below the breakpoint each row becomes its own card and each cell shows its
+ * column name, so nothing has to be scrolled sideways on a small screen.
+ * Pure CSS — the labels come from the DOM, no JS measuring.
+ */
+@media (max-width: 720px) {
+  .ui-v2 .ui2-table-scroll[data-stack] { border: none; background: transparent; overflow-x: visible; }
+
+  .ui-v2 table[data-stack] thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .ui-v2 table[data-stack],
+  .ui-v2 table[data-stack] tbody { display: block; width: 100%; }
+
+  .ui-v2 table[data-stack] tr {
+    display: block;
+    background: var(--white);
+    border: var(--border);
+    border-radius: var(--radius);
+    margin-bottom: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .ui-v2 table[data-stack] tr:hover { background: var(--white); }
+
+  .ui-v2 table[data-stack] td {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3);
+    border: none;
+    padding: var(--space-1) 0;
+    text-align: right;
+  }
+
+  .ui-v2 table[data-stack] td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    text-align: left;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--gray-500);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  /* Cells without a label span the card (e.g. row actions). */
+  .ui-v2 table[data-stack] td:not([data-label]) { justify-content: flex-end; }
+  .ui-v2 table[data-stack] td:not([data-label])::before { content: none; }
+}
