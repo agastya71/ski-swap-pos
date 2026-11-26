@@ -428,6 +428,15 @@ export const SEARCH_PAGE = {
   searching: { color: "#555", marginBottom: 8 } satisfies CSSProperties,
   errorLine: ERROR_LINE,
   foundCount: { marginBottom: 8, fontSize: 14 } satisfies CSSProperties,
+  /** Pager controls row (Previous / x–y of N / Next) shown when matches
+   *  exceed the page size. */
+  pager: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 12,
+    fontSize: 14,
+  } satisfies CSSProperties,
   table: { width: "100%", borderCollapse: "collapse" } satisfies CSSProperties,
   headRow: { borderBottom: "2px solid #ccc" } satisfies CSSProperties,
   bodyRow: { borderBottom: "1px solid #eee" } satisfies CSSProperties,

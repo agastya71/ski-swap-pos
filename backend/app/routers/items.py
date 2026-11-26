@@ -19,6 +19,7 @@ from app.schemas.item import (
     ItemLookupResponse,
     ItemQuantityAdjustment,
     ItemResponse,
+    IntakeSearchPage,
     ItemSearchResult,
     ItemUpdate,
     SellerMatchReview,
@@ -230,7 +231,7 @@ def _intake_search_query(
     return query.order_by(Item.code)
 
 
-@router.get("/intake-search", response_model=list[ItemSearchResult])
+@router.get("/intake-search", response_model=IntakeSearchPage)
 def intake_search_items(
     q: str = "",
     status: str = "",
@@ -239,6 +240,7 @@ def intake_search_items(
     size: str = "",
     description: str = "",
     limit: int = 100,
+    offset: int = 0,
     db: Session = Depends(get_db),
     _user: User = Depends(_INTAKE_ADMIN),
 ):
@@ -247,8 +249,9 @@ def intake_search_items(
     Matches (case-insensitive) on item code, description, category, brand,
     type, color, size, gender/age, barcode, status, year, price, quantity,
     remaining, and the seller's code/name/company. An empty `q` lists all
-    items (bounded by `limit`); `status` optionally narrows the lifecycle
-    status (available/sold/donated/returned).
+    items, paged: `total` counts EVERY matching row (computed before
+    limit/offset), `items` holds the current page; `status` optionally
+    narrows the lifecycle status (available/sold/donated/returned).
 
     Optional per-column substring filters (2026-11-19): `category`, `brand`,
     `size`, `description` — each narrows its own column (case-insensitive
@@ -258,16 +261,24 @@ def intake_search_items(
     if not event:
         raise HTTPException(status_code=503, detail="No active event configured")
     limit = min(max(limit, 1), 500)
-    items = _intake_search_query(
+    offset = max(offset, 0)
+    query = _intake_search_query(
         db, event, q, status,
         {"category": category, "brand": brand, "size": size, "description": description},
-    ).limit(limit).all()
-    return [
-        ItemSearchResult.model_validate(
-            {**item.__dict__, "seller_code": item.seller.code, "seller_name": _seller_name(item.seller)}
-        )
-        for item in items
-    ]
+    )
+    total = query.order_by(None).count()
+    items = query.limit(limit).offset(offset).all()
+    return IntakeSearchPage(
+        total=total,
+        limit=limit,
+        offset=offset,
+        items=[
+            ItemSearchResult.model_validate(
+                {**item.__dict__, "seller_code": item.seller.code, "seller_name": _seller_name(item.seller)}
+            )
+            for item in items
+        ],
+    )
 
 
 @router.get("/intake-search/export")

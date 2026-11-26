@@ -15,7 +15,7 @@ import {
     exportIntakeSearch,
     type ItemSearchColumnFilters,
 } from "../api/items";
-import type { ItemSearchResult } from "../types";
+import type { IntakeSearchPage, ItemSearchResult } from "../types";
 import { useAuth } from "../auth/AuthContext";
 import { SEARCH_PAGE, variantProps, v1Only, v2Only } from "./intakeStyles";
 import { useUiVariant } from "../lib/uiVariant";
@@ -70,25 +70,37 @@ export function ItemSearchPage() {
     const [status, setStatus] = useState("");
     const [columnFilters, setColumnFilters] = useState<ColumnFilterState>({});
     const [results, setResults] = useState<ItemSearchResult[]>([]);
+    const [total, setTotal] = useState(0);
+    const [limit] = useState(100);
+    const [offset, setOffset] = useState(0);
     const [loading, setLoading] = useState(false);
     const [exporting, setExporting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [searched, setSearched] = useState(false);
 
-    /** Runs the search with the given filters and updates the result table. */
+    /** Runs the search with the given filters and updates the result table.
+     *  `nextOffset` pages through large result sets; `total` (from the
+     *  server, computed over ALL matches) drives the count line + pager. */
     async function runSearch(
         query: string,
         statusFilter: string,
         filters: ColumnFilterState = columnFilters,
+        nextOffset = 0,
     ) {
         setLoading(true);
         setError(null);
         try {
-            const data = await searchIntakeItems(query, statusFilter, filters);
-            setResults(data);
+            const data: IntakeSearchPage = await searchIntakeItems(
+                query, statusFilter, filters, limit, nextOffset,
+            );
+            setResults(data.items);
+            setTotal(data.total);
+            setOffset(data.offset);
         } catch (err) {
             setError(err instanceof Error ? err.message : "Search failed");
             setResults([]);
+            setTotal(0);
+            setOffset(0);
         } finally {
             setLoading(false);
             setSearched(true);
@@ -101,13 +113,14 @@ export function ItemSearchPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    /** Submits the search form (button click or Enter in the search field). */
+    /** Submits the search form (button click or Enter in the search field).
+     *  A fresh search always starts at the first page. */
     function handleSubmit(e: FormEvent) {
         e.preventDefault();
         void runSearch(q, status);
     }
 
-    /** Re-runs the search when the status filter changes. */
+    /** Re-runs the search when the status filter changes (back to page 1). */
     function handleStatusChange(value: string) {
         setStatus(value);
         void runSearch(q, value);
@@ -121,6 +134,11 @@ export function ItemSearchPage() {
     /** Applies the current column filters immediately (Enter or blur). */
     function handleColumnFilterApply() {
         void runSearch(q, status, columnFilters);
+    }
+
+    /** Loads the previous/next page at the current offset. */
+    function goToPage(nextOffset: number) {
+        void runSearch(q, status, columnFilters, nextOffset);
     }
 
     /** Downloads an Excel export of the current search results. */
@@ -214,7 +232,34 @@ export function ItemSearchPage() {
             )}
             {searched && !loading && (
                 <div {...variantProps(v2, "ui2-search-count", SEARCH_PAGE.foundCount)}>
-                    {results.length} item{results.length === 1 ? "" : "s"} found
+                    {total} item{total === 1 ? "" : "s"} found
+                </div>
+            )}
+            {searched && !loading && total > results.length && results.length > 0 && (
+                <div
+                    {...variantProps(v2, "ui2-search-pager", SEARCH_PAGE.pager)}
+                >
+                    <button
+                        type="button"
+                        onClick={() => goToPage(Math.max(0, offset - limit))}
+                        disabled={offset === 0}
+                        style={v1Only(v2, SEARCH_PAGE.formButton).style}
+                        {...v2Only(v2, "ui2-btn ui2-btn--secondary")}
+                    >
+                        ← Previous
+                    </button>
+                    <span>
+                        {offset + 1}–{offset + results.length} of {total}
+                    </span>
+                    <button
+                        type="button"
+                        onClick={() => goToPage(offset + limit)}
+                        disabled={offset + results.length >= total}
+                        style={v1Only(v2, SEARCH_PAGE.formButton).style}
+                        {...v2Only(v2, "ui2-btn ui2-btn--secondary")}
+                    >
+                        Next →
+                    </button>
                 </div>
             )}
 

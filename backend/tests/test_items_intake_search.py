@@ -45,39 +45,43 @@ def test_search_by_description(client, admin_token, search_data):
     resp = client.get("/items/intake-search", params={"q": "alpine"}, headers=_auth(admin_token))
     assert resp.status_code == 200
     data = resp.json()
-    assert len(data) == 1
-    assert data[0]["code"] == "A001-01"
-    assert data[0]["seller_code"] == "A001"
-    assert data[0]["seller_name"] == "Jane Smith"
+    assert data["total"] == 1 and data["limit"] == 100 and data["offset"] == 0
+    assert len(data["items"]) == 1
+    assert data["items"][0]["code"] == "A001-01"
+    assert data["items"][0]["seller_code"] == "A001"
+    assert data["items"][0]["seller_name"] == "Jane Smith"
 
 
 def test_search_matches_brand_seller_code_and_vendor_company(client, admin_token, search_data):
-    assert [r["code"] for r in client.get("/items/intake-search", params={"q": "rossignol"}, headers=_auth(admin_token)).json()] == ["A001-01"]
-    assert [r["code"] for r in client.get("/items/intake-search", params={"q": "A002"}, headers=_auth(admin_token)).json()] == ["A002-01"]
+    def _codes(params):
+        return [r["code"] for r in client.get("/items/intake-search", params=params, headers=_auth(admin_token)).json()["items"]]
+    assert _codes({"q": "rossignol"}) == ["A001-01"]
+    assert _codes({"q": "A002"}) == ["A002-01"]
     vendor = client.get("/items/intake-search", params={"q": "pioneer"}, headers=_auth(admin_token)).json()
-    assert len(vendor) == 1 and vendor[0]["seller_name"] == "Pioneer Sports"
+    assert vendor["total"] == 1 and vendor["items"][0]["seller_name"] == "Pioneer Sports"
 
 
 def test_search_matches_numeric_fields_as_text(client, admin_token, search_data):
     # Year and price are searched as text casts: "2018" hits the year column,
     # "45" hits price 45.0.
-    assert [r["code"] for r in client.get("/items/intake-search", params={"q": "2018"}, headers=_auth(admin_token)).json()] == ["A001-01"]
-    assert [r["code"] for r in client.get("/items/intake-search", params={"q": "45"}, headers=_auth(admin_token)).json()] == ["A002-01"]
+    assert [r["code"] for r in client.get("/items/intake-search", params={"q": "2018"}, headers=_auth(admin_token)).json()["items"]] == ["A001-01"]
+    assert [r["code"] for r in client.get("/items/intake-search", params={"q": "45"}, headers=_auth(admin_token)).json()["items"]] == ["A002-01"]
 
 
 def test_search_empty_q_returns_all_active_event_items(client, admin_token, search_data, active_event):
     resp = client.get("/items/intake-search", headers=_auth(admin_token))
     assert resp.status_code == 200
-    codes = [r["code"] for r in resp.json()]
+    data = resp.json()
+    codes = [r["code"] for r in data["items"]]
     assert "A001-01" in codes and "A002-01" in codes
     assert "A001-02" not in codes  # soft-deleted items are never returned
 
 
 def test_search_status_filter(client, admin_token, search_data):
     resp = client.get("/items/intake-search", params={"q": "", "status": "sold"}, headers=_auth(admin_token))
-    assert [r["code"] for r in resp.json()] == ["A001-01"]
+    assert [r["code"] for r in resp.json()["items"]] == ["A001-01"]
     resp = client.get("/items/intake-search", params={"status": "available"}, headers=_auth(admin_token))
-    assert [r["code"] for r in resp.json()] == ["A002-01"]
+    assert [r["code"] for r in resp.json()["items"]] == ["A002-01"]
 
 
 def test_search_excludes_other_event_items(client, db, admin_token, active_event, search_data):
@@ -95,13 +99,15 @@ def test_search_excludes_other_event_items(client, db, admin_token, active_event
     db.commit()
     resp = client.get("/items/intake-search", params={"q": "alpine"}, headers=_auth(admin_token))
     # Only the ACTIVE event's item matches (item codes are globally unique, so
-    # the stale-event row uses its own code "OLD-01" with identical text fields).
-    assert [r["code"] for r in resp.json()] == ["A001-01"]
+    # the stale-event row uses its own code "OLD-01" with identical text fields);
+    # the stale row must not inflate `total` either.
+    assert [r["code"] for r in resp.json()["items"]] == ["A001-01"]
+    assert resp.json()["total"] == 1
 
 
 def test_search_limit(client, admin_token, search_data):
     resp = client.get("/items/intake-search", params={"limit": 1}, headers=_auth(admin_token))
-    assert len(resp.json()) == 1
+    assert len(resp.json()["items"]) == 1
 
 
 def test_search_intake_role_allowed_cashier_forbidden(client, intake_token, cashier_token, search_data):
@@ -111,6 +117,36 @@ def test_search_intake_role_allowed_cashier_forbidden(client, intake_token, cash
 
 def test_search_requires_auth(client, search_data):
     assert client.get("/items/intake-search").status_code == 403
+
+
+def test_search_paging_offset_and_total(client, admin_token, search_data):
+    """Page 1 (limit=2) returns 2 rows + total covering all matches; page 2
+    via offset continues without overlap."""
+    page1 = client.get("/items/intake-search", params={"limit": 2}, headers=_auth(admin_token)).json()
+    assert page1["total"] == 2  # A001-01 + A001-02 deleted excluded; A001-01, A002-01 remain
+    assert len(page1["items"]) == 2
+    page2 = client.get("/items/intake-search", params={"limit": 2, "offset": 2}, headers=_auth(admin_token)).json()
+    assert len(page2["items"]) == 0
+
+
+def test_search_total_counts_all_matches_beyond_limit(client, admin_token, db, active_event, search_data):
+    """The reported user bug: total is computed over ALL matches, not the
+    returned page, so a search with >limit matches never reports limit."""
+    seller = db.query(Seller).first()
+    intake = db.query(Intake).first()
+    for n in range(150):
+        db.add(Item(intake_id=intake.id, seller_id=seller.id,
+                    code=f"CAP-{n:03d}", description="alpine bulk", price=10.0))
+    db.commit()
+    resp = client.get("/items/intake-search", params={"q": "alpine bulk"}, headers=_auth(admin_token))
+    data = resp.json()
+    assert data["total"] == 150  # NOT 100 — matches exceed the default page size
+    assert len(data["items"]) == 100  # page size still bounded
+
+
+def test_search_clamps_limit(client, admin_token, search_data):
+    assert client.get("/items/intake-search", params={"limit": 0}, headers=_auth(admin_token)).json()["limit"] == 1
+    assert client.get("/items/intake-search", params={"limit": 99999}, headers=_auth(admin_token)).json()["limit"] == 500
 
 
 def test_export_returns_xlsx_with_results(client, admin_token, search_data):
@@ -137,52 +173,52 @@ def test_export_requires_admin_or_intake(client, cashier_token, search_data):
 
 def test_column_filter_category(client, admin_token, search_data):
     resp = client.get("/items/intake-search", params={"category": "ski"}, headers=_auth(admin_token))
-    assert [r["code"] for r in resp.json()] == ["A001-01"]
+    assert [r["code"] for r in resp.json()["items"]] == ["A001-01"]
     resp = client.get("/items/intake-search", params={"category": "boot"}, headers=_auth(admin_token))
-    assert [r["code"] for r in resp.json()] == ["A002-01"]
+    assert [r["code"] for r in resp.json()["items"]] == ["A002-01"]
 
 
 def test_column_filter_brand_case_insensitive(client, admin_token, search_data):
     resp = client.get("/items/intake-search", params={"brand": "ROSSIGNOL"}, headers=_auth(admin_token))
-    assert [r["code"] for r in resp.json()] == ["A001-01"]
+    assert [r["code"] for r in resp.json()["items"]] == ["A001-01"]
     # Substring, not exact: "tom" hits "Atomic".
     resp = client.get("/items/intake-search", params={"brand": "tom"}, headers=_auth(admin_token))
-    assert [r["code"] for r in resp.json()] == ["A002-01"]
+    assert [r["code"] for r in resp.json()["items"]] == ["A002-01"]
 
 
 def test_column_filter_size_and_description(client, admin_token, search_data):
     # Size "8" is substring-exact enough here vs "140cm" but must NOT hit "8.0"-style noise.
     resp = client.get("/items/intake-search", params={"size": "140"}, headers=_auth(admin_token))
-    assert [r["code"] for r in resp.json()] == ["A001-01"]
+    assert [r["code"] for r in resp.json()["items"]] == ["A001-01"]
     resp = client.get("/items/intake-search", params={"size": "8"}, headers=_auth(admin_token))
-    assert [r["code"] for r in resp.json()] == ["A002-01"]
+    assert [r["code"] for r in resp.json()["items"]] == ["A002-01"]
     resp = client.get("/items/intake-search", params={"description": "blue"}, headers=_auth(admin_token))
-    assert [r["code"] for r in resp.json()] == ["A002-01"]
+    assert [r["code"] for r in resp.json()["items"]] == ["A002-01"]
 
 
 def test_column_filters_combined_with_q_and_status(client, admin_token, search_data):
     # Filters compose with the all-fields query and the status filter.
     resp = client.get("/items/intake-search", params={"q": "ski", "category": "skis"}, headers=_auth(admin_token))
-    assert [r["code"] for r in resp.json()] == ["A001-01"]
+    assert [r["code"] for r in resp.json()["items"]] == ["A001-01"]
     # q matches A001-01 ("alpine skis"), but the brand filter excludes it.
     resp = client.get("/items/intake-search", params={"q": "ski", "brand": "atomic"}, headers=_auth(admin_token))
-    assert resp.json() == []
+    assert resp.json()["total"] == 0 and resp.json()["items"] == []
     # Filters compose with status too.
     resp = client.get("/items/intake-search", params={"category": "skis", "status": "sold"}, headers=_auth(admin_token))
-    assert [r["code"] for r in resp.json()] == ["A001-01"]
+    assert [r["code"] for r in resp.json()["items"]] == ["A001-01"]
     resp = client.get("/items/intake-search", params={"category": "skis", "status": "available"}, headers=_auth(admin_token))
-    assert resp.json() == []
+    assert resp.json()["items"] == []
 
 
 def test_column_filter_blank_or_whitespace_ignored(client, admin_token, search_data):
     resp = client.get("/items/intake-search", params={"category": "  ", "brand": "", "size": None, "description": ""}, headers=_auth(admin_token))
-    codes = [r["code"] for r in resp.json()]
+    codes = [r["code"] for r in resp.json()["items"]]
     assert "A001-01" in codes and "A002-01" in codes
 
 
 def test_column_filter_no_match_returns_empty(client, admin_token, search_data):
     resp = client.get("/items/intake-search", params={"brand": "nonexistent"}, headers=_auth(admin_token))
-    assert resp.json() == []
+    assert resp.json()["items"] == [] and resp.json()["total"] == 0
 
 
 def test_column_filter_applies_to_export(client, admin_token, search_data):
