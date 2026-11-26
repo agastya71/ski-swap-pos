@@ -340,6 +340,69 @@
     <tbody><tr><td>A001</td></tr></tbody>
   </table>
   <div id="sp-empty" class="ui2-search-empty">No items match your search.</div>
+
+  <!-- ── U5 part 1: admin reports & payouts ─────────────────────────────── -->
+  <section id="rp-section" class="ui2-report-section">
+    <div id="rp-row" class="ui2-section-row ui2-section-row--open">
+      <div id="rp-click" class="ui2-section-clickable">
+        <span id="rp-chevron" class="ui2-section-chevron">&#9660;</span>
+        <h3 id="rp-title" class="ui2-section-title">Event Revenue</h3>
+        <span id="rp-summary" class="ui2-section-summary">Gross: $1.00</span>
+      </div>
+      <button id="rp-csv" class="ui2-outline-btn">Download CSV</button>
+    </div>
+    <table id="rp-kv" class="ui2-report-kv">
+      <tbody>
+        <tr><td id="rp-kv-label">MYSL Total</td><td id="rp-kv-num" class="ui2-num">$12.00</td></tr>
+      </tbody>
+    </table>
+    <table id="rp-table" class="ui2-report-table">
+      <thead><tr><th>Sale</th><th id="rp-th-num" class="ui2-num">Total</th><th id="rp-th-center" class="ui2-center">Voided</th></tr></thead>
+      <tbody>
+        <tr id="rp-row-voided" class="ui2-row--voided"><td id="rp-cell-voided">#1</td><td class="ui2-num">$1.00</td><td class="ui2-center">&#10003;</td></tr>
+        <tr id="rp-row-soldout" class="ui2-row--soldout"><td id="rp-cell-soldout">A001</td><td class="ui2-num">$2.00</td><td class="ui2-center"></td></tr>
+      </tbody>
+      <tfoot><tr id="rp-row-total" class="ui2-row--total"><td id="rp-cell-total">Total</td><td id="rp-foot-num" class="ui2-num">$3.00</td><td></td></tr></tfoot>
+    </table>
+    <span id="rp-item-name" class="ui2-item-name">Jane Smith</span><span id="rp-item-code" class="ui2-item-code">(A001)</span>
+  </section>
+  <div id="rp-cashier" class="ui2-cashier-block">
+    <h4 id="rp-cashier-heading" class="ui2-cashier-heading">
+      <span id="rp-cashier-name" class="ui2-cashier-name">admin</span><span id="rp-cashier-meta" class="ui2-cashier-meta">3 sales</span>
+    </h4>
+  </div>
+  <form id="rp-lookup" class="ui2-lookup-form">
+    <div id="rp-lookup-field" class="ui2-lookup-field">
+      <label id="rp-lookup-label" class="ui2-lookup-label">Seller</label>
+      <input />
+    </div>
+    <button class="ui2-btn ui2-btn--primary">Get Payout</button>
+  </form>
+  <div id="rp-gen" class="ui2-generate-panel">
+    <div id="rp-gen-head" class="ui2-generate-head"><h4 id="rp-gen-title" class="ui2-generate-title">All Due Sellers</h4></div>
+  </div>
+  <p id="rp-muted" class="ui2-muted-line">No check transactions recorded yet.</p>
+  <div id="po-loading" class="ui2-payout-loading">Loading payout&#8230;</div>
+  <p id="po-error" class="ui2-payout-error" role="alert">Failed</p>
+  <h4 id="po-title" class="ui2-payout-section-title">Items</h4>
+  <p id="po-empty" class="ui2-payout-empty">No items consigned.</p>
+  <div id="po-price-adj" class="ui2-payout-price-adj">Price adj.: damaged</div>
+  <div id="as-zip-row" class="ui2-allzip-row"><button id="as-zip-btn" class="ui2-outline-btn">Download ZIP</button></div>
+  <section id="as-card" class="ui2-seller-card">
+    <div id="as-card-head" class="ui2-seller-card-head">
+      <h4 id="as-card-title" class="ui2-seller-card-title">Jane (A001)<span id="as-card-meta" class="ui2-seller-card-meta">Sold: 1</span></h4>
+      <div id="as-card-actions" class="ui2-seller-card-actions"><button class="ui2-outline-btn">XLSX</button></div>
+    </div>
+  </section>
+  <div id="eod" class="ui2-eod">
+    <section id="eod-panel" class="ui2-eod-panel">
+      <h4 id="eod-title" class="ui2-eod-title ui2-eod-title--tight">Summary</h4>
+      <div id="eod-buttons" class="ui2-eod-buttons"><button class="ui2-btn ui2-btn--secondary">PDF</button></div>
+    </section>
+  </div>
+  <p id="eod-hint" class="ui2-eod-hint">Downloads a ZIP.</p>
+  <p id="eq-error" class="ui2-equipment-error" role="alert">Failed</p>
+  <div id="eq-scroll" class="ui2-equipment-scroll"><table id="eq-table" class="ui2-equipment-table"><tbody><tr id="eq-row" class="ui2-row--total"><td id="eq-num" class="ui2-num">$1.00</td></tr></tbody></table></div>
 </div>
 </body>
 </html>

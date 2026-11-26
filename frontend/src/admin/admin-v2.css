@@ -1,0 +1,462 @@
+/*
+ * UI overhaul v2 — admin reporting half (U5 part 1).
+ *
+ * Covers ReportsPage, SellerPayoutPanel, AllSellersPayouts, EndOfDayPage and
+ * SellerEquipmentSummaryPanel. Every rule is scoped `.ui-v2` so prod (v1) is
+ * untouched; every value comes from the token layer in `ui-v2.css`.
+ *
+ * Design notes that drove the choices here:
+ *  - Reports are read on a laptop at a desk, so density matters more than
+ *    touch targets: data rows keep 4–8px padding, but the collapse toggles and
+ *    download buttons reach 32–36px so they are still clickable.
+ *  - Key/value summary tables keep `width: auto` (see `adminStyles.ts`); v2
+ *    must not set `width: 100%` on them, or the reports lose their shape.
+ *  - Money columns get `tabular-nums`, which is the one readability win these
+ *    screens were missing entirely.
+ */
+
+/* ── Section scaffolding (ReportsPage) ──────────────────────────────────── */
+
+.ui-v2 .ui2-report-section {
+  margin-bottom: var(--space-6);
+}
+
+.ui-v2 .ui2-section-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: 0;
+}
+
+.ui-v2 .ui2-section-row--open {
+  margin-bottom: var(--space-3);
+}
+
+/* The whole left side is the toggle: bigger hit area than the chevron. */
+.ui-v2 .ui2-section-clickable {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-height: 36px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.ui-v2 .ui2-section-clickable:hover .ui2-section-title {
+  color: var(--blue);
+}
+
+.ui-v2 .ui2-section-clickable:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.ui-v2 .ui2-section-chevron {
+  color: var(--navy);
+  font-size: 11px;
+  user-select: none;
+  /* Reserve the glyph's width so opening/closing never shifts the heading. */
+  display: inline-block;
+  width: 11px;
+  text-align: center;
+}
+
+.ui-v2 .ui2-section-title {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  color: var(--navy);
+}
+
+/* Collapsed-state summary: "Gross Revenue: $1,234" beside the heading. */
+.ui-v2 .ui2-section-summary {
+  color: var(--gray-500);
+  font-size: var(--font-size-sm);
+}
+
+/* Explainer / empty-state paragraph (workbook descriptions, "no checks yet"). */
+.ui-v2 .ui2-muted-line {
+  color: var(--gray-500);
+  font-size: var(--font-size-sm);
+  margin: 0;
+}
+
+.ui-v2 .ui2-report-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* ── Outline download button (was repeated inline 7×) ───────────────────── */
+
+.ui-v2 .ui2-outline-btn {
+  border: 1px solid var(--navy);
+  color: var(--navy);
+  background: none;
+  padding: var(--space-1) var(--space-2);
+  min-height: 32px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.ui-v2 .ui2-outline-btn:hover:enabled {
+  background: var(--blue-light);
+}
+
+.ui-v2 .ui2-outline-btn:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
+}
+
+.ui-v2 .ui2-outline-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ── Report tables ──────────────────────────────────────────────────────── */
+
+.ui-v2 .ui2-report-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+/* Key/value summaries: auto width on purpose — a 100% table would stretch a
+   two-column list across the panel. */
+.ui-v2 .ui2-report-kv {
+  width: auto;
+  border-collapse: collapse;
+}
+
+.ui-v2 .ui2-report-table thead th,
+.ui-v2 .ui2-report-kv thead th {
+  text-align: left;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 2px solid var(--gray-300);
+  white-space: nowrap;
+}
+
+.ui-v2 .ui2-report-table tbody td,
+.ui-v2 .ui2-report-kv tbody td {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-md);
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.ui-v2 .ui2-report-table tbody tr:last-child td,
+.ui-v2 .ui2-report-kv tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Numeric columns: right-aligned AND aligned digit-for-digit. */
+.ui-v2 .ui2-report-table th.ui2-num,
+.ui-v2 .ui2-report-table td.ui2-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-v2 .ui2-report-table th.ui2-center,
+.ui-v2 .ui2-report-table td.ui2-center {
+  text-align: center;
+}
+
+/* Voided sales stay visible but recede. */
+.ui-v2 .ui2-report-table tbody tr.ui2-row--voided td {
+  background: var(--gray-50);
+  color: var(--gray-400);
+}
+
+/* Fully-sold items in payout ITEMS tables. */
+.ui-v2 .ui2-report-table tbody tr.ui2-row--soldout td {
+  color: var(--gray-500);
+}
+
+/* Totals row (sales total, check total). */
+.ui-v2 .ui2-report-table tfoot td,
+.ui-v2 .ui2-report-table tbody tr.ui2-row--total td {
+  border-top: 2px solid var(--gray-300);
+  border-bottom: none;
+  font-weight: 700;
+  padding: var(--space-2) var(--space-2);
+}
+
+.ui-v2 .ui2-report-table tfoot td.ui2-num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Key/value labels are the emphasis in a two-column summary. */
+.ui-v2 .ui2-report-kv td:first-child {
+  font-weight: 600;
+  padding-right: var(--space-4);
+  white-space: nowrap;
+}
+
+.ui-v2 .ui2-report-kv td.ui2-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Seller name + muted code (donations / unsold lists) ────────────────── */
+
+.ui-v2 .ui2-item-name { font-weight: 500; }
+
+.ui-v2 .ui2-item-code {
+  color: var(--gray-500);
+  font-size: var(--font-size-xs);
+  margin-left: var(--space-1);
+}
+
+/* ── Transactions by user ───────────────────────────────────────────────── */
+
+.ui-v2 .ui2-cashier-block { margin-bottom: var(--space-6); }
+
+.ui-v2 .ui2-cashier-heading {
+  margin: var(--space-3) 0 var(--space-1);
+  font-size: var(--font-size-lg);
+}
+
+.ui-v2 .ui2-cashier-name { color: var(--navy); }
+
+.ui-v2 .ui2-cashier-meta {
+  color: var(--gray-500);
+  font-size: var(--font-size-sm);
+  font-weight: 400;
+  margin-left: var(--space-2);
+}
+
+/* ── Due Seller: lookup form + generate-all panel ───────────────────────── */
+
+.ui-v2 .ui2-lookup-form {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-end;
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.ui-v2 .ui2-lookup-field { flex: 1; min-width: 220px; }
+
+.ui-v2 .ui2-lookup-label {
+  display: block;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--gray-700);
+  margin-bottom: var(--space-1);
+}
+
+.ui-v2 .ui2-generate-panel {
+  border: 2px solid var(--navy);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+  background: var(--gray-50);
+}
+
+.ui-v2 .ui2-generate-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.ui-v2 .ui2-generate-title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  color: var(--navy);
+}
+
+.ui-v2 .ui2-seller-block { margin-bottom: var(--space-6); }
+
+/* ── Payout detail panel ────────────────────────────────────────────────── */
+
+.ui-v2 .ui2-payout-loading,
+.ui-v2 .ui2-payout-empty {
+  color: var(--gray-500);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-payout-empty { margin-bottom: var(--space-4); }
+
+.ui-v2 .ui2-payout-error {
+  color: var(--red);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-payout-section-title {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-lg);
+  color: var(--navy);
+}
+
+.ui-v2 .ui2-payout-price-adj {
+  font-size: var(--font-size-xs);
+  color: var(--gray-500);
+  margin-top: 2px;
+}
+
+/* ── All sellers payouts ────────────────────────────────────────────────── */
+
+.ui-v2 .ui2-allzip-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--space-2);
+}
+
+.ui-v2 .ui2-seller-card {
+  margin-bottom: var(--space-6);
+  border: var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+}
+
+.ui-v2 .ui2-seller-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.ui-v2 .ui2-seller-card-title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  color: var(--navy);
+}
+
+.ui-v2 .ui2-seller-card-meta {
+  display: block;
+  font-weight: 400;
+  font-size: var(--font-size-sm);
+  color: var(--gray-500);
+  margin-top: 2px;
+}
+
+.ui-v2 .ui2-seller-card-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* ── End of day ─────────────────────────────────────────────────────────── */
+
+.ui-v2 .ui2-eod {
+  max-width: 600px;
+}
+
+.ui-v2 .ui2-eod-panel {
+  margin-bottom: var(--space-4);
+  padding: var(--space-4);
+  background: var(--gray-50);
+  border: var(--border);
+  border-radius: var(--radius);
+}
+
+.ui-v2 .ui2-eod-title {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-lg);
+  color: var(--navy);
+}
+
+.ui-v2 .ui2-eod-title--tight { margin-bottom: var(--space-2); }
+
+.ui-v2 .ui2-eod-hint {
+  font-size: var(--font-size-md);
+  color: var(--gray-500);
+  margin-bottom: var(--space-3);
+}
+
+.ui-v2 .ui2-eod-buttons {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.ui-v2 .ui2-eod-buttons button {
+  min-height: var(--touch-target);
+}
+
+/* ── Vendor equipment summary ───────────────────────────────────────────── */
+
+.ui-v2 .ui2-equipment-error {
+  color: var(--red);
+  margin-top: var(--space-2);
+}
+
+/* Scroll container only — unlike `.ui2-table-scroll` this must NOT set
+   `width: 100%` on the child, because the equipment table is auto-width by
+   design (the same reason the kv tables keep `width: auto`). */
+.ui-v2 .ui2-equipment-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.ui-v2 .ui2-equipment-table {
+  width: auto;
+  border-collapse: collapse;
+  margin-top: var(--space-2);
+}
+
+.ui-v2 .ui2-equipment-table thead th {
+  text-align: left;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid var(--gray-300);
+  white-space: nowrap;
+}
+
+.ui-v2 .ui2-equipment-table tbody td {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-sm);
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.ui-v2 .ui2-equipment-table td.ui2-num,
+.ui-v2 .ui2-equipment-table th.ui2-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-v2 .ui2-equipment-table tbody tr.ui2-row--total td {
+  font-weight: 700;
+  border-top: 1px solid var(--gray-300);
+  border-bottom: none;
+}
+
+/* ── Narrow screens ─────────────────────────────────────────────────────── */
+
+@media (max-width: 720px) {
+  /* Section headers stack: the download button drops under the heading rather
+     than squeezing it into a two-word column. */
+  .ui-v2 .ui2-section-row,
+  .ui-v2 .ui2-allzip-row {
+    flex-wrap: wrap;
+  }
+
+  .ui-v2 .ui2-section-actions,
+  .ui-v2 .ui2-report-actions {
+    flex-basis: 100%;
+    margin-top: var(--space-2);
+  }
+
+  .ui-v2 .ui2-eod,
+  .ui-v2 .ui2-eod-panel { max-width: none; }
+
+  /* Outline buttons become real tap targets once the pointer is coarse or the
+     screen is small. */
+  .ui-v2 .ui2-outline-btn { min-height: var(--touch-target); }
+}
