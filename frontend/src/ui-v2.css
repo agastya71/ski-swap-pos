@@ -10,18 +10,61 @@
    - consistent 4px spacing scale (4/8/12/16/24/32)
    - minimum 44px touch targets on interactive elements (pointer coarse only)
    - visible focus everywhere (:focus-visible — no Chromium dependency)
-   - one radius (8px controls / 6px small), one shadow elevation
+   - Material Design 3 skin (2026-11-26 Material pass, PR 1): pill controls,
+     12px cards, 28px dialogs, MD3 elevation ladder, Roboto, press ripple
    - reduced motion handled globally, not per-component
    ═══════════════════════════════════════════════════════════════════════════ */
 
+/* ── Material skin: self-hosted Roboto (MD3 default typeface) ─────────────── */
+/* Latin subset woff2 served from public/fonts — no CDN, works offline on the
+   POS LAN. @font-face lives here (NOT in index.css) so v1 keeps the system
+   stack unchanged. */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/Roboto-400-latin.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/Roboto-500-latin.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/Roboto-700-latin.woff2') format('woff2');
+}
+
 /* ── v2 token redefinition ────────────────────────────────────────────────── */
 .ui-v2 {
-  /* color: same MYXC brand hues, v2 only normalizes usages (no contrast change) */
+  /* Material skin: same MYXC brand hues (navy = MD3 seed primary), now also
+     expressed as MD3-style role tokens alongside the legacy names that every
+     scoped rule reads. */
   --navy: #1e3a8a;
   --blue: #2563eb;
   --blue-hover: #1d4ed8;
   --blue-light: #dbeafe;
   --blue-text: #1e40af;
+
+  /* MD3 color roles: primary tonal pair + surface/outline for neutral skin. */
+  --md-primary: var(--navy);
+  --md-on-primary: #ffffff;
+  --md-primary-container: #dbe6ff;
+  --md-on-primary-container: #12306e;
+  --md-secondary-container: var(--blue-light);
+  --md-surface: #ffffff;
+  --md-surface-variant: #f1f5f9;
+  --md-outline: #cbd5e1;
+
+  /* MD3 state-layer overlays (hover/press on the primary hue). */
+  --md-state-hover: rgba(30, 58, 138, 0.08);
+  --md-state-press: rgba(30, 58, 138, 0.12);
 
   --red: #dc2626;
   --red-light: #fef2f2;
@@ -53,15 +96,22 @@
   --space-6: 24px;
   --space-8: 32px;
 
-  /* shape */
-  --radius: 8px;       /* cards, modals, panels */
-  --radius-sm: 6px;    /* buttons, inputs, badges */
+  /* shape — MD3: full pill for buttons/chips, large (12px) on cards, extra-large
+     (28px) on dialogs. Inputs stay rectangles. */
+  --radius: 12px;         /* cards, modals, panels (MD3 "large") */
+  --radius-sm: 9999px;    /* buttons, chips (MD3 "full") */
+  --radius-md: 28px;      /* dialog panels (MD3 "extra-large") */
+  --radius-field: 6px;    /* text inputs (not pill-shaped in MD3) */
   --border: 1px solid var(--gray-200);
 
-  /* elevation — single shadow for floating surfaces (dropdowns, modals, toasts) */
-  --shadow-1: 0 2px 8px rgba(15, 23, 42, 0.12);
+  /* elevation — MD3 ladder (level 1 keeps the legacy token name and role;
+     levels 2-3 are NEW names so existing rules keep their exact shadow). */
+  --shadow-1: 0 1px 3px rgba(15, 23, 42, 0.14), 0 1px 2px rgba(15, 23, 42, 0.1);
+  --shadow-2: 0 2px 6px rgba(15, 23, 42, 0.16), 0 1px 4px rgba(15, 23, 42, 0.1);
+  --shadow-3: 0 6px 16px rgba(15, 23, 42, 0.18), 0 2px 6px rgba(15, 23, 42, 0.1);
 
-  /* monospace, for one-shot credentials shown in a modal */
+  /* type — Roboto everywhere in v2 (MD3 default); system fallback stays. */
+  --font: 'Roboto', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
 
   /* type scale */
@@ -72,11 +122,43 @@
   --font-size-xl: 20px;
   --font-size-2xl: 24px;
 
-  /* touch target (applied via the coarse-pointer media query below) */
+/* touch target (applied via the coarse-pointer media query below) */
   --touch-target: 44px;
 
   /* motion */
   --transition: 150ms ease;
+}
+
+/* ── MD3 press ripple ─────────────────────────────────────────────────────── */
+/* The span is appended by lib/ripple.ts on pointerdown over any button (or
+   [role=button]) inside .ui-v2 — keyboard focus never ripples. The host needs
+   overflow clipping + its own stacking context so the ellipse stays inside
+   the pill; scale + fade honors the reduced-motion override above. */
+.ui-v2 button,
+.ui-v2 [role='button'] {
+  position: relative;
+  overflow: hidden;
+}
+.ui-v2 .ui2-ripple {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  background: var(--md-state-press);
+  transform: scale(0);
+  /* Literal duration: Chrome (verified 2026-11-26, headless CDP) computes
+     animation-duration: var(--custom-prop) to 0s even when the property is set
+     — var() inside the animation-* longhands is not resolved. Everything else
+     in the skin may keep var(--transition). */
+  animation-name: ui2-ripple-in;
+  animation-duration: 0.15s;
+  animation-timing-function: ease-out;
+  animation-fill-mode: forwards;
+}
+@keyframes ui2-ripple-in {
+  to {
+    transform: scale(1);
+    opacity: 0;
+  }
 }
 
 /* ── Motion safety: honor the OS "reduce motion" preference ───────────────── */
@@ -88,6 +170,18 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
   }
+}
+
+/* ── Material typeface application ───────────────────────────────────────── */
+/* .ui-v2 and :root have equal specificity (0,1,0) and index.css's :root rule
+   comes later in the bundle, so the --font token alone never re-skins body.
+   Applying on the descendant chain beats index.css's body rule on specificity. */
+.ui-v2 body {
+  /* Do NOT route through var(--font): .ui-v2 and index.css :root are the SAME
+     element (<html>) and index.css's :root rule comes later in the bundle, so
+     a var(--font) reference would resolve to the Segoe stack again. A literal
+     stack on the descendant selector cannot be overridden that way. */
+  font-family: 'Roboto', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 /* ── Focus visibility (never removed, never mouse-triggered) ──────────────── */
