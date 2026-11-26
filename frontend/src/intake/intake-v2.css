@@ -669,6 +669,12 @@
 
 .ui-v2 .ui2-intakepage { max-width: 860px; }
 
+/* Items step holds the 13-column ItemList (same table as Seller → View,
+   which has no page cap) — a capped column forced horizontal scrolling to
+   reach the per-row actions (user report). Uncap it on that step only so
+   search/select keep the focused single-column look. */
+.ui-v2 .ui2-intakepage--wide { max-width: none; }
+
 .ui-v2 .ui2-intakepage-crumbs {
   font-size: var(--font-size-sm);
   color: var(--gray-500);

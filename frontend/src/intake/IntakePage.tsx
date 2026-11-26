@@ -323,7 +323,13 @@ export function IntakePage() {
   }
 
   return (
-    <div {...variantProps(v2, "ui2-intakepage", INTAKE_PAGE.root)}>
+    <div
+      {...variantProps(
+        v2,
+        step === "items" ? "ui2-intakepage ui2-intakepage--wide" : "ui2-intakepage",
+        INTAKE_PAGE.root,
+      )}
+    >
       <h2 {...v1Only(v2, INTAKE_PAGE.heading)}>Intake</h2>
       <Breadcrumb
         step={step}
