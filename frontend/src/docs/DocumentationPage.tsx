@@ -5,30 +5,26 @@
  *
  * @module DocumentationPage
  */
+import { useUiVariant } from "../lib/uiVariant";
+import { DOCS_PAGE, variantProps } from "../uiStyles";
+
 export function DocumentationPage() {
+  const v2 = useUiVariant() === "v2";
+
   return (
     <div>
-      <div
-        style={{
-          marginTop: 24,
-          padding: 12,
-          border: "1px solid #e2e8f0",
-          borderRadius: 6,
-          background: "#f8fafc",
-          fontSize: 13,
-        }}
-      >
+      <div {...variantProps(v2, "ui2-docs-panel", DOCS_PAGE.panel)}>
         <strong>Documentation</strong>
-        <div style={{ marginTop: 4, color: "#475569" }}>
+        <div {...variantProps(v2, "ui2-docs-blurb", DOCS_PAGE.blurb)}>
           Guides and reference material for the Ski Swap POS (opens in a new
           tab).
         </div>
-        <div style={{ marginTop: 8, display: "flex", gap: 16 }}>
+        <div {...variantProps(v2, "ui2-docs-links", DOCS_PAGE.links)}>
           <a
             href="/docs/user-guide.pdf"
             target="_blank"
             rel="noreferrer"
-            style={{ color: "#1a237e" }}
+            {...variantProps(v2, "ui2-docs-link", DOCS_PAGE.link)}
           >
             User Guide (PDF)
           </a>
@@ -36,7 +32,7 @@ export function DocumentationPage() {
             href="/docs/user-guide.md"
             target="_blank"
             rel="noreferrer"
-            style={{ color: "#1a237e" }}
+            {...variantProps(v2, "ui2-docs-link", DOCS_PAGE.link)}
           >
             User Guide (Markdown)
           </a>

@@ -12,6 +12,8 @@
  */
 import type { ReactNode } from "react";
 import type { ImportResult } from "../types";
+import { useUiVariant } from "../lib/uiVariant";
+import { IMPORT_OUTCOME, variantProps } from "../uiStyles";
 
 /** The subset of an import summary this banner needs (ImportResult and
  * WorksheetImportResult both satisfy it). */
@@ -19,10 +21,6 @@ export type ImportOutcomeData = Pick<
   ImportResult,
   "imported" | "skipped" | "errors"
 > & { warnings?: string[] };
-
-const ERROR_RED = "#b91c1c";
-const WARN_AMBER = "#92400e";
-const TEXT_SLATE = "#334155";
 
 /**
  * Render the outcome of a bulk item import.
@@ -46,20 +44,17 @@ export function ImportOutcome({
 }) {
   const { imported, skipped, errors, warnings } = result;
   const hasWarnings = Boolean(warnings && warnings.length > 0);
+  const v2 = useUiVariant() === "v2";
+  // One tone function drives both variants: v2 maps it to a modifier class,
+  // v1 to the two inline values it used to compute with nested ternaries.
+  const tone = IMPORT_OUTCOME.tone(skipped, hasWarnings);
 
   return (
     <div
       role="status"
-      style={{
-        background:
-          skipped > 0 ? "#fef2f2" : hasWarnings ? "#fffbeb" : "#f0fdf4",
-        border: `1px solid ${skipped > 0 ? "#fca5a5" : hasWarnings ? "#fcd34d" : "#86efac"}`,
-        borderRadius: 6,
-        padding: "8px 12px",
-        marginBottom: 12,
-        fontSize: 13,
-        color: TEXT_SLATE,
-      }}
+      {...(v2
+        ? { className: `ui2-io ui2-io--${tone}` }
+        : { style: { ...IMPORT_OUTCOME.base, ...IMPORT_OUTCOME.skin[tone] } })}
     >
       {heading ? (
         <div>
@@ -69,13 +64,7 @@ export function ImportOutcome({
               type="button"
               onClick={onDismiss}
               aria-label="Dismiss import result"
-              style={{
-                marginLeft: 8,
-                border: "none",
-                background: "none",
-                cursor: "pointer",
-                fontSize: 14,
-              }}
+              {...variantProps(v2, "ui2-io-dismiss", IMPORT_OUTCOME.dismiss)}
             >
               ×
             </button>
@@ -95,13 +84,7 @@ export function ImportOutcome({
               type="button"
               onClick={onDismiss}
               aria-label="Dismiss import result"
-              style={{
-                marginLeft: 8,
-                border: "none",
-                background: "none",
-                cursor: "pointer",
-                fontSize: 14,
-              }}
+              {...variantProps(v2, "ui2-io-dismiss", IMPORT_OUTCOME.dismiss)}
             >
               ×
             </button>
@@ -109,7 +92,7 @@ export function ImportOutcome({
         </div>
       )}
       {skipped > 0 && (
-        <div style={{ marginTop: 2 }}>
+        <div {...variantProps(v2, "ui2-io-note", IMPORT_OUTCOME.note)}>
           The item{skipped !== 1 ? "s" : ""} in the row
           {skipped !== 1 ? "s" : ""} below {skipped !== 1 ? "were" : "was"} NOT
           imported — fix the file and import it again.
@@ -118,7 +101,7 @@ export function ImportOutcome({
       {errors.length > 0 && (
         <ul
           aria-label="Skipped rows"
-          style={{ margin: "4px 0 0", paddingLeft: 20, color: ERROR_RED }}
+          {...variantProps(v2, "ui2-io-errors", IMPORT_OUTCOME.errorList)}
         >
           {errors.map((er) => (
             <li key={`${er.row}-${er.reason}`}>
@@ -130,7 +113,7 @@ export function ImportOutcome({
       {hasWarnings && (
         <ul
           aria-label="Import warnings"
-          style={{ margin: "4px 0 0", paddingLeft: 20, color: WARN_AMBER }}
+          {...variantProps(v2, "ui2-io-warnings", IMPORT_OUTCOME.warningList)}
         >
           {warnings!.map((w, idx) => (
             <li key={idx}>{w}</li>

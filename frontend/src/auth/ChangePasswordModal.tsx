@@ -8,8 +8,8 @@
 import { useState, type FormEvent } from 'react'
 import { changePassword, generatePassword } from '../api/auth'
 import { validatePassword, PASSWORD_MIN_LENGTH } from '../lib/passwordPolicy'
-
-const NAVY = '#1e3a8a'
+import { useUiVariant } from '../lib/uiVariant'
+import { CHANGE_PASSWORD, v1Only, variantProps } from '../uiStyles'
 
 /**
  * @param props.onClose - Callback invoked when the modal is dismissed or the password is changed.
@@ -20,6 +20,7 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const v2 = useUiVariant() === 'v2'
 
   const policy = validatePassword(newPassword)
   const confirmMismatch = confirm.length > 0 && newPassword !== confirm
@@ -63,42 +64,110 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div role="dialog" aria-label="Change password" style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex',
-      alignItems: 'center', justifyContent: 'center', zIndex: 50,
-    }}>
-      <form onSubmit={handleSubmit} style={{
-        background: '#fff', borderRadius: 6, padding: 24, width: 360, boxSizing: 'border-box',
-      }}>
-        <h3 style={{ marginTop: 0 }}>Change Password</h3>
-        <div style={{ marginBottom: 10 }}>
-          <label htmlFor="oldPassword" style={{ display: 'block', fontSize: 13, marginBottom: 3 }}>Current Password</label>
-          <input id="oldPassword" type="password" value={oldPassword} onChange={e => setOldPassword(e.target.value)} required
-            style={{ width: '100%', padding: 8, boxSizing: 'border-box' }} />
+    <div
+      role="dialog"
+      aria-label="Change password"
+      {...variantProps(v2, 'ui2-cp-backdrop', CHANGE_PASSWORD.backdrop)}
+    >
+      <form
+        onSubmit={handleSubmit}
+        {...variantProps(v2, 'ui2-cp-panel', CHANGE_PASSWORD.panel)}
+      >
+        <h3 {...variantProps(v2, 'ui2-cp-title', CHANGE_PASSWORD.title)}>
+          Change Password
+        </h3>
+        <div {...variantProps(v2, 'ui2-cp-field', CHANGE_PASSWORD.field)}>
+          <label htmlFor="oldPassword">Current Password</label>
+          <input
+            id="oldPassword"
+            type="password"
+            value={oldPassword}
+            onChange={e => setOldPassword(e.target.value)}
+            required
+          />
         </div>
-        <div style={{ marginBottom: 10 }}>
-          <label htmlFor="newPassword" style={{ display: 'block', fontSize: 13, marginBottom: 3 }}>New Password</label>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <input id="newPassword" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} required
-              minLength={PASSWORD_MIN_LENGTH} style={{ flex: 1, padding: 8, boxSizing: 'border-box' }} />
-            <button type="button" onClick={fillSuggested} title="Suggest a compliant password" style={{ padding: '8px 12px' }}>Suggest</button>
+        <div {...variantProps(v2, 'ui2-cp-field', CHANGE_PASSWORD.field)}>
+          <label htmlFor="newPassword">New Password</label>
+          <div
+            {...variantProps(v2, 'ui2-cp-password-row', CHANGE_PASSWORD.passwordRow)}
+          >
+            <input
+              id="newPassword"
+              type="password"
+              value={newPassword}
+              onChange={e => setNewPassword(e.target.value)}
+              required
+              minLength={PASSWORD_MIN_LENGTH}
+            />
+            <button
+              type="button"
+              onClick={fillSuggested}
+              title="Suggest a compliant password"
+              {...variantProps(v2, 'ui2-cp-suggest', CHANGE_PASSWORD.suggestButton)}
+            >
+              Suggest
+            </button>
           </div>
         </div>
-        <div style={{ marginBottom: 10 }}>
-          <label htmlFor="confirmPassword" style={{ display: 'block', fontSize: 13, marginBottom: 3 }}>Confirm New Password</label>
-          <input id="confirmPassword" type="password" value={confirm} onChange={e => setConfirm(e.target.value)} required
-            style={{ width: '100%', padding: 8, boxSizing: 'border-box' }} />
-          {confirmMismatch && <div style={{ color: '#ef4444', fontSize: 12, marginTop: 4 }}>Passwords do not match.</div>}
+        <div {...variantProps(v2, 'ui2-cp-field', CHANGE_PASSWORD.field)}>
+          <label htmlFor="confirmPassword">Confirm New Password</label>
+          <input
+            id="confirmPassword"
+            type="password"
+            value={confirm}
+            onChange={e => setConfirm(e.target.value)}
+            required
+          />
+          {confirmMismatch && (
+            <div {...variantProps(v2, 'ui2-cp-mismatch', CHANGE_PASSWORD.mismatch)}>
+              Passwords do not match.
+            </div>
+          )}
         </div>
-        <ul style={{ fontSize: 12, color: '#64748b', margin: '0 0 12px', paddingLeft: 20 }}>
-          {policy.errors.map(req => <li key={req} style={{ color: '#ef4444' }}>{req}</li>)}
-          {policy.ok && newPassword.length > 0 && <li style={{ color: '#16a34a' }}>Password meets all requirements.</li>}
+        <ul {...variantProps(v2, 'ui2-cp-policy', CHANGE_PASSWORD.policyList)}>
+          {policy.errors.map(req => (
+            <li
+              key={req}
+              data-met={v2 ? 'false' : undefined}
+              {...v1Only(v2, CHANGE_PASSWORD.unmet)}
+            >
+              {req}
+            </li>
+          ))}
+          {policy.ok && newPassword.length > 0 && (
+            <li
+              data-met={v2 ? 'true' : undefined}
+              {...v1Only(v2, CHANGE_PASSWORD.met)}
+            >
+              Password meets all requirements.
+            </li>
+          )}
         </ul>
-        {error && <div role="alert" style={{ color: '#ef4444', marginBottom: 10 }}>{error}</div>}
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button type="button" onClick={onClose} style={{ padding: '8px 16px' }}>Cancel</button>
-          <button type="submit" disabled={loading}
-            style={{ padding: '8px 16px', background: NAVY, color: '#fff', border: 'none', cursor: loading ? 'default' : 'pointer' }}>
+        {error && (
+          <div
+            role="alert"
+            {...variantProps(v2, 'ui2-cp-error', CHANGE_PASSWORD.error)}
+          >
+            {error}
+          </div>
+        )}
+        <div {...variantProps(v2, 'ui2-cp-footer', CHANGE_PASSWORD.footer)}>
+          <button
+            type="button"
+            onClick={onClose}
+            {...variantProps(v2, 'ui2-cp-cancel', CHANGE_PASSWORD.cancel)}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            {...variantProps(
+              v2,
+              'ui2-cp-submit',
+              CHANGE_PASSWORD.submit,
+            )}
+          >
             {loading ? 'Saving…' : 'Change Password'}
           </button>
         </div>
