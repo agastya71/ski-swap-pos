@@ -288,6 +288,15 @@ export function POSPage() {
 
   const total = lines.reduce((sum, l) => sum + l.sell_price * l.quantity, 0);
   const itemCount = lines.reduce((n, l) => n + l.quantity, 0);
+  /** Units in the completed sale for the success banner. The sale's own
+   *  lines are the source of truth; if the response omits sale_items
+   *  (legacy/empty payload), fall back to the cart lines, which remain
+   *  on screen as the receipt until New Transaction. */
+  const soldItemCount = sale
+    ? sale.sale_items.reduce((n, l) => n + l.quantity, 0) || itemCount
+    : itemCount;
+  /** Single text node so tests and screen readers see one stable string. */
+  const soldItemLabel = `${soldItemCount} ${soldItemCount === 1 ? "item" : "items"}`;
   const v2 = useUiVariant() === "v2";
 
   return (
@@ -302,6 +311,7 @@ export function POSPage() {
           </div>
           <div {...variantProps(v2, "ui2-pos-success-line", POS_PAGE.successLine)}>
             Transaction #{sale.transaction_number ?? sale.id} — <strong>${sale.sale_total.toFixed(2)}</strong> —
+            {soldItemLabel} —
             Cashier: {sale.created_by ?? "—"}
           </div>
           {eventName && (

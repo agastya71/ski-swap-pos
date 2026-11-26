@@ -171,6 +171,10 @@ describe("POSPage", () => {
     );
     // Issue #12: banner shows the per-event display ID, not the row id.
     expect(screen.getByText(/transaction #1/i)).toBeInTheDocument();
+    // SALES mock omits sale_items → count falls back to the cart lines (1 unit);
+    // textContent squashes inter-node whitespace, hence the loose — spacing.
+    const successLine = screen.getByText(/transaction #1/i).closest("div");
+    expect(successLine?.textContent).toMatch(/—\s*1 item —/);
     // The completed sale is persisted so a reload restores the receipt, not an editable cart.
     expect(localStorage.getItem("pos_sale")).not.toBeNull();
   });
