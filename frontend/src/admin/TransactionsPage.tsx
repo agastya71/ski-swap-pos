@@ -8,7 +8,8 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { listSales, voidSale } from "../api/sales";
-import { BUTTON_STYLE } from "../lib/buttons";
+import { useUiVariant } from "../lib/uiVariant";
+import { TRANSACTIONS, variantProps } from "./adminStyles";
 import type { SaleWithItemsResponse } from "../types";
 import { TransactionEditor } from "../pos/TransactionEditor";
 
@@ -28,6 +29,7 @@ export function TransactionsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingSaleId, setEditingSaleId] = useState<number | null>(null);
+  const v2 = useUiVariant() === "v2";
 
   const load = useCallback(
     (opts?: { offset?: number }) => {
@@ -96,28 +98,20 @@ export function TransactionsPage() {
   }
 
   return (
-    <div style={{ maxWidth: 900 }}>
+    <div {...variantProps(v2, "ui2-txn", TRANSACTIONS.root)}>
       <h2>Transactions</h2>
-      <div
-        style={{
-          display: "flex",
-          gap: 12,
-          alignItems: "flex-end",
-          marginBottom: 12,
-          flexWrap: "wrap",
-        }}
-      >
-        <label style={{ fontSize: 13 }}>
+      <div {...variantProps(v2, "ui2-txn-filters", TRANSACTIONS.filterBar)}>
+        <label {...variantProps(v2, "ui2-txn-filter-label", TRANSACTIONS.filterLabel)}>
           Cashier
           <input
             value={createdBy}
             aria-label="filter by cashier"
             placeholder="e.g. cashier1"
             onChange={(e) => setCreatedBy(e.target.value)}
-            style={{ display: "block", width: 160, padding: "4px 6px" }}
+            {...variantProps(v2, "ui2-txn-filter-input", TRANSACTIONS.filterInput)}
           />
         </label>
-        <label style={{ fontSize: 13, display: "flex", gap: 6, alignItems: "center" }}>
+        <label {...variantProps(v2, "ui2-txn-check", TRANSACTIONS.checkLabel)}>
           <input
             type="checkbox"
             checked={includeVoided}
@@ -126,30 +120,32 @@ export function TransactionsPage() {
           />
           Include voided
         </label>
-        <button onClick={() => load()} style={BUTTON_STYLE}>
-          Apply filters
-        </button>
+        <button onClick={() => load()}>Apply filters</button>
       </div>
 
-      {loading && <p style={{ color: "#64748b" }}>Loading…</p>}
+      {loading && (
+        <p {...variantProps(v2, "ui2-sd-hint", TRANSACTIONS.loading)}>Loading…</p>
+      )}
       {error && (
-        <div role="alert" style={{ color: "red", marginBottom: 10 }}>
+        <div role="alert" {...variantProps(v2, "ui2-txn-error", TRANSACTIONS.error)}>
           {error}
         </div>
       )}
       {!loading && !error && sales.length === 0 && (
-        <p style={{ color: "#888", fontStyle: "italic" }}>No transactions found.</p>
+        <p {...variantProps(v2, "ui2-txn-empty", TRANSACTIONS.empty)}>
+          No transactions found.
+        </p>
       )}
       {!loading && sales.length > 0 && (
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <table {...variantProps(v2, "ui2-txn-table", TRANSACTIONS.table)}>
           <thead>
-            <tr style={{ borderBottom: "2px solid #ccc", fontSize: 13, color: "#555" }}>
-              <th style={{ textAlign: "left", padding: "4px 8px" }}>Sale</th>
-              <th style={{ textAlign: "left", padding: "4px 8px" }}>Date</th>
-              <th style={{ textAlign: "left", padding: "4px 8px" }}>Cashier</th>
-              <th style={{ textAlign: "right", padding: "4px 8px" }}>Items</th>
-              <th style={{ textAlign: "right", padding: "4px 8px" }}>Total</th>
-              <th style={{ textAlign: "left", padding: "4px 8px" }}>Status</th>
+            <tr>
+              <th>Sale</th>
+              <th>Date</th>
+              <th>Cashier</th>
+              <th className="ui2-num">Items</th>
+              <th className="ui2-num">Total</th>
+              <th>Status</th>
               <th />
             </tr>
           </thead>
@@ -157,28 +153,32 @@ export function TransactionsPage() {
             {sales.map((s) => (
               <tr
                 key={s.id}
-                style={{
-                  borderBottom: "1px solid #eee",
-                  color: s.is_voided ? "#9ca3af" : undefined,
-                }}
+                {...variantProps(
+                  v2,
+                  s.is_voided ? "ui2-row--voided" : "",
+                  TRANSACTIONS.row(s.is_voided),
+                )}
               >
-                <td style={{ padding: "6px 8px", fontWeight: 600 }}>#{s.id}</td>
-                <td style={{ padding: "6px 8px" }}>
+                <td {...variantProps(v2, "ui2-txn-id", TRANSACTIONS.idCell)}>#{s.id}</td>
+                <td>
                   {s.date_of_sale ? new Date(s.date_of_sale).toLocaleString() : "—"}
                 </td>
-                <td style={{ padding: "6px 8px" }}>{s.created_by ?? "—"}</td>
-                <td style={{ padding: "6px 8px", textAlign: "right" }}>{s.sale_items.length}</td>
-                <td style={{ padding: "6px 8px", textAlign: "right" }}>
-                  ${s.sale_total.toFixed(2)}
-                </td>
-                <td style={{ padding: "6px 8px", color: s.is_voided ? "#b91c1c" : "#15803d" }}>
+                <td>{s.created_by ?? "—"}</td>
+                <td className="ui2-num">{s.sale_items.length}</td>
+                <td className="ui2-num">${s.sale_total.toFixed(2)}</td>
+                <td
+                  {...variantProps(
+                    v2,
+                    s.is_voided ? "ui2-txn-status--void" : "ui2-txn-status--ok",
+                    TRANSACTIONS.statusCell(s.is_voided),
+                  )}
+                >
                   {s.is_voided ? "VOIDED" : "OK"}
                 </td>
-                <td style={{ padding: "6px 8px" }}>
+                <td>
                   <button
                     onClick={() => setEditingSaleId(s.id)}
                     aria-label={`edit sale ${s.id}`}
-                    style={{ ...BUTTON_STYLE, padding: "4px 12px", fontSize: 13 }}
                   >
                     Edit
                   </button>{" "}
@@ -186,7 +186,6 @@ export function TransactionsPage() {
                     <button
                       onClick={() => void handleVoid(s)}
                       aria-label={`void sale ${s.id}`}
-                      style={{ ...BUTTON_STYLE, padding: "4px 12px", fontSize: 13 }}
                     >
                       Void
                     </button>
@@ -197,18 +196,16 @@ export function TransactionsPage() {
           </tbody>
         </table>
       )}
-      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+      <div {...variantProps(v2, "ui2-txn-pager", TRANSACTIONS.pager)}>
         <button
           onClick={() => load({ offset: Math.max(0, offset - PAGE_SIZE) })}
           disabled={totalKnown && offset === 0}
-          style={BUTTON_STYLE}
         >
           ← Previous
         </button>
         <button
           onClick={() => load({ offset: offset + PAGE_SIZE })}
           disabled={sales.length < PAGE_SIZE}
-          style={BUTTON_STYLE}
         >
           Next →
         </button>

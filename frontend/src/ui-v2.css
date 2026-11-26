@@ -29,6 +29,9 @@
   --green: #166534;
   --green-bg: #2e7d32;
 
+  /* the admin report/settings screens use a darker navy than the shell */
+  --admin-navy: #1a237e;
+
   /* neutrals: slightly cooler page ground for card separation */
   --gray-50: #f8fafc;
   --gray-100: #f1f5f9;
@@ -46,6 +49,7 @@
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
+  --space-5: 20px;
   --space-6: 24px;
   --space-8: 32px;
 
@@ -56,6 +60,9 @@
 
   /* elevation — single shadow for floating surfaces (dropdowns, modals, toasts) */
   --shadow-1: 0 2px 8px rgba(15, 23, 42, 0.12);
+
+  /* monospace, for one-shot credentials shown in a modal */
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
 
   /* type scale */
   --font-size-xs: 12px;

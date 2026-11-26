@@ -17,9 +17,9 @@ import { SellerPayoutPanel } from "./SellerPayoutPanel";
 import { ImportOutcome } from "../components/ImportOutcome";import { SellerEquipmentSummaryPanel } from "./SellerEquipmentSummaryPanel";
 import { US_STATES } from "../lib/usStates";
 import { formatPhone, isUsStateCode } from "../lib/format";
+import { useUiVariant } from "../lib/uiVariant";
+import { SELLER_DETAIL, v1Only, variantProps } from "./adminStyles";
 import type { Seller, Item, Intake, ImportResult } from "../types";
-
-const NAVY = "#1e3a8a";
 
 export function SellerDetailPage({
   seller: initialSeller,
@@ -46,6 +46,7 @@ export function SellerDetailPage({
   const [reprinting, setReprinting] = useState(false);
   const [reprintError, setReprintError] = useState<string | null>(null);
   const [reprintStatus, setReprintStatus] = useState<string | null>(null);
+  const v2 = useUiVariant() === "v2";
 
   /** Re-fetches the seller's items after any ItemList mutation. */
   function refreshItems() {
@@ -210,8 +211,8 @@ export function SellerDetailPage({
   const onHandUnits = items.reduce((sum, it) => sum + it.remaining, 0);
 
   const contactField = (label: string, value: string | null) => (
-    <div style={{ marginBottom: 4 }}>
-      <span style={{ color: "#64748b", fontSize: 13, marginRight: 6 }}>
+    <div {...variantProps(v2, "ui2-sd-contact-row", SELLER_DETAIL.contactRow)}>
+      <span {...variantProps(v2, "ui2-sd-contact-label", SELLER_DETAIL.contactLabel)}>
         {label}:
       </span>
       <span>{value ?? "—"}</span>
@@ -221,35 +222,24 @@ export function SellerDetailPage({
   return (
     <div>
       {/* Back + header */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          marginBottom: 16,
-        }}
-      >
+      <div {...variantProps(v2, "ui2-sd-back-row", SELLER_DETAIL.backRow)}>
         <button
           onClick={onBack}
-          style={{
-            border: "none",
-            background: "none",
-            color: NAVY,
-            cursor: "pointer",
-            fontSize: 14,
-          }}
+          {...variantProps(v2, "ui2-sd-back", SELLER_DETAIL.backButton)}
           aria-label="Back"
         >
           ← Back
         </button>
-        <h3 style={{ margin: 0 }}>
-          <span style={{ color: NAVY, marginRight: 8 }}>{seller.code}</span>
+        <h3 {...variantProps(v2, "ui2-sd-heading", SELLER_DETAIL.heading)}>
+          <span {...variantProps(v2, "ui2-sd-code", SELLER_DETAIL.code)}>
+            {seller.code}
+          </span>
           {sellerDisplayName(seller)}
-          <span style={{ color: "#64748b", fontWeight: 400, marginLeft: 8 }}>
+          <span {...variantProps(v2, "ui2-sd-heading-meta", SELLER_DETAIL.headingMeta)}>
             ({sellerTypeLabel(seller)})
           </span>
           {seller.company && !seller.is_vendor && (
-            <span style={{ color: "#64748b", fontWeight: 400, marginLeft: 8 }}>
+            <span {...variantProps(v2, "ui2-sd-heading-meta", SELLER_DETAIL.headingMeta)}>
               ({seller.company})
             </span>
           )}
@@ -257,15 +247,7 @@ export function SellerDetailPage({
       </div>
 
       {/* Contact card */}
-      <div
-        style={{
-          background: "#f8fafc",
-          border: "1px solid #e2e8f0",
-          borderRadius: 6,
-          padding: 16,
-          marginBottom: 20,
-        }}
-      >
+      <div {...variantProps(v2, "ui2-sd-card", SELLER_DETAIL.contactCard)}>
         {!editing ? (
           <>
             {contactField("Type", seller.is_vendor ? "Vendor" : "Individual")}
@@ -283,15 +265,7 @@ export function SellerDetailPage({
                 setEditError(null);
                 setEditing(true);
               }}
-              style={{
-                marginTop: 8,
-                border: `1px solid ${NAVY}`,
-                color: NAVY,
-                background: "none",
-                padding: "4px 12px",
-                cursor: "pointer",
-                borderRadius: 3,
-              }}
+              {...variantProps(v2, "ui2-sd-outline", SELLER_DETAIL.outlineButton)}
             >
               Edit
             </button>
@@ -303,7 +277,7 @@ export function SellerDetailPage({
                 server-side against the resulting record (PATCH /sellers). */}
             <label
               htmlFor="edit-is_vendor"
-              style={{ display: "block", marginBottom: 8, fontSize: 13 }}
+              {...variantProps(v2, "ui2-sd-toggle", SELLER_DETAIL.vendorToggle)}
             >
               <input
                 id="edit-is_vendor"
@@ -319,23 +293,15 @@ export function SellerDetailPage({
               Vendor (not individual consignor)
             </label>
             {editDraft.is_vendor !== seller.is_vendor && (
-              <div style={{ fontSize: 12, color: "#b45309", marginBottom: 8 }}>
+              <div {...variantProps(v2, "ui2-sd-warning", SELLER_DETAIL.vendorWarning)}>
                 Changing the vendor flag changes the commission rate applied to
                 this seller's payout reports (vendor rate vs standard); the
                 seller code stays as-is.
               </div>
             )}
             {(["company"] as const).map((f) => (
-              <div key={f} style={{ marginBottom: 8 }}>
-                <label
-                  htmlFor={`edit-${f}`}
-                  style={{
-                    display: "block",
-                    fontSize: 12,
-                    color: "#64748b",
-                    marginBottom: 2,
-                  }}
-                >
+              <div key={f} {...variantProps(v2, "ui2-sd-field", SELLER_DETAIL.field)}>
+                <label htmlFor={`edit-${f}`}>
                   Company {editDraft.is_vendor ? "*" : "(optional)"}
                 </label>
                 <input
@@ -344,26 +310,13 @@ export function SellerDetailPage({
                   onChange={(e) =>
                     setEditDraft((prev) => ({ ...prev, [f]: e.target.value }))
                   }
-                  style={{
-                    width: "100%",
-                    padding: "5px 8px",
-                    boxSizing: "border-box",
-                  }}
                 />
               </div>
             ))}
             {(["first_name", "last_name", "phone", "email"] as const).map(
               (f) => (
-                <div key={f} style={{ marginBottom: 8 }}>
-                  <label
-                    htmlFor={`edit-${f}`}
-                    style={{
-                      display: "block",
-                      fontSize: 12,
-                      color: "#64748b",
-                      marginBottom: 2,
-                    }}
-                  >
+                <div key={f} {...variantProps(v2, "ui2-sd-field", SELLER_DETAIL.field)}>
+                  <label htmlFor={`edit-${f}`}>
                     {f === "first_name"
                       ? "First Name"
                       : f === "last_name"
@@ -388,40 +341,20 @@ export function SellerDetailPage({
                             : e.target.value,
                       }))
                     }
-                    style={{
-                      width: "100%",
-                      padding: "5px 8px",
-                      boxSizing: "border-box",
-                    }}
                   />
                 </div>
               ),
             )}
-            <fieldset
-              style={{
-                border: "1px solid #e2e8f0",
-                borderRadius: 4,
-                padding: "10px 12px",
-                marginBottom: 8,
-              }}
-            >
-              <legend style={{ fontSize: 12, color: "#64748b" }}>
+            <fieldset {...variantProps(v2, "ui2-sd-fieldset", SELLER_DETAIL.addressFieldset)}>
+              <legend {...variantProps(v2, "ui2-sd-legend", SELLER_DETAIL.legend)}>
                 Address
               </legend>
               {/* Address fields rendered identically to the registration form (SellerForm):
                   Street Address + City required, State as a type-able 2-letter US code
                   with a datalist of US states (#10), ZIP 5-digit. */}
               {(["address", "city"] as const).map((f) => (
-                <div key={f} style={{ marginBottom: 8 }}>
-                  <label
-                    htmlFor={`edit-${f}`}
-                    style={{
-                      display: "block",
-                      fontSize: 12,
-                      color: "#64748b",
-                      marginBottom: 2,
-                    }}
-                  >
+                <div key={f} {...variantProps(v2, "ui2-sd-field", SELLER_DETAIL.field)}>
+                  <label htmlFor={`edit-${f}`}>
                     {f === "address" ? "Street Address" : "City"} *
                   </label>
                   <input
@@ -430,26 +363,11 @@ export function SellerDetailPage({
                     onChange={(e) =>
                       setEditDraft((prev) => ({ ...prev, [f]: e.target.value }))
                     }
-                    style={{
-                      width: "100%",
-                      padding: "5px 8px",
-                      boxSizing: "border-box",
-                    }}
                   />
                 </div>
               ))}
-              <div style={{ marginBottom: 8 }}>
-                <label
-                  htmlFor="edit-state"
-                  style={{
-                    display: "block",
-                    fontSize: 12,
-                    color: "#64748b",
-                    marginBottom: 2,
-                  }}
-                >
-                  State *
-                </label>
+              <div {...variantProps(v2, "ui2-sd-field", SELLER_DETAIL.field)}>
+                <label htmlFor="edit-state">State *</label>
                 <input
                   id="edit-state"
                   list="us-state-options"
@@ -462,11 +380,6 @@ export function SellerDetailPage({
                       state: e.target.value.toUpperCase(),
                     }))
                   }
-                  style={{
-                    width: "100%",
-                    padding: "5px 8px",
-                    boxSizing: "border-box",
-                  }}
                 />
                 <datalist id="us-state-options">
                   {US_STATES.map((s) => (
@@ -476,18 +389,8 @@ export function SellerDetailPage({
                   ))}
                 </datalist>
               </div>
-              <div style={{ marginBottom: 8 }}>
-                <label
-                  htmlFor="edit-zip"
-                  style={{
-                    display: "block",
-                    fontSize: 12,
-                    color: "#64748b",
-                    marginBottom: 2,
-                  }}
-                >
-                  ZIP *
-                </label>
+              <div {...variantProps(v2, "ui2-sd-field", SELLER_DETAIL.field)}>
+                <label htmlFor="edit-zip">ZIP *</label>
                 <input
                   id="edit-zip"
                   value={editDraft.zip ?? ""}
@@ -499,45 +402,24 @@ export function SellerDetailPage({
                       zip: e.target.value.replace(/\D/g, ""),
                     }))
                   }
-                  style={{
-                    width: "100%",
-                    padding: "5px 8px",
-                    boxSizing: "border-box",
-                  }}
                 />
               </div>
             </fieldset>
             {editError && (
-              <div
-                role="alert"
-                style={{ color: "red", marginBottom: 8, fontSize: 13 }}
-              >
+              <div role="alert" {...variantProps(v2, "ui2-sd-error", SELLER_DETAIL.error)}>
                 {editError}
               </div>
             )}
-            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <div {...variantProps(v2, "ui2-sd-actions", SELLER_DETAIL.actions)}>
               <button
                 onClick={handleSaveEdit}
-                style={{
-                  background: NAVY,
-                  color: "#fff",
-                  border: "none",
-                  padding: "5px 14px",
-                  cursor: "pointer",
-                  borderRadius: 3,
-                }}
+                {...variantProps(v2, "ui2-sd-save", SELLER_DETAIL.saveButton)}
               >
                 Save
               </button>
               <button
                 onClick={() => setEditing(false)}
-                style={{
-                  border: "1px solid #94a3b8",
-                  background: "none",
-                  padding: "5px 14px",
-                  cursor: "pointer",
-                  borderRadius: 3,
-                }}
+                {...variantProps(v2, "ui2-sd-cancel", SELLER_DETAIL.cancelButton)}
               >
                 Cancel
               </button>
@@ -547,27 +429,14 @@ export function SellerDetailPage({
       </div>
 
       {/* Items table header */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 8,
-        }}
-      >
-        <h4 style={{ margin: 0 }}>Items ({items.length})</h4>
-        <div style={{ display: "flex", gap: 8 }}>
+      <div {...variantProps(v2, "ui2-sd-items-header", SELLER_DETAIL.itemsHeader)}>
+        <h4 {...variantProps(v2, "ui2-sd-items-title", SELLER_DETAIL.itemsTitle)}>
+          Items ({items.length})
+        </h4>
+        <div {...variantProps(v2, "ui2-sd-items-actions", SELLER_DETAIL.itemsActions)}>
           <button
             onClick={() => fileInputRef.current?.click()}
-            style={{
-              border: `1px solid ${NAVY}`,
-              color: NAVY,
-              background: "none",
-              padding: "4px 10px",
-              cursor: "pointer",
-              borderRadius: 3,
-              fontSize: 13,
-            }}
+            {...variantProps(v2, "ui2-sd-outline", SELLER_DETAIL.smallOutline)}
           >
             Import Items
           </button>
@@ -575,20 +444,12 @@ export function SellerDetailPage({
             ref={fileInputRef}
             type="file"
             accept=".xlsx,.csv,.tsv"
-            style={{ display: "none" }}
+            {...v1Only(v2, SELLER_DETAIL.hiddenFile)}
             onChange={handleImportFile}
           />
           <button
             onClick={() => setShowPayout((prev) => !prev)}
-            style={{
-              border: `1px solid ${NAVY}`,
-              color: NAVY,
-              background: "none",
-              padding: "4px 10px",
-              cursor: "pointer",
-              borderRadius: 3,
-              fontSize: 13,
-            }}
+            {...variantProps(v2, "ui2-sd-outline", SELLER_DETAIL.smallOutline)}
           >
             Payout
           </button>
@@ -598,13 +459,7 @@ export function SellerDetailPage({
               setting; code-as-text mirrors the intake toolbar's option. */}
           <label
             htmlFor="reprint-code-as-text"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-              fontSize: 13,
-              whiteSpace: "nowrap",
-            }}
+            {...variantProps(v2, "ui2-sd-code-toggle", SELLER_DETAIL.codeToggle)}
           >
             <input
               id="reprint-code-as-text"
@@ -619,16 +474,13 @@ export function SellerDetailPage({
           <button
             onClick={handleReprintLabels}
             disabled={reprinting || onHandUnits === 0}
-            style={{
-              border: `1px solid ${NAVY}`,
-              color: NAVY,
-              background: "none",
-              padding: "4px 10px",
-              cursor:
-                reprinting || onHandUnits === 0 ? "not-allowed" : "pointer",
-              borderRadius: 3,
-              fontSize: 13,
-            }}
+            {...variantProps(
+              v2,
+              "ui2-sd-outline",
+              reprinting || onHandUnits === 0
+                ? SELLER_DETAIL.smallOutlineDisabled
+                : SELLER_DETAIL.smallOutline,
+            )}
           >
             Reprint Labels (All Intakes)
           </button>
@@ -638,15 +490,7 @@ export function SellerDetailPage({
               setAddItemIntakeId(id);
               setShowAddItem(true);
             }}
-            style={{
-              background: NAVY,
-              color: "#fff",
-              border: "none",
-              padding: "4px 10px",
-              cursor: "pointer",
-              borderRadius: 3,
-              fontSize: 13,
-            }}
+            {...variantProps(v2, "ui2-sd-outline", SELLER_DETAIL.smallPrimary)}
           >
             + Add Item
           </button>
@@ -655,7 +499,7 @@ export function SellerDetailPage({
 
       {/* Import outcome banner (shared component — identical on every surface) */}
       {importError && (
-        <div role="alert" style={{ color: "#b91c1c", marginBottom: 12, fontSize: 13 }}>
+        <div role="alert" {...variantProps(v2, "ui2-sd-error", SELLER_DETAIL.importError)}>
           {importError}
         </div>
       )}
@@ -668,41 +512,25 @@ export function SellerDetailPage({
 
       {/* Reprint feedback */}
       {reprintError && (
-        <div
-          role="alert"
-          style={{ color: "red", marginBottom: 8, fontSize: 13 }}
-        >
+        <div role="alert" {...variantProps(v2, "ui2-sd-error", SELLER_DETAIL.error)}>
           {reprintError}
         </div>
       )}
       {reprintStatus && (
-        <div style={{ color: "#1a7f37", marginBottom: 8, fontSize: 13 }}>
+        <div {...variantProps(v2, "ui2-sd-ok", SELLER_DETAIL.reprintOk)}>
           {reprintStatus}
         </div>
       )}
 
       {/* Add Item inline form */}
       {showAddItem && addItemIntakeId !== null && (
-        <div
-          style={{
-            marginBottom: 16,
-            padding: 16,
-            border: "1px solid #e2e8f0",
-            borderRadius: 6,
-          }}
-        >
+        <div {...variantProps(v2, "ui2-sd-panel", SELLER_DETAIL.addItemPanel)}>
           <button
             onClick={() => {
               setShowAddItem(false);
               setAddItemIntakeId(null);
             }}
-            style={{
-              float: "right",
-              border: "none",
-              background: "none",
-              cursor: "pointer",
-              color: "#64748b",
-            }}
+            {...variantProps(v2, "ui2-sd-back", SELLER_DETAIL.addItemCancel)}
           >
             ✕ Cancel
           </button>
@@ -728,22 +556,15 @@ export function SellerDetailPage({
         ).sort((a, b) => a - b);
         if (intakeIds.length === 0)
           return (
-            <p style={{ color: "#94a3b8", padding: 8 }}>
+            <p {...variantProps(v2, "ui2-sd-no-items", SELLER_DETAIL.noItems)}>
               No items yet — use Add Item or Import Items.
             </p>
           );
         return intakeIds.map((id) => {
           const intake = intakes.find((it) => it.id === id);
           return (
-            <div key={id} style={{ marginBottom: 24 }}>
-              <h5
-                style={{
-                  margin: "0 0 6px",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: "#64748b",
-                }}
-              >
+            <div key={id} {...variantProps(v2, "ui2-sd-intake-group", SELLER_DETAIL.intakeGroup)}>
+              <h5 {...variantProps(v2, "ui2-sd-intake-heading", SELLER_DETAIL.intakeHeading)}>
                 Intake #{id}
                 {intake?.date_entered ? ` — entered ${intake.date_entered}` : ""}
               </h5>
@@ -759,16 +580,8 @@ export function SellerDetailPage({
 
       {/* Payout panel */}
       {showPayout && (
-        <div
-          style={{
-            marginTop: 16,
-            padding: 16,
-            background: "#f8fafc",
-            border: "1px solid #e2e8f0",
-            borderRadius: 6,
-          }}
-        >
-          <strong style={{ fontSize: 13, display: "block", marginBottom: 8 }}>
+        <div {...variantProps(v2, "ui2-sd-panel", SELLER_DETAIL.panel)}>
+          <strong {...variantProps(v2, "ui2-sd-panel-title", SELLER_DETAIL.panelTitle)}>
             Seller Payout
           </strong>
           <SellerPayoutPanel eventId={eventId} sellerId={seller.id} />
@@ -777,16 +590,8 @@ export function SellerDetailPage({
 
       {/* Vendor equipment-type summary (vendors only, generated on demand) */}
       {seller.is_vendor && (
-        <div
-          style={{
-            marginTop: 16,
-            padding: 16,
-            background: "#f8fafc",
-            border: "1px solid #e2e8f0",
-            borderRadius: 6,
-          }}
-        >
-          <strong style={{ fontSize: 13, display: "block", marginBottom: 8 }}>
+        <div {...variantProps(v2, "ui2-sd-panel", SELLER_DETAIL.panel)}>
+          <strong {...variantProps(v2, "ui2-sd-panel-title", SELLER_DETAIL.panelTitle)}>
             Equipment Type Summary
           </strong>
           <SellerEquipmentSummaryPanel eventId={eventId} sellerId={seller.id} />

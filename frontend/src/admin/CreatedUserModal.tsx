@@ -6,7 +6,8 @@
  * @module CreatedUserModal
  */
 import { useState } from "react";
-import { BUTTON_STYLE } from "../lib/buttons";
+import { useUiVariant } from "../lib/uiVariant";
+import { CREATED_USER, variantProps } from "./adminStyles";
 
 /**
  * @param props.username - The newly created user's login name.
@@ -24,6 +25,7 @@ export function CreatedUserModal({
 }) {
   const [copied, setCopied] = useState<"user" | "pw" | null>(null);
   const [copyError, setCopyError] = useState<string | null>(null);
+  const v2 = useUiVariant() === "v2";
 
   /** Copy to the clipboard with a fallback for non-secure contexts where the
    *  async Clipboard API is unavailable. Surfaces a visible error instead of
@@ -58,89 +60,52 @@ export function CreatedUserModal({
     }
   }
 
-  const rowStyle: React.CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 10,
-  };
-  const valueBox: React.CSSProperties = {
-    flex: 1,
-    padding: "8px 10px",
-    background: "#f1f5f9",
-    borderRadius: 4,
-    fontFamily: "monospace",
-    fontSize: 14,
-    userSelect: "all",
-  };
-
   return (
     <div
       role="dialog"
       aria-label={`Created user ${username}`}
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.4)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 50,
-      }}
+      {...variantProps(v2, "ui2-modal-backdrop", CREATED_USER.backdrop)}
     >
-      <div
-        style={{
-          background: "#fff",
-          borderRadius: 6,
-          padding: 24,
-          width: 380,
-          boxSizing: "border-box",
-        }}
-      >
-        <h3 style={{ marginTop: 0 }}>User Created</h3>
-        <p style={{ fontSize: 13, color: "#64748b", marginTop: 0 }}>
+      <div {...variantProps(v2, "ui2-modal-panel", CREATED_USER.panel)}>
+        <h3 {...variantProps(v2, "ui2-modal-title", CREATED_USER.title)}>
+          User Created
+        </h3>
+        <p {...variantProps(v2, "ui2-modal-hint", CREATED_USER.hint)}>
           Share these credentials with the user. The password is shown only this
           once.
         </p>
-        <div style={rowStyle}>
-          <span style={{ fontSize: 13, width: 80 }}>Username</span>
-          <div style={valueBox}>{username}</div>
-          <button
-            type="button"
-            onClick={() => copy("user", username)}
-            style={BUTTON_STYLE}
-          >
+        <div {...variantProps(v2, "ui2-modal-row", CREATED_USER.row)}>
+          <span {...variantProps(v2, "ui2-modal-row-label", CREATED_USER.rowLabel)}>
+            Username
+          </span>
+          <div {...variantProps(v2, "ui2-modal-value", CREATED_USER.valueBox)}>
+            {username}
+          </div>
+          <button type="button" onClick={() => copy("user", username)}>
             {copied === "user" ? "Copied" : "Copy"}
           </button>
         </div>
-        <div style={rowStyle}>
-          <span style={{ fontSize: 13, width: 80 }}>Password</span>
-          <div style={valueBox}>{password}</div>
-          <button
-            type="button"
-            onClick={() => copy("pw", password)}
-            style={BUTTON_STYLE}
-          >
+        <div {...variantProps(v2, "ui2-modal-row", CREATED_USER.row)}>
+          <span {...variantProps(v2, "ui2-modal-row-label", CREATED_USER.rowLabel)}>
+            Password
+          </span>
+          <div {...variantProps(v2, "ui2-modal-value", CREATED_USER.valueBox)}>
+            {password}
+          </div>
+          <button type="button" onClick={() => copy("pw", password)}>
             {copied === "pw" ? "Copied" : "Copy"}
           </button>
         </div>
         {copyError && (
           <div
             role="alert"
-            style={{ color: "#ef4444", fontSize: 12, marginBottom: 8 }}
+            {...variantProps(v2, "ui2-modal-error", CREATED_USER.error)}
           >
             {copyError}
           </div>
         )}
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            justifyContent: "flex-end",
-            marginTop: 16,
-          }}
-        >
-          <button type="button" onClick={onClose} style={BUTTON_STYLE}>
+        <div {...variantProps(v2, "ui2-modal-footer", CREATED_USER.footer)}>
+          <button type="button" onClick={onClose}>
             Dismiss
           </button>
         </div>

@@ -6,7 +6,8 @@
  * @module ResetPasswordModal
  */
 import { useState, type FormEvent } from "react";
-import { BUTTON_STYLE } from "../lib/buttons";
+import { useUiVariant } from "../lib/uiVariant";
+import { RESET_PASSWORD, v1Only, variantProps } from "./adminStyles";
 import { resetUserPassword } from "../api/users";
 import { generatePassword } from "../api/auth";
 import { validatePassword, PASSWORD_MIN_LENGTH } from "../lib/passwordPolicy";
@@ -26,6 +27,7 @@ export function ResetPasswordModal({
   const [newPassword, setNewPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const v2 = useUiVariant() === "v2";
   const [loading, setLoading] = useState(false);
 
   const policy = validatePassword(newPassword);
@@ -69,35 +71,24 @@ export function ResetPasswordModal({
     <div
       role="dialog"
       aria-label={`Reset password for ${user.username}`}
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.4)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 50,
-      }}
+      {...variantProps(v2, "ui2-modal-backdrop", RESET_PASSWORD.backdrop)}
     >
       <form
         onSubmit={handleSubmit}
-        style={{
-          background: "#fff",
-          borderRadius: 6,
-          padding: 24,
-          width: 360,
-          boxSizing: "border-box",
-        }}
+        {...variantProps(v2, "ui2-modal-panel", RESET_PASSWORD.panel)}
       >
-        <h3 style={{ marginTop: 0 }}>Reset Password — {user.username}</h3>
-        <div style={{ marginBottom: 10 }}>
-          <label
-            htmlFor="resetNewPassword"
-            style={{ display: "block", fontSize: 13, marginBottom: 3 }}
+        <h3 {...variantProps(v2, "ui2-modal-title", RESET_PASSWORD.title)}>
+          Reset Password — {user.username}
+        </h3>
+        <div {...variantProps(v2, "ui2-modal-field", RESET_PASSWORD.field)}>
+          <label htmlFor="resetNewPassword">New Password</label>
+          <div
+            {...variantProps(
+              v2,
+              "ui2-modal-password-row",
+              RESET_PASSWORD.passwordRow,
+            )}
           >
-            New Password
-          </label>
-          <div style={{ display: "flex", gap: 6 }}>
             <input
               id="resetNewPassword"
               type="password"
@@ -105,68 +96,63 @@ export function ResetPasswordModal({
               onChange={(e) => setNewPassword(e.target.value)}
               required
               minLength={PASSWORD_MIN_LENGTH}
-              style={{ flex: 1, padding: 8, boxSizing: "border-box" }}
             />
             <button
               type="button"
               onClick={fillSuggested}
               title="Suggest a compliant password"
-              style={BUTTON_STYLE}
             >
               Suggest
             </button>
           </div>
         </div>
-        <div style={{ marginBottom: 10 }}>
-          <label
-            htmlFor="resetConfirmPassword"
-            style={{ display: "block", fontSize: 13, marginBottom: 3 }}
-          >
-            Confirm New Password
-          </label>
+        <div {...variantProps(v2, "ui2-modal-field", RESET_PASSWORD.field)}>
+          <label htmlFor="resetConfirmPassword">Confirm New Password</label>
           <input
             id="resetConfirmPassword"
             type="password"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
             required
-            style={{ width: "100%", padding: 8, boxSizing: "border-box" }}
           />
           {confirmMismatch && (
-            <div style={{ color: "#ef4444", fontSize: 12, marginTop: 4 }}>
+            <div {...variantProps(v2, "ui2-modal-mismatch", RESET_PASSWORD.mismatch)}>
               Passwords do not match.
             </div>
           )}
         </div>
-        <ul
-          style={{
-            fontSize: 12,
-            color: "#64748b",
-            margin: "0 0 12px",
-            paddingLeft: 20,
-          }}
-        >
+        <ul {...variantProps(v2, "ui2-modal-policy", RESET_PASSWORD.policyList)}>
           {policy.errors.map((req) => (
-            <li key={req} style={{ color: "#ef4444" }}>
+            <li
+              key={req}
+              data-met={v2 ? "false" : undefined}
+              {...v1Only(v2, RESET_PASSWORD.unmet)}
+            >
               {req}
             </li>
           ))}
           {policy.ok && newPassword.length > 0 && (
-            <li style={{ color: "#16a34a" }}>
+            <li
+              data-met={v2 ? "true" : undefined}
+              {...v1Only(v2, RESET_PASSWORD.met)}
+            >
               Password meets all requirements.
             </li>
           )}
         </ul>
         {error && (
-          <div role="alert" style={{ color: "#ef4444", marginBottom: 10 }}>
+          <div
+            role="alert"
+            {...variantProps(v2, "ui2-modal-error", RESET_PASSWORD.error)}
+          >
             {error}
           </div>
         )}
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-          <button type="button" onClick={onClose} style={BUTTON_STYLE}>
+        <div {...variantProps(v2, "ui2-modal-footer", RESET_PASSWORD.footer)}>
+          <button type="button" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" disabled={loading} style={BUTTON_STYLE}>
+          <button type="submit" disabled={loading}>
             {loading ? "Saving…" : "Reset Password"}
           </button>
         </div>

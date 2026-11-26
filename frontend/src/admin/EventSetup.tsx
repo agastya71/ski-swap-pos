@@ -4,7 +4,8 @@
  */
 
 import { useState, useEffect, type FormEvent } from "react";
-import { BUTTON_STYLE } from "../lib/buttons";
+import { useUiVariant } from "../lib/uiVariant";
+import { EVENT_SETUP, v2Only, variantProps } from "./adminStyles";
 import {
   getEvents,
   createEvent,
@@ -25,6 +26,7 @@ export function EventSetup() {
   const [vendorCommission, setVendorCommission] = useState("0.30");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const v2 = useUiVariant() === "v2";
 
   /** Fetches the full event list from the API and updates local state. */
   async function load() {
@@ -86,51 +88,35 @@ export function EventSetup() {
     <div>
       <h3>Events</h3>
       <table
-        style={{ width: "100%", borderCollapse: "collapse", marginBottom: 24 }}
+        {...variantProps(
+          v2,
+          "ui2-settings-table ui2-settings-table--wide",
+          EVENT_SETUP.table,
+        )}
       >
         <thead>
-          <tr style={{ borderBottom: "2px solid #ccc" }}>
-            <th style={{ textAlign: "left", padding: "4px 8px" }}>Name</th>
-            <th style={{ textAlign: "left", padding: "4px 8px" }}>Year</th>
-            <th style={{ textAlign: "left", padding: "4px 8px" }}>
-              Commission
-            </th>
-            <th style={{ textAlign: "left", padding: "4px 8px" }}>
-              Vendor Rate
-            </th>
-            <th style={{ textAlign: "left", padding: "4px 8px" }}>Status</th>
+          <tr>
+            <th>Name</th>
+            <th>Year</th>
+            <th>Commission</th>
+            <th>Vendor Rate</th>
+            <th>Status</th>
             <th />
           </tr>
         </thead>
         <tbody>
           {events.map((ev) => (
-            <tr key={ev.id} style={{ borderBottom: "1px solid #eee" }}>
-              <td style={{ padding: "6px 8px" }}>{ev.name}</td>
-              <td style={{ padding: "6px 8px" }}>{ev.year}</td>
-              <td style={{ padding: "6px 8px" }}>
-                {(ev.commission_rate * 100).toFixed(0)}%
-              </td>
-              <td style={{ padding: "6px 8px" }}>
-                {(ev.vendor_commission_rate * 100).toFixed(0)}%
-              </td>
-              <td style={{ padding: "6px 8px" }}>
-                {ev.is_active ? <strong>Active</strong> : "—"}
-              </td>
-              <td style={{ padding: "6px 8px" }}>
+            <tr key={ev.id}>
+              <td>{ev.name}</td>
+              <td>{ev.year}</td>
+              <td>{(ev.commission_rate * 100).toFixed(0)}%</td>
+              <td>{(ev.vendor_commission_rate * 100).toFixed(0)}%</td>
+              <td>{ev.is_active ? <strong>Active</strong> : "—"}</td>
+              <td {...v2Only(v2, "ui2-settings-actions")}>
                 {!ev.is_active && (
                   <>
-                    <button
-                      onClick={() => handleActivate(ev.id)}
-                      style={BUTTON_STYLE}
-                    >
-                      Activate
-                    </button>{" "}
-                    <button
-                      onClick={() => void handleDelete(ev)}
-                      style={BUTTON_STYLE}
-                    >
-                      Delete
-                    </button>
+                    <button onClick={() => handleActivate(ev.id)}>Activate</button>
+                    <button onClick={() => void handleDelete(ev)}>Delete</button>
                   </>
                 )}
               </td>
@@ -142,51 +128,29 @@ export function EventSetup() {
       <h4>Create New Event</h4>
       <form
         onSubmit={handleCreate}
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr 1fr 1fr auto",
-          gap: 8,
-          alignItems: "end",
-        }}
+        {...variantProps(v2, "ui2-settings-form ui2-settings-form--events", EVENT_SETUP.form)}
       >
         <div>
-          <label
-            htmlFor="eventName"
-            style={{ display: "block", fontSize: 13, marginBottom: 3 }}
-          >
-            Event Name
-          </label>
+          <label htmlFor="eventName">Event Name</label>
           <input
             id="eventName"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
-            style={{ width: "100%", padding: 6, boxSizing: "border-box" }}
           />
         </div>
         <div>
-          <label
-            htmlFor="eventYear"
-            style={{ display: "block", fontSize: 13, marginBottom: 3 }}
-          >
-            Year
-          </label>
+          <label htmlFor="eventYear">Year</label>
           <input
             id="eventYear"
             type="number"
             value={year}
             onChange={(e) => setYear(e.target.value)}
             required
-            style={{ width: "100%", padding: 6, boxSizing: "border-box" }}
           />
         </div>
         <div>
-          <label
-            htmlFor="eventCommission"
-            style={{ display: "block", fontSize: 13, marginBottom: 3 }}
-          >
-            Commission (0.00–1.00)
-          </label>
+          <label htmlFor="eventCommission">Commission (0.00–1.00)</label>
           <input
             id="eventCommission"
             type="number"
@@ -196,16 +160,10 @@ export function EventSetup() {
             value={commission}
             onChange={(e) => setCommission(e.target.value)}
             required
-            style={{ width: "100%", padding: 6, boxSizing: "border-box" }}
           />
         </div>
         <div>
-          <label
-            htmlFor="eventVendorCommission"
-            style={{ display: "block", fontSize: 13, marginBottom: 3 }}
-          >
-            Vendor Rate (0.00–1.00)
-          </label>
+          <label htmlFor="eventVendorCommission">Vendor Rate (0.00–1.00)</label>
           <input
             id="eventVendorCommission"
             type="number"
@@ -215,15 +173,14 @@ export function EventSetup() {
             value={vendorCommission}
             onChange={(e) => setVendorCommission(e.target.value)}
             required
-            style={{ width: "100%", padding: 6, boxSizing: "border-box" }}
           />
         </div>
-        <button type="submit" disabled={loading} style={BUTTON_STYLE}>
+        <button type="submit" disabled={loading}>
           Create Event
         </button>
       </form>
       {error && (
-        <div role="alert" style={{ color: "red", marginTop: 8 }}>
+        <div role="alert" {...variantProps(v2, "ui2-settings-error", EVENT_SETUP.error)}>
           {error}
         </div>
       )}

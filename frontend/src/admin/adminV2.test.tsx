@@ -18,18 +18,27 @@ import { render, screen } from '@testing-library/react'
 import type { CSSProperties, ReactElement } from 'react'
 import { UiVariantContext } from '../lib/uiVariant'
 import {
-  ALL_SELLERS,
   ADMIN_NAVY,
+  ADMIN_TABS,
+  ALL_SELLERS,
+  CREATED_USER,
   END_OF_DAY,
   EQUIPMENT,
+  EVENT_SETUP,
   ERROR_RED,
   MUTED,
   MUTED_LINE,
   OUTLINE_BUTTON,
   PAYOUT,
   REPORTS,
+  RESET_PASSWORD,
   SECTION_HEADER,
+  SELLER_DETAIL,
+  SELLER_LIST,
+  SESSIONS,
   TABLE,
+  TRANSACTIONS,
+  USER_MANAGEMENT,
   v1Only,
   v2Only,
   variantProps,
@@ -221,5 +230,86 @@ describe('converted report components carry no inline styles in v2', () => {
     const section = heading.ownerDocument.querySelector('section.ui2-eod-panel')
     expect(section).not.toBeNull()
     expect(section?.getAttribute('style')).toBeNull()
+  })
+})
+
+describe('U5 part 2 style tables (sellers & settings)', () => {
+  it('keeps the settings tables at their v1 widths', () => {
+    // Events and Users were width:100%; Sessions was width:auto inline and is
+    // the only settings table that may not stretch.
+    expect(EVENT_SETUP.table.width).toBe('100%')
+    expect(USER_MANAGEMENT.table.width).toBe('100%')
+    expect(SESSIONS.table.width).toBe('auto')
+    expect(TRANSACTIONS.table.width).toBe('100%')
+    expect(SELLER_LIST.table.width).toBe('100%')
+  })
+
+  it('keeps the admin tab strip on the darker admin navy', () => {
+    expect(ADMIN_TABS.bar.borderBottom).toBe('2px solid #1a237e')
+    expect(ADMIN_TABS.bar.paddingBottom).toBe(8)
+    // The active tab inverts; both variants express it, differently.
+    expect(ADMIN_TABS.tab(true).background).toBe('#1a237e')
+    expect(ADMIN_TABS.tab(true).color).toBe('white')
+    expect(ADMIN_TABS.tab(false).background).toBe('transparent')
+    expect(ADMIN_TABS.tab(false).color).toBe('#1a237e')
+  })
+
+  it('keeps the back button on the SHELL navy, not the admin navy', () => {
+    // AdminPage's "Back to Sellers" predates the admin palette and uses
+    // #1e3a8a. Changing it here would be an unrequested visual change.
+    expect(ADMIN_TABS.backButton.border).toBe('1px solid #1e3a8a')
+    expect(ADMIN_TABS.backButton.color).toBe('#1e3a8a')
+    expect(ADMIN_TABS.backButton.background).toBe('none')
+  })
+
+  it('keeps the modal geometry (width differs per modal on purpose)', () => {
+    expect(RESET_PASSWORD.backdrop.position).toBe('fixed')
+    expect(RESET_PASSWORD.backdrop.zIndex).toBe(50)
+    expect(RESET_PASSWORD.panel.width).toBe(360)
+    expect(CREATED_USER.panel.width).toBe(380)
+    expect(CREATED_USER.panel.padding).toBe(24)
+    expect(RESET_PASSWORD.policyList.paddingLeft).toBe(20)
+  })
+
+  it('keeps the password-policy colours', () => {
+    expect(RESET_PASSWORD.unmet.color).toBe('#ef4444')
+    expect(RESET_PASSWORD.met.color).toBe('#16a34a')
+    expect(RESET_PASSWORD.mismatch.color).toBe('#ef4444')
+  })
+
+  it('keeps the credential value box selectable and monospace', () => {
+    expect(CREATED_USER.valueBox.userSelect).toBe('all')
+    expect(CREATED_USER.valueBox.fontFamily).toBe('monospace')
+    expect(CREATED_USER.valueBox.background).toBe('#f1f5f9')
+    expect(CREATED_USER.rowLabel.width).toBe(80)
+  })
+
+  it('keeps the seller-detail geometry', () => {
+    expect(SELLER_DETAIL.contactCard.padding).toBe(16)
+    expect(SELLER_DETAIL.contactCard.marginBottom).toBe(20)
+    expect(SELLER_DETAIL.outlineButton.marginTop).toBe(8)
+    expect(SELLER_DETAIL.smallOutline.fontSize).toBe(13)
+    expect(SELLER_DETAIL.smallOutlineDisabled.cursor).toBe('not-allowed')
+    expect(SELLER_DETAIL.saveButton.background).toBe('#1e3a8a')
+    expect(SELLER_DETAIL.cancelButton.border).toBe('1px solid #94a3b8')
+    expect(SELLER_DETAIL.hiddenFile.display).toBe('none')
+    expect(SELLER_DETAIL.addItemCancel.float).toBe('right')
+    expect(SELLER_DETAIL.headingMeta.color).toBe('#64748b')
+  })
+
+  it('keeps the seller-list badge colours', () => {
+    // labelStatus() swaps which modifier class it emits, so the v2 colours
+    // live in CSS; the v1 hexes stay here for the pixel-identical promise.
+    expect(SELLER_LIST.codeCell.fontWeight).toBe(600)
+    expect(SELLER_LIST.search.border).toBe('1px solid #1e3a8a')
+    expect(SELLER_LIST.payoutCell.background).toBe('#f8fafc')
+  })
+
+  it('keeps the transactions voided-row tint', () => {
+    expect(TRANSACTIONS.row(false).borderBottom).toBe('1px solid #eee')
+    expect(TRANSACTIONS.row(false).color).toBeUndefined()
+    expect(TRANSACTIONS.row(true).color).toBe('#9ca3af')
+    expect(TRANSACTIONS.statusCell(true).color).toBe('#b91c1c')
+    expect(TRANSACTIONS.statusCell(false).color).toBe('#15803d')
   })
 })
