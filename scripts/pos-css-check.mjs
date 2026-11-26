@@ -391,7 +391,11 @@ const CHECKS = [
   ["#rp-footer", "justifyContent", "flow-end", "modal footer actions sit right"],
   ["#cu-value", "userSelect", "all", "credential value is select-all"],
   ["#cu-row-label", "width", "80px", "credential labels hold their column"],
-
+  // U7: wide tables scroll instead of stretching the page.
+  ["#ev-scroll", "overflowX", "auto", "wide settings table sits in a horizontal scroller"],
+  ["#ss-scroll", "overflowX", "auto", "auto-width sessions table sits in a scroller too"],
+  ["#sc-x", "overflowX", "auto", "report data table sits in a scroller (U7 block)"],
+  ["#sc-table", "minWidth", "max-content", "scrolled tables keep natural column widths (no squeeze)"],
 ];
 
 

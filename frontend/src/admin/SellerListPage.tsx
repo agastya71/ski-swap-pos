@@ -1,6 +1,6 @@
 import { useState, useEffect, Fragment } from "react";
 import { useUiVariant } from "../lib/uiVariant";
-import { SELLER_LIST, variantProps } from "./adminStyles";
+import { SELLER_LIST, v2Only, variantProps } from "./adminStyles";
 import { searchSellers, deleteSeller } from "../api/sellers";
 import { SellerForm } from "../intake/SellerForm";
 import { SellerPayoutPanel } from "./SellerPayoutPanel";
@@ -151,6 +151,7 @@ export function SellerListPage({
           {error}
         </div>
       )}
+      <div {...v2Only(v2, "ui2-scroll-x")}>
       <table {...variantProps(v2, "ui2-seller-table", SELLER_LIST.table)}>
         <thead>
           <tr>
@@ -256,6 +257,7 @@ export function SellerListPage({
           )}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

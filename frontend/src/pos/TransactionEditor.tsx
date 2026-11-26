@@ -306,6 +306,7 @@ export function TransactionEditor({
         </div>
       )}
 
+      <div {...v2Only(v2, "ui2-scroll-x")}>
       <table {...variantProps(v2, "ui2-editor-table", EDITOR.table)}>
         <thead>
           <tr {...v1Only(v2, EDITOR.theadRow)}>
@@ -381,6 +382,7 @@ export function TransactionEditor({
           ))}
         </tbody>
       </table>
+      </div>
       <div {...variantProps(v2, "ui2-editor-actions", EDITOR.lineActions)}>
         <button
           {...v2Only(v2, "ui2-btn ui2-btn--primary")}

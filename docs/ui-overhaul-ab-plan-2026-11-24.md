@@ -165,3 +165,9 @@ What was verified before the flip, across U2–U6:
 Known residue, accepted: `.ui2-ghost-btn` stays 36px by design (header tab
 bar) and page-body overflow at narrow widths was fixed where it mattered
 (intake, transactions) — remaining long tables scroll inside their wrapper.
+
+## Superseded predecessor (deleted 2026-11-25)
+
+`docs/ui-refresh-ab-plan-2026-11-22.md` — the earlier A/B draft this plan replaced — was removed now that U0–U6 shipped. Its still-relevant ideas (parallel variant build, `?ui=` flag, phase discipline) were carried here when this doc was written; nothing else in it survived review.
+
+Also closed out with U7 (2026-11-25): the last measured narrow-width defect — the v2 admin tables (`ui2-settings-table--wide`, sessions, report data tables, transaction tables, editor lines table) overflowed at 420px (+144px, widest `ui2-settings-table--wide`). Fixed with a generic `.ui2-scroll-x` wrapper (plain unstyled div in v1, so v1 stays pixel-identical); overflow scan at 420/768/1280 now passes for every route in both variants' reachable states.

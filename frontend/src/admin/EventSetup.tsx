@@ -85,7 +85,7 @@ export function EventSetup() {
   }
 
   return (
-    <div>
+    <div {...v2Only(v2, "ui2-scroll-x")}>
       <h3>Events</h3>
       <table
         {...variantProps(
