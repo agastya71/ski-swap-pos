@@ -251,6 +251,67 @@ const CHECKS = [
   ["#eq-table", "display", "table", "equipment table is a real table inside the scroller"],
   ["#eq-scroll", "overflowX", "auto", "equipment wrapper scrolls instead of stretching the table"],
   ["#eq-num", "fontVariantNumeric", "tabular-nums", "equipment money uses tabular figures"],
+  // ── U6: login ──
+  ["#lg-shell", "display", "flex", "login shell is a flex column"],
+  // Computed minHeight resolves to px, never the authored "100vh"; assert the
+  // layout role instead (the stripe + footer pin the column's ends).
+  ["#lg-shell", "flexDirection", "column", "login shell stacks stripe/card/footer"],
+  ["#lg-stripe", "height", "4px", "login brand stripe is 4px"],
+  ["#lg-stripe", "backgroundColor", "rgb(30, 58, 138)", "login stripe is navy"],
+  ["#lg-card", "maxWidth", "400px", "login card stays narrow"],
+  ["#lg-card", "padding", "40px 48px", "login card keeps its generous padding"],
+  ["#lg-card", "boxShadow", "rgba(0, 0, 0, 0.07) 0px 4px 24px 0px", "login card keeps the one-off soft elevation"],
+  ["#lg-title", "fontSize", "30px", "login brand stays 30px"],
+  ["#lg-title", "letterSpacing", "-0.9px", "login brand keeps tight tracking"],
+  ["#lg-input", "minHeight", "44px", "login username meets the touch target"],
+  ["#lg-input-last", "minHeight", "44px", "login password meets the touch target"],
+  ["#lg-input", "fontSize", "16px", "login fields are 16px to suppress iOS zoom"],
+  ["#lg-submit", "minHeight", "44px", "login submit meets the touch target"],
+  ["#lg-submit", "backgroundColor", "rgb(30, 58, 138)", "login submit is navy"],
+  ["#lg-footer", "padding", "14px 16px", "login footer keeps its shallow padding"],
+  ["#lg-footer", "textAlign", "center", "login footer is centred"],
+
+  // ── U6: change-password modal ──
+  ["#cp-backdrop", "position", "fixed", "password modal is an overlay"],
+  ["#cp-backdrop", "zIndex", "50", "password modal stacks above the page"],
+  ["#cp-panel", "maxWidth", "360px", "password panel stays 360px"],
+  ["#cp-panel", "backgroundColor", "rgb(255, 255, 255)", "password panel is white"],
+  ["#cp-input", "minHeight", "44px", "password field meets the touch target"],
+  ["#cp-suggest", "minHeight", "44px", "suggest button meets the touch target"],
+  ["#cp-mismatch", "color", "rgb(220, 38, 38)", "mismatch warning is red"],
+  ["#cp-unmet", "color", "rgb(220, 38, 38)", "unmet policy item is red"],
+  ["#cp-met", "color", "rgb(22, 163, 74)", "met policy item is green"],
+  // Chrome serialises flex-end as flow-end on a flex container.
+  ["#cp-footer", "justifyContent", "flow-end", "password modal actions sit right"],
+  ["#cp-cancel", "minHeight", "44px", "cancel meets the touch target"],
+  ["#cp-submit", "backgroundColor", "rgb(30, 58, 138)", "password submit is navy"],
+
+  // ── U6: import banner ──
+  ["#io-error", "backgroundColor", "rgb(254, 242, 242)", "skipped-rows banner is red-tinted"],
+  ["#io-error", "borderTopColor", "rgb(252, 165, 165)", "skipped-rows banner has a red border"],
+  ["#io-warn", "backgroundColor", "rgb(255, 251, 235)", "warnings banner is amber-tinted"],
+  ["#io-ok", "backgroundColor", "rgb(240, 253, 244)", "success banner is green-tinted"],
+  ["#io-errors", "color", "rgb(185, 28, 28)", "skipped-row list is dark red"],
+  ["#io-warnings", "color", "rgb(146, 64, 14)", "warning list is dark amber"],
+  ["#io-dismiss", "cursor", "pointer", "banner dismiss is clickable"],
+
+  // ── U6: seller combobox ──
+  ["#cb-root", "position", "relative", "combobox anchors its dropdown"],
+  ["#cb-input", "minHeight", "44px", "combobox input meets the touch target"],
+  ["#cb-input", "borderTopColor", "rgb(30, 58, 138)", "combobox input keeps the navy border"],
+  ["#cb-option", "minHeight", "44px", "combobox rows meet the touch target"],
+  ["#cb-option", "textAlign", "left", "combobox rows read left-aligned"],
+  ["#cb-code", "color", "rgb(30, 58, 138)", "seller code is navy"],
+  ["#cb-company", "color", "rgb(100, 116, 139)", "company name is muted"],
+
+  // ── U6: docs page + square ──
+  ["#dc-panel", "backgroundColor", "rgb(248, 250, 252)", "docs panel keeps its grey ground"],
+  ["#dc-link", "color", "rgb(26, 35, 126)", "docs links stay admin navy"],
+  ["#dc-link", "minHeight", "44px", "docs links meet the touch target"],
+  ["#sq-container", "minHeight", "89px", "square mount keeps its loading placeholder"],
+  ["#sq-capture", "backgroundColor", "rgb(46, 125, 50)", "square capture keeps Square green"],
+  ["#sq-capture", "minHeight", "44px", "square capture meets the touch target"],
+  ["#sq-message", "color", "rgb(180, 83, 9)", "square warning text is readable amber"],
 
   // ── Admin tabs (U5 part 2) ────────────────────────────────────────────────
   ["#ap-tabs", "display", "flex", "admin tabs lay out in a row"],

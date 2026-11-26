@@ -1,0 +1,499 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   U6 part 1 — v2 styles for the login page, password modal, shared components,
+   documentation page and the Square card panel.
+
+   Every rule is scoped to `.ui-v2`, so the v1 build cannot be affected by this
+   file existing. These were the last six surfaces still carrying inline
+   styles; after this the whole frontend is style-lifted.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Login ───────────────────────────────────────────────────────────────── */
+
+.ui-v2 .ui2-login {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--gray-50);
+}
+
+.ui-v2 .ui2-login-stripe {
+  height: 4px;
+  background: var(--navy);
+}
+
+.ui-v2 .ui2-login-centre {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+}
+
+.ui-v2 .ui2-login-card {
+  width: 100%;
+  max-width: 400px;
+  padding: 40px 48px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: #fff;
+  /* Softer and wider than --shadow-1 on purpose: this card floats alone. */
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.07);
+  box-sizing: border-box;
+}
+
+.ui-v2 .ui2-login-brand {
+  margin-bottom: var(--space-8);
+  text-align: center;
+}
+
+.ui-v2 .ui2-login-brand-title {
+  margin-bottom: 6px;
+  color: var(--navy);
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.ui-v2 .ui2-login-brand-sub {
+  color: var(--gray-500);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-login-field {
+  margin-bottom: var(--space-4);
+}
+
+.ui-v2 .ui2-login-field--last {
+  margin-bottom: var(--space-5);
+}
+
+.ui-v2 .ui2-login-field label {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--gray-700);
+  font-size: var(--font-size-md);
+  font-weight: 500;
+}
+
+/* Autofill keeps the field background in Chrome and Firefox alike — the
+   browser default yellow/blue is the one thing that visibly breaks the card. */
+.ui-v2 .ui2-login-field input {
+  width: 100%;
+  min-height: var(--touch-target);
+  padding: 0 var(--space-3);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  font-size: var(--font-size-lg);
+  box-sizing: border-box;
+}
+
+.ui-v2 .ui2-login-field input:focus-visible {
+  border-color: var(--blue);
+  outline: 2px solid var(--blue-light);
+}
+
+.ui-v2 .ui2-login-error {
+  margin-bottom: var(--space-4);
+}
+
+.ui-v2 .ui2-login-submit {
+  width: 100%;
+  min-height: var(--touch-target);
+  border: 1px solid var(--navy);
+  border-radius: var(--radius-sm);
+  background: var(--navy);
+  color: #fff;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--transition);
+}
+
+.ui-v2 .ui2-login-submit:hover:not(:disabled) {
+  background: var(--blue-text);
+}
+
+.ui-v2 .ui2-login-submit:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.ui-v2 .ui2-login-footer {
+  padding: 14px var(--space-4);
+  border-top: var(--border);
+  background: #fff;
+  color: var(--gray-400);
+  font-size: var(--font-size-xs);
+  text-align: center;
+}
+
+@media (max-width: 480px) {
+  .ui-v2 .ui2-login-card {
+    padding: var(--space-6) var(--space-5);
+  }
+
+  .ui-v2 .ui2-login-brand-title {
+    font-size: 24px;
+  }
+}
+
+/* ── Change-password modal ───────────────────────────────────────────────── */
+
+.ui-v2 .ui2-cp-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3);
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.ui-v2 .ui2-cp-panel {
+  width: 100%;
+  max-width: 360px;
+  padding: var(--space-5);
+  border-radius: var(--radius);
+  background: #fff;
+  box-shadow: var(--shadow-1);
+  box-sizing: border-box;
+}
+
+.ui-v2 .ui2-cp-title {
+  margin-top: 0;
+  font-size: var(--font-size-lg);
+}
+
+.ui-v2 .ui2-cp-field {
+  margin-bottom: var(--space-2);
+}
+
+.ui-v2 .ui2-cp-field label {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--gray-600);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-cp-field input {
+  width: 100%;
+  min-height: var(--touch-target);
+  padding: 0 var(--space-2);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-md);
+  box-sizing: border-box;
+}
+
+.ui-v2 .ui2-cp-field input:focus-visible {
+  border-color: var(--blue);
+  outline: 2px solid var(--blue-light);
+}
+
+.ui-v2 .ui2-cp-password-row {
+  display: flex;
+  gap: 6px;
+}
+
+.ui-v2 .ui2-cp-password-row input {
+  flex: 1;
+}
+
+.ui-v2 .ui2-cp-suggest {
+  min-height: var(--touch-target);
+  padding: 0 var(--space-3);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.ui-v2 .ui2-cp-suggest:hover {
+  background: var(--blue-light);
+}
+
+.ui-v2 .ui2-cp-mismatch {
+  margin-top: 4px;
+  color: var(--red);
+  font-size: var(--font-size-xs);
+}
+
+.ui-v2 .ui2-cp-policy {
+  margin: 0 0 var(--space-3);
+  padding-left: var(--space-4);
+  color: var(--gray-500);
+  font-size: var(--font-size-xs);
+}
+
+.ui-v2 .ui2-cp-policy li[data-met="false"] {
+  color: var(--red);
+}
+
+.ui-v2 .ui2-cp-policy li[data-met="true"] {
+  color: #16a34a;
+}
+
+.ui-v2 .ui2-cp-error {
+  margin-bottom: var(--space-2);
+  color: var(--red);
+  font-weight: 500;
+}
+
+.ui-v2 .ui2-cp-footer {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  margin-top: var(--space-4);
+}
+
+.ui-v2 .ui2-cp-cancel {
+  min-height: var(--touch-target);
+  padding: 0 var(--space-4);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--gray-700);
+  font-size: var(--font-size-md);
+  cursor: pointer;
+}
+
+.ui-v2 .ui2-cp-cancel:hover {
+  background: var(--gray-100);
+}
+
+.ui-v2 .ui2-cp-submit {
+  min-height: var(--touch-target);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--navy);
+  border-radius: var(--radius-sm);
+  background: var(--navy);
+  color: #fff;
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ui-v2 .ui2-cp-submit:hover:not(:disabled) {
+  background: var(--blue-text);
+}
+
+.ui-v2 .ui2-cp-submit:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+/* ── Import outcome banner ───────────────────────────────────────────────── */
+
+/* Three skins, same precedence as v1: skipped rows > warnings > success. */
+.ui-v2 .ui2-io {
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--gray-700);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-io--error {
+  border-color: #fca5a5;
+  background: var(--red-light);
+}
+
+.ui-v2 .ui2-io--warn {
+  border-color: #fcd34d;
+  background: #fffbeb;
+}
+
+.ui-v2 .ui2-io--ok {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.ui-v2 .ui2-io-dismiss {
+  margin-left: var(--space-2);
+  border: none;
+  background: none;
+  color: var(--gray-500);
+  font-size: var(--font-size-md);
+  cursor: pointer;
+}
+
+.ui-v2 .ui2-io-dismiss:hover {
+  color: var(--gray-900);
+}
+
+.ui-v2 .ui2-io-note {
+  margin-top: 2px;
+}
+
+.ui-v2 .ui2-io-errors {
+  margin: 4px 0 0;
+  padding-left: var(--space-5);
+  color: #b91c1c;
+}
+
+.ui-v2 .ui2-io-warnings {
+  margin: 4px 0 0;
+  padding-left: var(--space-5);
+  color: #92400e;
+}
+
+/* ── Seller combobox ─────────────────────────────────────────────────────── */
+
+.ui-v2 .ui2-combobox {
+  position: relative;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.ui-v2 .ui2-combobox-input {
+  flex: 1;
+  min-height: var(--touch-target);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--navy);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-md);
+}
+
+.ui-v2 .ui2-combobox-input:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: -1px;
+}
+
+.ui-v2 .ui2-combobox-clear {
+  min-height: var(--touch-target);
+  min-width: var(--touch-target);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  font-size: var(--font-size-lg);
+  cursor: pointer;
+}
+
+.ui-v2 .ui2-combobox-clear:hover {
+  background: var(--blue-light);
+}
+
+.ui-v2 .ui2-combobox-list {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  z-index: 20;
+  max-height: 240px;
+  overflow-y: auto;
+  border: var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* 44px rows: this list is tapped, and it is the only way to pick a seller. */
+.ui-v2 .ui2-combobox-option {
+  display: block;
+  width: 100%;
+  min-height: var(--touch-target);
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-bottom: 1px solid var(--gray-100);
+  background: none;
+  font-size: var(--font-size-md);
+  text-align: left;
+  cursor: pointer;
+}
+
+.ui-v2 .ui2-combobox-option:last-child {
+  border-bottom: none;
+}
+
+.ui-v2 .ui2-combobox-option:hover,
+.ui-v2 .ui2-combobox-option:focus-visible {
+  background: var(--blue-light);
+}
+
+.ui-v2 .ui2-combobox-code {
+  color: var(--navy);
+}
+
+.ui-v2 .ui2-combobox-company {
+  margin-left: 6px;
+  color: var(--gray-500);
+}
+
+/* ── Documentation page ──────────────────────────────────────────────────── */
+
+.ui-v2 .ui2-docs-panel {
+  margin-top: var(--space-5);
+  padding: var(--space-3);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--gray-50);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-docs-blurb {
+  margin-top: 4px;
+  color: var(--gray-600);
+}
+
+.ui-v2 .ui2-docs-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+}
+
+.ui-v2 .ui2-docs-link {
+  color: var(--admin-navy);
+  text-decoration: none;
+  /* 44px targets on a touch device without moving the text when it is not. */
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.ui-v2 .ui2-docs-link:hover {
+  text-decoration: underline;
+}
+
+/* ── Square card panel ───────────────────────────────────────────────────── */
+
+/* Orange is Square's own warning colour, kept because the message points at
+   their SDK; it is not part of the app palette. */
+.ui-v2 .ui2-square-message {
+  margin: 0;
+  color: #b45309;
+  font-size: var(--font-size-sm);
+}
+
+/* Square's SDK injects its iframe here, so the height is a placeholder that
+   stops the form jumping when the iframe arrives — not styling polish. */
+.ui-v2 .ui2-square-container {
+  min-height: 89px;
+  padding: 4px;
+  margin-bottom: var(--space-2);
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-sm);
+}
+
+/* Square brand green, not the app palette. */
+.ui-v2 .ui2-square-capture {
+  min-height: var(--touch-target);
+  padding: 0 var(--space-5);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: #2e7d32;
+  color: #fff;
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ui-v2 .ui2-square-capture:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
