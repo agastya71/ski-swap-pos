@@ -565,6 +565,12 @@
 
 .ui-v2 .ui2-items-table tfoot td.ui2-num { font-variant-numeric: tabular-nums; }
 
+/* Totals row: label cell right-aligns to the Sell Price boundary (same as
+   v1); the three value cells carry .ui2-num so they sit under the
+   right-aligned Qty / Total Price / On Hand columns (user report: totals
+   appeared shifted because only thead/tbody had the ui2-num class). */
+.ui-v2 .ui2-items-table tfoot td.ui2-items-foot-total { text-align: right; }
+
 @media (width <= 720px) {
   .ui-v2 .ui2-items-header { align-items: stretch; }
   .ui-v2 .ui2-items-actions { flex: 1 1 100%; }
