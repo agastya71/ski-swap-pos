@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { getSellerPayout } from "../api/reports";
 import type { SellerPayoutReport } from "../types";
 import { useUiVariant } from "../lib/uiVariant";
-import { variantProps, v1Only, PAYOUT as V1_PAYOUT } from "./adminStyles";
+import { variantProps, v1Only, v2Only, PAYOUT as V1_PAYOUT } from "./adminStyles";
 
 /** Contact lines shown in the seller-info block (nulls skipped at render). */
 function contactString(payout: SellerPayoutReport): string {
@@ -87,6 +87,7 @@ export function SellerPayoutDetails({
                 Items
             </h4>
             {payout.items.length > 0 ? (
+                <div {...v2Only(v2, "ui2-scroll-x")}>
                 <table {...variantProps(v2, "ui2-report-table", V1_PAYOUT.dataTable)}>
                     <thead>
                         <tr {...v1Only(v2, V1_PAYOUT.headRow)}>
@@ -144,6 +145,7 @@ export function SellerPayoutDetails({
                         ))}
                     </tbody>
                 </table>
+                </div>
             ) : (
                 <p {...variantProps(v2, "ui2-payout-empty", V1_PAYOUT.emptyLine)}>
                     No items consigned.
@@ -155,6 +157,7 @@ export function SellerPayoutDetails({
                 Sales Detail
             </h4>
             {payout.sales.length > 0 ? (
+                <div {...v2Only(v2, "ui2-scroll-x")}>
                 <table {...variantProps(v2, "ui2-report-table", V1_PAYOUT.dataTable)}>
                     <thead>
                         <tr {...v1Only(v2, V1_PAYOUT.headRow)}>
@@ -239,6 +242,7 @@ export function SellerPayoutDetails({
                         </tr>
                     </tbody>
                 </table>
+                </div>
             ) : (
                 <p {...variantProps(v2, "ui2-payout-empty", V1_PAYOUT.emptyLine)}>
                     No sales in this event.

@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { listSales, voidSale } from "../api/sales";
 import { useUiVariant } from "../lib/uiVariant";
-import { TRANSACTIONS, variantProps } from "./adminStyles";
+import { TRANSACTIONS, v2Only, variantProps } from "./adminStyles";
 import type { SaleWithItemsResponse } from "../types";
 import { TransactionEditor } from "../pos/TransactionEditor";
 
@@ -137,6 +137,7 @@ export function TransactionsPage() {
         </p>
       )}
       {!loading && sales.length > 0 && (
+        <div {...v2Only(v2, "ui2-scroll-x")}>
         <table {...variantProps(v2, "ui2-txn-table", TRANSACTIONS.table)}>
           <thead>
             <tr>
@@ -195,6 +196,7 @@ export function TransactionsPage() {
             ))}
           </tbody>
         </table>
+        </div>
       )}
       <div {...variantProps(v2, "ui2-txn-pager", TRANSACTIONS.pager)}>
         <button

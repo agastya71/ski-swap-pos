@@ -412,12 +412,14 @@
     <button id="ap-back" class="ui2-admin-back-btn">Back to Sellers</button>
   </div>
 
+  <div id="ev-scroll" class="ui2-scroll-x">
   <table id="ev-table" class="ui2-settings-table ui2-settings-table--wide">
     <thead><tr><th>Name</th></tr></thead>
     <tbody>
       <tr id="ev-row"><td>TEST SWAP POS 2026</td><td id="ev-actions" class="ui2-settings-actions"><button>Activate</button><button>Delete</button></td></tr>
     </tbody>
   </table>
+  </div>
 
   <form id="ev-form" class="ui2-settings-form ui2-settings-form--events">
     <div><label for="ev-name">Event Name</label><input id="ev-name" /></div>
@@ -432,10 +434,18 @@
     </div>
   </div>
 
+  <div id="ss-scroll" class="ui2-scroll-x">
   <table id="ss-table" class="ui2-settings-table ui2-settings-table--auto">
     <thead><tr><th>User</th></tr></thead>
     <tbody><tr><td id="ss-device" class="ui2-settings-device">Mozilla/5.0 (very long user agent string)</td></tr></tbody>
   </table>
+  </div>
+  <div id="sc-x" class="ui2-scroll-x">
+  <table id="sc-table" class="ui2-report-table">
+    <thead><tr><th>Item Code</th><th>Qty</th><th class="ui2-num">Sell Price</th></tr></thead>
+    <tbody><tr><td>S-001</td><td>2</td><td class="ui2-num">$19.99</td></tr></tbody>
+  </table>
+  </div>
   <div id="ss-empty" class="ui2-settings-empty">No sessions recorded yet.</div>
   <p id="ss-footer" class="ui2-settings-footer">2 active sessions</p>
 

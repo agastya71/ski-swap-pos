@@ -242,6 +242,21 @@
 .ui2-table-scroll > table { width: 100%; border-collapse: collapse; }
 
 /*
+ * Generic horizontal scroller for wide tables that must keep their hairline
+ * borders and cell paddings WITHOUT the boxed look of `.ui2-table-scroll`.
+ * Used where the table already supplies its own borders (settings/report
+ * tables); v1 renders the wrapper as a bare div, so pixel identity holds.
+ */
+.ui2-scroll-x {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.ui2-scroll-x:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+.ui2-scroll-x > table { min-width: max-content; }
+
+/*
  * Stacked mode (`data-stack` on the table + `data-label` on every cell):
  * below the breakpoint each row becomes its own card and each cell shows its
  * column name, so nothing has to be scrolled sideways on a small screen.

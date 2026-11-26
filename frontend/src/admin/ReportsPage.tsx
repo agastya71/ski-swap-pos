@@ -34,6 +34,7 @@ import { useUiVariant } from "../lib/uiVariant";
 import {
   variantProps,
   v1Only,
+  v2Only,
   REPORTS as V1_REPORTS,
   TABLE as V1_TABLE,
   MUTED_LINE as V1_MUTED_LINE,
@@ -250,6 +251,7 @@ function DonationsSection({
             (value: ${donations.total_value.toFixed(2)})
           </p>
           {donations.items.length > 0 && (
+            <div {...v2Only(v2, "ui2-scroll-x")}>
             <table {...variantProps(v2, "ui2-report-table", V1_TABLE.table)}>
               <thead>
                 <tr {...v1Only(v2, V1_TABLE.headRow)}>
@@ -288,6 +290,7 @@ function DonationsSection({
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </>
       )}
@@ -345,6 +348,7 @@ function UnsoldSection({
         <>
           {unsold.items.length === 0 && <p>No unsold items.</p>}
           {unsold.items.length > 0 && (
+            <div {...v2Only(v2, "ui2-scroll-x")}>
             <table {...variantProps(v2, "ui2-report-table", V1_TABLE.table)}>
               <thead>
                 <tr {...v1Only(v2, V1_TABLE.headRow)}>
@@ -387,6 +391,7 @@ function UnsoldSection({
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </>
       )}
@@ -463,6 +468,7 @@ function TransactionsSection({
                     · Gross ${u.gross_sales.toFixed(2)}
                   </span>
                 </h4>
+                <div {...v2Only(v2, "ui2-scroll-x")}>
                 <table {...variantProps(v2, "ui2-report-table", V1_TABLE.tableSpaced)}>
                   <thead>
                     <tr {...v1Only(v2, V1_TABLE.headRow)}>
@@ -518,6 +524,7 @@ function TransactionsSection({
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             ))}
         </>
@@ -632,6 +639,7 @@ function ChecksSection({
             <MutedLine v2={v2}>No check transactions recorded yet.</MutedLine>
           )}
           {checks && checks.transactions.length > 0 && (
+            <div {...v2Only(v2, "ui2-scroll-x")}>
             <table {...variantProps(v2, "ui2-report-table", V1_TABLE.tableSpaced)}>
               <thead>
                 <tr {...v1Only(v2, V1_TABLE.headRow)}>
@@ -684,6 +692,7 @@ function ChecksSection({
                 </tr>
               </tfoot>
             </table>
+            </div>
           )}
         </>
       )}

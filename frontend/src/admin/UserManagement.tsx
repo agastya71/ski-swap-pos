@@ -100,44 +100,46 @@ export function UserManagement() {
 
   return (
     <div>
-      <h3>Users</h3>
-      <table
-        {...variantProps(
-          v2,
-          "ui2-settings-table ui2-settings-table--wide",
-          USER_MANAGEMENT.table,
-        )}
-      >
-        <thead>
-          <tr>
-            <th>Username</th>
-            <th>Role</th>
-            <th>Status</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {users.map((u) => (
-            <tr key={u.id}>
-              <td>{u.username}</td>
-              <td>{u.role}</td>
-              <td>{u.is_active ? "Active" : <em>Inactive</em>}</td>
-              <td {...v2Only(v2, "ui2-settings-actions")}>
-                <button onClick={() => setResetTarget(u)}>Reset Password</button>
-                {u.is_active && (
-                  <button onClick={() => handleDeactivate(u.id)}>Deactivate</button>
-                )}
-                <button
-                  onClick={() => handleDelete(u)}
-                  aria-label={`delete user ${u.username}`}
-                >
-                  Delete
-                </button>
-              </td>
+      <div {...v2Only(v2, "ui2-scroll-x")}>
+        <h3>Users</h3>
+        <table
+            {...variantProps(
+              v2,
+              "ui2-settings-table ui2-settings-table--wide",
+              USER_MANAGEMENT.table,
+            )}
+          >
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th />
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {users.map((u) => (
+              <tr key={u.id}>
+                <td>{u.username}</td>
+                <td>{u.role}</td>
+                <td>{u.is_active ? "Active" : <em>Inactive</em>}</td>
+                <td {...v2Only(v2, "ui2-settings-actions")}>
+                  <button onClick={() => setResetTarget(u)}>Reset Password</button>
+                  {u.is_active && (
+                    <button onClick={() => handleDeactivate(u.id)}>Deactivate</button>
+                  )}
+                  <button
+                    onClick={() => handleDelete(u)}
+                    aria-label={`delete user ${u.username}`}
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       <h4>Create New User</h4>
       <form

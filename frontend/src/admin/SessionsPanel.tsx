@@ -92,6 +92,7 @@ export function SessionsPanel() {
           {error}
         </p>
       )}
+      <div {...v2Only(v2, "ui2-scroll-x")}>
       <table
         {...variantProps(
           v2,
@@ -163,6 +164,7 @@ export function SessionsPanel() {
           )}
         </tbody>
       </table>
+      </div>
       {usersWithLive.length > 0 && (
         <p {...variantProps(v2, "ui2-settings-footer", SESSIONS.footer)}>
           {usersWithLive.filter((s) => !s.revoked_at).length} active session(s) across{" "}
