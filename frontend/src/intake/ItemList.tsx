@@ -392,6 +392,7 @@ export function ItemList({
                       setPrintQty((p) => ({ ...p, [item.id]: e.target.value }))
                     }
                     {...v1Only(v2, ITEM_LIST.printInput)}
+                    {...v2Only(v2, "ui2-items-print-input")}
                   />
                   <button
                     aria-label={`Print the specified number of labels for ${item.code}`}
