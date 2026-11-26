@@ -5,7 +5,8 @@
  */
 
 import { useEffect, useState } from "react";
-import { BUTTON_STYLE } from "../lib/buttons";
+import { useUiVariant } from "../lib/uiVariant";
+import { SESSIONS, v2Only, variantProps } from "./adminStyles";
 import { getAllSessions, revokeSession, revokeUserSessions } from "../api/auth";
 import type { LoginSession } from "../types";
 
@@ -24,6 +25,7 @@ export function SessionsPanel() {
   const [sessions, setSessions] = useState<LoginSession[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const v2 = useUiVariant() === "v2";
 
   async function load() {
     try {
@@ -81,41 +83,47 @@ export function SessionsPanel() {
   return (
     <div>
       <h3>Login Sessions</h3>
-      <p style={{ color: "#555", marginTop: 0 }}>
+      <p {...variantProps(v2, "ui2-settings-hint", SESSIONS.hint)}>
         Every login creates a session; revoking one signs that device out within one
         request. Rows older than 90 days are pruned automatically.
       </p>
       {error && (
-        <p role="alert" style={{ color: "#b00020" }}>
+        <p role="alert" {...variantProps(v2, "ui2-settings-error", SESSIONS.error)}>
           {error}
         </p>
       )}
-      <table style={{ width: "auto", borderCollapse: "collapse", marginBottom: 24 }}>
+      <table
+        {...variantProps(
+          v2,
+          "ui2-settings-table ui2-settings-table--auto",
+          SESSIONS.table,
+        )}
+      >
         <thead>
-          <tr style={{ borderBottom: "2px solid #ccc" }}>
-            <th style={{ textAlign: "left", padding: "4px 8px" }}>User</th>
-            <th style={{ textAlign: "left", padding: "4px 8px" }}>Logged in</th>
-            <th style={{ textAlign: "left", padding: "4px 8px" }}>Last seen</th>
-            <th style={{ textAlign: "left", padding: "4px 8px" }}>IP</th>
-            <th style={{ textAlign: "left", padding: "4px 8px" }}>Device</th>
-            <th style={{ textAlign: "left", padding: "4px 8px" }}>Status</th>
+          <tr>
+            <th>User</th>
+            <th>Logged in</th>
+            <th>Last seen</th>
+            <th>IP</th>
+            <th>Device</th>
+            <th>Status</th>
             <th />
           </tr>
         </thead>
         <tbody>
           {sessions.map((s) => (
-            <tr key={s.id} style={{ borderBottom: "1px solid #eee" }}>
-              <td style={{ padding: "6px 8px" }}>{s.username}</td>
-              <td style={{ padding: "6px 8px" }}>{fmt(s.created_at)}</td>
-              <td style={{ padding: "6px 8px" }}>{fmt(s.last_seen_at)}</td>
-              <td style={{ padding: "6px 8px" }}>{s.login_ip ?? "—"}</td>
+            <tr key={s.id}>
+              <td>{s.username}</td>
+              <td>{fmt(s.created_at)}</td>
+              <td>{fmt(s.last_seen_at)}</td>
+              <td>{s.login_ip ?? "—"}</td>
               <td
-                style={{ padding: "6px 8px", maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                {...variantProps(v2, "ui2-settings-device", SESSIONS.deviceCell)}
                 title={s.user_agent ?? ""}
               >
                 {s.user_agent ?? "—"}
               </td>
-              <td style={{ padding: "6px 8px" }}>
+              <td>
                 {s.revoked_at ? (
                   <em>
                     Revoked{s.revoked_by ? ` by ${s.revoked_by}` : ""} {fmt(s.revoked_at)}
@@ -124,12 +132,11 @@ export function SessionsPanel() {
                   "Active"
                 )}
               </td>
-              <td style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>
+              <td {...v2Only(v2, "ui2-settings-actions")}>
                 {!s.revoked_at && (
                   <button
                     onClick={() => handleRevoke(s.id)}
                     disabled={busy}
-                    style={{ ...BUTTON_STYLE, marginRight: 6 }}
                     aria-label={`revoke session ${s.id} for ${s.username}`}
                   >
                     Revoke
@@ -139,7 +146,6 @@ export function SessionsPanel() {
                   <button
                     onClick={() => handleRevokeUser(s.user_id, s.username)}
                     disabled={busy}
-                    style={BUTTON_STYLE}
                     aria-label={`revoke all sessions for ${s.username}`}
                   >
                     Revoke all user sessions
@@ -150,7 +156,7 @@ export function SessionsPanel() {
           ))}
           {sessions.length === 0 && (
             <tr>
-              <td colSpan={7} style={{ padding: "12px 8px", color: "#777" }}>
+              <td colSpan={7} {...variantProps(v2, "ui2-settings-empty", SESSIONS.emptyCell)}>
                 No sessions recorded yet.
               </td>
             </tr>
@@ -158,7 +164,7 @@ export function SessionsPanel() {
         </tbody>
       </table>
       {usersWithLive.length > 0 && (
-        <p style={{ color: "#777", fontSize: 13 }}>
+        <p {...variantProps(v2, "ui2-settings-footer", SESSIONS.footer)}>
           {usersWithLive.filter((s) => !s.revoked_at).length} active session(s) across{" "}
           {new Set(usersWithLive.filter((s) => !s.revoked_at).map((s) => s.username)).size} user(s).
         </p>

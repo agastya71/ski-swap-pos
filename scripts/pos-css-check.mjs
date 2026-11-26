@@ -252,6 +252,85 @@ const CHECKS = [
   ["#eq-scroll", "overflowX", "auto", "equipment wrapper scrolls instead of stretching the table"],
   ["#eq-num", "fontVariantNumeric", "tabular-nums", "equipment money uses tabular figures"],
 
+  // ── Admin tabs (U5 part 2) ────────────────────────────────────────────────
+  ["#ap-tabs", "display", "flex", "admin tabs lay out in a row"],
+  ["#ap-tabs", "flexWrap", "wrap", "admin tabs wrap instead of overflowing"],
+  ["#ap-tab-active", "backgroundColor", "rgb(26, 35, 126)", "active admin tab inverts to admin navy"],
+  ["#ap-tab-active", "color", "rgb(255, 255, 255)", "active admin tab text goes white"],
+  ["#ap-tab", "backgroundColor", "rgba(0, 0, 0, 0)", "inactive admin tab stays transparent"],
+  ["#ap-tab", "color", "rgb(26, 35, 126)", "inactive admin tab text is admin navy"],
+  ["#ap-tab", "minHeight", "36px", "admin tabs are comfortably clickable"],
+  // AdminPage's Back button predates the admin palette and keeps the SHELL navy.
+  ["#ap-back", "borderTopColor", "rgb(30, 58, 138)", "back button keeps shell navy, not admin navy"],
+
+  // ── Settings tables (events / users / sessions) ───────────────────────────
+  ["#ev-table", "borderCollapse", "collapse", "settings table border model matches v1"],
+  ["#ev-table", "display", "table", "events table is a real table"],
+  ["#ev-actions", "whiteSpace", "nowrap", "settings action cells never wrap"],
+  ["#ss-table", "display", "table", "sessions table renders as a table"],
+  ["#ss-device", "textOverflow", "ellipsis", "long user-agent strings truncate"],
+  ["#ss-device", "maxWidth", "260px", "device column is capped like v1"],
+  ["#ss-empty", "paddingTop", "12px", "empty-state cell keeps its row height"],
+  ["#ss-footer", "fontSize", "13px", "session footer is small print"],
+
+  // ── Settings forms ────────────────────────────────────────────────────────
+  ["#ev-form", "display", "grid", "create-event form is a grid"],
+  ["#ev-name", "minHeight", "44px", "settings inputs reach the touch target"],
+  ["#ev-error", "color", "rgb(220, 38, 38)", "settings errors are red"],
+  ["#um-pw", "minHeight", "44px", "password input reaches the touch target"],
+
+  // ── Seller list ───────────────────────────────────────────────────────────
+  ["#sl-search", "minHeight", "44px", "seller search is tappable"],
+  ["#sl-search", "borderTopColor", "rgb(30, 58, 138)", "seller search keeps the v1 navy border"],
+  ["#sl-code", "color", "rgb(30, 58, 138)", "seller code stays navy"],
+  ["#sl-vendor", "color", "rgb(22, 101, 52)", "vendor badge is green"],
+  ["#sl-done", "color", "rgb(22, 101, 52)", "fully-printed badge is green"],
+  ["#sl-partial", "color", "rgb(180, 83, 9)", "partially-printed badge is amber"],
+  ["#sl-none", "color", "rgb(185, 28, 28)", "unprinted badge is red"],
+  ["#sl-row-open", "borderBottomWidth", "0px", "an open payout row closes its rule"],
+  ["#sl-payout-cell", "backgroundColor", "rgb(248, 250, 252)", "payout panel sits on --gray-50"],
+  ["#sl-empty", "textAlign", "center", "empty seller list centres"],
+
+  // ── Transactions ──────────────────────────────────────────────────────────
+  ["#tx-filters", "display", "flex", "transaction filters lay out in a row"],
+  ["#tx-input", "minHeight", "44px", "cashier filter is tappable"],
+  ["#tx-void-cell", "color", "rgb(148, 163, 184)", "voided sale cells recede"],
+  ["#tx-void-status", "color", "rgb(185, 28, 28)", "VOIDED status is red"],
+  ["#tx-ok-status", "color", "rgb(22, 101, 52)", "OK status is green"],
+  ["#tx-id", "fontWeight", "600", "sale id is emphasised"],
+  ["#tx-pager", "display", "flex", "pager is a flex row"],
+  ["#tx-check", "minHeight", "44px", "include-voided toggle is tappable"],
+
+  // ── Seller detail ─────────────────────────────────────────────────────────
+  ["#sd-card", "backgroundColor", "rgb(248, 250, 252)", "contact card sits on --gray-50"],
+  ["#sd-card", "paddingTop", "16px", "contact card keeps its v1 padding"],
+  ["#sd-contact-label", "color", "rgb(100, 116, 139)", "contact labels are muted"],
+  ["#sd-toggle", "display", "flex", "vendor toggle is a flex row"],
+  ["#sd-toggle", "minHeight", "44px", "vendor toggle is tappable"],
+  ["#sd-warning", "color", "rgb(180, 83, 9)", "vendor-flag warning is amber"],
+  ["#sd-input", "minHeight", "44px", "seller-detail inputs reach the touch target"],
+  ["#sd-fieldset", "borderTopWidth", "1px", "address fieldset keeps a hairline border"],
+  ["#sd-save", "backgroundColor", "rgb(30, 58, 138)", "Save is the filled navy action"],
+  ["#sd-cancel", "backgroundColor", "rgb(255, 255, 255)", "Cancel is the outlined action"],
+  ["#sd-outline-disabled", "opacity", "0.6", "disabled outline buttons dim"],
+  ["#sd-panel", "backgroundColor", "rgb(248, 250, 252)", "payout/equipment panels sit on --gray-50"],
+  ["#sd-intake-heading", "fontSize", "12px", "intake group heading is small"],
+  ["#sd-items-header", "display", "flex", "items header is a flex row"],
+
+  // ── Modals (created user, reset password) ─────────────────────────────────
+  ["#rp-modal", "position", "fixed", "modal backdrop is fixed"],
+  ["#rp-modal", "zIndex", "50", "modal backdrop sits above content"],
+  ["#rp-panel", "maxWidth", "380px", "modal panel is width-capped"],
+  ["#rp-panel", "boxShadow", "rgba(15, 23, 42, 0.12) 0px 2px 8px 0px", "modal panel gets the single elevation"],
+  ["#rpm-title", "fontSize", "16px", "modal title uses the lg step"],
+  ["#rp-input", "minHeight", "44px", "modal inputs reach the touch target"],
+  ["#rp-unmet", "color", "rgb(220, 38, 38)", "unmet password rules are red"],
+  ["#rp-met", "color", "rgb(22, 163, 74)", "satisfied password rule is green"],
+  ["#rp-mismatch", "color", "rgb(220, 38, 38)", "password mismatch warning is red"],
+  ["#rp-footer", "justifyContent", "flow-end", "modal footer actions sit right"],
+  ["#cu-value", "userSelect", "all", "credential value is select-all"],
+  ["#cu-row-label", "width", "80px", "credential labels hold their column"],
+
 ];
 
 

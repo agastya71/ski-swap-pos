@@ -404,5 +404,81 @@
   <p id="eq-error" class="ui2-equipment-error" role="alert">Failed</p>
   <div id="eq-scroll" class="ui2-equipment-scroll"><table id="eq-table" class="ui2-equipment-table"><tbody><tr id="eq-row" class="ui2-row--total"><td id="eq-num" class="ui2-num">$1.00</td></tr></tbody></table></div>
 </div>
+
+  <!-- U5 part 2: sellers & settings -->
+  <div id="ap-tabs" class="ui2-admin-tabs">
+    <button id="ap-tab-active" class="ui2-admin-tab" aria-current="page">Events</button>
+    <button id="ap-tab" class="ui2-admin-tab">Users</button>
+    <button id="ap-back" class="ui2-admin-back-btn">Back to Sellers</button>
+  </div>
+
+  <table id="ev-table" class="ui2-settings-table ui2-settings-table--wide">
+    <thead><tr><th>Name</th></tr></thead>
+    <tbody>
+      <tr id="ev-row"><td>TEST SWAP POS 2026</td><td id="ev-actions" class="ui2-settings-actions"><button>Activate</button><button>Delete</button></td></tr>
+    </tbody>
+  </table>
+
+  <form id="ev-form" class="ui2-settings-form ui2-settings-form--events">
+    <div><label for="ev-name">Event Name</label><input id="ev-name" /></div>
+    <button id="ev-submit" class="ui2-btn ui2-btn--primary">Create Event</button>
+  </form>
+  <div id="ev-error" class="ui2-settings-error" role="alert">Failed</div>
+
+  <div class="ui2-settings-form ui2-settings-form--users">
+    <div id="um-pw-row" class="ui2-password-row">
+      <input id="um-pw" />
+      <button id="um-generate">Generate</button>
+    </div>
+  </div>
+
+  <table id="ss-table" class="ui2-settings-table ui2-settings-table--auto">
+    <thead><tr><th>User</th></tr></thead>
+    <tbody><tr><td id="ss-device" class="ui2-settings-device">Mozilla/5.0 (very long user agent string)</td></tr></tbody>
+  </table>
+  <div id="ss-empty" class="ui2-settings-empty">No sessions recorded yet.</div>
+  <p id="ss-footer" class="ui2-settings-footer">2 active sessions</p>
+
+  <input id="sl-search" class="ui2-seller-search" />
+  <table id="sl-table" class="ui2-seller-table">
+    <thead><tr><th>Code</th></tr></thead>
+    <tbody>
+      <tr id="sl-row-open" class="ui2-row--open"><td id="sl-code" class="ui2-seller-code">A001</td><td id="sl-vendor" class="ui2-seller-badge--vendor">Yes</td><td id="sl-done" class="ui2-seller-badge--done">All 3</td><td id="sl-partial" class="ui2-seller-badge--partial">2/3</td><td id="sl-none" class="ui2-seller-badge--none-printed">Not yet</td><td id="sl-actions" class="ui2-seller-actions"><button>View</button></td></tr>
+      <tr><td id="sl-payout-cell" class="ui2-seller-payout-cell" colspan="6"><strong class="ui2-seller-payout-title">Seller Payout</strong></td></tr>
+    </tbody>
+  </table>
+  <div id="sl-empty" class="ui2-seller-empty">No sellers found</div>
+
+  <div id="tx-filters" class="ui2-txn-filters"><label id="tx-label" class="ui2-txn-filter-label">Cashier<input id="tx-input" class="ui2-txn-filter-input" /></label><label id="tx-check" class="ui2-txn-check"><input type="checkbox" /> Include voided</label></div>
+  <table id="tx-table" class="ui2-txn-table">
+    <thead><tr><th>Sale</th><th class="ui2-num">Total</th></tr></thead>
+    <tbody>
+      <tr id="tx-row-void" class="ui2-row--voided"><td id="tx-id" class="ui2-txn-id">#1</td><td id="tx-void-cell">$10.00</td><td id="tx-void-status" class="ui2-txn-status--void">VOIDED</td></tr>
+      <tr id="tx-row-ok"><td>#2</td><td id="tx-ok-status" class="ui2-txn-status--ok">OK</td></tr>
+    </tbody>
+  </table>
+  <div id="tx-pager" class="ui2-txn-pager"><button>Previous</button><button>Next</button></div>
+
+  <div id="sd-card" class="ui2-sd-card">
+    <div id="sd-contact" class="ui2-sd-contact-row"><span id="sd-contact-label" class="ui2-sd-contact-label">Phone:</span><span>555</span></div>
+    <label id="sd-toggle" class="ui2-sd-toggle"><input type="checkbox" /> Vendor</label>
+    <div id="sd-warning" class="ui2-sd-warning">Rate changes</div>
+    <div id="sd-field" class="ui2-sd-field"><label>Company</label><input id="sd-input" /></div>
+    <fieldset id="sd-fieldset" class="ui2-sd-fieldset"><legend id="sd-legend" class="ui2-sd-legend">Address</legend></fieldset>
+    <div id="sd-actions" class="ui2-sd-actions"><button id="sd-save" class="ui2-sd-save">Save</button><button id="sd-cancel" class="ui2-sd-cancel">Cancel</button></div>
+  </div>
+  <div id="sd-items-header" class="ui2-sd-items-header"><h4 id="sd-items-title" class="ui2-sd-items-title">Items (3)</h4><div class="ui2-sd-items-actions"><button id="sd-outline" class="ui2-sd-outline">Import Items</button><button id="sd-outline-disabled" class="ui2-sd-outline" disabled>Reprint</button></div></div>
+  <div id="sd-panel" class="ui2-sd-panel"><strong id="sd-panel-title" class="ui2-sd-panel-title">Seller Payout</strong></div>
+  <div id="sd-intake-group" class="ui2-sd-intake-group"><h5 id="sd-intake-heading" class="ui2-sd-intake-heading">Intake #1</h5></div>
+
+  <div id="rp-modal" class="ui2-modal-backdrop"><form id="rp-panel" class="ui2-modal-panel">
+    <h3 id="rpm-title" class="ui2-modal-title">Reset Password</h3>
+    <div id="rp-field" class="ui2-modal-field"><label>New Password</label><div id="rp-pw-row" class="ui2-modal-password-row"><input id="rp-input" /><button id="rp-suggest">Suggest</button></div></div>
+    <ul id="rp-policy" class="ui2-modal-policy"><li id="rp-unmet" data-met="false">At least 8 characters</li><li id="rp-met" data-met="true">Password meets all requirements.</li></ul>
+    <div id="rp-mismatch" class="ui2-modal-mismatch">Passwords do not match.</div>
+    <div id="rp-footer" class="ui2-modal-footer"><button id="rp-cancel">Cancel</button><button id="rp-submit">Reset</button></div>
+  </form></div>
+  <div id="cu-value" class="ui2-modal-value">s3cret</div>
+  <div id="cu-row-label" class="ui2-modal-row-label">Username</div>
 </body>
 </html>

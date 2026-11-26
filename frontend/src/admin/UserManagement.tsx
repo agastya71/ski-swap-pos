@@ -4,7 +4,8 @@
  */
 
 import { useState, useEffect, type FormEvent } from "react";
-import { BUTTON_STYLE } from "../lib/buttons";
+import { useUiVariant } from "../lib/uiVariant";
+import { USER_MANAGEMENT, v2Only, variantProps } from "./adminStyles";
 import { getUsers, createUser, deactivateUser, deleteUser } from "../api/users";
 import { generatePassword } from "../api/auth";
 import { ResetPasswordModal } from "./ResetPasswordModal";
@@ -26,6 +27,7 @@ export function UserManagement() {
   const [role, setRole] = useState<Role>("cashier");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const v2 = useUiVariant() === "v2";
   const [resetTarget, setResetTarget] = useState<User | null>(null);
   // Credentials of the most recently created user, shown once in a popup.
   const [created, setCreated] = useState<{
@@ -100,42 +102,33 @@ export function UserManagement() {
     <div>
       <h3>Users</h3>
       <table
-        style={{ width: "100%", borderCollapse: "collapse", marginBottom: 24 }}
+        {...variantProps(
+          v2,
+          "ui2-settings-table ui2-settings-table--wide",
+          USER_MANAGEMENT.table,
+        )}
       >
         <thead>
-          <tr style={{ borderBottom: "2px solid #ccc" }}>
-            <th style={{ textAlign: "left", padding: "4px 8px" }}>Username</th>
-            <th style={{ textAlign: "left", padding: "4px 8px" }}>Role</th>
-            <th style={{ textAlign: "left", padding: "4px 8px" }}>Status</th>
+          <tr>
+            <th>Username</th>
+            <th>Role</th>
+            <th>Status</th>
             <th />
           </tr>
         </thead>
         <tbody>
           {users.map((u) => (
-            <tr key={u.id} style={{ borderBottom: "1px solid #eee" }}>
-              <td style={{ padding: "6px 8px" }}>{u.username}</td>
-              <td style={{ padding: "6px 8px" }}>{u.role}</td>
-              <td style={{ padding: "6px 8px" }}>
-                {u.is_active ? "Active" : <em>Inactive</em>}
-              </td>
-              <td style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>
-                <button
-                  onClick={() => setResetTarget(u)}
-                  style={{ ...BUTTON_STYLE, marginRight: 6 }}
-                >
-                  Reset Password
-                </button>
+            <tr key={u.id}>
+              <td>{u.username}</td>
+              <td>{u.role}</td>
+              <td>{u.is_active ? "Active" : <em>Inactive</em>}</td>
+              <td {...v2Only(v2, "ui2-settings-actions")}>
+                <button onClick={() => setResetTarget(u)}>Reset Password</button>
                 {u.is_active && (
-                  <button
-                    onClick={() => handleDeactivate(u.id)}
-                    style={{ ...BUTTON_STYLE, marginRight: 6 }}
-                  >
-                    Deactivate
-                  </button>
+                  <button onClick={() => handleDeactivate(u.id)}>Deactivate</button>
                 )}
                 <button
                   onClick={() => handleDelete(u)}
-                  style={BUTTON_STYLE}
                   aria-label={`delete user ${u.username}`}
                 >
                   Delete
@@ -149,49 +142,31 @@ export function UserManagement() {
       <h4>Create New User</h4>
       <form
         onSubmit={handleCreate}
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr 1fr auto",
-          gap: 8,
-          alignItems: "end",
-        }}
+        {...variantProps(v2, "ui2-settings-form ui2-settings-form--users", USER_MANAGEMENT.form)}
       >
         <div>
-          <label
-            htmlFor="newUsername"
-            style={{ display: "block", fontSize: 13, marginBottom: 3 }}
-          >
-            Username
-          </label>
+          <label htmlFor="newUsername">Username</label>
           <input
             id="newUsername"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
-            style={{ width: "100%", padding: 6, boxSizing: "border-box" }}
           />
         </div>
         <div>
-          <label
-            htmlFor="newPassword"
-            style={{ display: "block", fontSize: 13, marginBottom: 3 }}
-          >
-            Password
-          </label>
-          <div style={{ display: "flex", gap: 6 }}>
+          <label htmlFor="newPassword">Password</label>
+          <div {...variantProps(v2, "ui2-password-row", USER_MANAGEMENT.passwordRow)}>
             <input
               id="newPassword"
               type={showPw ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              style={{ flex: 1, padding: 6, boxSizing: "border-box" }}
             />
             <button
               type="button"
               onClick={() => fillGeneratedPassword()}
               title="Generate a compliant password"
-              style={{ padding: "6px 10px" }}
             >
               Generate
             </button>
@@ -199,24 +174,17 @@ export function UserManagement() {
               type="button"
               onClick={() => setShowPw((s) => !s)}
               title={showPw ? "Hide password" : "Show password"}
-              style={{ padding: "6px 10px" }}
             >
               {showPw ? "Hide" : "Show"}
             </button>
           </div>
         </div>
         <div>
-          <label
-            htmlFor="newRole"
-            style={{ display: "block", fontSize: 13, marginBottom: 3 }}
-          >
-            Role
-          </label>
+          <label htmlFor="newRole">Role</label>
           <select
             id="newRole"
             value={role}
             onChange={(e) => setRole(e.target.value as Role)}
-            style={{ width: "100%", padding: 6 }}
           >
             <option value="cashier">Cashier</option>
             <option value="intake">Intake</option>
@@ -224,12 +192,15 @@ export function UserManagement() {
             <option value="admin">Admin</option>
           </select>
         </div>
-        <button type="submit" disabled={loading} style={BUTTON_STYLE}>
+        <button type="submit" disabled={loading}>
           Create User
         </button>
       </form>
       {error && (
-        <div role="alert" style={{ color: "red", marginTop: 8 }}>
+        <div
+          role="alert"
+          {...variantProps(v2, "ui2-settings-error", USER_MANAGEMENT.error)}
+        >
           {error}
         </div>
       )}

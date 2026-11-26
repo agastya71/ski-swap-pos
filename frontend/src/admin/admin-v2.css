@@ -460,3 +460,861 @@
      screen is small. */
   .ui-v2 .ui2-outline-btn { min-height: var(--touch-target); }
 }
+
+/* ── U5 part 2: sellers & settings ────────────────────────────────────────── */
+
+/* Admin tab strip — the one place the admin navy is a filled background. */
+.ui-v2 .ui2-admin-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-2);
+  border-bottom: 2px solid var(--admin-navy);
+}
+
+.ui-v2 .ui2-admin-tab {
+  min-height: 36px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--admin-navy);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--admin-navy);
+  font-size: var(--font-size-md);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--transition), color var(--transition);
+}
+
+.ui-v2 .ui2-admin-tab:hover:not([aria-current="page"]) {
+  background: var(--blue-light);
+}
+
+/* The active tab inverts to navy-on-white. Both variants express the active
+   state; only the shape differs, so `aria-current` is the single source. */
+.ui-v2 .ui2-admin-tab[aria-current="page"] {
+  background: var(--admin-navy);
+  color: #fff;
+}
+
+.ui-v2 .ui2-admin-tab:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.ui-v2 .ui2-admin-section-error {
+  color: var(--red);
+  margin-bottom: var(--space-3);
+}
+
+.ui-v2 .ui2-admin-back-btn {
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--navy);
+  border-radius: var(--radius-sm);
+  background: var(--gray-50);
+  color: var(--navy);
+  font-size: var(--font-size-md);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.ui-v2 .ui2-admin-back-btn:hover {
+  background: var(--blue-light);
+}
+
+.ui-v2 .ui2-admin-loading {
+  color: var(--gray-500);
+}
+
+/* ── Settings tables (events, users, sessions) ───────────────────────────── */
+
+/* These are data tables but all sit under ~5 columns of short text, so they
+   scroll rather than stack. `width: 100%` matches v1 for the events and users
+   tables; the sessions table is deliberately auto-width (inline in v1) and
+   uses its own wrapper class below. */
+.ui-v2 .ui2-settings-table {
+  border-collapse: collapse;
+  margin-bottom: var(--space-6);
+}
+
+.ui-v2 .ui2-settings-table--wide {
+  width: 100%;
+}
+
+.ui-v2 .ui2-settings-table--auto {
+  width: auto;
+}
+
+.ui-v2 .ui2-settings-table thead th {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 2px solid var(--gray-300);
+  color: var(--gray-600);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.ui-v2 .ui2-settings-table tbody td {
+  padding: 6px var(--space-2);
+  border-bottom: 1px solid var(--gray-200);
+  font-size: var(--font-size-md);
+  vertical-align: top;
+}
+
+.ui-v2 .ui2-settings-table tbody tr:hover {
+  background: var(--gray-50);
+}
+
+.ui-v2 .ui2-settings-actions {
+  white-space: nowrap;
+}
+
+.ui-v2 .ui2-settings-actions > button + button {
+  margin-left: 6px;
+}
+
+.ui-v2 .ui2-settings-device {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-v2 .ui2-settings-empty {
+  padding: var(--space-3) var(--space-2);
+  color: var(--gray-500);
+}
+
+.ui-v2 .ui2-settings-footer {
+  color: var(--gray-500);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-settings-hint {
+  margin-top: 0;
+  color: var(--gray-600);
+}
+
+/* ── Settings forms (create event, create user) ──────────────────────────── */
+
+.ui-v2 .ui2-settings-form {
+  display: grid;
+  gap: var(--space-2);
+  align-items: end;
+}
+
+.ui-v2 .ui2-settings-form--events {
+  grid-template-columns: 1fr 1fr 1fr 1fr auto;
+}
+
+.ui-v2 .ui2-settings-form--users {
+  grid-template-columns: 1fr 1fr 1fr auto;
+}
+
+.ui-v2 .ui2-settings-form label {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--gray-600);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-settings-form input,
+.ui-v2 .ui2-settings-form select {
+  min-height: var(--touch-target);
+  width: 100%;
+  padding: 0 var(--space-2);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  font-size: var(--font-size-md);
+}
+
+.ui-v2 .ui2-settings-form input:focus-visible,
+.ui-v2 .ui2-settings-form select:focus-visible {
+  border-color: var(--blue);
+  outline: 2px solid var(--blue-light);
+}
+
+.ui-v2 .ui2-password-row {
+  display: flex;
+  gap: 6px;
+}
+
+.ui-v2 .ui2-password-row input {
+  flex: 1;
+}
+
+.ui-v2 .ui2-password-row button {
+  min-height: var(--touch-target);
+  padding: 0 var(--space-2);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.ui-v2 .ui2-password-row button:hover {
+  background: var(--blue-light);
+}
+
+.ui-v2 .ui2-settings-error {
+  margin-top: var(--space-2);
+  color: var(--red);
+  font-weight: 500;
+}
+
+@media (max-width: 720px) {
+  .ui-v2 .ui2-settings-form--events,
+  .ui-v2 .ui2-settings-form--users {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .ui-v2 .ui2-settings-form--events > button,
+  .ui-v2 .ui2-settings-form--users > button {
+    grid-column: 1 / -1;
+    min-height: var(--touch-target);
+  }
+}
+
+/* ── Seller list ─────────────────────────────────────────────────────────── */
+
+.ui-v2 .ui2-seller-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+
+.ui-v2 .ui2-seller-heading {
+  margin: 0;
+  font-size: var(--font-size-xl);
+}
+
+.ui-v2 .ui2-seller-search {
+  width: 100%;
+  min-height: var(--touch-target);
+  padding: 0 var(--space-3);
+  margin-bottom: var(--space-3);
+  border: 1px solid var(--navy);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-md);
+}
+
+.ui-v2 .ui2-seller-search:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: -1px;
+}
+
+.ui-v2 .ui2-seller-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ui-v2 .ui2-seller-table thead th {
+  padding: 6px 10px;
+  border-bottom: 2px solid var(--gray-200);
+  color: var(--gray-600);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.ui-v2 .ui2-seller-table tbody td {
+  padding: var(--space-2) 10px;
+  border-bottom: 1px solid var(--gray-100);
+  font-size: var(--font-size-md);
+}
+
+/* An open payout panel closes its row's rule so the pair reads as one block. */
+.ui-v2 .ui2-seller-table tbody tr.ui2-row--open td {
+  border-bottom: none;
+}
+
+.ui-v2 .ui2-seller-code {
+  color: var(--navy);
+  font-weight: 600;
+}
+
+.ui-v2 .ui2-seller-muted {
+  color: var(--gray-500);
+}
+
+.ui-v2 .ui2-seller-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.ui-v2 .ui2-seller-badge--vendor {
+  color: var(--green);
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+.ui-v2 .ui2-seller-badge--individual,
+.ui-v2 .ui2-seller-badge--none {
+  color: var(--gray-400);
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+.ui-v2 .ui2-seller-badge--done {
+  color: var(--green);
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+.ui-v2 .ui2-seller-badge--partial {
+  color: #b45309;
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+.ui-v2 .ui2-seller-badge--none-printed {
+  color: #b91c1c;
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+.ui-v2 .ui2-seller-payout-cell {
+  padding: var(--space-2) var(--space-4) var(--space-4);
+  background: var(--gray-50);
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.ui-v2 .ui2-seller-payout-title {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-seller-empty {
+  padding: var(--space-4);
+  color: var(--gray-400);
+  text-align: center;
+}
+
+/* ── Transactions list ───────────────────────────────────────────────────── */
+
+.ui-v2 .ui2-txn {
+  max-width: 900px;
+}
+
+.ui-v2 .ui2-txn-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: flex-end;
+  margin-bottom: var(--space-3);
+}
+
+.ui-v2 .ui2-txn-filter-label {
+  color: var(--gray-600);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-txn-filter-input {
+  display: block;
+  min-height: var(--touch-target);
+  width: 160px;
+  padding: 0 var(--space-2);
+  margin-top: 2px;
+  border: var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-md);
+}
+
+.ui-v2 .ui2-txn-check {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  min-height: var(--touch-target);
+  color: var(--gray-600);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-txn-check input {
+  width: 18px;
+  height: 18px;
+}
+
+/* Ten narrow columns of short text: scroll, never stack. */
+.ui-v2 .ui2-txn-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ui-v2 .ui2-txn-table thead th {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 2px solid var(--gray-300);
+  color: var(--gray-600);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  text-align: left;
+}
+
+.ui-v2 .ui2-txn-table thead th.ui2-num {
+  text-align: right;
+}
+
+.ui-v2 .ui2-txn-table tbody td {
+  padding: 6px var(--space-2);
+  border-bottom: 1px solid var(--gray-200);
+  font-size: var(--font-size-md);
+}
+
+/* Voided rows recede, but the status cell must stay louder about it — v1 got
+   that from the td's inline colour beating the tr's. Same class count as the
+   row rule below, declared later, so it wins without !important. */
+.ui-v2 .ui2-txn-table tbody tr.ui2-row--voided td {
+  color: var(--gray-400);
+}
+
+.ui-v2 .ui2-txn-table tbody tr.ui2-row--voided td.ui2-txn-status--void {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.ui-v2 .ui2-txn-id {
+  font-weight: 600;
+}
+
+.ui-v2 .ui2-txn-status--ok {
+  color: var(--green);
+  font-weight: 600;
+}
+
+.ui-v2 .ui2-txn-status--void {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.ui-v2 .ui2-txn-pager {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.ui-v2 .ui2-txn-error {
+  margin-bottom: 10px;
+  color: var(--red);
+  font-weight: 500;
+}
+
+.ui-v2 .ui2-txn-empty {
+  color: var(--gray-500);
+  font-style: italic;
+}
+
+/* ── Seller detail ───────────────────────────────────────────────────────── */
+
+.ui-v2 .ui2-sd-back-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.ui-v2 .ui2-sd-back {
+  min-height: 36px;
+  padding: 0 var(--space-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--navy);
+  font-size: var(--font-size-md);
+  cursor: pointer;
+}
+
+.ui-v2 .ui2-sd-back:hover {
+  background: var(--blue-light);
+}
+
+.ui-v2 .ui2-sd-heading {
+  margin: 0;
+  font-size: var(--font-size-xl);
+}
+
+.ui-v2 .ui2-sd-code {
+  margin-right: var(--space-2);
+  color: var(--navy);
+}
+
+.ui-v2 .ui2-sd-heading-meta {
+  margin-left: var(--space-2);
+  color: var(--gray-500);
+  font-size: var(--font-size-md);
+  font-weight: 400;
+}
+
+.ui-v2 .ui2-sd-card {
+  padding: var(--space-4);
+  margin-bottom: var(--space-5);
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--gray-50);
+}
+
+.ui-v2 .ui2-sd-contact-row {
+  margin-bottom: 4px;
+}
+
+.ui-v2 .ui2-sd-contact-label {
+  margin-right: 6px;
+  color: var(--gray-500);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-sd-toggle {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-height: var(--touch-target);
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-md);
+}
+
+.ui-v2 .ui2-sd-toggle input {
+  width: 18px;
+  height: 18px;
+}
+
+.ui-v2 .ui2-sd-warning {
+  margin-bottom: var(--space-2);
+  color: #b45309;
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-sd-field {
+  margin-bottom: var(--space-2);
+}
+
+.ui-v2 .ui2-sd-field label {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--gray-500);
+  font-size: var(--font-size-xs);
+}
+
+.ui-v2 .ui2-sd-field input {
+  min-height: var(--touch-target);
+  width: 100%;
+  padding: 0 var(--space-2);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-md);
+}
+
+.ui-v2 .ui2-sd-field input:focus-visible {
+  border-color: var(--blue);
+  outline: 2px solid var(--blue-light);
+}
+
+.ui-v2 .ui2-sd-fieldset {
+  padding: var(--space-3);
+  margin-bottom: var(--space-2);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.ui-v2 .ui2-sd-legend {
+  color: var(--gray-500);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+}
+
+.ui-v2 .ui2-sd-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.ui-v2 .ui2-sd-actions > button,
+.ui-v2 .ui2-sd-items-actions > button {
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-md);
+  cursor: pointer;
+}
+
+.ui-v2 .ui2-sd-save {
+  border: 1px solid var(--navy);
+  background: var(--navy);
+  color: #fff;
+}
+
+.ui-v2 .ui2-sd-save:hover {
+  background: var(--blue-text);
+}
+
+.ui-v2 .ui2-sd-cancel {
+  border: 1px solid var(--gray-400);
+  background: #fff;
+  color: var(--gray-700);
+}
+
+.ui-v2 .ui2-sd-cancel:hover {
+  background: var(--gray-100);
+}
+
+.ui-v2 .ui2-sd-items-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+
+.ui-v2 .ui2-sd-items-title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+}
+
+.ui-v2 .ui2-sd-items-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.ui-v2 .ui2-sd-outline {
+  border: 1px solid var(--navy);
+  background: #fff;
+  color: var(--navy);
+}
+
+.ui-v2 .ui2-sd-outline:hover:not(:disabled) {
+  background: var(--blue-light);
+}
+
+.ui-v2 .ui2-sd-outline:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.ui-v2 .ui2-sd-code-toggle {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  min-height: 36px;
+  color: var(--gray-600);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+.ui-v2 .ui2-sd-hint {
+  color: var(--gray-500);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-sd-error {
+  margin-bottom: var(--space-2);
+  color: #b91c1c;
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-sd-ok {
+  margin-bottom: var(--space-2);
+  color: var(--green);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-sd-panel {
+  padding: var(--space-4);
+  margin-top: var(--space-4);
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--gray-50);
+}
+
+.ui-v2 .ui2-sd-panel-title {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-sd-intake-group {
+  margin-bottom: var(--space-5);
+}
+
+.ui-v2 .ui2-sd-intake-heading {
+  margin: 0 0 6px;
+  color: var(--gray-500);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+}
+
+.ui-v2 .ui2-sd-no-items {
+  padding: var(--space-2);
+  color: var(--gray-400);
+}
+
+@media (max-width: 720px) {
+  .ui-v2 .ui2-sd-items-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ui-v2 .ui2-sd-actions > button {
+    min-height: var(--touch-target);
+    flex: 1;
+  }
+}
+
+/* ── Modals (created user, reset password) ───────────────────────────────── */
+
+.ui-v2 .ui2-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3);
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.ui-v2 .ui2-modal-panel {
+  width: 100%;
+  max-width: 380px;
+  padding: var(--space-5);
+  border-radius: var(--radius);
+  background: #fff;
+  box-shadow: var(--shadow-1);
+  box-sizing: border-box;
+}
+
+.ui-v2 .ui2-modal-title {
+  margin-top: 0;
+  font-size: var(--font-size-lg);
+}
+
+.ui-v2 .ui2-modal-hint {
+  margin-top: 0;
+  color: var(--gray-500);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-modal-row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin-bottom: var(--space-2);
+}
+
+.ui-v2 .ui2-modal-row-label {
+  width: 80px;
+  color: var(--gray-600);
+  font-size: var(--font-size-sm);
+}
+
+/* The one-shot credential value: monospace, fully selectable, tinted so it
+   reads as "copy this now". */
+.ui-v2 .ui2-modal-value {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--gray-100);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-md);
+  user-select: all;
+}
+
+.ui-v2 .ui2-modal-field {
+  margin-bottom: var(--space-2);
+}
+
+.ui-v2 .ui2-modal-field label {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--gray-600);
+  font-size: var(--font-size-sm);
+}
+
+.ui-v2 .ui2-modal-field input {
+  min-height: var(--touch-target);
+  width: 100%;
+  padding: 0 var(--space-2);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-md);
+  box-sizing: border-box;
+}
+
+.ui-v2 .ui2-modal-field input:focus-visible {
+  border-color: var(--blue);
+  outline: 2px solid var(--blue-light);
+}
+
+.ui-v2 .ui2-modal-password-row {
+  display: flex;
+  gap: 6px;
+}
+
+.ui-v2 .ui2-modal-password-row input {
+  flex: 1;
+}
+
+.ui-v2 .ui2-modal-password-row button {
+  min-height: var(--touch-target);
+  padding: 0 var(--space-2);
+  border: var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.ui-v2 .ui2-modal-mismatch {
+  margin-top: 4px;
+  color: var(--red);
+  font-size: var(--font-size-xs);
+}
+
+.ui-v2 .ui2-modal-policy {
+  margin: 0 0 var(--space-3);
+  padding-left: var(--space-4);
+  color: var(--gray-500);
+  font-size: var(--font-size-xs);
+}
+
+.ui-v2 .ui2-modal-policy li[data-met="false"] {
+  color: var(--red);
+}
+
+.ui-v2 .ui2-modal-policy li[data-met="true"] {
+  color: #16a34a;
+}
+
+.ui-v2 .ui2-modal-error {
+  margin-bottom: var(--space-2);
+  color: var(--red);
+  font-weight: 500;
+}
+
+.ui-v2 .ui2-modal-footer {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  margin-top: var(--space-4);
+}
+
+.ui-v2 .ui2-modal-footer > button {
+  min-height: var(--touch-target);
+  padding: 0 var(--space-4);
+}

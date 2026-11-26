@@ -1,12 +1,11 @@
 import { useState, useEffect, Fragment } from "react";
-import { BUTTON_STYLE } from "../lib/buttons";
+import { useUiVariant } from "../lib/uiVariant";
+import { SELLER_LIST, variantProps } from "./adminStyles";
 import { searchSellers, deleteSeller } from "../api/sellers";
 import { SellerForm } from "../intake/SellerForm";
 import { SellerPayoutPanel } from "./SellerPayoutPanel";
 import type { Seller, SellerListItem } from "../types";
 
-const NAVY = "#1e3a8a";
-const MUTED = "#64748b";
 const LABEL_DONE = "#15803d";
 const LABEL_PARTIAL = "#b45309";
 const LABEL_NONE = "#b91c1c";
@@ -25,17 +24,25 @@ function labelStatus(s: SellerListItem): {
   text: string;
   color: string;
   aria: string;
+  /** v2 badge modifier for this state (v1 uses the inline `color`). */
+  className: string;
 } {
   const total = s.item_count;
   const printed = s.labeled_item_count;
   if (total === 0) {
-    return { text: "—", color: "#94a3b8", aria: "no items consigned yet" };
+    return {
+      text: "—",
+      color: "#94a3b8",
+      aria: "no items consigned yet",
+      className: "ui2-seller-badge--none",
+    };
   }
   if (printed === 0) {
     return {
       text: "Not yet",
       color: LABEL_NONE,
       aria: `no labels printed yet, ${total} item(s) waiting`,
+      className: "ui2-seller-badge--none-printed",
     };
   }
   if (printed >= total) {
@@ -43,12 +50,14 @@ function labelStatus(s: SellerListItem): {
       text: `All ${total}`,
       color: LABEL_DONE,
       aria: `all ${total} label(s) printed`,
+      className: "ui2-seller-badge--done",
     };
   }
   return {
     text: `${printed}/${total}`,
     color: LABEL_PARTIAL,
     aria: `partial: ${printed} of ${total} label(s) printed`,
+    className: "ui2-seller-badge--partial",
   };
 }
 
@@ -73,6 +82,7 @@ export function SellerListPage({
   const [showCreate, setShowCreate] = useState(false);
   const [expandedPayoutId, setExpandedPayoutId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const v2 = useUiVariant() === "v2";
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -126,47 +136,26 @@ export function SellerListPage({
 
   return (
     <div>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 12,
-        }}
-      >
-        <h3 style={{ margin: 0 }}>Sellers</h3>
-        <button onClick={() => setShowCreate(true)} style={BUTTON_STYLE}>
-          Register New Seller
-        </button>
+      <div {...variantProps(v2, "ui2-seller-header", SELLER_LIST.headerRow)}>
+        <h3 {...variantProps(v2, "ui2-seller-heading", SELLER_LIST.heading)}>Sellers</h3>
+        <button onClick={() => setShowCreate(true)}>Register New Seller</button>
       </div>
       <input
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search by name or code..."
-        style={{
-          width: "100%",
-          padding: "8px 10px",
-          marginBottom: 12,
-          border: `1px solid ${NAVY}`,
-          borderRadius: 4,
-          boxSizing: "border-box",
-        }}
+        {...variantProps(v2, "ui2-seller-search", SELLER_LIST.search)}
       />
       {error && (
-        <div role="alert" style={{ color: "red", marginBottom: 12 }}>
+        <div role="alert" {...variantProps(v2, "ui2-sd-error", SELLER_LIST.error)}>
           {error}
         </div>
       )}
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <table {...variantProps(v2, "ui2-seller-table", SELLER_LIST.table)}>
         <thead>
-          <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
+          <tr>
             {["Code", "Name", "Phone", "Email", "Vendor", "Labels", ""].map((h) => (
-              <th
-                key={h}
-                style={{ textAlign: "left", padding: "6px 10px", fontSize: 13 }}
-              >
-                {h}
-              </th>
+              <th key={h}>{h}</th>
             ))}
           </tr>
         </thead>
@@ -176,76 +165,61 @@ export function SellerListPage({
             return (
             <Fragment key={s.id}>
               <tr
-                style={{
-                  borderBottom:
-                    expandedPayoutId === s.id ? "none" : "1px solid #f1f5f9",
-                }}
+                {...variantProps(
+                  v2,
+                  expandedPayoutId === s.id ? "ui2-row--open" : "",
+                  SELLER_LIST.row(expandedPayoutId === s.id),
+                )}
               >
-                <td
-                  style={{ padding: "8px 10px", fontWeight: 600, color: NAVY }}
-                >
+                <td {...variantProps(v2, "ui2-seller-code", SELLER_LIST.codeCell)}>
                   {s.code}
                 </td>
-                <td style={{ padding: "8px 10px" }}>
-                  {s.first_name} {s.last_name}
-                  {s.company ? ` (${s.company})` : ""}
-                </td>
-                <td style={{ padding: "8px 10px", color: MUTED }}>
+                <td>{s.first_name} {s.last_name}{s.company ? ` (${s.company})` : ""}</td>
+                <td {...variantProps(v2, "ui2-seller-muted", SELLER_LIST.mutedCell)}>
                   {s.phone ?? "—"}
                 </td>
-                <td style={{ padding: "8px 10px", color: MUTED }}>
+                <td {...variantProps(v2, "ui2-seller-muted", SELLER_LIST.mutedCell)}>
                   {s.email ?? "—"}
                 </td>
-                <td style={{ padding: "8px 10px" }}>
+                <td>
                   <span
                     aria-label={s.is_vendor ? "vendor seller" : "individual seller"}
                     title={s.is_vendor ? "vendor seller" : "individual seller"}
-                    style={{
-                      color: s.is_vendor ? LABEL_DONE : "#94a3b8",
-                      fontWeight: 600,
-                      fontSize: 13,
-                      whiteSpace: "nowrap",
-                    }}
+                    {...variantProps(
+                      v2,
+                      s.is_vendor
+                        ? "ui2-seller-badge--vendor"
+                        : "ui2-seller-badge--individual",
+                      SELLER_LIST.badge(s.is_vendor ? LABEL_DONE : "#94a3b8"),
+                    )}
                   >
                     {s.is_vendor ? "Yes" : "No"}
                   </span>
                 </td>
-                <td style={{ padding: "8px 10px" }}>
+                <td>
                   <span
                     aria-label={labels.aria}
                     title={labels.aria}
-                    style={{
-                      color: labels.color,
-                      fontWeight: 600,
-                      fontSize: 13,
-                      whiteSpace: "nowrap",
-                    }}
+                    {...variantProps(v2, labels.className, SELLER_LIST.badge(labels.color))}
                   >
                     {labels.text}
                   </span>
                 </td>
-                <td style={{ padding: "8px 10px" }}>
-                  <div style={{ display: "flex", gap: 4 }}>
-                    <button
-                      onClick={() => onSelectSeller(s)}
-                      style={BUTTON_STYLE}
-                    >
-                      View →
-                    </button>
+                <td>
+                  <div {...variantProps(v2, "ui2-seller-actions", SELLER_LIST.actionGroup)}>
+                    <button onClick={() => onSelectSeller(s)}>View →</button>
                     <button
                       onClick={() =>
                         setExpandedPayoutId((prev) =>
                           prev === s.id ? null : s.id,
                         )
                       }
-                      style={BUTTON_STYLE}
                     >
                       Payout
                     </button>
                     <button
                       onClick={() => handleDelete(s)}
                       aria-label={`delete seller ${s.code}`}
-                      style={BUTTON_STYLE}
                     >
                       Delete
                     </button>
@@ -256,18 +230,10 @@ export function SellerListPage({
                 <tr>
                   <td
                     colSpan={7}
-                    style={{
-                      padding: "8px 16px 16px",
-                      background: "#f8fafc",
-                      borderBottom: "1px solid #f1f5f9",
-                    }}
+                    {...variantProps(v2, "ui2-seller-payout-cell", SELLER_LIST.payoutCell)}
                   >
                     <strong
-                      style={{
-                        fontSize: 13,
-                        display: "block",
-                        marginBottom: 8,
-                      }}
+                      {...variantProps(v2, "ui2-seller-payout-title", SELLER_LIST.payoutTitle)}
                     >
                       Seller Payout
                     </strong>
@@ -282,7 +248,7 @@ export function SellerListPage({
             <tr>
               <td
                 colSpan={7}
-                style={{ padding: 16, textAlign: "center", color: "#94a3b8" }}
+                {...variantProps(v2, "ui2-seller-empty", SELLER_LIST.emptyCell)}
               >
                 No sellers found
               </td>
