@@ -139,7 +139,7 @@ export function SessionsPanel() {
                     onClick={() => handleRevoke(s.id)}
                     disabled={busy}
                     aria-label={`revoke session ${s.id} for ${s.username}`}
-                  >
+                      {...v2Only(v2, "ui2-btn ui2-btn--secondary")}>
                     Revoke
                   </button>
                 )}
@@ -148,7 +148,7 @@ export function SessionsPanel() {
                     onClick={() => handleRevokeUser(s.user_id, s.username)}
                     disabled={busy}
                     aria-label={`revoke all sessions for ${s.username}`}
-                  >
+                      {...v2Only(v2, "ui2-btn ui2-btn--secondary")}>
                     Revoke all user sessions
                   </button>
                 )}

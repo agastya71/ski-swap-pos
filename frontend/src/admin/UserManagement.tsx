@@ -124,14 +124,16 @@ export function UserManagement() {
                 <td>{u.role}</td>
                 <td>{u.is_active ? "Active" : <em>Inactive</em>}</td>
                 <td {...v2Only(v2, "ui2-settings-actions")}>
-                  <button onClick={() => setResetTarget(u)}>Reset Password</button>
+                  <button onClick={() => setResetTarget(u)}
+                      {...v2Only(v2, "ui2-btn ui2-btn--secondary")}>Reset Password</button>
                   {u.is_active && (
-                    <button onClick={() => handleDeactivate(u.id)}>Deactivate</button>
+                    <button onClick={() => handleDeactivate(u.id)}
+                        {...v2Only(v2, "ui2-btn ui2-btn--secondary")}>Deactivate</button>
                   )}
                   <button
                     onClick={() => handleDelete(u)}
                     aria-label={`delete user ${u.username}`}
-                  >
+                      {...v2Only(v2, "ui2-btn ui2-btn--danger")}>
                     Delete
                   </button>
                 </td>
@@ -169,14 +171,14 @@ export function UserManagement() {
               type="button"
               onClick={() => fillGeneratedPassword()}
               title="Generate a compliant password"
-            >
+                {...v2Only(v2, "ui2-btn ui2-btn--secondary")}>
               Generate
             </button>
             <button
               type="button"
               onClick={() => setShowPw((s) => !s)}
               title={showPw ? "Hide password" : "Show password"}
-            >
+                {...v2Only(v2, "ui2-btn ui2-btn--secondary")}>
               {showPw ? "Hide" : "Show"}
             </button>
           </div>
@@ -194,7 +196,8 @@ export function UserManagement() {
             <option value="admin">Admin</option>
           </select>
         </div>
-        <button type="submit" disabled={loading}>
+        <button type="submit" disabled={loading}
+            {...v2Only(v2, "ui2-btn ui2-btn--primary")}>
           Create User
         </button>
       </form>

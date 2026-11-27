@@ -115,8 +115,10 @@ export function EventSetup() {
               <td {...v2Only(v2, "ui2-settings-actions")}>
                 {!ev.is_active && (
                   <>
-                    <button onClick={() => handleActivate(ev.id)}>Activate</button>
-                    <button onClick={() => void handleDelete(ev)}>Delete</button>
+                    <button onClick={() => handleActivate(ev.id)}
+                        {...v2Only(v2, "ui2-btn ui2-btn--secondary")}>Activate</button>
+                    <button onClick={() => void handleDelete(ev)}
+                        {...v2Only(v2, "ui2-btn ui2-btn--danger")}>Delete</button>
                   </>
                 )}
               </td>
@@ -175,7 +177,8 @@ export function EventSetup() {
             required
           />
         </div>
-        <button type="submit" disabled={loading}>
+        <button type="submit" disabled={loading}
+            {...v2Only(v2, "ui2-btn ui2-btn--primary")}>
           Create Event
         </button>
       </form>

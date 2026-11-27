@@ -138,7 +138,8 @@ export function SellerListPage({
     <div>
       <div {...variantProps(v2, "ui2-seller-header", SELLER_LIST.headerRow)}>
         <h3 {...variantProps(v2, "ui2-seller-heading", SELLER_LIST.heading)}>Sellers</h3>
-        <button onClick={() => setShowCreate(true)}>Register New Seller</button>
+        <button onClick={() => setShowCreate(true)}
+            {...v2Only(v2, "ui2-btn ui2-btn--primary")}>Register New Seller</button>
       </div>
       <input
         value={query}
@@ -208,20 +209,21 @@ export function SellerListPage({
                 </td>
                 <td>
                   <div {...variantProps(v2, "ui2-seller-actions", SELLER_LIST.actionGroup)}>
-                    <button onClick={() => onSelectSeller(s)}>View →</button>
+                    <button onClick={() => onSelectSeller(s)}
+                        {...v2Only(v2, "ui2-btn ui2-btn--secondary")}>View →</button>
                     <button
                       onClick={() =>
                         setExpandedPayoutId((prev) =>
                           prev === s.id ? null : s.id,
                         )
                       }
-                    >
+                        {...v2Only(v2, "ui2-btn ui2-btn--secondary")}>
                       Payout
                     </button>
                     <button
                       onClick={() => handleDelete(s)}
                       aria-label={`delete seller ${s.code}`}
-                    >
+                        {...v2Only(v2, "ui2-btn ui2-btn--danger")}>
                       Delete
                     </button>
                   </div>
