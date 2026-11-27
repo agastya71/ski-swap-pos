@@ -7,7 +7,7 @@
  */
 import { useState } from "react";
 import { useUiVariant } from "../lib/uiVariant";
-import { CREATED_USER, variantProps } from "./adminStyles";
+import { CREATED_USER, v2Only, variantProps } from "./adminStyles";
 
 /**
  * @param props.username - The newly created user's login name.
@@ -81,7 +81,8 @@ export function CreatedUserModal({
           <div {...variantProps(v2, "ui2-modal-value", CREATED_USER.valueBox)}>
             {username}
           </div>
-          <button type="button" onClick={() => copy("user", username)}>
+          <button type="button" onClick={() => copy("user", username)}
+              {...v2Only(v2, "ui2-btn ui2-btn--secondary")}>
             {copied === "user" ? "Copied" : "Copy"}
           </button>
         </div>
@@ -92,7 +93,8 @@ export function CreatedUserModal({
           <div {...variantProps(v2, "ui2-modal-value", CREATED_USER.valueBox)}>
             {password}
           </div>
-          <button type="button" onClick={() => copy("pw", password)}>
+          <button type="button" onClick={() => copy("pw", password)}
+              {...v2Only(v2, "ui2-btn ui2-btn--secondary")}>
             {copied === "pw" ? "Copied" : "Copy"}
           </button>
         </div>
@@ -105,7 +107,8 @@ export function CreatedUserModal({
           </div>
         )}
         <div {...variantProps(v2, "ui2-modal-footer", CREATED_USER.footer)}>
-          <button type="button" onClick={onClose}>
+          <button type="button" onClick={onClose}
+              {...v2Only(v2, "ui2-btn ui2-btn--primary")}>
             Dismiss
           </button>
         </div>

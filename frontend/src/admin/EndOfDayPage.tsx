@@ -8,7 +8,7 @@ import { useState, useEffect } from "react";
 import { getEndOfDay, downloadFile } from "../api/reports";
 import type { EndOfDayReport } from "../types";
 import { useUiVariant } from "../lib/uiVariant";
-import { variantProps, v1Only, END_OF_DAY as V1_EOD } from "./adminStyles";
+import { variantProps, v1Only, v2Only, END_OF_DAY as V1_EOD } from "./adminStyles";
 
 /**
  * Displays the end-of-day financial summary and download controls for the given event.
@@ -77,7 +77,7 @@ export function EndOfDayPage({ eventId }: { eventId: number }) {
                       )
                     }
                     style={v2 ? undefined : V1_EOD.button}
-                  >
+                      {...v2Only(v2, "ui2-btn ui2-btn--secondary")}>
                     {label}
                   </button>
                 );
@@ -99,7 +99,7 @@ export function EndOfDayPage({ eventId }: { eventId: number }) {
             downloadFile("/admin/backup", "ski-swap-backup.zip", "POST")
           }
           style={v2 ? undefined : V1_EOD.button}
-        >
+            {...v2Only(v2, "ui2-btn ui2-btn--primary")}>
           Download Backup
         </button>
       </section>

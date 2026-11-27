@@ -7,7 +7,7 @@
  */
 import { useState, type FormEvent } from "react";
 import { useUiVariant } from "../lib/uiVariant";
-import { RESET_PASSWORD, v1Only, variantProps } from "./adminStyles";
+import { RESET_PASSWORD, v1Only, v2Only, variantProps } from "./adminStyles";
 import { resetUserPassword } from "../api/users";
 import { generatePassword } from "../api/auth";
 import { validatePassword, PASSWORD_MIN_LENGTH } from "../lib/passwordPolicy";
@@ -101,7 +101,7 @@ export function ResetPasswordModal({
               type="button"
               onClick={fillSuggested}
               title="Suggest a compliant password"
-            >
+                {...v2Only(v2, "ui2-btn ui2-btn--secondary")}>
               Suggest
             </button>
           </div>
@@ -149,10 +149,12 @@ export function ResetPasswordModal({
           </div>
         )}
         <div {...variantProps(v2, "ui2-modal-footer", RESET_PASSWORD.footer)}>
-          <button type="button" onClick={onClose}>
+          <button type="button" onClick={onClose}
+              {...v2Only(v2, "ui2-btn ui2-btn--secondary")}>
             Cancel
           </button>
-          <button type="submit" disabled={loading}>
+          <button type="submit" disabled={loading}
+              {...v2Only(v2, "ui2-btn ui2-btn--primary")}>
             {loading ? "Saving…" : "Reset Password"}
           </button>
         </div>

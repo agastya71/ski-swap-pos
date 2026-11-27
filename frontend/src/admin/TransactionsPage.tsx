@@ -120,7 +120,8 @@ export function TransactionsPage() {
           />
           Include voided
         </label>
-        <button onClick={() => load()}>Apply filters</button>
+        <button onClick={() => load()}
+            {...v2Only(v2, "ui2-btn ui2-btn--primary")}>Apply filters</button>
       </div>
 
       {loading && (
@@ -180,14 +181,14 @@ export function TransactionsPage() {
                   <button
                     onClick={() => setEditingSaleId(s.id)}
                     aria-label={`edit sale ${s.id}`}
-                  >
+                      {...v2Only(v2, "ui2-btn ui2-btn--secondary")}>
                     Edit
                   </button>{" "}
                   {!s.is_voided && (
                     <button
                       onClick={() => void handleVoid(s)}
                       aria-label={`void sale ${s.id}`}
-                    >
+                        {...v2Only(v2, "ui2-btn ui2-btn--danger")}>
                       Void
                     </button>
                   )}
@@ -202,13 +203,13 @@ export function TransactionsPage() {
         <button
           onClick={() => load({ offset: Math.max(0, offset - PAGE_SIZE) })}
           disabled={totalKnown && offset === 0}
-        >
+            {...v2Only(v2, "ui2-btn ui2-btn--secondary")}>
           ← Previous
         </button>
         <button
           onClick={() => load({ offset: offset + PAGE_SIZE })}
           disabled={sales.length < PAGE_SIZE}
-        >
+            {...v2Only(v2, "ui2-btn ui2-btn--secondary")}>
           Next →
         </button>
       </div>
